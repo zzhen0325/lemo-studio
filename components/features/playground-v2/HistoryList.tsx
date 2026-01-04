@@ -123,9 +123,9 @@ export default function HistoryList({
                       "grid p-2 rounded-2xl h-auto w-full gap-4",
                       group.items.length === 1 ? "grid-cols-1" : "grid-cols-2"
                     )}>
-                      {group.items.map((result) => (
+                      {group.items.map((result, idx) => (
                         <HistoryCard
-                          key={result.id}
+                          key={result.id || result.imageUrl || `img-${idx}`}
                           result={result}
                           onRegenerate={onRegenerate}
                           onDownload={onDownload}
@@ -177,9 +177,9 @@ export default function HistoryList({
 
                       {/* Text Cards */}
                       <div className="flex flex-col gap-2">
-                        {group.items.map((result) => (
+                        {group.items.map((result, idx) => (
                           <TextHistoryCard
-                            key={result.id}
+                            key={result.id || `txt-${idx}`}
                             result={result}
                             onRegenerate={onRegenerate}
                           />
@@ -238,7 +238,7 @@ function HistoryCard({
             src={mainImage}
             alt="Generated image"
             width={result.config?.img_width || 1024}
-            height={result.config?.image_height || 1024}
+            height={result.config?.img_height || 1024}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             quality={95}
             className="w-full h-auto cursor-pointer scale-100 group-hover:scale-105 transition-transform duration-500"

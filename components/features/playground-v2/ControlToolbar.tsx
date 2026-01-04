@@ -244,7 +244,7 @@ export default function ControlToolbar({
                 <Label className="text-xs">W</Label>
                 <Input className="h-8 w-full text-sm text-zinc-900 rounded-xl bg-zinc-50 border border-zinc-200 shadow-none" placeholder="2048" value={config.img_width} onChange={(e) => onWidthChange(parseInt(e.target.value) || 1024)} />
                 <Label className="text-xs">H</Label>
-                <Input className="h-8 w-full text-sm text-zinc-900 rounded-xl bg-zinc-50 border border-zinc-200 shadow-none" placeholder="2048" value={config.image_height} onChange={(e) => onHeightChange(parseInt(e.target.value) || 1024)} />
+                <Input className="h-8 w-full text-sm text-zinc-900 rounded-xl bg-zinc-50 border border-zinc-200 shadow-none" placeholder="2048" value={config.img_height} onChange={(e) => onHeightChange(parseInt(e.target.value) || 1024)} />
                 <Button variant="outline" size="sm" className="h-8 w-8 p-2 rounded-xl bg-zinc-50 border border-zinc-200" onClick={onToggleAspectRatioLock}>
                   {isAspectRatioLocked ? <Link className="h-4 w-4" /> : <Unlink className="h-4 w-4" />}
                 </Button>

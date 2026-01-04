@@ -9,8 +9,17 @@ const OLD_FILE = path.join(OUTPUTS_DIR, 'history.old.json');
 
 export interface HistoryItem {
     imageUrl: string;
-    prompt: string;
     timestamp: string;
+    metadata: {
+        prompt?: string;
+        base_model?: string;
+        img_width?: number;
+        img_height?: number;
+        lora?: string;
+    };
+    type?: 'image' | 'text';
+    sourceImage?: string;
+    projectId?: string;
 }
 
 // Helper to ensure outputs directory exists
@@ -77,83 +86,73 @@ async function saveHistory(history: HistoryItem[]) {
     }
 }
 
-// Helper to scan public/outputs for initial migration
-async function scanOutputsDir() {
-    try {
-        await fs.access(OUTPUTS_DIR);
-        const files = await fs.readdir(OUTPUTS_DIR);
-        const imageFiles = files.filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
 
-        const history = await Promise.all(imageFiles.map(async (filename) => {
-            const baseName = filename.split('.')[0];
-            const jsonFilename = `${baseName}.json`;
-            const jsonPath = path.join(OUTPUTS_DIR, jsonFilename);
+// NEW: Read history entries directly from the outputs directory
+async function readHistoryFromDisk() {
+    await ensureOutputsDir();
 
-            let metadata = null;
-            try {
-                const jsonContent = await fs.readFile(jsonPath, 'utf-8');
-                metadata = JSON.parse(jsonContent);
-            } catch {
-                // No metadata file
-            }
+    // 1. Get all image files on disk
+    const files = await fs.readdir(OUTPUTS_DIR);
+    const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
-            return {
-                timestamp: metadata?.timestamp || new Date(parseInt(baseName.split('_')[1]) || Date.now()).toISOString(),
-                imageUrl: `/outputs/${filename}`,
-                prompt: metadata?.prompt || ''
-            };
-        }));
+    // Process image files
+    const items = await Promise.all(
+        files
+            .filter(f => imageExtensions.has(path.extname(f).toLowerCase()))
+            .map(async (filename) => {
+                const baseName = filename.split('.')[0];
+                const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
+                const imageUrl = `/outputs/${filename}`;
 
-        return history as HistoryItem[];
-    } catch {
-        // console.warn("Outputs dir not found or empty");
-        return [];
-    }
+                let metadata = null;
+                try {
+                    const jsonContent = await fs.readFile(jsonPath, 'utf-8');
+                    metadata = JSON.parse(jsonContent);
+                } catch { /* No metadata or folder exists */ }
+
+                // Determine timestamp: priority 1: json metadata, priority 2: filename stamp, priority 3: file stat
+                let timestamp = metadata?.timestamp;
+                if (!timestamp) {
+                    const parts = baseName.split('_');
+                    const stampStr = parts[1]; // img_STAMP_RAND
+                    if (stampStr && !isNaN(Number(stampStr))) {
+                        timestamp = new Date(Number(stampStr)).toISOString();
+                    } else {
+                        const stats = await fs.stat(path.join(OUTPUTS_DIR, filename));
+                        timestamp = stats.mtime.toISOString();
+                    }
+                }
+
+                return {
+                    timestamp,
+                    imageUrl,
+                    metadata: {
+                        prompt: metadata?.prompt || metadata?.metadata?.prompt || '',
+                        base_model: metadata?.base_model || metadata?.metadata?.base_model || '',
+                        img_width: metadata?.img_width || metadata?.metadata?.img_width || 1024,
+                        img_height: metadata?.img_height || metadata?.metadata?.img_height || 1024,
+                        lora: metadata?.lora || metadata?.metadata?.lora || ''
+                    },
+                    type: metadata?.type || metadata?.metadata?.type || 'image',
+                    sourceImage: metadata?.sourceImage || metadata?.metadata?.sourceImage,
+                    projectId: metadata?.projectId || metadata?.metadata?.projectId || 'default'
+                } as HistoryItem;
+            })
+    );
+
+    // Filter out potential nulls if any (though not expected here)
+    const validItems = items.filter(Boolean);
+
+    // Sort by timestamp descending
+    validItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return validItems;
 }
 
-export async function GET(request: Request) {
-    const ifNoneMatch = request.headers.get('if-none-match');
-
+export async function GET() {
     try {
-        await ensureOutputsDir();
-
-        let history = await readHistory();
-
-        // If no history files found, migrate from public/outputs
-        if (!history) {
-            console.log("No history found in JSON files. Scanning directory...");
-            history = await scanOutputsDir();
-
-            if (history.length > 0) {
-                await saveHistory(history);
-            }
-        }
-
-        // Create ETag based on file stats if HISTORY_FILE exists
-        let etag = '';
-        try {
-            const stats = await fs.stat(HISTORY_FILE);
-            etag = `W/"${stats.size}-${stats.mtime.getTime()}"`;
-        } catch {
-            // If file doesn't exist, we'll generate one later or just skip
-        }
-
-        if (etag && ifNoneMatch === etag) {
-            return new Response(null, { status: 304 });
-        }
-
-        // Sort by timestamp descending
-        const sortedHistory = Array.isArray(history) ? (history as HistoryItem[]).sort((a: HistoryItem, b: HistoryItem) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        ) : [];
-
-        return NextResponse.json(
-            { history: sortedHistory },
-            {
-                headers: etag ? { 'ETag': etag } : {}
-            }
-        );
-
+        const history = await readHistoryFromDisk();
+        return NextResponse.json({ history });
     } catch (error) {
         console.error('Failed to load history:', error);
         return NextResponse.json({ error: 'Failed to load history' }, { status: 500 });
@@ -173,10 +172,19 @@ export async function POST(request: Request) {
 
         const imageUrl = item.imageUrl || (item.id ? `/outputs/${item.id}.png` : '');
 
-        const historyItem = {
+        const historyItem: HistoryItem = {
             timestamp: item.timestamp || new Date().toISOString(),
             imageUrl: imageUrl,
-            prompt: item.prompt || item.config?.prompt || ''
+            metadata: {
+                prompt: item.metadata?.prompt || item.prompt || item.config?.prompt || '',
+                base_model: item.metadata?.base_model || item.config?.base_model || '',
+                img_width: item.metadata?.img_width || item.config?.img_width || 1024,
+                img_height: item.metadata?.img_height || item.config?.image_height || 1024,
+                lora: item.metadata?.lora || item.config?.lora || ''
+            },
+            type: item.type || 'image',
+            sourceImage: item.sourceImage,
+            projectId: item.projectId || 'default'
         };
 
         const existsIndex = history.findIndex((h: HistoryItem) => h.imageUrl === historyItem.imageUrl);

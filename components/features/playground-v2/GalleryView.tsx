@@ -1,12 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { VariableSizeList as List } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
 import { cn } from "@/lib/utils";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X } from "lucide-react";
 import ImagePreviewModal from './ImagePreviewModal';
 import ImageEditorModal from './ImageEditorModal';
-import HistoryList from './HistoryList';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
@@ -23,21 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Layers } from 'lucide-react';
 
-interface HistoryItem {
-    id: string;
-    imageUrl: string;
-    timestamp: string;
-    isLoading?: boolean;
-    metadata: {
-        prompt?: string;
-        base_model?: string;
-        img_width: number;
-        img_height: number;
-        lora?: string;
-    } | null;
-    type?: 'image' | 'text';
-    sourceImage?: string;
-}
+
 
 export type GalleryTab = 'gallery' | 'styles' | 'prompts';
 
@@ -47,9 +30,7 @@ interface GalleryViewProps {
 }
 
 export default function GalleryView({ variant = 'full', activeTab }: GalleryViewProps) {
-    const [history, setHistory] = useState<HistoryItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
+    const [selectedItem, setSelectedItem] = useState<GenerationResult | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingImageUrl, setEditingImageUrl] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
@@ -63,6 +44,8 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
 
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
     const generationHistory = usePlaygroundStore(s => s.generationHistory);
+    const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
+    const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
     // Responsive column count
@@ -85,60 +68,34 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
     }, [variant, isSm, isMd, isLg, isXl, is2Xl]);
 
     // Combine local history with active generations from store
-    const combinedHistory = React.useMemo(() => {
-        // Map GenerationResult to HistoryItem format
-        const activeGenerations: HistoryItem[] = generationHistory.map(gen => ({
-            id: gen.id,
-            imageUrl: gen.imageUrl || '',
-            timestamp: gen.timestamp,
-            isLoading: gen.isLoading,
-            metadata: {
-                prompt: gen.prompt || gen.config?.prompt || '',
-                base_model: gen.config?.base_model || '',
-                img_width: gen.config?.img_width || 1024,
-                img_height: gen.config?.image_height || 1024,
-                lora: gen.config?.lora || ''
-            },
-            type: gen.type || 'image',
-            sourceImage: gen.sourceImage
-        }));
-
-        // Filter out items that are already in the fetched history to avoid duplicates
-        // (matching by id or image URL)
-        const persistentUrls = new Set(history.map(h => h.imageUrl));
-        const uniqueActive = activeGenerations.filter(gen => gen.imageUrl && !persistentUrls.has(gen.imageUrl));
-
-        const combined = [...uniqueActive, ...history];
-
+    const sortedHistory = React.useMemo(() => {
         // Apply search filter
         const filtered = searchQuery.trim() === ""
-            ? combined
-            : combined.filter(item =>
-                item.metadata?.prompt?.toLowerCase().includes(searchQuery.toLowerCase())
+            ? generationHistory
+            : generationHistory.filter(item =>
+                (item.prompt || item.metadata?.prompt || "").toLowerCase().includes(searchQuery.toLowerCase())
             );
 
-        return filtered.sort((a, b) =>
+        // Files are already sorted in the API, but we might want to re-sort here just in case of local updates
+        return [...filtered].sort((a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
-    }, [history, generationHistory, searchQuery]);
+    }, [generationHistory, searchQuery]);
 
-    useEffect(() => {
-        fetchHistory();
-    }, []);
-
-    const fetchHistory = async () => {
+    const handleRefresh = useCallback(async () => {
+        setLoading(true);
         try {
-            const resp = await fetch('/api/history');
-            const data = await resp.json();
-            if (data.history) {
-                setHistory(data.history);
-            }
-        } catch (error) {
-            console.error('Failed to fetch history:', error);
+            await fetchHistory();
         } finally {
             setLoading(false);
         }
-    };
+    }, [fetchHistory]);
+
+    useEffect(() => {
+        if (generationHistory.length === 0) {
+            handleRefresh();
+        }
+    }, [generationHistory.length, handleRefresh]);
 
     const handleDownload = (e: React.MouseEvent, imageUrl: string, filename: string) => {
         e.stopPropagation();
@@ -194,70 +151,75 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
 
     return (
         <div className={cn(
-            "w-full h-full bg-transparent overflow-y-auto custom-scrollbar",
-            variant === 'full' ? "p-4" : "p-2"
+            "w-full h-full",
+            variant === 'full' ? "p-12 pt-16 border bg-neutral-900" : ""
         )}>
             <div className={cn(
-                "sticky z-20 pb-6 bg-transparent",
-                variant === 'full' ? "top-0" : "top-0"
+                "flex flex-col w-full h-full overflow-hidden",
+                variant === 'full' ? "bg-black/40 rounded-3xl p-4" : "p-0"
             )}>
                 <div className={cn(
-                    "relative group",
-                    variant === 'full' ? "" : ""
+                    "flex-none z-20 pb-4 bg-transparent",
+                    variant === 'full' ? "" : "px-4 pt-2"
                 )}>
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
-                    <input
-                        type="text"
-                        placeholder="Search prompts..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-black/80  border border-white/10 rounded-xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery("")}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
-                        >
-                            <X className="w-3.5 h-3.5" />
-                        </button>
+                    <div className={cn(
+                        "relative group",
+                        variant === 'full' ? "" : ""
+                    )}>
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Search prompts..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-black/80  border border-white/10 rounded-xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* View Switcher Tabs */}
+                    {variant === 'full' && (
+                        <div className="flex items-center gap-2 mt-6 p-1 bg-white/5 border border-white/10 rounded-2xl w-fit">
+                            <button
+                                onClick={() => setActiveView('gallery')}
+                                className={cn(
+                                    "px-6 py-2 rounded-xl text-sm font-medium transition-all",
+                                    activeView === 'gallery' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
+                                )}
+                            >
+                                Gallery
+                            </button>
+                            <button
+                                onClick={() => setActiveView('styles')}
+                                className={cn(
+                                    "px-6 py-2 rounded-xl text-sm font-medium transition-all",
+                                    activeView === 'styles' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
+                                )}
+                            >
+                                Styles
+                            </button>
+                            <button
+                                onClick={handleRefresh}
+                                className={cn(
+                                    "p-2 rounded-xl text-white/40 hover:text-white/80 hover:bg-white/5 transition-all ml-2",
+                                    loading && "animate-spin text-emerald-500"
+                                )}
+                                title="Sync with Outputs Folder"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                            </button>
+                        </div>
                     )}
                 </div>
-
-                {/* View Switcher Tabs */}
-                {variant === 'full' && (
-                    <div className="flex items-center gap-2 mt-6 p-1 bg-white/5 border border-white/10 rounded-2xl w-fit">
-                        <button
-                            onClick={() => setActiveView('gallery')}
-                            className={cn(
-                                "px-6 py-2 rounded-xl text-sm font-medium transition-all",
-                                activeView === 'gallery' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
-                            )}
-                        >
-                            全部作品
-                        </button>
-                        <button
-                            onClick={() => setActiveView('prompts')}
-                            className={cn(
-                                "px-6 py-2 rounded-xl text-sm font-medium transition-all",
-                                activeView === 'prompts' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
-                            )}
-                        >
-                            提示词
-                        </button>
-                        <button
-                            onClick={() => setActiveView('styles')}
-                            className={cn(
-                                "px-6 py-2 rounded-xl text-sm font-medium transition-all",
-                                activeView === 'styles' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
-                            )}
-                        >
-                            Style
-                        </button>
-                    </div>
-                )}
-            </div>
-            <div className="w-full mx-auto space-y-6">
-                {/* <header className="flex flex-col md:flex-row md:items-end justify-between gap-1">
+                <div className="w-full mx-auto space-y-6 overflow-y-auto">
+                    {/* <header className="flex flex-col md:flex-row md:items-end justify-between gap-1">
                     <div className="space-y-2">
                         <h1 className="text-5xl font-bold tracking-tight text-white/90">Gallery Archive</h1>
                         <p className="text-white/40 text-lg">Explore your creative journey through generated history.</p>
@@ -270,194 +232,162 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                     </div>
                 </header> */}
 
-                {loading && combinedHistory.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-                        <div className="relative">
-                            <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                            <div className="absolute inset-0 bg-emerald-500/10 blur-xl animate-pulse rounded-full" />
+                    {loading && sortedHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+                            <div className="relative">
+                                <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                                <div className="absolute inset-0 bg-gray-500/20 blur-xl animate-pulse rounded-full" />
+                            </div>
+                            <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
                         </div>
-                        <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
-                    </div>
-                ) : activeView === 'styles' ? (
-                    <StyleStacksView />
-                ) : activeView === 'prompts' ? (
-                    // Display HistoryList for Prompts/Describe mode
-                    <HistoryList
-                        history={combinedHistory.filter(h => h.type === 'text').map(h => ({
-                            ...h,
-                            imageUrl: h.imageUrl,
-                            config: {
-                                prompt: h.metadata?.prompt || '',
-                                base_model: h.metadata?.base_model || '',
-                                img_width: h.metadata?.img_width || 512,
-                                image_height: h.metadata?.img_height || 512,
-                                gen_num: 1,
-                                lora: h.metadata?.lora
-                            }
-                        } as GenerationResult))}
-                        onRegenerate={() => { }} // Not needed for text cards usually, or passed empty
-                        onDownload={() => { }}
-                        onImageClick={() => { }}
-                        variant="default"
-                    />
-                ) : combinedHistory.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-32 bg-white/5 rounded-xl border border-white/10 border-dashed space-y-1">
-                        <div className="p-6 bg-white/5 rounded-full">
-                            <Search className="w-12 h-12 text-white/20" />
+                    ) : activeView === 'styles' ? (
+                        <StyleStacksView />
+                    ) : sortedHistory.length === 0 ? (
+                        <div className={cn(
+                            "flex flex-col items-center justify-center bg-white/5 rounded-xl border border-white/10 border-dashed space-y-1",
+                            variant === 'full' ? "py-32" : "py-12 mx-4"
+                        )}>
+                            <div className="p-6 bg-white/5 rounded-full">
+                                <Search className="w-12 h-12 text-white/20" />
+                            </div>
+                            <div className="text-center space-y-2">
+                                <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
+                                <p className="text-white/30">Your generated images will appear here once you start creating.</p>
+                            </div>
                         </div>
-                        <div className="text-center space-y-2">
-                            <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
-                            <p className="text-white/30">Your generated images will appear here once you start creating.</p>
+                    ) : (
+                        <div className={cn(
+                            "flex-1 w-full h-full overflow-y-auto custom-scrollbar",
+                            variant === 'full' ? "rounded-xl pr-2" : "px-2 pb-2 rounded-2xl"
+                        )}>
+                            <MasonryGrid
+                                items={sortedHistory}
+                                columnsCount={columnsCount}
+                                renderItem={(item) => (
+                                    <GalleryCard
+                                        key={item.id || item.timestamp}
+                                        item={item}
+                                        onClick={() => !item.isLoading && setSelectedItem(item)}
+                                        onDownload={handleDownload}
+                                    />
+                                )}
+                            />
                         </div>
-                    </div>
-                ) : (
-                    <div className="flex-1 min-h-0 w-full overflow-hidden">
-                        <AutoSizer>
-                            {({ height, width }) => (
-                                <VirtualizedMasonry
-                                    items={combinedHistory.filter(h => h.type !== 'text')}
-                                    columnsCount={columnsCount}
-                                    width={width}
-                                    height={height}
-                                    renderItem={(item) => (
-                                        <GalleryCard
-                                            item={item}
-                                            onClick={() => !item.isLoading && setSelectedItem(item)}
-                                            onDownload={handleDownload}
-                                        />
-                                    )}
-                                />
-                            )}
-                        </AutoSizer>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
 
-            <ImagePreviewModal
-                isOpen={!!selectedItem}
-                onClose={() => setSelectedItem(null)}
-                result={selectedItem ? {
-                    id: selectedItem.id,
-                    imageUrl: selectedItem.imageUrl,
-                    config: {
-                        prompt: selectedItem.metadata?.prompt || '',
-                        base_model: selectedItem.metadata?.base_model || 'Standard',
-                        lora: selectedItem.metadata?.lora || '',
-                        img_width: selectedItem.metadata?.img_width || 1200,
-                        image_height: selectedItem.metadata?.img_height || 1200,
-                        gen_num: 1
-                    },
-                    timestamp: selectedItem.timestamp
-                } : undefined}
-                onEdit={handleEditImage}
-            />
+                <ImagePreviewModal
+                    isOpen={!!selectedItem}
+                    onClose={() => setSelectedItem(null)}
+                    result={selectedItem ? {
+                        id: selectedItem.id || `img_${new Date(selectedItem.timestamp).getTime()}`,
+                        imageUrl: selectedItem.imageUrl || "",
+                        config: selectedItem.config || {
+                            prompt: selectedItem.prompt || selectedItem.metadata?.prompt || "",
+                            base_model: selectedItem.metadata?.base_model || "Standard",
+                            lora: selectedItem.metadata?.lora || "",
+                            img_width: selectedItem.metadata?.img_width || 1200,
+                            img_height: selectedItem.metadata?.img_height || 1200,
+                            gen_num: 1
+                        },
+                        timestamp: selectedItem.timestamp
+                    } : undefined}
+                    onEdit={handleEditImage}
+                />
 
-            <ImageEditorModal
-                isOpen={isEditorOpen}
-                imageUrl={editingImageUrl}
-                onClose={() => setIsEditorOpen(false)}
-                onSave={handleSaveEditedImage}
-            />
+                <ImageEditorModal
+                    isOpen={isEditorOpen}
+                    imageUrl={editingImageUrl}
+                    onClose={() => setIsEditorOpen(false)}
+                    onSave={handleSaveEditedImage}
+                />
+            </div >
         </div >
     );
 }
 
-interface VirtualizedMasonryProps<T> {
+interface MasonryGridProps<T> {
     items: T[];
     columnsCount: number;
-    width: number;
-    height: number;
     renderItem: (item: T) => React.ReactNode;
 }
 
-const LIST_PADDING = 0; // Padding between items
-
-function VirtualizedMasonry<T extends HistoryItem>({
+function MasonryGrid<T extends GenerationResult>({
     items,
     columnsCount,
-    width,
-    height,
     renderItem
-}: VirtualizedMasonryProps<T>) {
-    const listRefs = useRef<(List | null)[]>([]);
-    const columnWidth = (width - (columnsCount - 1)) / columnsCount;
-
+}: MasonryGridProps<T>) {
     // Distribute items into columns
-    const columnsData = useMemo(() => {
-        const cols: { items: T[]; heights: number[] }[] = Array.from({ length: columnsCount }, () => ({
-            items: [],
-            heights: []
-        }));
+    const columns = useMemo(() => {
+        const cols: T[][] = Array.from({ length: columnsCount }, () => []);
+        const colHeights = new Array(columnsCount).fill(0);
 
-        const currentColumnHeights = new Array(columnsCount).fill(0);
-
-        items.forEach((item, index) => {
+        items.forEach((item) => {
+            // Find the shortest column
             let targetColIndex = 0;
-            if (index < columnsCount) {
-                targetColIndex = index;
-            } else {
-                let minHeight = Infinity;
-                currentColumnHeights.forEach((h, idx) => {
-                    if (h < minHeight) {
-                        minHeight = h;
-                        targetColIndex = idx;
-                    }
-                });
+            let minHeight = colHeights[0];
+
+            for (let i = 1; i < columnsCount; i++) {
+                if (colHeights[i] < minHeight) {
+                    minHeight = colHeights[i];
+                    targetColIndex = i;
+                }
             }
 
             const imgWidth = item.metadata?.img_width || 1024;
             const imgHeight = item.metadata?.img_height || 1024;
-            const cardHeight = (imgHeight / imgWidth) * columnWidth;
+            // Use aspect ratio as proxy for height since width is fixed per column
+            const aspectRatio = imgHeight / imgWidth;
 
-            cols[targetColIndex].items.push(item);
-            cols[targetColIndex].heights.push(cardHeight + LIST_PADDING);
-            currentColumnHeights[targetColIndex] += cardHeight + LIST_PADDING;
+            cols[targetColIndex].push(item);
+            colHeights[targetColIndex] += aspectRatio;
         });
 
         return cols;
-    }, [items, columnsCount, columnWidth]);
+    }, [items, columnsCount]);
 
-    const handleScroll = useCallback(({ scrollOffset }: { scrollOffset: number }) => {
-        listRefs.current.forEach((list) => {
-            if (list) {
-                list.scrollTo(scrollOffset);
-            }
-        });
-    }, []);
 
+// 瀑布流布局
     return (
-        <div className="flex w-full h-full overflow-hidden" style={{ gap: '1px' }}>
-            {columnsData.map((col, idx) => (
-                <div key={idx} style={{ width: columnWidth, height }}>
-                    <List
-                        ref={(el) => { listRefs.current[idx] = el; }}
-                        height={height}
-                        itemCount={col.items.length}
-                        itemSize={(index) => col.heights[index]}
-                        width={columnWidth}
-                        className="custom-scrollbar overflow-x-hidden"
-                        onScroll={idx === 0 ? handleScroll : undefined}
-                        style={{
-                            overflowX: 'hidden',
-                            // Only first column's scroll event syncs others. 
-                            // Others should hide their scrollbar or be controlled.
-                            scrollbarWidth: idx === 0 ? 'auto' : 'none',
-                        }}
-                    >
-                        {({ index, style }) => (
-                            <div style={style}>
-                                {renderItem(col.items[index])}
-                            </div>
-                        )}
-                    </List>
+        
+        <div className="flex gap-0 w-full ">
+            {columns.map((colItems, colIndex) => (
+                <div key={colIndex} className="flex flex-col gap-0 flex-1 min-w-0">
+                    {colItems.map((item) => renderItem(item))}
                 </div>
             ))}
         </div>
     );
 }
 
-function GalleryCard({ item, onClick, onDownload }: { item: HistoryItem, onClick: () => void, onDownload: (e: React.MouseEvent, url: string, filename: string) => void }) {
+function useInView(options?: IntersectionObserverInit) {
+    const [isInView, setIsInView] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!ref.current) return;
+
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                setIsInView(true);
+                observer.disconnect();
+            }
+        }, options);
+
+        observer.observe(ref.current);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
+
+    return { ref, isInView };
+}
+
+function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, onClick: () => void, onDownload: (e: React.MouseEvent, url: string, filename: string) => void }) {
     const [isHover, setIsHover] = useState(false);
+    const [isLoaded, setIsLoaded] = useState(false);
+    const { ref, isInView } = useInView({ rootMargin: '200px' });
     const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
     const applyModel = usePlaygroundStore(s => s.applyModel);
     const remix = usePlaygroundStore(s => s.remix);
@@ -466,13 +396,15 @@ function GalleryCard({ item, onClick, onDownload }: { item: HistoryItem, onClick
     const addImageToStyle = usePlaygroundStore(s => s.addImageToStyle);
     const { toast } = useToast();
     const performDownload = () => {
+        if (!item.imageUrl) return;
         const fakeEvent = { stopPropagation: () => void 0 } as unknown as React.MouseEvent;
-        onDownload(fakeEvent, item.imageUrl, item.id);
+        onDownload(fakeEvent, item.imageUrl, item.id || `img_${new Date(item.timestamp).getTime()}`);
     };
 
     return (
         <div
-            className="group relative bg-black /40 border border-white/5 overflow-hidden  hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
+            ref={ref}
+            className="group relative bg-black border border-black overflow-hidden  hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
             onClick={onClick}
             onMouseEnter={() => setIsHover(true)}
             onMouseLeave={() => setIsHover(false)}
@@ -484,9 +416,14 @@ function GalleryCard({ item, onClick, onDownload }: { item: HistoryItem, onClick
                         <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
                         <span className="text-[10px] text-white/30 font-medium uppercase tracking-widest animate-pulse">Generating</span>
                     </div>
+                ) : !isInView ? (
+                    <div style={{ 
+                        paddingBottom: `${((item.metadata?.img_height || 1024) / (item.metadata?.img_width || 1024)) * 100}%`,
+                        width: '100%' 
+                    }} />
                 ) : (
                     <Image
-                        src={item.imageUrl}
+                        src={item.imageUrl || ""}
                         alt="Generated masterwork"
                         width={item.metadata?.img_width || 1024}
                         height={item.metadata?.img_height || 1024}
@@ -494,7 +431,11 @@ function GalleryCard({ item, onClick, onDownload }: { item: HistoryItem, onClick
                         quality={75}
                         placeholder="blur"
                         blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-                        className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
+                        className={cn(
+                            "w-full h-auto object-cover transition-all duration-700 group-hover:scale-105",
+                            isLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl"
+                        )}
+                        onLoad={() => setIsLoaded(true)}
                     />
 
                 )}
@@ -535,8 +476,10 @@ function GalleryCard({ item, onClick, onDownload }: { item: HistoryItem, onClick
                                         key={style.id}
                                         className="text-white hover:bg-white/10 rounded-xl cursor-pointer"
                                         onClick={() => {
-                                            addImageToStyle(style.id, item.imageUrl);
-                                            toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
+                                            if (item.imageUrl) {
+                                                addImageToStyle(style.id, item.imageUrl);
+                                                toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
+                                            }
                                         }}
                                     >
                                         {style.name}
@@ -571,8 +514,10 @@ function GalleryCard({ item, onClick, onDownload }: { item: HistoryItem, onClick
                         tooltipSide="top"
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
-                            applyImage(item.imageUrl);
-                            toast({ title: "Image Applied", description: "图片已应用为参考图" });
+                            if (item.imageUrl) {
+                                applyImage(item.imageUrl);
+                                toast({ title: "Image Applied", description: "图片已应用为参考图" });
+                            }
                         }}
                     />
                     <TooltipButton
@@ -602,7 +547,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: HistoryItem, onClick
                                     base_model: item.metadata?.base_model || 'Nano banana',
                                     lora: item.metadata?.lora || '',
                                     img_width: item.metadata?.img_width || 1376,
-                                    image_height: item.metadata?.img_height || 768,
+                                    img_height: item.metadata?.img_height || 768,
                                     gen_num: 1,
                                     image_size: '1K'
                                 }

@@ -24,7 +24,7 @@ export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarPro
       className="relative h-full shrink-0 py-6 flex flex-col overflow-hidden z-30"
     >
       <div className="bg-black/20 border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden backdrop-blur-md min-w-[240px]">
-        <div className="px-4 pt-6 pb-4 flex flex-col gap-4 h-full">
+        <div className="px-4 pt-4 pb-4 flex flex-col gap-4 h-full">
           {/* Header */}
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-white/80">Projects</h2>

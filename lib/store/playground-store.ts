@@ -40,6 +40,7 @@ interface PlaygroundState {
     // Generation History
     generationHistory: GenerationResult[];
     setGenerationHistory: (history: GenerationResult[] | ((prev: GenerationResult[]) => GenerationResult[])) => void;
+    fetchHistory: () => Promise<void>;
 
     // Presets
     presets: Preset[];
@@ -61,7 +62,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     config: {
         prompt: '',
         img_width: 1376,
-        image_height: 768,
+        img_height: 768,
         gen_num: 1,
         base_model: 'Nano banana',
         image_size: '1K',
@@ -154,7 +155,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
             config: {
                 prompt: '',
                 img_width: 1376,
-                image_height: 768,
+                img_height: 768,
                 gen_num: 1,
                 base_model: 'Nano banana',
                 image_size: '1K',
@@ -176,6 +177,20 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     setGenerationHistory: (updater) => set((state) => ({
         generationHistory: typeof updater === 'function' ? updater(state.generationHistory) : updater
     })),
+
+    fetchHistory: async () => {
+        try {
+            const res = await fetch('/api/history');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.history) {
+                    set({ generationHistory: data.history });
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch history", error);
+        }
+    },
 
     presets: [],
     initPresets: async () => {

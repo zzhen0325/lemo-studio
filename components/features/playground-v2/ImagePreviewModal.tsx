@@ -197,7 +197,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                   </div>
                   <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
                     <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Height</span>
-                    <span className="text-white text-lg font-medium tabular-nums">{config?.image_height}</span>
+                    <span className="text-white text-lg font-medium tabular-nums">{config?.img_height}</span>
                   </div>
                   <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
                     <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Count</span>

@@ -7,13 +7,15 @@ import AutoSizer from "react-virtualized-auto-sizer";
 
 export const ProjectList = observer(() => {
   const projects = projectStore.sortedProjects;
+  // Subscribe to currentProjectId changes to trigger re-render
+  const currentProjectId = projectStore.currentProjectId;
 
   const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
     const project = projects[index];
     return (
       <ProjectItem
         project={project}
-        isSelected={project.id === projectStore.currentProjectId}
+        isSelected={project.id === currentProjectId}
         style={{
           ...style,
           top: (style.top as number) + 8, // Add some top padding

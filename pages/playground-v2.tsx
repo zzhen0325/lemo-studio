@@ -79,6 +79,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
+  const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
 
   const setConfig = (val: GenerationConfig | ((prev: GenerationConfig) => GenerationConfig)) => {
     const currentConfig = usePlaygroundStore.getState().config;
@@ -103,18 +104,20 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const [showAllProjects, setShowAllProjects] = useState(false);
 
-  useEffect(() => {
-    const currentProject = projectStore.currentProject;
-    if (currentProject) {
-      usePlaygroundStore.getState().setGenerationHistory([...currentProject.history]);
-    }
-  }, [projectStore.currentProjectId]);
+  const mobxProjectId = projectStore.currentProjectId;
 
   useEffect(() => {
-    if (projectStore.currentProjectId) {
-      projectStore.setProjectHistory(projectStore.currentProjectId, generationHistory);
+    const project = projectStore.currentProject;
+    if (project) {
+      usePlaygroundStore.getState().setGenerationHistory([...project.history]);
     }
-  }, [generationHistory]);
+  }, [mobxProjectId]);
+
+  useEffect(() => {
+    if (mobxProjectId) {
+      projectStore.setProjectHistory(mobxProjectId, generationHistory);
+    }
+  }, [generationHistory, mobxProjectId]);
 
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel>('gemini');
   const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
@@ -125,7 +128,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isPresetExpanded] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
-  const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'prompts' | 'styles'>('gallery');
+  const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
   const showHistory = usePlaygroundStore(s => s.showHistory);
   const setShowHistory = usePlaygroundStore(s => s.setShowHistory);
 
@@ -264,22 +267,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         console.error("Failed to fetch workflows", error);
       }
     };
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch('/api/history');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.history && data.history.length > 0) {
-            setGenerationHistory(data.history);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch history", error);
-      }
-    };
     fetchWorkflows();
     fetchHistory();
-  }, [setGenerationHistory]);
+  }, [fetchHistory]);
 
   useEffect(() => {
     const path = uploadedImages[0]?.path;
@@ -336,8 +326,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.img_width = Number(actualValue);
           else if (defaultValue) newConfig.img_width = Number(defaultValue);
         } else if (paramName === 'height') {
-          if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.image_height = Number(actualValue);
-          else if (defaultValue) newConfig.image_height = Number(defaultValue);
+          if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.img_height = Number(actualValue);
+          else if (defaultValue) newConfig.img_height = Number(defaultValue);
         } else if (paramName === 'batch_size') {
           if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.gen_num = Number(actualValue);
           else if (defaultValue) newConfig.gen_num = Number(defaultValue);
@@ -364,7 +354,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         } else if (title === "width" || title.includes("width")) {
           if (typeof val === "number" || typeof val === "string") newConfig.img_width = Number(val);
         } else if (title === "height" || title.includes("height")) {
-          if (typeof val === "number" || typeof val === "string") newConfig.image_height = Number(val);
+          if (typeof val === "number" || typeof val === "string") newConfig.img_height = Number(val);
         } else if (title === "batch_size" || title.includes("batch") || title.includes("数量")) {
           if (typeof val === "number" || typeof val === "string") newConfig.gen_num = Number(val);
         } else if (title.includes("model") || title.includes("模型")) {
@@ -441,13 +431,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const sizeKeys = ['1K', '2K', '4K'];
     for (const [ar, sizes] of Object.entries(AR_MAP)) {
       for (const size of sizeKeys) {
-        if (sizes[size].w === config.img_width && sizes[size].h === config.image_height) return ar;
+        if (sizes[size].w === config.img_width && sizes[size].h === config.img_height) return ar;
       }
     }
     return "16:9";
   };
-  const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.image_height > 0) { const ratio = config.img_width / config.image_height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, img_width: newWidth, image_height: newHeight })); } else { setConfig(prev => ({ ...prev, img_width: newWidth })); } };
-  const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.image_height > 0) { const ratio = config.img_width / config.image_height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, image_height: newHeight, img_width: newWidth })); } else { setConfig(prev => ({ ...prev, image_height: newHeight })); } };
+  const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, img_width: newWidth, img_height: newHeight })); } else { setConfig(prev => ({ ...prev, img_width: newWidth })); } };
+  const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, img_height: newHeight, img_width: newWidth })); } else { setConfig(prev => ({ ...prev, img_height: newHeight })); } };
   const handleOptimizePrompt = async () => {
     const optimizedText = await optimizePrompt(config.prompt, selectedAIModel);
     if (optimizedText) setConfig(prev => ({ ...prev, prompt: optimizedText }));
@@ -556,7 +546,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     if (!results || results.length === 0) return;
     toast({ title: "批量生成中", description: `即将开始 ${results.length} 个生成任务...` });
     for (const result of results) {
-      const newConfig = { ...config, prompt: result.config.prompt };
+      const newConfig = { ...config, prompt: result.prompt || result.config?.prompt || "" };
       await handleGenerate(newConfig);
       await new Promise(r => setTimeout(r, 200));
     }
@@ -568,7 +558,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const handleRegenerate = async (result: GenerationResult) => {
     // 补全 config 中的 prompt 字段，因为 history 对象中它们可能是分开存储的
     const fullConfig = {
-      ...result.config,
+      ...(result.config || {}),
       prompt: result.prompt || result.config?.prompt || ''
     } as GenerationConfig;
 
@@ -803,7 +793,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               const size = (config.base_model === 'Nano banana') ? (config.image_size || '1K') : '1K';
               const resolution = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
               if (resolution) {
-                updateConfig({ img_width: resolution.w, image_height: resolution.h });
+                updateConfig({ img_width: resolution.w, img_height: resolution.h });
               }
             }}
             currentImageSize={(config.image_size as '1K' | '2K' | '4K') || '1K'}
@@ -811,7 +801,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               const ar = getCurrentAspectRatio();
               const resolution = AR_MAP[ar]?.[size];
               if (resolution) {
-                updateConfig({ image_size: size, img_width: resolution.w, image_height: resolution.h });
+                updateConfig({ image_size: size, img_width: resolution.w, img_height: resolution.h });
               }
             }}
             isAspectRatioLocked={isAspectRatioLocked}
@@ -913,7 +903,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   );
 
   return (
-    <div className="flex-1 relative p-16 pt-20 h-full flex flex-col overflow-hidden">
+    <div className="flex-1 relative p-12 pt-16 h-full flex flex-col overflow-hidden">
       <div className="flex-1 bg-transparent border border-white/20 rounded-[2rem] overflow-hidden relative flex flex-col">
         <main className="relative h-full flex bg-transparent overflow-hidden">
           <input
@@ -986,7 +976,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 isDashboardActive
                   ? "w-[60vw]  py-6 h-full"
                   : "w-full  mt-[30vh]"
-                )}>
+              )}>
                 {/* Input UI */}
                 <div ref={promptWrapperRef} className="w-full">
                   <div data-flip-id="prompt-input-container" className="w-full">
@@ -1052,23 +1042,22 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               {/* Right Side: Gallery Module - Only show in active mode */}
               {isDashboardActive && (
                 <div className="flex-1 shrink-0 py-6 flex flex-col">
-                  <div className="bg-black/20  border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden">
+                  <div className="bg-black/80  border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden">
                     {/* Tab Switcher Header */}
-                    <div className="flex items-center gap-1 px-4 pt-6 pb-2 sticky top-0 z-10">
-                      <div className="flex items-center bg-black/40 backdrop-blur-md p-1 rounded-full border border-white/10">
-                        {(['gallery', 'prompts', 'styles'] as const).map(tab => (
+                    <div className="flex items-center gap-1 p-4 sticky top-0 z-10">
+                      <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
+                        {(['gallery', 'styles'] as const).map(tab => (
                           <button
                             key={tab}
                             onClick={() => setActiveGalleryTab(tab)}
                             className={cn(
                               "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
                               activeGalleryTab === tab
-                                ? "bg-white text-black shadow-lg"
+                                ? "bg-primary text-black shadow-lg"
                                 : "text-white/50 hover:text-white hover:bg-white/10"
                             )}
                           >
                             {tab === 'gallery' && "全部作品"}
-                            {tab === 'prompts' && "Prompt"}
                             {tab === 'styles' && "Style"}
                           </button>
                         ))}
@@ -1081,13 +1070,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   </div>
                 </div>
               )}
-            </div>
 
-            {!isDashboardActive && (
-              <div className="absolute bottom-4 left-0 right-0 z-20 overflow-visible">
-                <StylesMarquee />
-              </div>
-            )}
+              {!isDashboardActive && (
+                <div className="w-full mt-auto z-20 overflow-visible mb-4 shrink-0">
+                  <StylesMarquee />
+                </div>
+              )}
+            </div>
           </div>
 
           <GoogleApiStatus className="fixed bottom-4 right-4 z-[60]" />

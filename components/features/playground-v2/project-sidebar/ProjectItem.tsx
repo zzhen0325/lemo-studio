@@ -56,13 +56,13 @@ export const ProjectItem = observer(({ project, isSelected, style }: ProjectItem
       className={cn(
         "group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm",
         isSelected
-          ? "bg-white/10 text-white"
-          : "text-white/60 hover:bg-white/5 hover:text-white"
+          ? "bg-black/20 text-white"
+          : "text-white/60 hover:bg-black/10 hover:text-white"
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
-      <Folder className={cn("w-4 h-4 shrink-0", isSelected ? "text-blue-400" : "text-white/40")} />
+      <Folder className={cn("w-4 h-4 shrink-0", isSelected ? "text-primary" : "text-white/40")} />
       
       {isEditing ? (
         <input
@@ -82,7 +82,7 @@ export const ProjectItem = observer(({ project, isSelected, style }: ProjectItem
       {/* Hover Actions (Optional, user didn't explicitly ask but good for UX) */}
       {!isEditing && (
         <button
-          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-opacity"
+          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-black/10 rounded transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
             setIsEditing(true);

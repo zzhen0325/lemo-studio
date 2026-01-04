@@ -1,7 +1,7 @@
 export interface GenerationConfig {
   prompt: string;
   img_width: number;
-  image_height: number;
+  img_height: number;
   gen_num: number;
   base_model: string;
   image_size?: '1K' | '2K' | '4K';
@@ -14,13 +14,21 @@ export interface GenerationResult {
   imageUrl?: string;
   imageUrls?: string[];
 
-  config: GenerationConfig;
+  config?: GenerationConfig;
+  metadata?: {
+    prompt?: string;
+    base_model?: string;
+    img_width?: number;
+    img_height?: number;
+    lora?: string;
+  };
   timestamp: string;
   prompt?: string;
   isLoading?: boolean;
   savedPath?: string;
   type?: 'image' | 'text';
   sourceImage?: string;
+  projectId?: string;
 }
 
 export interface UploadedImage {

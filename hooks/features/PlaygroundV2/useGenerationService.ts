@@ -45,8 +45,17 @@ export function useGenerationService() {
         try {
             const historyItem = {
                 imageUrl: item.savedPath || item.imageUrl || '',
-                prompt: item.config?.prompt || '',
-                timestamp: item.timestamp || new Date().toISOString()
+                timestamp: item.timestamp || new Date().toISOString(),
+                metadata: {
+                    prompt: item.prompt || item.config?.prompt || '',
+                    base_model: item.config?.base_model || '',
+                    img_width: item.config?.img_width || 1024,
+                    img_height: item.config?.img_height || 1024,
+                    lora: item.config?.lora || ''
+                },
+                type: item.type || 'image',
+                sourceImage: item.sourceImage,
+                projectId: item.projectId || 'default'
             };
             await fetch('/api/history', {
                 method: 'POST',
@@ -130,7 +139,7 @@ export function useGenerationService() {
             model: modelId,
             prompt: currentConfig.prompt,
             width: Number(currentConfig.img_width),
-            height: Number(currentConfig.image_height),
+            height: Number(currentConfig.img_height),
             batchSize: currentConfig.gen_num || 1,
             image: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
             options: {
@@ -163,7 +172,7 @@ export function useGenerationService() {
                 const pName = comp.properties.paramName;
                 if (pName === 'prompt' && currentConfig.prompt) paramMap.set(pathKey, currentConfig.prompt);
                 else if (pName === 'width') paramMap.set(pathKey, currentConfig.img_width);
-                else if (pName === 'height') paramMap.set(pathKey, currentConfig.image_height);
+                else if (pName === 'height') paramMap.set(pathKey, currentConfig.img_height);
                 else if (pName === 'batch_size') paramMap.set(pathKey, currentConfig.gen_num);
             });
             mappedInputs = allInputs.map(item => ({ key: item.key, value: paramMap.has(item.key) ? paramMap.get(item.key) : item.value }));
