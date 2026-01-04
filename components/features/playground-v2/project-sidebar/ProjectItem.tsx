@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { cn } from "@/lib/utils";
 import { Project, projectStore } from "@/lib/store/project-store";
-import { Folder, MoreHorizontal, Edit2, Trash2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { Folder, Edit2 } from "lucide-react";
+
 
 interface ProjectItemProps {
   project: Project;

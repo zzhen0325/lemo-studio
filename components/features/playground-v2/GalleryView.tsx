@@ -379,7 +379,7 @@ function useInView(options?: IntersectionObserverInit) {
         return () => {
             observer.disconnect();
         };
-    }, []);
+    }, [options]);
 
     return { ref, isInView };
 }

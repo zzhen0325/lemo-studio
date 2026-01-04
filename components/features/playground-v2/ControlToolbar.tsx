@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-
+import React, { useRef, useEffect, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Wand2, ChevronDown, Link, Unlink, Sparkles } from "lucide-react";
+import { Loader2, Wand2, ChevronDown, Link, Unlink, Sparkles, LayoutTemplate } from "lucide-react";
 
 
 import { cn } from "@/lib/utils";
@@ -14,8 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuSeparator,
-
-
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { GenerationConfig, UploadedImage } from '@/components/features/playground-v2/types';
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
@@ -55,6 +53,8 @@ interface ControlToolbarProps {
   onDescribe?: () => void;
   isDescribing?: boolean;
   uploadedImages: UploadedImage[];
+  isPresetGridOpen?: boolean;
+  onTogglePresetGrid?: () => void;
 }
 
 
@@ -74,7 +74,7 @@ export default function ControlToolbar({
   isGenerating,
   loadingText = "生成中...",
 
-  onOpenBaseModelSelector,
+  // onOpenBaseModelSelector, // unused
   onOpenLoraSelector,
   selectedWorkflowName,
   selectedBaseModelName,
@@ -91,10 +91,13 @@ export default function ControlToolbar({
   onDescribe,
   isDescribing = false,
   uploadedImages = [],
+  isPresetGridOpen = false,
+  onTogglePresetGrid,
 }: ControlToolbarProps) {
 
 
   const [selectValue, setSelectValue] = useState<string | undefined>(undefined);
+  const [activeTab] = useState<'model' | 'preset'>('model');
 
 
   // 初始化与回填：根据外部选中模型/工作流，映射到 Select 的 value
@@ -160,13 +163,72 @@ export default function ControlToolbar({
     if (selectValue === 'seed3') return 'Seed 3';
     if (selectValue === 'seed4') return 'Seed 4';
     if (selectValue === 'nano_banana') return 'Nano banana';
-    if (selectValue && selectValue.startsWith('wf:')) return selectedWorkflowName || '选择工作流';
+    if (selectedModel === 'Workflow') return selectedBaseModelName || 'Base Model';
     return 'Model';
   })();
 
 
-  const itemLable = "px-2 py-2 text-sm text-white/30    ";
-  const itemClassName = "px-2 py-2 text-md text-white/70 rounded-xl bg-black/20 hover:bg-white/20  flex items-center gap-2";
+  const BASE_MODEL_LIST = [
+    { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
+    { name: 'flux1-dev-fp8.safetensors', cover: '/basemodels/flux1-dev-fp8.safetensors.jpg' },
+    { name: 'Zimage', cover: '/basemodels/Zimage.jpg' },
+    { name: 'qwen', cover: '/basemodels/qwen.jpg' },
+  ];
+
+  const handleBaseModelSelect = (modelName: string) => {
+    onModelChange('Workflow');
+    onConfigChange?.({ base_model: modelName });
+    onSelectorExpandedChange?.(false);
+  };
+
+
+  const ModelDropdown = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          className={cn(Inputbutton2, isSelectorExpanded && activeTab === 'model' && "bg-white/10")}
+        >
+          {triggerLabel}
+          <ChevronDown className={cn("ml-2 h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[240px] p-4 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
+        <DropdownMenuItem
+          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
+          onClick={() => handleUnifiedSelectChange('nano_banana')}
+        >
+          <span className={`w-2 h-2 rounded-full ${selectValue === 'nano_banana' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+          Nano banana
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
+          onClick={() => handleUnifiedSelectChange('seed3')}
+        >
+          <span className={`w-2 h-2 rounded-full ${selectValue === 'seed3' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+          Seed 3
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
+          onClick={() => handleUnifiedSelectChange('seed4')}
+        >
+          <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+          Seed 4
+        </DropdownMenuItem>
+        
+        {BASE_MODEL_LIST.map((model) => (
+          <DropdownMenuItem
+            key={model.name}
+            className="text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 py-2"
+            onClick={() => handleBaseModelSelect(model.name)}
+          >
+            <span className={`w-2 h-2 rounded-full ${selectedModel === 'Workflow' && selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
+            <span className="truncate">{model.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div ref={containerRef} className="w-full flex-col space-y-2">
 
@@ -174,22 +236,21 @@ export default function ControlToolbar({
 
       <div className="w-full h-12 flex justify-between items-center gap-2 px-2 py-2 mt-2">
         <div className="flex items-center gap-2">
+          <ModelDropdown />
+
           <Button
-            className={cn(Inputbutton2, isSelectorExpanded && "bg-white/10")}
-            onClick={() => onSelectorExpandedChange?.(!isSelectorExpanded)}
+            className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
+            onClick={onTogglePresetGrid}
           >
-            {triggerLabel}
-            <ChevronDown className={cn("ml-2 h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && "rotate-180")} />
+            <LayoutTemplate className="w-4 h-4 mr-2 opacity-50" />
+            Presets
+            <ChevronDown className={cn("ml-2 h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
           </Button>
-          {(selectedModel === 'Workflow' || !!selectedWorkflowName) && (
-            <>
-              <Button variant="outline" className={Inputbutton2} onClick={() => onOpenBaseModelSelector?.()}>
-                {selectedBaseModelName || "基础模型"}
-              </Button>
-              <Button variant="outline" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
-                {selectedLoraNames.length > 0 ? `LoRA (${selectedLoraNames.length})` : "LoRA 模型"}
-              </Button>
-            </>
+
+          {selectedModel === 'Workflow' && (
+            <Button variant="outline" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
+              {selectedLoraNames.length > 0 ? `LoRA (${selectedLoraNames.length})` : "LoRA"}
+            </Button>
           )}
         </div>
 
@@ -201,35 +262,45 @@ export default function ControlToolbar({
               <ChevronDown className="h-4 w-4 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-auto min-w-[320px] max-w-[450px] p-4 text-zinc-900 rounded-2xl bg-white border border-zinc-200 ">
+          <DropdownMenuContent className="w-[320px] p-6 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
             <div className="space-y-4">
               {selectedModel === 'Nano banana' && (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Resolution</div>
+                <div className="space-y-4">
+                  <div className="text-xs text-white/70">Resolution</div>
                   <div className="flex gap-2">
                     {(['1K', '2K', '4K'] as const).map(size => (
                       <Button
                         key={size}
                         variant={currentImageSize === size ? "default" : "outline"}
-                        className={`flex-1 h-8 rounded-xl ${currentImageSize === size ? "bg-emerald-600 border-none" : "bg-zinc-50 border-zinc-200 text-zinc-600"}`}
+                        className={cn(
+                          "flex-1 h-8 rounded-xl transition-all",
+                          currentImageSize === size
+                            ? "bg-primary border-none text-black"
+                            : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10"
+                        )}
                         onClick={() => onImageSizeChange(size)}
                       >
                         {size}
                       </Button>
                     ))}
                   </div>
-                  <DropdownMenuSeparator className="bg-zinc-100" />
+                  <DropdownMenuSeparator className="bg-white/10 mt-2" />
                 </div>
               )}
 
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Aspect Ratio</div>
+              <div className="space-y-4">
+                <div className="text-xs text-white/70">Aspect Ratio</div>
                 <div className="grid grid-cols-4 gap-2">
                   {aspectRatioPresets.map(preset => (
                     <Button
                       key={preset.name}
                       variant={currentAspectRatio === preset.name ? "default" : "outline"}
-                      className={`h-8 rounded-xl ${currentAspectRatio === preset.name ? "bg-emerald-600 border-none" : "bg-zinc-50 border-zinc-200 text-zinc-600"}`}
+                      className={cn(
+                        "h-8 rounded-xl transition-all",
+                        currentAspectRatio === preset.name
+                          ? "bg-primary border-none text-black"
+                          : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10"
+                      )}
                       onClick={() => onAspectRatioChange(preset.name)}
                     >
                       {preset.name}
@@ -238,14 +309,29 @@ export default function ControlToolbar({
                 </div>
               </div>
 
-              <DropdownMenuSeparator className=" border-zinc-200" />
+              <DropdownMenuSeparator className="bg-white/10" />
 
-              <div className="flex items-center gap-2  border-zinc-200 ">
-                <Label className="text-xs">W</Label>
-                <Input className="h-8 w-full text-sm text-zinc-900 rounded-xl bg-zinc-50 border border-zinc-200 shadow-none" placeholder="2048" value={config.img_width} onChange={(e) => onWidthChange(parseInt(e.target.value) || 1024)} />
-                <Label className="text-xs">H</Label>
-                <Input className="h-8 w-full text-sm text-zinc-900 rounded-xl bg-zinc-50 border border-zinc-200 shadow-none" placeholder="2048" value={config.img_height} onChange={(e) => onHeightChange(parseInt(e.target.value) || 1024)} />
-                <Button variant="outline" size="sm" className="h-8 w-8 p-2 rounded-xl bg-zinc-50 border border-zinc-200" onClick={onToggleAspectRatioLock}>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-white/50">W</Label>
+                <Input
+                  className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
+                  placeholder="2048"
+                  value={config.img_width}
+                  onChange={(e) => onWidthChange(parseInt(e.target.value) || 1024)}
+                />
+                <Label className="text-xs text-white/50">H</Label>
+                <Input
+                  className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
+                  placeholder="2048"
+                  value={config.img_height}
+                  onChange={(e) => onHeightChange(parseInt(e.target.value) || 1024)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white text-white/60"
+                  onClick={onToggleAspectRatioLock}
+                >
                   {isAspectRatioLocked ? <Link className="h-4 w-4" /> : <Unlink className="h-4 w-4" />}
                 </Button>
               </div>
@@ -316,67 +402,9 @@ export default function ControlToolbar({
         </div>
       </div>
       <AnimatePresence>
-        {isSelectorExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 400, opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="w-full overflow-hidden"
-          >
-            <div className="relative w-full h-[400px] border-t border-white/10  p-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="space-y-6">
-                <section>
-                  <h3 className={itemLable}>Online Models</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => handleUnifiedSelectChange('nano_banana')}
-                      className={cn(itemClassName, selectValue === 'nano_banana' && "ring-2 ring-emerald-400 bg-emerald-400/10")}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${selectValue === 'nano_banana' ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
-                      Nano banana
-                    </button>
-                    <button
-                      onClick={() => handleUnifiedSelectChange('seed3')}
-                      className={cn(itemClassName, selectValue === 'seed3' && "ring-2 ring-emerald-400 bg-emerald-400/10")}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${selectValue === 'seed3' ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
-                      Seed 3
-                    </button>
-                    <button
-                      onClick={() => handleUnifiedSelectChange('seed4')}
-                      className={cn(itemClassName, selectValue === 'seed4' && "ring-2 ring-emerald-400 bg-emerald-400/10")}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4' ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
-                      Seed 4
-                    </button>
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className={itemLable}>Workflow Gallery</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(Array.isArray(workflows) ? workflows : []).map((wf: IViewComfy) => {
-                      const wfId = `wf:${String(wf.viewComfyJSON.id)}`;
-                      return (
-                        <button
-                          key={wf.viewComfyJSON.id}
-                          onClick={() => handleUnifiedSelectChange(wfId)}
-                          className={cn(itemClassName, selectValue === wfId && "ring-2 ring-emerald-400 bg-emerald-400/10")}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${selectValue === wfId ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
-                          <span className="truncate">{wf.viewComfyJSON.title || 'Untitled'}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              </div>
-
-            </div>
-          </motion.div>
-        )}
+        
       </AnimatePresence>
     </div >
   );
 }
+

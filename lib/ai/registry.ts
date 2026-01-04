@@ -42,16 +42,7 @@ export const REGISTRY: RegistryItem[] = [
             apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY
         }
     },
-    {
-        id: 'gemini-1.5-flash',
-        providerType: 'google-genai',
-        task: ['text', 'vision'],
-        defaultConfig: {
-            providerId: 'google',
-            modelId: 'gemini-3-pro-image-preview',
-            apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY
-        }
-    },
+  
     {
         id: 'seed4_lemo1230',
         providerType: 'bytedance-afr',

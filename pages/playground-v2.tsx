@@ -34,6 +34,8 @@ import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import type { GenerationConfig, GenerationResult } from "@/components/features/playground-v2/types";
 
+import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
+
 import gsap from "gsap";
 import { Flip } from "gsap/all";
 import { useGSAP } from "@gsap/react";
@@ -126,6 +128,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [workflows, setWorkflows] = useState<IViewComfy[]>([]);
   const [isStackHovered, setIsStackHovered] = useState(false);
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
+  const [isPresetGridOpen, setIsPresetGridOpen] = useState(false);
   const [isPresetExpanded] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
@@ -438,6 +441,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
   const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, img_width: newWidth, img_height: newHeight })); } else { setConfig(prev => ({ ...prev, img_width: newWidth })); } };
   const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, img_height: newHeight, img_width: newWidth })); } else { setConfig(prev => ({ ...prev, img_height: newHeight })); } };
+  const handlePresetSelect = (preset: { prompt: string; width: number; height: number; base_model: string; image_size?: '1K' | '2K' | '4K' }) => {
+    setConfig({
+      ...config,
+      prompt: preset.prompt,
+      img_width: preset.width,
+      img_height: preset.height,
+      base_model: preset.base_model,
+      image_size: preset.image_size
+    });
+    setIsPresetGridOpen(false);
+  };
   const handleOptimizePrompt = async () => {
     const optimizedText = await optimizePrompt(config.prompt, selectedAIModel);
     if (optimizedText) setConfig(prev => ({ ...prev, prompt: optimizedText }));
@@ -825,6 +839,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             onDescribe={handleDescribe}
             isDescribing={isDescribing}
             uploadedImages={uploadedImages}
+            isPresetGridOpen={isPresetGridOpen}
+            onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
           />
           {/* 
           预设按钮
@@ -928,7 +944,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     transition={{ duration: 0.3 }}
                     className="absolute inset-0"
                   >
-                    <video
+                  
+
+                    {/* <video
                       src="/images/1.mp4"
                       autoPlay
                       loop
@@ -937,8 +955,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       poster="/images/1.webp"
                       preload="metadata"
                       className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 shadow-[inset_0_0_150px_rgba(88,131,112,1)]" />
+                    /> */}
+                    <div className="absolute inset-0" style={{
+                      background: "linear-gradient(180deg, #0F0F15 0%, #131718 12.62%, #1079BB 48.49%, #FBC6E2 74.56%, #D8C6B8 87.73%, #EB9469 100%)",
+                    }} />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -947,7 +967,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="absolute inset-0"
+                    
                   >
                     {/* <Image
                       src="/images/112.jpg"
@@ -956,7 +976,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       className="object-cover opacity-100 "
                       priority
                     /> */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-[#56bbff] via-[#fbfeff] to-[#fff7ef]" />
+                    {/* bg-gradient-to-b from-[#56bbff] via-[#fbfeff] to-[#fff7ef] */}
+                    <div className="absolute inset-0 " 
+                    style={{
+                      background: "linear-gradient(180deg, #0F0F15 0%, #131718 33.12%, #1079BB 62.71%, #FBC6E2 82.24%, #D8C6B8 94.52%, #EB9469 100%)",
+                    }}/>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -985,7 +1009,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 </div>
 
                 {/* History Entry Capsule Button - Only show if not in dashboard active mode */}
-                {!isDashboardActive && (
+                {!isDashboardActive && !isPresetGridOpen && (
                   <div className="flex justify-center mt-6">
                     <button
                       onClick={() => setShowHistory(true)}
@@ -997,6 +1021,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       <span className="text-sm font-medium">History</span>
                     </button>
                   </div>
+                )}
+
+                {!isDashboardActive && isPresetGridOpen && (
+                  <PresetGridOverlay
+                    onOpenManager={() => setIsPresetManagerOpen(true)}
+                    onSelectPreset={handlePresetSelect}
+                  />
                 )}
 
                 {/* 历史记录区域 */}

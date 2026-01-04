@@ -14,6 +14,8 @@ interface PromptInputProps {
   selectedAIModel: AIModel;
   onAIModelChange: (model: AIModel) => void;
   onAddImages: (files: File[] | FileList) => void;
+  isPresetGridOpen?: boolean;
+  onTogglePresetGrid?: () => void;
 }
 
 import { useDebounce } from '@/hooks/common/use-debounce';
