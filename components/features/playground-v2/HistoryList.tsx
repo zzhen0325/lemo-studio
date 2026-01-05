@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Check, Layers, Calendar, Maximize, Cpu } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Check, Layers, Settings2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { GenerationResult } from '@/components/features/playground-v2/types';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -16,8 +17,8 @@ interface HistoryListProps {
   onImageClick: (result: GenerationResult, initialRect?: DOMRect) => void;
   isGenerating?: boolean;
   variant?: 'default' | 'sidebar';
-  layoutMode?: 'grid' | 'list';
   onBatchUse?: (results: GenerationResult[], sourceImage?: string) => void;
+  layoutMode?: 'grid' | 'list';
 }
 
 interface GroupedHistoryItem {
@@ -33,8 +34,8 @@ export default function HistoryList({
   onDownload,
   onImageClick,
   variant = 'default',
-  layoutMode = 'grid',
   onBatchUse,
+  layoutMode = 'list',
 }: HistoryListProps) {
 
   // Group history by type & key
@@ -43,23 +44,46 @@ export default function HistoryList({
 
     history.forEach((result) => {
       const type = result.type || 'image';
-      // Support both flat prompt (from history.json) and config.prompt (live generation)
-      const promptValue = result.prompt || result.config?.prompt || "未知分组";
-      const key = type === 'text' ? (result.sourceImage || "Unknown") : promptValue;
+      const config = result.config || result.metadata;
 
-      // Find existing group for the same type (image/text), key and within a small time window (e.g. 1m)
-      const existingGroup = groups.find(g =>
-        g.type === type &&
-        g.key === key &&
-        Math.abs(new Date(g.items[0].timestamp).getTime() - new Date(result.timestamp).getTime()) < 60000
-      );
+      // key components for comparison
+      const prompt = result.prompt || config?.prompt || "";
+      const model = config?.base_model || "";
+      const width = config?.img_width || 0;
+      const height = config?.img_height || 0;
+      const lora = config?.lora || "";
+      const refImage = (config as any)?.ref_image || "";
+
+      // Find existing group for the same type, parameters and within 30s
+      const existingGroup = groups.find(g => {
+        if (g.type !== type) return false;
+
+        // Time check: within 30s of the first item in the group
+        const firstItemTime = new Date(g.items[0].timestamp).getTime();
+        const currentTime = new Date(result.timestamp).getTime();
+        if (Math.abs(firstItemTime - currentTime) > 30000) return false;
+
+        if (type === 'text') {
+          return g.sourceImage === result.sourceImage;
+        } else {
+          const gConfig = g.items[0].config || g.items[0].metadata;
+          return (
+            (g.items[0].prompt || gConfig?.prompt || "") === prompt &&
+            (gConfig?.base_model || "") === model &&
+            (gConfig?.img_width || 0) === width &&
+            (gConfig?.img_height || 0) === height &&
+            (gConfig?.lora || "") === lora &&
+            ((gConfig as any)?.ref_image || "") === refImage
+          );
+        }
+      });
 
       if (existingGroup) {
         existingGroup.items.push(result);
       } else {
         groups.push({
           type,
-          key,
+          key: type === 'text' ? (result.sourceImage || "Unknown") : prompt,
           items: [result],
           sourceImage: type === 'text' ? result.sourceImage : undefined
         });
@@ -71,208 +95,114 @@ export default function HistoryList({
 
   if (history.length === 0) return null;
 
-  if (layoutMode === 'list') {
-    return (
-      <div className={cn(
-        "relative flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-4 pb-32",
-        variant === 'default' ? "mt-80" : "mt-4"
-      )}>
-        <div className={cn(
-          "flex flex-col gap-4 w-full mx-auto",
-          variant === 'default' ? "max-w-[1500px]" : "max-w-full"
-        )}>
-          {groupedHistory.map((group, groupIdx) => (
-            <div key={`group-${groupIdx}`} className="bg-[#1f2b494b] border border-white/5 rounded-xl p-4 overflow-hidden">
-              {group.type === 'image' ? (
-                <div className="grid grid-cols-5 gap-6 w-full">
-                  {/* Left 4 cols: Images */}
-                  <div className="col-span-4 grid grid-cols-4 gap-2">
-                    {Array.from({ length: 4 }).map((_, idx) => {
-                      const result = group.items[idx];
-                      return (
-                        <div key={idx} className="aspect-square w-full">
-                          {result ? (
-                            <HistoryCard
-                              result={result}
-                              onRegenerate={onRegenerate}
-                              onDownload={onDownload}
-                              onImageClick={onImageClick}
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-white/5 rounded-sm border border-white/5" />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Right 1 col: Metadata */}
-                  <div className="col-span-1 flex flex-col gap-4 min-w-0">
-                    {/* Time */}
-                    <div className="flex items-center gap-2 text-white/40 text-xs">
-                      <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{new Date(group.items[0].timestamp).toLocaleString()}</span>
-                    </div>
-
-                    {/* Size */}
-                    <div className="flex items-center gap-2 text-white/40 text-xs">
-                      <Maximize className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{group.items[0].config?.img_width || 1024} x {group.items[0].config?.img_height || 1024}</span>
-                    </div>
-
-                    {/* Model */}
-                    <div className="flex items-center gap-2 text-white/40 text-xs">
-                      <Cpu className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate" title={group.items[0].config?.base_model}>{group.items[0].config?.base_model || 'Unknown Model'}</span>
-                    </div>
-
-                    {/* Prompt */}
-                    <div className="mt-2 p-3 bg-black/20 rounded-lg border border-white/5 flex-1 overflow-hidden flex flex-col">
-                      <div className="flex items-center gap-2 mb-2 shrink-0">
-                        <Type className="w-3 h-3 text-white/40" />
-                        <span className="text-[10px] text-white/40 uppercase tracking-wider">Prompt</span>
-                      </div>
-                      <p className="text-xs text-white/70 leading-relaxed line-clamp-[6] break-words" title={group.items[0].prompt || group.items[0].config?.prompt}>
-                        {group.items[0].prompt || group.items[0].config?.prompt || "No prompt"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                // Text/Describe Fallback
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-                    <span className="text-xs text-white/40 uppercase tracking-wider">Image Analysis</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-6">
-                    <div className="col-span-1">
-                      {group.sourceImage && (
-                        <div className="relative aspect-square rounded-sm overflow-hidden border border-white/10 bg-black/15">
-                          <Image
-                            src={group.sourceImage}
-                            alt="Source"
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div className="col-span-4 flex flex-col gap-2">
-                      {group.items.map((result, idx) => (
-                        <TextHistoryCard
-                          key={result.id || `txt-${idx}`}
-                          result={result}
-                          onRegenerate={onRegenerate}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={cn(
       "relative flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-4 pb-32",
       variant === 'default' ? "mt-80" : "mt-4"
     )}>
       <div className={cn(
-        "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-1 space-y-1 w-full mx-auto",
+        layoutMode === 'list'
+          ? "flex flex-col gap-4 w-full mx-auto"
+          : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4 w-full mx-auto",
         variant === 'default' ? "max-w-[1500px]" : "max-w-full"
       )}>
         {groupedHistory.map((group, groupIdx) => (
 
           // 卡片总背景
-          <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-[#1f2b494b]   overflow-hidden ">
+          <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-transparent  overflow-hidden mb-2">
 
-                {group.type === 'image' ? (
-                  // Image Generation Group: Standard header + Grid
-                  <div className="flex flex-col">
-                    {/* 文字区域 - 提示词在上方 */}
-                    {/* <div className="p-4 bg-black/20  m-2 mb-0 rounded-2xl">
-                      <p className="text-sm text-white line-clamp-4 transition-colors cursor-default" title={group.items[0].prompt || group.items[0].config?.prompt}>
-                        {group.items[0].prompt || group.items[0].config?.prompt}
-                      </p>
-                    </div> */}
+            {group.type === 'image' ? (
+              // Image Generation Group: Standard header + Grid
+              <div className="flex flex-col">
 
-                    {/* 图片区域 - 在下方显示，根据数量决定网格 */}
-                    <div className={cn(
-                      "grid  rounded-sm h-auto w-full gap-1",
-                      group.items.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                    )}>
-                      {group.items.map((result, idx) => (
-                        <HistoryCard
-                          key={result.id || result.imageUrl || `img-${idx}`}
-                          result={result}
-                          onRegenerate={onRegenerate}
-                          onDownload={onDownload}
-                          onImageClick={onImageClick}
-                        />
-                      ))}
-                    </div>
-                  </div>
+
+                {/* 图片生成分组内容 */}
+                {layoutMode === 'list' ? (
+                  // List mode: Display the entire group as one single card
+                  <HistoryCard
+                    result={group.items[0]}
+                    allResults={group.items}
+                    onRegenerate={onRegenerate}
+                    onDownload={onDownload}
+                    onImageClick={onImageClick}
+                    layoutMode={layoutMode}
+                  />
                 ) : (
-                  // Text/Describe Group: Unified Grid for Source Image + Text Cards
-                  <div className="flex flex-col">
-                    {/* Describe Group Header */}
-                    <div className="p-4 bg-black/20 border-b border-white/5">
-                      <p className="text-xs text-white/40 uppercase tracking-tighter">Image Analysis</p>
-                    </div>
-
-                    <div className="p-3 flex flex-col gap-3">
-                      {/* Source Image Card */}
-                      <div className="relative aspect-square rounded-sm overflow-hidden border border-white/10 bg-black/15 group">
-                        {group.sourceImage ? (
-                          <Image
-                            src={group.sourceImage}
-                            alt="Source for describe"
-                            fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
-                            className="object-cover"
-                            quality={75}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-white/20">
-                            <ImageIcon className="w-8 h-8" />
-                          </div>
-                        )}
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
-                          Source
-                        </div>
-
-                        {onBatchUse && group.items.length > 0 && (
-                          <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
-                              onClick={() => onBatchUse(group.items, group.sourceImage)}
-                            >
-                              <Layers className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Text Cards */}
-                      <div className="flex flex-col gap-2">
-                        {group.items.map((result, idx) => (
-                          <TextHistoryCard
-                            key={result.id || `txt-${idx}`}
-                            result={result}
-                            onRegenerate={onRegenerate}
-                          />
-                        ))}
-                      </div>
-                    </div>
+                  // Grid mode: individual cards within a visually unified structure
+                  <div className={cn(
+                    "p-2 rounded-2xl h-auto w-full gap-2 grid",
+                    group.items.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                  )}>
+                    {group.items.map((result, idx) => (
+                      <HistoryCard
+                        key={result.id || result.imageUrl || `img-${idx}`}
+                        result={result}
+                        onRegenerate={onRegenerate}
+                        onDownload={onDownload}
+                        onImageClick={onImageClick}
+                        layoutMode={layoutMode}
+                      />
+                    ))}
                   </div>
                 )}
-
               </div>
-            ))}
+            ) : (
+              // Text/Describe Group: Unified Grid for Source Image + Text Cards
+              <div className="flex flex-col">
+                {/* Describe Group Header */}
+                <div className="p-4 bg-black/20 border-b border-white/5">
+                  <p className="text-xs text-white/40 uppercase tracking-tighter">Image Analysis</p>
+                </div>
+
+                <div className="p-3 flex flex-col gap-3">
+                  {/* Source Image Card */}
+                  <div className="relative aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/15 group">
+                    {group.sourceImage ? (
+                      <Image
+                        src={group.sourceImage}
+                        alt="Source for describe"
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
+                        className="object-cover"
+                        quality={75}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white/20">
+                        <ImageIcon className="w-8 h-8" />
+                      </div>
+                    )}
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
+                      Source
+                    </div>
+
+                    {onBatchUse && group.items.length > 0 && (
+                      <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
+                          onClick={() => onBatchUse(group.items, group.sourceImage)}
+                        >
+                          <Layers className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Text Cards */}
+                  <div className="flex flex-col gap-2">
+                    {group.items.map((result, idx) => (
+                      <TextHistoryCard
+                        key={result.id || `txt-${idx}`}
+                        result={result}
+                        onRegenerate={onRegenerate}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        ))}
       </div>
     </div >
   );
@@ -280,24 +210,173 @@ export default function HistoryList({
 
 function HistoryCard({
   result,
+  allResults,
   onRegenerate,
   onDownload,
   onImageClick,
+  layoutMode = 'list',
 }: {
   result: GenerationResult;
+  allResults?: GenerationResult[];
   onRegenerate: (result: GenerationResult) => void;
   onDownload: (imageUrl: string) => void;
   onImageClick: (result: GenerationResult, initialRect?: DOMRect) => void;
+  layoutMode?: 'grid' | 'list';
 }) {
   const [isHover, setIsHover] = React.useState(false);
-  const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
-  const applyModel = usePlaygroundStore(s => s.applyModel);
-  const applyImage = usePlaygroundStore(s => s.applyImage);
+  const { applyPrompt, applyModel, applyImage } = usePlaygroundStore();
+  const { toast } = useToast();
   const mainImage = result.imageUrl || (result.imageUrls && result.imageUrls[0]);
+
+  const config = result.config || result.metadata;
+  const prompt = result.prompt || config?.prompt || '';
+  const timeStr = new Date(result.timestamp).toLocaleString();
+
+  if (layoutMode === 'list') {
+    const resultsToDisplay = allResults || [result];
+
+
+    return (
+      <div className="flex flex-col w-full bg-transparent transition-all mt-16 group/card gap-6">
+        {/* Header: Metadata & Actions */}
+        <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
+          <div className="flex items-center gap-4">
+            <span>{timeStr}</span>
+            <span className="opacity-20">/</span>
+            <span className="text-white/40">{config?.base_model || 'Unknown'}</span>
+            <span className="opacity-20">/</span>
+            <span className="text-white/40">{config?.img_width} x {config?.img_height}</span>
+            {config?.lora && (
+              <>
+                <span className="opacity-20">/</span>
+                <span className="text-emerald-500/60 lowercase font-sans font-medium bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">lora: {config.lora}</span>
+              </>
+            )}
+          </div>
+
+
+        </div>
+
+        {/* Grid: Prompt Card + Images */}
+        <div className={cn(
+          "relative bg-transparent grid grid-cols-5 gap-4 content-start"
+        )}>
+          {/* Prompt slot (styled as a card) */}
+          <div
+            className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col justify-start"
+            style={{ aspectRatio: `${config?.img_width || 1024} / ${config?.img_height || 1024}` }}
+          >
+            <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
+              <span className="block w-1 h-1 rounded-full bg-white/20" />
+              Prompt
+            </div>
+            <p className="text-[11px] text-white/90 leading-relaxed line-clamp-[8]">
+              {prompt}
+            </p>
+
+            <div className="flex absolute  top-2 right-2 items-center gap-2 ">
+              <TooltipButton
+                icon={<Copy className="w-3 h-3" />}
+                label="Copy Prompt"
+                tooltipContent="Copy Prompt"
+                className="w-8 h-8 ml-2 text-white/70"
+                onClick={() => {
+                  navigator.clipboard.writeText(prompt);
+                  toast({
+                    title: "已复制",
+                    description: "提示词已复制到剪贴板",
+                  });
+                }}
+              />
+
+
+            </div>
+
+            <div className="flex absolute  bottom-2 left-1/2 -translate-x-1/2   gap-2 ">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg  border-white/10 bg-white/5 text-white/70 hover:bg-emerald-500/10 hover:border-emerald-500/40 gap-1.5 px-3"
+                onClick={() => onRegenerate(result)}
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span className="text-[10px]">Remix</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white gap-1.5 px-3"
+                onClick={() => {
+                  if (config) {
+                    applyModel(config.base_model || '', config as any);
+                    applyPrompt(prompt);
+                    toast({
+                      title: "参数已回填",
+                      description: "生成参数已应用到当前配置",
+                    });
+                  }
+                }}
+              >
+                <Settings2 className="w-3 h-3" />
+                <span className="text-[10px]">Edit</span>
+              </Button>
+
+            </div>
+          </div>
+          {resultsToDisplay.map((res, idx) => {
+            const img = res.imageUrl || (res.imageUrls && res.imageUrls[0]);
+            return (
+
+
+              <div
+                key={res.id || idx}
+                className="relative w-full overflow-hidden rounded-xl group/img border border-white/5 bg-white/5"
+                style={{ aspectRatio: `${config?.img_width || 1024} / ${config?.img_height || 1024}` }}
+              >
+                {res.isLoading ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-white/10" />
+                  </div>
+                ) : img ? (
+                  <Image
+                    src={img}
+                    alt="Generated image"
+                    fill
+                    sizes="(max-width: 1536px) 50vw, 800px"
+                    className="object-contain cursor-pointer transition-transform duration-500  rounded-xl group-hover/img:scale-[1.05]"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      onImageClick(res, rect);
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white/5">
+                    <ImageIcon className="w-8 h-8" />
+                  </div>
+                )}
+                {/* Individual Actions Overlay */}
+                {!res.isLoading && img && (
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                    <TooltipButton
+                      icon={<Download className="w-3.5 h-3.5" />}
+                      label="Download"
+                      tooltipContent="Download"
+                      className="w-7 h-7 bg-black/60 rounded-lg"
+                      onClick={() => onDownload(img)}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      className="group relative w-full overflow-hidden bg-black/15 rounded-sm border border-white/10 transition-all duration-300 hover:border-white/30"
+      className="group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30"
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
     >
@@ -331,7 +410,7 @@ function HistoryCard({
         )}
       </motion.div>
 
-      <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10  transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
         <TooltipButton
           icon={<Type className="w-4 h-4" />}
           label="Use Prompt"

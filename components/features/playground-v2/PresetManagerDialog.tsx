@@ -5,17 +5,29 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Preset } from './types';
+import { Preset, PRESET_CATEGORIES } from './types';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Plus, Trash2, Save, X, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 
+import { IViewComfy } from '@/lib/providers/view-comfy-provider';
+
 interface PresetManagerDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    workflows: IViewComfy[];
 }
 
-export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange }) => {
+const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', '3D Lemo seed3'];
+
+const BASE_MODEL_LIST = [
+    { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
+    { name: 'flux1-dev-fp8.safetensors', cover: '/basemodels/flux1-dev-fp8.safetensors.jpg' },
+    { name: 'Zimage', cover: '/basemodels/Zimage.jpg' },
+    { name: 'qwen', cover: '/basemodels/qwen.jpg' },
+];
+
+export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows }) => {
     const presets = usePlaygroundStore(s => s.presets);
     const addPreset = usePlaygroundStore(s => s.addPreset);
     const removePreset = usePlaygroundStore(s => s.removePreset);
@@ -31,7 +43,9 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         cover: '',
         width: 1024,
         height: 1024,
-        image_size: '1K'
+        image_size: '1K',
+        workflow_id: undefined,
+        category: 'General'
     });
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string>('');
@@ -44,7 +58,9 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
             cover: '',
             width: 1024,
             height: 1024,
-            image_size: '1K'
+            image_size: '1K',
+            workflow_id: undefined,
+            category: 'General'
         });
         setCoverFile(null);
         setPreviewUrl('');
@@ -126,7 +142,10 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-sm font-medium truncate">{preset.title}</h4>
-                                    <p className="text-xs text-white/40 truncate">{preset.base_model}</p>
+                                    <p className="text-xs text-white/40 truncate">
+                                        <span className="text-emerald-500/70 mr-1">{preset.category || 'General'}</span>
+                                        {preset.base_model}
+                                    </p>
                                 </div>
                                 <Button
                                     variant="ghost"
@@ -161,7 +180,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
                             <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2 col-span-2">
+                                    <div className="space-y-2 col-span-1">
                                         <Label>Preset Title</Label>
                                         <Input
                                             value={formData.title}
@@ -169,6 +188,20 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                             className="bg-black/20 border-white/10 focus-visible:ring-emerald-500/50"
                                             placeholder="e.g. Dreamy Landscape"
                                         />
+                                    </div>
+
+                                    <div className="space-y-2 col-span-1">
+                                        <Label>Category</Label>
+                                        <Select value={formData.category || 'General'} onValueChange={(val) => setFormData({ ...formData, category: val })}>
+                                            <SelectTrigger className="bg-black/20 border-white/10">
+                                                <SelectValue placeholder="Select category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {PRESET_CATEGORIES.map(cat => (
+                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
 
                                     <div className="space-y-2 col-span-2">
@@ -210,6 +243,12 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                 <SelectItem value="Nano banana">Nano banana</SelectItem>
                                                 <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
                                                 <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
+                                                <SelectItem value="Workflow">Workflow</SelectItem>
+                                                {BASE_MODEL_LIST.map(model => (
+                                                    <SelectItem key={model.name} value={model.name}>
+                                                        {model.name}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -227,6 +266,28 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                             </SelectContent>
                                         </Select>
                                     </div>
+
+                                    {!NATIVE_MODELS.includes(formData.base_model || '') && (
+                                        <div className="space-y-2">
+                                            <Label>Workflow</Label>
+                                            <Select
+                                                value={formData.workflow_id || 'default'}
+                                                onValueChange={(val) => setFormData({ ...formData, workflow_id: val === 'default' ? undefined : val })}
+                                            >
+                                                <SelectTrigger className="bg-black/20 border-white/10">
+                                                    <SelectValue placeholder="Select workflow (optional)" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="default">Default Workflow</SelectItem>
+                                                    {workflows.map(workflow => (
+                                                        <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>
+                                                            {workflow.viewComfyJSON.title}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-2 col-span-2">
                                         <Label>Prompt (User Input)</Label>

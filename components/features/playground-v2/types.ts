@@ -21,6 +21,7 @@ export interface GenerationResult {
     img_width?: number;
     img_height?: number;
     lora?: string;
+    ref_image?: string;
   };
   timestamp: string;
   prompt?: string;
@@ -47,7 +48,11 @@ export interface Preset {
   width: number;
   height: number;
   image_size?: '1K' | '2K' | '4K';
+  workflow_id?: string;
+  category?: string;
 }
+
+export const PRESET_CATEGORIES = ['General', 'Portrait', 'Landscape', 'Anime', '3D', 'Architecture', 'Character', 'Workflow', 'Other'];
 
 export interface StyleStack {
   id: string;

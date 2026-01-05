@@ -238,11 +238,10 @@ export default function ControlToolbar({
 
 
 
-      <div className="w-full h-12 flex justify-between items-center gap-2 px-2 py-2 mt-2">
-        <div className="flex items-center gap-2">
-          <ModelDropdown />
-
-          <Button
+      <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
+        <div className="flex justify-start items-center gap-2">
+          <div className="flex items-center gap-2">
+             <Button
             className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
             onClick={onTogglePresetGrid}
           >
@@ -250,16 +249,19 @@ export default function ControlToolbar({
             Presets
             <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
           </Button>
+          <ModelDropdown />
+
+         
 
           {selectedModel === 'Workflow' && (
             <Button variant="outline" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
               {selectedLoraNames.length > 0 ? `LoRA (${selectedLoraNames.length})` : "LoRA"}
             </Button>
           )}
-        </div>
+          </div>
 
-        {/* 尺寸按钮 */}
-        <DropdownMenu>
+          {/* 尺寸按钮 */}
+         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="default" className={Inputbutton2}>
               {currentAspectRatio}
@@ -341,9 +343,9 @@ export default function ControlToolbar({
               </div>
             </div>
           </DropdownMenuContent>
-        </DropdownMenu>
+         </DropdownMenu>
 
-        <div className="flex items-center w-auto gap-2">
+           <div className="flex items-center w-auto gap-2">
           {uploadedImages.length > 0 && (
             <Button
               variant="default"
@@ -375,9 +377,12 @@ export default function ControlToolbar({
             <Sparkles className={cn("w-2 h-2", isMockMode && "animate-pulse")} />
             {isMockMode && <span className="ml-1 text-[10px] font-bold">MOCK</span>}
           </Button>
-        </div>
+          </div>
 
-        <div className="flex items-center gap-2">
+        </div>
+        
+
+        <div className="flex items-center justify-end gap-2">
           {/* Batch Size Selector */}
           <div className="flex items-center bg-black/30 rounded-full border border-white/5 h-10 px-1">
             <Button

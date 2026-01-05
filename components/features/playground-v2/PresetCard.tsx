@@ -12,7 +12,7 @@ interface PresetCardProps {
 export const PresetCard: React.FC<PresetCardProps> = ({ preset, onClick }) => {
     return (
         <motion.div
-            className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer group"
+            className="relative w-full aspect-[1/1] rounded-2xl overflow-hidden cursor-pointer group"
 
 
             onClick={() => onClick(preset)}

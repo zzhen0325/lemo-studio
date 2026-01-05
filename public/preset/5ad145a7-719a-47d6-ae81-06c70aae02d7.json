@@ -1,0 +1,12 @@
+{
+  "title": "标准文生图",
+  "prompt": " ",
+  "base_model": "flux1-dev-fp8.safetensors",
+  "cover": "/preset/5ad145a7-719a-47d6-ae81-06c70aae02d7.png",
+  "width": 1024,
+  "height": 1024,
+  "image_size": "1K",
+  "workflow_id": "wf_标准文生图",
+  "category": "Workflow",
+  "id": "5ad145a7-719a-47d6-ae81-06c70aae02d7"
+}

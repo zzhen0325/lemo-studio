@@ -20,11 +20,11 @@ import ImageEditorModal from "@/components/features/playground-v2/ImageEditorMod
 import WorkflowSelectorDialog from "@/components/features/playground-v2/WorkflowSelectorDialog";
 import BaseModelSelectorDialog from "@/components/features/playground-v2/BaseModelSelectorDialog";
 import LoraSelectorDialog, { SelectedLora } from "@/components/features/playground-v2/LoraSelectorDialog";
-import { PresetCarousel } from "@/components/features/playground-v2/PresetCarousel";
 import { PresetManagerDialog } from "@/components/features/playground-v2/PresetManagerDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
+import type { Preset } from "@/components/features/playground-v2/types";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -62,7 +62,6 @@ export interface PlaygroundV2PageProps {
 
 export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   onEditMapping,
-  onGenerate,
 }: PlaygroundV2PageProps) {
 
   const { toast } = useToast();
@@ -77,7 +76,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setSelectedWorkflowConfig = usePlaygroundStore(s => s.setSelectedWorkflowConfig);
   const selectedLoras = usePlaygroundStore(s => s.selectedLoras);
   const setSelectedLoras = usePlaygroundStore(s => s.setSelectedLoras);
-  const presets = usePlaygroundStore(s => s.presets);
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
@@ -129,11 +127,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isStackHovered, setIsStackHovered] = useState(false);
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isPresetGridOpen, setIsPresetGridOpen] = useState(false);
-  const [isPresetExpanded] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
   const [showGallery, setShowGallery] = useState(true); // 独立控制Gallery面板显示
-  const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('grid');
+  const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
   const [batchSize, setBatchSize] = useState(4); // Default batch size
   const showHistory = usePlaygroundStore(s => s.showHistory);
   const setShowHistory = usePlaygroundStore(s => s.setShowHistory);
@@ -393,19 +390,21 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const handleGenerate = async (configOverride?: GenerationConfig) => {
     // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
     const effectiveBatchSize = configOverride ? 1 : batchSize;
-    
-    // Launch multiple generation tasks in parallel
-    const promises = Array.from({ length: effectiveBatchSize }).map((_, index) => {
+
+    // Launch multiple generation tasks
+    const promises = Array.from({ length: effectiveBatchSize }).map(async (_, index) => {
       // Add a small delay for each task to avoid hitting rate limits or race conditions
-      return new Promise<void>(resolve => {
-        setTimeout(() => {
-          singleGenerate(configOverride);
-          resolve();
-        }, index * 300); // 300ms stagger
-      });
+      if (index > 0) {
+        await new Promise(resolve => setTimeout(resolve, index * 300));
+      }
+      return await singleGenerate(configOverride);
     });
 
-    await Promise.all(promises);
+    try {
+      await Promise.all(promises);
+    } catch (error) {
+      console.error("Batch generation failed:", error);
+    }
   };
   const { optimizePrompt, isOptimizing } = usePromptOptimization({ systemInstruction: baseSystemInstruction });
 
@@ -464,15 +463,41 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
   const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, img_width: newWidth, img_height: newHeight })); } else { setConfig(prev => ({ ...prev, img_width: newWidth })); } };
   const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, img_height: newHeight, img_width: newWidth })); } else { setConfig(prev => ({ ...prev, img_height: newHeight })); } };
-  const handlePresetSelect = (preset: { prompt: string; width: number; height: number; base_model: string; image_size?: '1K' | '2K' | '4K' }) => {
-    setConfig({
-      ...config,
-      prompt: preset.prompt,
-      img_width: preset.width,
-      img_height: preset.height,
-      base_model: preset.base_model,
-      image_size: preset.image_size
-    });
+  const handlePresetSelect = (preset: Preset) => {
+    // If it's a workflow preset, find and select the workflow first
+    if (preset.workflow_id) {
+      const workflow = workflows.find(w => w.viewComfyJSON.id === preset.workflow_id);
+      if (workflow) {
+        setSelectedWorkflowConfig(workflow);
+        setSelectedModel('Workflow');
+        // Apply fixed config from preset
+        setConfig({
+          ...config,
+          prompt: preset.prompt,
+          img_width: preset.width,
+          img_height: preset.height,
+          base_model: preset.base_model || 'Workflow',
+          image_size: preset.image_size
+        });
+        // Then apply remaining defaults from workflow (loras, etc)
+        applyWorkflowDefaults(workflow);
+      }
+    } else {
+      // Regular preset
+      setConfig({
+        ...config,
+        prompt: preset.prompt,
+        img_width: preset.width,
+        img_height: preset.height,
+        base_model: preset.base_model,
+        image_size: preset.image_size
+      });
+      setSelectedWorkflowConfig(undefined);
+      if (preset.base_model !== config.base_model) {
+        setSelectedModel(preset.base_model);
+      }
+    }
+
     setIsPresetGridOpen(false);
   };
   const handleOptimizePrompt = async () => {
@@ -1044,7 +1069,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       className="mt-6 flex-1 overflow-hidden min-h-0 relative z-10"
                     >
 
-                      <div className="bg-black/20  border border-white/5 rounded-3xl p-2 h-full flex flex-col shadow-2xl relative">
+                      <div className="bg-transparent h-full flex flex-col relative">
                         {/* Header Actions: Layout Toggle & Collapse */}
                         <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
                           {/* Layout Toggle */}
@@ -1089,12 +1114,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
                         <HistoryList
                           variant="sidebar"
-                          layoutMode={historyLayoutMode}
                           history={generationHistory}
                           onRegenerate={handleRegenerate}
                           onDownload={handleDownload}
                           onImageClick={openImageModal}
                           onBatchUse={handleBatchUse}
+                          layoutMode={historyLayoutMode}
                         />
                       </div>
                     </motion.div>
@@ -1156,7 +1181,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 )
               )}
 
-              {!isDashboardActive && (
+              {!isDashboardActive && !isPresetGridOpen && !isPresetManagerOpen && (
                 <div className="w-full mt-auto z-20 overflow-visible mb-4 shrink-0">
                   <StylesMarquee />
                 </div>
@@ -1189,7 +1214,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
           <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.base_model || selectedModel} onConfirm={(m) => updateConfig({ base_model: m })} />
           <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />
-          <PresetManagerDialog open={isPresetManagerOpen} onOpenChange={setIsPresetManagerOpen} />
+          <PresetManagerDialog
+            open={isPresetManagerOpen}
+            onOpenChange={setIsPresetManagerOpen}
+            workflows={workflows}
+          />
         </main>
       </div>
     </div>

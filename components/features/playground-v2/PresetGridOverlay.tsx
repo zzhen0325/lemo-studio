@@ -5,22 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Settings, LayoutTemplate } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { Preset } from './types';
+import { Preset, PRESET_CATEGORIES } from './types';
 import GradualBlur from "@/components/common/graphics/GradualBlur";
 
 interface PresetGridOverlayProps {
     onOpenManager: () => void;
     onSelectPreset: (preset: Preset) => void;
+    externalPresets?: Preset[];
 }
 
-const CATEGORIES = ["All", "Lemo", "Banner", "Illustrator"];
+const CATEGORIES = ["All", ...PRESET_CATEGORIES];
 
-export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenManager, onSelectPreset }) => {
-    const presets = usePlaygroundStore(s => s.presets);
+export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenManager, onSelectPreset, externalPresets }) => {
+    const storePresets = usePlaygroundStore(s => s.presets);
+    const presets = externalPresets || storePresets;
     const [activeCategory, setActiveCategory] = useState("All");
 
-    // Filter logic (mock for now as per instructions, can be expanded later)
-    const filteredPresets = presets;
+    // Filter logic
+    const filteredPresets = activeCategory === "All" 
+        ? presets 
+        : presets.filter(p => (p.category || 'General') === activeCategory);
 
     return (
         <motion.div

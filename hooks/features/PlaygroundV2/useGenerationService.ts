@@ -1,6 +1,5 @@
 "use client";
 
-import { useTransition } from "react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
@@ -11,7 +10,6 @@ import { usePostPlayground } from "@/hooks/features/playground/use-post-playgrou
 
 export function useGenerationService() {
     const { toast } = useToast();
-    const [isPending, startTransition] = useTransition();
 
     const selectedModel = usePlaygroundStore(s => s.selectedModel);
     const selectedWorkflowConfig = usePlaygroundStore(s => s.selectedWorkflowConfig);
@@ -20,7 +18,7 @@ export function useGenerationService() {
     const setHasGenerated = usePlaygroundStore(s => s.setHasGenerated);
 
     const { callImage, isLoading: isAIProcessing } = useAIService();
-    const { doPost: runComfyWorkflow } = usePostPlayground();
+    const { doPost: runComfyWorkflow, loading: isWorkflowProcessing } = usePostPlayground();
 
     // Helper: URL to DataURL
     const blobToDataURL = (blob: Blob) => new Promise<string>((resolve) => {
@@ -79,48 +77,53 @@ export function useGenerationService() {
             return;
         }
 
-        startTransition(async () => {
-            setHasGenerated(true);
-            const taskId = Date.now().toString() + Math.random().toString(36).substring(2, 7);
+        // Set state to indicate generation has started
+        setHasGenerated(true);
+        const taskId = Date.now().toString() + Math.random().toString(36).substring(2, 7);
 
-            const loadingResult: GenerationResult = {
-                id: taskId,
-                imageUrl: "",
-                prompt: finalConfig.prompt,
-                config: { ...finalConfig, base_model: finalConfig.base_model || selectedModel },
-                timestamp: new Date().toISOString(),
-                isLoading: true
-            };
+        const loadingResult: GenerationResult = {
+            id: taskId,
+            imageUrl: "",
+            prompt: finalConfig.prompt,
+            config: { ...finalConfig, base_model: finalConfig.base_model || selectedModel },
+            timestamp: new Date().toISOString(),
+            isLoading: true
+        };
 
-            setGenerationHistory(prev => [loadingResult, ...prev]);
+        // Use standard state update for history
+        setGenerationHistory(prev => [loadingResult, ...prev]);
 
-            try {
-                if (isMockMode) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
-                    const result: GenerationResult = {
-                        id: taskId,
-                        imageUrl: mockImageUrl,
-                        savedPath: mockImageUrl,
-                        prompt: finalConfig.prompt,
-                        config: { ...finalConfig },
-                        timestamp: new Date().toISOString(),
-                    };
-                    updateHistoryAndSave(taskId, result);
-                    return;
-                }
-
-                if (selectedModel === "Workflow") {
-                    await handleWorkflow(taskId, finalConfig);
-                } else {
-                    await handleUnifiedImageGen(taskId, finalConfig);
-                }
-            } catch (err) {
-                console.error("Generation failed:", err);
-                setGenerationHistory(prev => prev.filter(item => item.id !== taskId));
-                toast({ title: "生成失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
+        try {
+            if (isMockMode) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
+                const result: GenerationResult = {
+                    id: taskId,
+                    imageUrl: mockImageUrl,
+                    savedPath: mockImageUrl,
+                    prompt: finalConfig.prompt,
+                    config: { ...finalConfig },
+                    timestamp: new Date().toISOString(),
+                };
+                updateHistoryAndSave(taskId, result);
+                return;
             }
-        });
+
+            if (selectedModel === "Workflow") {
+                await handleWorkflow(taskId, finalConfig);
+            } else {
+                await handleUnifiedImageGen(taskId, finalConfig);
+            }
+        } catch (err) {
+            console.error("Generation failed:", err);
+            // Cleanup on failure
+            setGenerationHistory(prev => prev.filter(item => item.id !== taskId));
+            toast({
+                title: "生成失败",
+                description: err instanceof Error ? err.message : "未知错误",
+                variant: "destructive"
+            });
+        }
     };
 
     const updateHistoryAndSave = (taskId: string, result: GenerationResult) => {
@@ -181,7 +184,7 @@ export function useGenerationService() {
                 const title = item.title || "";
                 if (/prompt|文本|提示/i.test(title)) return { key: item.key, value: currentConfig.prompt };
                 if (/width/i.test(title)) return { key: item.key, value: currentConfig.img_width };
-                if (/height/i.test(title)) return { key: item.key, value: currentConfig.image_height };
+                if (/height/i.test(title)) return { key: item.key, value: currentConfig.img_height };
                 return { key: item.key, value: item.value };
             });
         }
@@ -207,6 +210,6 @@ export function useGenerationService() {
 
     return {
         handleGenerate,
-        isGenerating: isPending || isAIProcessing
+        isGenerating: isAIProcessing || isWorkflowProcessing
     };
 }

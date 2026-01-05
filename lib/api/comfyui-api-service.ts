@@ -50,9 +50,9 @@ export class ComfyUIAPIService {
 
     constructor(clientId: string, config?: ComfyUIAPIServiceConfig) {
         this.apiKey = config?.apiKey;
-        
+
         let url = config?.comfyUrl || process.env.COMFYUI_API_URL || "127.0.0.1:8188";
-        
+
         // Basic protocol handling
         if (url.startsWith("https://")) {
             this.secure = true;
@@ -66,12 +66,12 @@ export class ComfyUIAPIService {
 
         this.httpBaseUrl = this.secure ? "https://" : "http://";
         this.wsBaseUrl = this.secure ? "wss://" : "ws://";
-        
+
         // Remove trailing slash if present
         if (url.endsWith("/")) {
             url = url.slice(0, -1);
         }
-        
+
         this.baseUrl = url;
         this.clientId = clientId;
         try {
@@ -109,7 +109,17 @@ export class ComfyUIAPIService {
         }
     }
 
-    private comfyEventDataHandler(eventData: string) {
+    private comfyEventDataHandler(eventData: unknown) {
+        if (typeof eventData !== 'string') {
+            // Skip binary data (like preview images) for now
+            return;
+        }
+
+        // Defensive check for common stringification errors
+        if (eventData === '[object Blob]' || eventData === '[object Object]') {
+            return;
+        }
+
         let event: IComfyUIWSEventData | undefined;
         try {
             event = JSON.parse(eventData) as IComfyUIWSEventData;
