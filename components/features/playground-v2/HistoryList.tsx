@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Check, Layers } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Check, Layers, Calendar, Maximize, Cpu } from "lucide-react";
 import { GenerationResult } from '@/components/features/playground-v2/types';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -16,6 +16,7 @@ interface HistoryListProps {
   onImageClick: (result: GenerationResult, initialRect?: DOMRect) => void;
   isGenerating?: boolean;
   variant?: 'default' | 'sidebar';
+  layoutMode?: 'grid' | 'list';
   onBatchUse?: (results: GenerationResult[], sourceImage?: string) => void;
 }
 
@@ -32,6 +33,7 @@ export default function HistoryList({
   onDownload,
   onImageClick,
   variant = 'default',
+  layoutMode = 'grid',
   onBatchUse,
 }: HistoryListProps) {
 
@@ -69,33 +71,138 @@ export default function HistoryList({
 
   if (history.length === 0) return null;
 
+  if (layoutMode === 'list') {
+    return (
+      <div className={cn(
+        "relative flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-4 pb-32",
+        variant === 'default' ? "mt-80" : "mt-4"
+      )}>
+        <div className={cn(
+          "flex flex-col gap-4 w-full mx-auto",
+          variant === 'default' ? "max-w-[1500px]" : "max-w-full"
+        )}>
+          {groupedHistory.map((group, groupIdx) => (
+            <div key={`group-${groupIdx}`} className="bg-[#1f2b494b] border border-white/5 rounded-xl p-4 overflow-hidden">
+              {group.type === 'image' ? (
+                <div className="grid grid-cols-5 gap-6 w-full">
+                  {/* Left 4 cols: Images */}
+                  <div className="col-span-4 grid grid-cols-4 gap-2">
+                    {Array.from({ length: 4 }).map((_, idx) => {
+                      const result = group.items[idx];
+                      return (
+                        <div key={idx} className="aspect-square w-full">
+                          {result ? (
+                            <HistoryCard
+                              result={result}
+                              onRegenerate={onRegenerate}
+                              onDownload={onDownload}
+                              onImageClick={onImageClick}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-white/5 rounded-sm border border-white/5" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right 1 col: Metadata */}
+                  <div className="col-span-1 flex flex-col gap-4 min-w-0">
+                    {/* Time */}
+                    <div className="flex items-center gap-2 text-white/40 text-xs">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{new Date(group.items[0].timestamp).toLocaleString()}</span>
+                    </div>
+
+                    {/* Size */}
+                    <div className="flex items-center gap-2 text-white/40 text-xs">
+                      <Maximize className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{group.items[0].config?.img_width || 1024} x {group.items[0].config?.img_height || 1024}</span>
+                    </div>
+
+                    {/* Model */}
+                    <div className="flex items-center gap-2 text-white/40 text-xs">
+                      <Cpu className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate" title={group.items[0].config?.base_model}>{group.items[0].config?.base_model || 'Unknown Model'}</span>
+                    </div>
+
+                    {/* Prompt */}
+                    <div className="mt-2 p-3 bg-black/20 rounded-lg border border-white/5 flex-1 overflow-hidden flex flex-col">
+                      <div className="flex items-center gap-2 mb-2 shrink-0">
+                        <Type className="w-3 h-3 text-white/40" />
+                        <span className="text-[10px] text-white/40 uppercase tracking-wider">Prompt</span>
+                      </div>
+                      <p className="text-xs text-white/70 leading-relaxed line-clamp-[6] break-words" title={group.items[0].prompt || group.items[0].config?.prompt}>
+                        {group.items[0].prompt || group.items[0].config?.prompt || "No prompt"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Text/Describe Fallback
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-white/5">
+                    <span className="text-xs text-white/40 uppercase tracking-wider">Image Analysis</span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-6">
+                    <div className="col-span-1">
+                      {group.sourceImage && (
+                        <div className="relative aspect-square rounded-sm overflow-hidden border border-white/10 bg-black/15">
+                          <Image
+                            src={group.sourceImage}
+                            alt="Source"
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="col-span-4 flex flex-col gap-2">
+                      {group.items.map((result, idx) => (
+                        <TextHistoryCard
+                          key={result.id || `txt-${idx}`}
+                          result={result}
+                          onRegenerate={onRegenerate}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
       "relative flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-4 pb-32",
       variant === 'default' ? "mt-80" : "mt-4"
     )}>
       <div className={cn(
-        "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4 w-full mx-auto",
+        "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-1 space-y-1 w-full mx-auto",
         variant === 'default' ? "max-w-[1500px]" : "max-w-full"
       )}>
         {groupedHistory.map((group, groupIdx) => (
 
           // 卡片总背景
-          <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-[#1f2b494b] border border-white/20 rounded-3xl overflow-hidden mb-2">
+          <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-[#1f2b494b]   overflow-hidden ">
 
                 {group.type === 'image' ? (
                   // Image Generation Group: Standard header + Grid
                   <div className="flex flex-col">
                     {/* 文字区域 - 提示词在上方 */}
-                    <div className="p-4 bg-black/20  m-2 mb-0 rounded-2xl">
+                    {/* <div className="p-4 bg-black/20  m-2 mb-0 rounded-2xl">
                       <p className="text-sm text-white line-clamp-4 transition-colors cursor-default" title={group.items[0].prompt || group.items[0].config?.prompt}>
                         {group.items[0].prompt || group.items[0].config?.prompt}
                       </p>
-                    </div>
+                    </div> */}
 
                     {/* 图片区域 - 在下方显示，根据数量决定网格 */}
                     <div className={cn(
-                      "grid p-2 rounded-2xl h-auto w-full gap-4",
+                      "grid  rounded-sm h-auto w-full gap-1",
                       group.items.length === 1 ? "grid-cols-1" : "grid-cols-2"
                     )}>
                       {group.items.map((result, idx) => (
@@ -119,7 +226,7 @@ export default function HistoryList({
 
                     <div className="p-3 flex flex-col gap-3">
                       {/* Source Image Card */}
-                      <div className="relative aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/15 group">
+                      <div className="relative aspect-square rounded-sm overflow-hidden border border-white/10 bg-black/15 group">
                         {group.sourceImage ? (
                           <Image
                             src={group.sourceImage}
@@ -190,7 +297,7 @@ function HistoryCard({
 
   return (
     <div
-      className="group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30"
+      className="group relative w-full overflow-hidden bg-black/15 rounded-sm border border-white/10 transition-all duration-300 hover:border-white/30"
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
     >
@@ -224,7 +331,7 @@ function HistoryCard({
         )}
       </motion.div>
 
-      <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10  transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
         <TooltipButton
           icon={<Type className="w-4 h-4" />}
           label="Use Prompt"

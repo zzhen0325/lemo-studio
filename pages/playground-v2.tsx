@@ -28,7 +28,7 @@ import type { UIComponent } from "@/types/features/mapping-editor";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { X, Plus, Sparkles, History } from "lucide-react";
+import { X, Plus, Sparkles, History, PanelRightOpen, LayoutGrid, List } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
@@ -132,12 +132,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isPresetExpanded] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
+  const [showGallery, setShowGallery] = useState(true); // 独立控制Gallery面板显示
+  const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('grid');
+  const [batchSize, setBatchSize] = useState(4); // Default batch size
   const showHistory = usePlaygroundStore(s => s.showHistory);
   const setShowHistory = usePlaygroundStore(s => s.setShowHistory);
 
   useEffect(() => {
     if (showHistory) {
       projectStore.toggleSidebar(true);
+      setShowGallery(true); // 当显示历史记录时，同步显示Gallery
     }
   }, [showHistory]);
 
@@ -382,8 +386,27 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingImageUrl, setEditingImageUrl] = useState<string>("");
 
-  const { handleGenerate, isGenerating } = useGenerationService();
+  const { handleGenerate: singleGenerate, isGenerating } = useGenerationService();
   const { callVision } = useAIService();
+
+  // Wrapper for batch generation
+  const handleGenerate = async (configOverride?: GenerationConfig) => {
+    // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
+    const effectiveBatchSize = configOverride ? 1 : batchSize;
+    
+    // Launch multiple generation tasks in parallel
+    const promises = Array.from({ length: effectiveBatchSize }).map((_, index) => {
+      // Add a small delay for each task to avoid hitting rate limits or race conditions
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          singleGenerate(configOverride);
+          resolve();
+        }, index * 300); // 300ms stagger
+      });
+    });
+
+    await Promise.all(promises);
+  };
   const { optimizePrompt, isOptimizing } = usePromptOptimization({ systemInstruction: baseSystemInstruction });
 
   const handleFilesUpload = async (files: File[] | FileList) => {
@@ -815,12 +838,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               const ar = getCurrentAspectRatio();
               const resolution = AR_MAP[ar]?.[size];
               if (resolution) {
-                updateConfig({ image_size: size, img_width: resolution.w, img_height: resolution.h });
+                updateConfig({
+                  img_width: resolution.w,
+                  img_height: resolution.h,
+                  image_size: size
+                });
               }
             }}
             isAspectRatioLocked={isAspectRatioLocked}
             onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
-            onGenerate={() => { onGenerate?.(); handleGenerate(); }}
+            onGenerate={() => { handleGenerate(); }}
             isGenerating={isGenerating}
             uploadedImagesCount={uploadedImages.length}
             loadingText={selectedModel === "Seed 4.0" ? "Seed 4.0 生成中..." : "生成中..."}
@@ -841,6 +868,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             uploadedImages={uploadedImages}
             isPresetGridOpen={isPresetGridOpen}
             onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
+            batchSize={batchSize}
+            onBatchSizeChange={setBatchSize}
           />
           {/* 
           预设按钮
@@ -885,7 +914,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               </Button>
             </div> */}
 
-           
+
           </div>
         </div>
       </div>
@@ -918,7 +947,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     transition={{ duration: 0.3 }}
                     className="absolute inset-0"
                   >
-                  
+
 
                     {/* <video
                       src="/images/1.mp4"
@@ -941,7 +970,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
-                    
+
                   >
                     {/* <Image
                       src="/images/112.jpg"
@@ -951,10 +980,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       priority
                     /> */}
                     {/* bg-gradient-to-b from-[#56bbff] via-[#fbfeff] to-[#fff7ef] */}
-                    <div className="absolute inset-0 " 
-                    style={{
-                      background: "linear-gradient(180deg, #0F0F15 0%, #131718 33.12%, #1079BB 62.71%, #FBC6E2 82.24%, #D8C6B8 94.52%, #EB9469 100%)",
-                    }}/>
+                    <div className="absolute inset-0 "
+                      style={{
+                        background: "linear-gradient(180deg, #0F0F15 0%, #131718 33.12%, #1079BB 62.71%, #FBC6E2 82.24%, #D8C6B8 94.52%, #EB9469 100%)",
+                      }} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -972,7 +1001,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               <div className={cn(
                 "flex flex-col",
                 isDashboardActive
-                  ? "w-[60vw]  py-6 h-full"
+                  ? cn("py-6 h-full transition-all duration-300", showGallery ? "w-[60vw]" : "flex-1")
                   : "w-full  mt-[30vh]"
               )}>
                 {/* Input UI */}
@@ -1016,8 +1045,36 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     >
 
                       <div className="bg-black/20  border border-white/5 rounded-3xl p-2 h-full flex flex-col shadow-2xl relative">
-                        {/* Collapse Button in top-right */}
-                        <div className="absolute top-6 right-8 z-30">
+                        {/* Header Actions: Layout Toggle & Collapse */}
+                        <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
+                          {/* Layout Toggle */}
+                          <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
+                            <button
+                              onClick={() => setHistoryLayoutMode('grid')}
+                              className={cn(
+                                "p-1.5 rounded-md transition-all",
+                                historyLayoutMode === 'grid'
+                                  ? "bg-white/10 text-white"
+                                  : "text-white/40 hover:text-white hover:bg-white/5"
+                              )}
+                              title="Grid View"
+                            >
+                              <LayoutGrid className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setHistoryLayoutMode('list')}
+                              className={cn(
+                                "p-1.5 rounded-md transition-all",
+                                historyLayoutMode === 'list'
+                                  ? "bg-white/10 text-white"
+                                  : "text-white/40 hover:text-white hover:bg-white/5"
+                              )}
+                              title="List View"
+                            >
+                              <List className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
                           <button
                             onClick={() => {
                               setShowHistory(false);
@@ -1032,6 +1089,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
                         <HistoryList
                           variant="sidebar"
+                          layoutMode={historyLayoutMode}
                           history={generationHistory}
                           onRegenerate={handleRegenerate}
                           onDownload={handleDownload}
@@ -1046,45 +1104,56 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
               {/* Right Side: Gallery Module - Only show in active mode */}
               {isDashboardActive && (
-                <div className="flex-1 shrink-0 py-6 flex flex-col">
-                  <div className="bg-black/80  border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden">
-                    {/* Tab Switcher Header */}
-                    <div className="flex items-center justify-between p-4 sticky top-0 z-10">
-                      <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
-                        {(['gallery', 'styles'] as const).map(tab => (
-                          <button
-                            key={tab}
-                            onClick={() => setActiveGalleryTab(tab)}
-                            className={cn(
-                              "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
-                              activeGalleryTab === tab
-                                ? "bg-primary text-black shadow-lg"
-                                : "text-white/50 hover:text-white hover:bg-white/10"
-                            )}
-                          >
-                            {tab === 'gallery' && "全部作品"}
-                            {tab === 'styles' && "Style"}
-                          </button>
-                        ))}
+                showGallery ? (
+                  <div className="flex-1 shrink-0 py-6 flex flex-col">
+                    <div className="bg-black/80  border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden">
+                      {/* Tab Switcher Header */}
+                      <div className="flex items-center justify-between p-4 sticky top-0 z-10">
+                        <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
+                          {(['gallery', 'styles'] as const).map(tab => (
+                            <button
+                              key={tab}
+                              onClick={() => setActiveGalleryTab(tab)}
+                              className={cn(
+                                "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
+                                activeGalleryTab === tab
+                                  ? "bg-primary text-black shadow-lg"
+                                  : "text-white/50 hover:text-white hover:bg-white/10"
+                              )}
+                            >
+                              {tab === 'gallery' && "全部作品"}
+                              {tab === 'styles' && "Style"}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setShowGallery(false); // 只收起Gallery面板
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>收起</span>
+                        </button>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          setShowHistory(false);
-                          setHasGenerated(false);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        <span>收起</span>
-                      </button>
-                    </div>
-
-                    <div className="flex-1 min-h-0">
-                      <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
+                      <div className="flex-1 min-h-0">
+                        <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="py-6 flex flex-col items-center">
+                    <button
+                      onClick={() => setShowGallery(true)}
+                      className="flex items-center justify-center w-10 h-10 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                      title="展开"
+                    >
+                      <PanelRightOpen className="w-5 h-5" />
+                    </button>
+                  </div>
+                )
               )}
 
               {!isDashboardActive && (

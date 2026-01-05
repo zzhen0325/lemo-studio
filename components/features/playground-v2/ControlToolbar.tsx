@@ -3,7 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Wand2, ChevronDown, Link, Unlink, Sparkles, LayoutTemplate } from "lucide-react";
+import { Loader2, Wand2, ChevronDown, Link, Unlink, Sparkles, LayoutTemplate, Plus, Minus } from "lucide-react";
 
 
 import { cn } from "@/lib/utils";
@@ -55,6 +55,8 @@ interface ControlToolbarProps {
   uploadedImages: UploadedImage[];
   isPresetGridOpen?: boolean;
   onTogglePresetGrid?: () => void;
+  batchSize?: number;
+  onBatchSizeChange?: (size: number) => void;
 }
 
 
@@ -93,6 +95,8 @@ export default function ControlToolbar({
   uploadedImages = [],
   isPresetGridOpen = false,
   onTogglePresetGrid,
+  batchSize = 1,
+  onBatchSizeChange,
 }: ControlToolbarProps) {
 
 
@@ -373,32 +377,59 @@ export default function ControlToolbar({
           </Button>
         </div>
 
-        <div className="relative ml-auto rounded-full">
-          <Button
-            onClick={onGenerate}
-            className="relative z-10 w-auto h-10 px-6 rounded-full text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center gap-2 border-[2px] border-transparent transition-all duration-300 hover:animate-border-rotate"
-            style={{
-              // backgroundImage: `
-              //   linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
-              //   linear-gradient(black, black),
-              //  conic-gradient(from var(--angle), #223895 0deg, #93a7fe 17%, #3a5efb 35%, #3a5efb 51%, #93a7ff 68%, #223895 84%) 
-              // `,
-              backgroundClip: 'padding-box, padding-box, border-box',
-              backgroundOrigin: 'border-box',
-            }}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {loadingText}
-              </>
-            ) : (
-              <>
-                <Wand2 className="w-4 h-4" />
-                Generate
-              </>
-            )}
-          </Button>
+        <div className="flex items-center gap-2">
+          {/* Batch Size Selector */}
+          <div className="flex items-center bg-black/30 rounded-full border border-white/5 h-10 px-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 rounded-full hover:bg-white/10 text-white/60 hover:text-white"
+              onClick={() => onBatchSizeChange?.(Math.max(1, batchSize - 1))}
+              disabled={batchSize <= 1 || isGenerating}
+            >
+              <Minus className="w-3 h-3" />
+            </Button>
+            <div className="w-8 text-center text-sm font-medium text-white select-none">
+              {batchSize}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 rounded-full hover:bg-white/10 text-white/60 hover:text-white"
+              onClick={() => onBatchSizeChange?.(Math.min(10, batchSize + 1))}
+              disabled={batchSize >= 10 || isGenerating}
+            >
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+
+          <div className="relative rounded-full">
+            <Button
+              onClick={onGenerate}
+              className="relative z-10 w-auto h-10 px-6 rounded-full text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center gap-2 border-[2px] border-transparent transition-all duration-300 hover:animate-border-rotate"
+              style={{
+                // backgroundImage: `
+                //   linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
+                //   linear-gradient(black, black),
+                //  conic-gradient(from var(--angle), #223895 0deg, #93a7fe 17%, #3a5efb 35%, #3a5efb 51%, #93a7ff 68%, #223895 84%) 
+                // `,
+                backgroundClip: 'padding-box, padding-box, border-box',
+                backgroundOrigin: 'border-box',
+              }}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {loadingText}
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-4 h-4" />
+                  Generate {batchSize > 1 ? `(${batchSize})` : ''}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
       <AnimatePresence>
