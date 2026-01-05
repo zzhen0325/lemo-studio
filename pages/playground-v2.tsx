@@ -1049,7 +1049,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 <div className="flex-1 shrink-0 py-6 flex flex-col">
                   <div className="bg-black/80  border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden">
                     {/* Tab Switcher Header */}
-                    <div className="flex items-center gap-1 p-4 sticky top-0 z-10">
+                    <div className="flex items-center justify-between p-4 sticky top-0 z-10">
                       <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
                         {(['gallery', 'styles'] as const).map(tab => (
                           <button
@@ -1067,6 +1067,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           </button>
                         ))}
                       </div>
+
+                      <button
+                        onClick={() => {
+                          setShowHistory(false);
+                          setHasGenerated(false);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>收起</span>
+                      </button>
                     </div>
 
                     <div className="flex-1 min-h-0">

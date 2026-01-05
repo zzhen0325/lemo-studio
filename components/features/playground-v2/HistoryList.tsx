@@ -35,39 +35,18 @@ export default function HistoryList({
   onBatchUse,
 }: HistoryListProps) {
 
-  // Group history by date, then by type & key
+  // Group history by type & key
   const groupedHistory = React.useMemo(() => {
-    const dateGroups: { [key: string]: GroupedHistoryItem[] } = {};
+    const groups: GroupedHistoryItem[] = [];
 
     history.forEach((result) => {
-      const date = new Date(result.timestamp);
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-      let title = "";
-      if (itemDate.getTime() === today.getTime()) {
-        title = "Today";
-      } else if (itemDate.getTime() === yesterday.getTime()) {
-        title = "Yesterday";
-      } else {
-        title = itemDate.toLocaleDateString();
-      }
-
-      if (!dateGroups[title]) {
-        dateGroups[title] = [];
-      }
-
       const type = result.type || 'image';
       // Support both flat prompt (from history.json) and config.prompt (live generation)
       const promptValue = result.prompt || result.config?.prompt || "未知分组";
       const key = type === 'text' ? (result.sourceImage || "Unknown") : promptValue;
 
       // Find existing group for the same type (image/text), key and within a small time window (e.g. 1m)
-      const existingGroup = dateGroups[title].find(g =>
+      const existingGroup = groups.find(g =>
         g.type === type &&
         g.key === key &&
         Math.abs(new Date(g.items[0].timestamp).getTime() - new Date(result.timestamp).getTime()) < 60000
@@ -76,7 +55,7 @@ export default function HistoryList({
       if (existingGroup) {
         existingGroup.items.push(result);
       } else {
-        dateGroups[title].push({
+        groups.push({
           type,
           key,
           items: [result],
@@ -85,7 +64,7 @@ export default function HistoryList({
       }
     });
 
-    return dateGroups;
+    return groups;
   }, [history]);
 
   if (history.length === 0) return null;
@@ -95,26 +74,22 @@ export default function HistoryList({
       "relative flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-4 pb-32",
       variant === 'default' ? "mt-80" : "mt-4"
     )}>
-      {Object.entries(groupedHistory).map(([dateTitle, groups]) => (
-        <div key={dateTitle} className={cn(
-          "flex flex-col mb-12 w-full mx-auto",
-          variant === 'default' ? "max-w-[1500px]" : "max-w-full"
-        )}>
-          <h3 className="text-sm font-medium text-white/50 mb-6 uppercase tracking-wider border-l-2 border-white/10 ml-1 pl-3">{dateTitle}</h3>
+      <div className={cn(
+        "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4 w-full mx-auto",
+        variant === 'default' ? "max-w-[1500px]" : "max-w-full"
+      )}>
+        {groupedHistory.map((group, groupIdx) => (
 
-          <div className="columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4">
-            {groups.map((group, groupIdx) => (
-
-              // 卡片总背景
-              <div key={`${dateTitle}-${groupIdx}`} className="break-inside-avoid flex flex-col bg-[#1f2b494b] border border-white/20 rounded-3xl overflow-hidden mb-2">
+          // 卡片总背景
+          <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-[#1f2b494b] border border-white/20 rounded-3xl overflow-hidden mb-2">
 
                 {group.type === 'image' ? (
                   // Image Generation Group: Standard header + Grid
                   <div className="flex flex-col">
                     {/* 文字区域 - 提示词在上方 */}
                     <div className="p-4 bg-black/20  m-2 mb-0 rounded-2xl">
-                      <p className="text-sm text-white line-clamp-4 transition-colors cursor-default" title={group.key}>
-                        {group.key}
+                      <p className="text-sm text-white line-clamp-4 transition-colors cursor-default" title={group.items[0].prompt || group.items[0].config?.prompt}>
+                        {group.items[0].prompt || group.items[0].config?.prompt}
                       </p>
                     </div>
 
@@ -191,10 +166,7 @@ export default function HistoryList({
 
               </div>
             ))}
-          </div>
-        </div>
-      ))
-      }
+      </div>
     </div >
   );
 }

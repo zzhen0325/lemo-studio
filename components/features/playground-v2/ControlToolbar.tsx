@@ -189,7 +189,7 @@ export default function ControlToolbar({
           className={cn(Inputbutton2, isSelectorExpanded && activeTab === 'model' && "bg-white/10")}
         >
           {triggerLabel}
-          <ChevronDown className={cn("ml-2 h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
+          <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[240px] p-4 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
@@ -242,9 +242,9 @@ export default function ControlToolbar({
             className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
             onClick={onTogglePresetGrid}
           >
-            <LayoutTemplate className="w-4 h-4 mr-2 opacity-50" />
+           
             Presets
-            <ChevronDown className={cn("ml-2 h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
+            <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
           </Button>
 
           {selectedModel === 'Workflow' && (
@@ -339,7 +339,7 @@ export default function ControlToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="ml-2 flex items-center w-auto gap-2">
+        <div className="flex items-center w-auto gap-2">
           {uploadedImages.length > 0 && (
             <Button
               variant="default"
