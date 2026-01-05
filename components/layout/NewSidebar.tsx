@@ -32,7 +32,7 @@ export function NewSidebar({ currentTab, onTabChange }: NewSidebarProps) {
             className="fixed top-0 left-0 right-0 h-14 z-50 flex items-center justify-between px-8 select-none"
         >
             <div
-                className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+                className="flex items-center cursor-pointer absolute top-4 left-6  hover:opacity-80 transition-opacity"
                 onClick={() => {
                     onTabChange(TabValue.Playground);
                 }}
@@ -42,7 +42,7 @@ export function NewSidebar({ currentTab, onTabChange }: NewSidebarProps) {
                 </span>
             </div>
 
-            <nav className="flex items-center space-x-1">
+            <nav className="flex items-center mx-auto space-x-1">
                 {navItems.map((item) => {
                     const isActive = currentTab === item.value;
 

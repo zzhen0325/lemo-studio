@@ -655,7 +655,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const renderInputUI = (isSidebar: boolean) => (
     <div className={cn(
       "flex flex-col items-center w-full pointer-events-auto",
-      isSidebar ? "w-full" : "w-full max-w-4xl -mt-36 mx-auto"
+      isSidebar ? "w-full" : "w-full max-w-4xl -mt-40 mx-auto"
     )}>
       {!isSidebar && (
         <h1
@@ -885,33 +885,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               </Button>
             </div> */}
 
-            <AnimatePresence>
-              {isPresetExpanded && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <PresetCarousel
-                    presets={presets}
-                    onSelectPreset={(preset) => {
-                      setConfig(prev => ({
-                        ...prev,
-                        prompt: preset.prompt,
-                        base_model: preset.base_model,
-                        img_width: preset.width,
-                        image_height: preset.height,
-                        image_size: preset.image_size
-                      }));
-                      setSelectedModel(preset.base_model);
-                      toast({ title: "已应用预设", description: `使用了预设: ${preset.title}` });
-                    }}
-                    onOpenManager={() => setIsPresetManagerOpen(true)}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+           
           </div>
         </div>
       </div>
