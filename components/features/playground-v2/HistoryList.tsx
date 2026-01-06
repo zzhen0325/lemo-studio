@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Check, Layers, Settings2 } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, Settings2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GenerationResult } from '@/components/features/playground-v2/types';
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -52,7 +52,7 @@ export default function HistoryList({
       const width = config?.img_width || 0;
       const height = config?.img_height || 0;
       const lora = config?.lora || "";
-      const refImage = (config as any)?.ref_image || "";
+      const refImage = (config as { ref_image?: string })?.ref_image || "";
 
       // Find existing group for the same type, parameters and within 30s
       const existingGroup = groups.find(g => {
@@ -148,56 +148,66 @@ export default function HistoryList({
               </div>
             ) : (
               // Text/Describe Group: Unified Grid for Source Image + Text Cards
-              <div className="flex flex-col">
-                {/* Describe Group Header */}
-                <div className="p-4 bg-black/20 border-b border-white/5">
-                  <p className="text-xs text-white/40 uppercase tracking-tighter">Image Analysis</p>
+              <div className="flex flex-col gap-6 mt-16 group/card">
+                {/* Header: Metadata (timestamp and title) */}
+                <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
+                  <div className="flex items-center gap-4">
+                    <span>{new Date(group.items[0].timestamp).toLocaleString()}</span>
+                    <span className="opacity-20">/</span>
+                    <span className="text-white/40">Image Analysis</span>
+                  </div>
                 </div>
 
-                <div className="p-3 flex flex-col gap-3">
-                  {/* Source Image Card */}
-                  <div className="relative aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/15 group">
-                    {group.sourceImage ? (
-                      <Image
-                        src={group.sourceImage}
-                        alt="Source for describe"
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 300px"
-                        className="object-cover"
-                        quality={75}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-white/20">
-                        <ImageIcon className="w-8 h-8" />
+                {layoutMode === 'list' ? (
+                  <div className="relative bg-transparent grid grid-cols-5 gap-4 items-stretch content-start">
+                    {/* Source Image Card */}
+                    <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
+                      {group.sourceImage ? (
+                        <img
+                          src={group.sourceImage}
+                          alt="Source for describe"
+                          className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                        />
+                      ) : (
+                        <div className="w-full aspect-square flex items-center justify-center text-white/20">
+                          <ImageIcon className="w-8 h-8" />
+                        </div>
+                      )}
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
+                        Source
                       </div>
-                    )}
-                    <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
-                      Source
+
+                      {onBatchUse && group.items.length > 0 && (
+                        <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                          <button
+                            className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
+                            onClick={() => onBatchUse(group.items, group.sourceImage)}
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    {onBatchUse && group.items.length > 0 && (
-                      <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
-                          onClick={() => onBatchUse(group.items, group.sourceImage)}
-                        >
-                          <Layers className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Text Cards */}
-                  <div className="flex flex-col gap-2">
+                    {/* Text Cards */}
                     {group.items.map((result, idx) => (
                       <TextHistoryCard
                         key={result.id || `txt-${idx}`}
                         result={result}
-                        onRegenerate={onRegenerate}
                       />
                     ))}
                   </div>
-                </div>
+                ) : (
+                  // Grid mode for text: Show as a unified interactive card
+                  <div className="w-full">
+                    <DescribeInteractiveCard
+                      group={group}
+                      onImageClick={(result, rect) => {
+                        onImageClick(result, rect);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -459,54 +469,171 @@ function HistoryCard({
 
 function TextHistoryCard({
   result,
-  onRegenerate
 }: {
   result: GenerationResult;
-  onRegenerate: (result: GenerationResult) => void;
 }) {
   const { toast } = useToast();
-  const [copied, setCopied] = React.useState(false);
+  const { applyPrompt } = usePlaygroundStore();
+  const prompt = result.prompt || (result.config as any)?.prompt || '';
 
-  const handleCopy = () => {
-    const promptValue = result.prompt || result.config?.prompt || '';
-    navigator.clipboard.writeText(promptValue);
-    setCopied(true);
-    toast({ title: "Copied", description: "Prompt copied to clipboard" });
-    setTimeout(() => setCopied(false), 2000);
+  const handleApply = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    applyPrompt(prompt);
+    toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
   };
 
   return (
-    // 文字卡片
-    <div className="group relative flex flex-col p-4 bg-white/5 border border-white/10 rounded-lg hover:border-white/30 hover:bg-white/10 transition-all aspect-[3/4]">
-      <div className="flex items-start gap-2 mb-2">
-        <div className="p-1.5 rounded-md bg-white/10 text-white/60">
-          <Type className="w-3.5 h-3.5" />
+    <div
+      className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col justify-start group/card"
+    >
+      <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
+        <span className="block w-1 h-1 rounded-full bg-white/20" />
+        {result.isLoading ? 'Analyzing...' : 'Image Description'}
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {result.isLoading ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="w-5 h-5 animate-spin text-white/10" />
+          </div>
+        ) : (
+          <p className="text-[11px] text-white/90 leading-relaxed line-clamp-[10]">
+            {prompt}
+          </p>
+        )}
+      </div>
+
+      {!result.isLoading && (
+        <>
+          <div className="flex absolute bottom-3 left-1/2 -translate-x-1/2 gap-2 opacity-0 group-hover/card:opacity-100 transition-opacity">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 rounded-lg border-white/10 bg-white/5 text-primary hover:bg-white/20 hover:border-primary/40 gap-1.5 px-3"
+              onClick={handleApply}
+            >
+              <Type className="w-3 h-3" />
+              <span className="text-[10px]">Use Prompt</span>
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DescribeInteractiveCard({
+  group,
+  onImageClick,
+}: {
+  group: GroupedHistoryItem;
+  onImageClick: (result: GenerationResult, initialRect?: DOMRect) => void;
+}) {
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+  const currentItem = group.items[currentIndex];
+  const prompt = currentItem?.prompt || (currentItem?.config as any)?.prompt || '';
+  const { toast } = useToast();
+  const { applyPrompt } = usePlaygroundStore();
+
+  const handleApply = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    applyPrompt(prompt);
+    toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
+  };
+
+  const next = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev + 1) % group.items.length);
+  };
+
+  const prev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev - 1 + group.items.length) % group.items.length);
+  };
+
+  return (
+    <div className="group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30 aspect-square">
+      {/* Base Image */}
+      {group.sourceImage ? (
+        <Image
+          src={group.sourceImage}
+          alt="Source"
+          fill
+          className="object-cover"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            onImageClick(currentItem, rect);
+          }}
+        />
+      ) : (
+        <div className="w-full h-full bg-black/40 flex items-center justify-center">
+          <ImageIcon className="w-8 h-8 text-white/20" />
         </div>
-        <div className="text-xs text-white/40 font-mono mt-1">
-          Generated Description
+      )}
+
+      {/* Overlay Description */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col p-6 justify-center items-center text-center">
+        <div className="flex-1 overflow-y-auto custom-scrollbar flex items-center justify-center w-full px-4">
+          <p className="text-[11px] text-white/90 leading-relaxed line-clamp-[8]">
+            {prompt}
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-xl border-white/10 bg-white/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/40 gap-1.5 px-3"
+            onClick={handleApply}
+          >
+            <Type className="w-3.5 h-3.5" />
+            <span className="text-[10px]">Use Prompt</span>
+          </Button>
         </div>
       </div>
 
-      <p className="text-sm text-white/80 leading-relaxed font-light line-clamp-[8] flex-1">
-        {result.prompt || result.config?.prompt}
-      </p>
+      {/* Navigation Arrows */}
+      {group.items.length > 1 && (
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <button
+            onClick={prev}
+            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-all pointer-events-auto"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={next}
+            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-all pointer-events-auto"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
-      <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => onRegenerate(result)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-xs font-medium text-emerald-400 transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Remix
-        </button>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium text-white transition-colors ml-auto"
-        >
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? "Copied" : "Copy"}
-        </button>
+      {/* Pagination dots */}
+      {group.items.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-30 bg-black/30 backdrop-blur-sm px-2.5 py-1.5 rounded-full border border-white/5">
+          {group.items.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex(idx);
+              }}
+              className={cn(
+                "w-1.5 h-1.5 rounded-full transition-all",
+                currentIndex === idx ? "bg-emerald-400 w-3" : "bg-white/20 hover:bg-white/40"
+              )}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Type badge */}
+      <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
+        Analysis
       </div>
-    </div >
+    </div>
   );
 }

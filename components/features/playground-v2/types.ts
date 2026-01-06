@@ -33,10 +33,12 @@ export interface GenerationResult {
 }
 
 export interface UploadedImage {
+  id?: string;
   file: File;
   base64: string;
   previewUrl: string;
   path?: string;
+  isUploading?: boolean;
 }
 
 export interface Preset {

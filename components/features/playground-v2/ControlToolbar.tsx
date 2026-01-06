@@ -3,7 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Wand2, ChevronDown, Link, Unlink, Sparkles, LayoutTemplate, Plus, Minus } from "lucide-react";
+import { Loader2, ChevronDown, Link, Unlink, Sparkles, Plus, Minus } from "lucide-react";
 
 
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { GenerationConfig, UploadedImage } from '@/components/features/playground-v2/types';
+import { GenerationConfig } from '@/components/features/playground-v2/types';
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 
 
@@ -34,9 +34,6 @@ interface ControlToolbarProps {
   onGenerate: () => void;
   isGenerating: boolean;
   loadingText?: string;
-  uploadedImagesCount: number;
-  onOpenWorkflowSelector?: () => void;
-  onOpenBaseModelSelector?: () => void;
   onOpenLoraSelector?: () => void;
   selectedWorkflowName?: string;
   selectedBaseModelName?: string;
@@ -50,9 +47,6 @@ interface ControlToolbarProps {
   onMockModeChange?: (val: boolean) => void;
   isSelectorExpanded?: boolean;
   onSelectorExpandedChange?: (expanded: boolean) => void;
-  onDescribe?: () => void;
-  isDescribing?: boolean;
-  uploadedImages: UploadedImage[];
   isPresetGridOpen?: boolean;
   onTogglePresetGrid?: () => void;
   batchSize?: number;
@@ -66,7 +60,6 @@ export default function ControlToolbar({
   config,
   onConfigChange,
   onWidthChange,
-
   onHeightChange,
   aspectRatioPresets,
   currentAspectRatio,
@@ -75,8 +68,6 @@ export default function ControlToolbar({
   onGenerate,
   isGenerating,
   loadingText = "生成中...",
-
-  // onOpenBaseModelSelector, // unused
   onOpenLoraSelector,
   selectedWorkflowName,
   selectedBaseModelName,
@@ -90,9 +81,6 @@ export default function ControlToolbar({
   onMockModeChange,
   isSelectorExpanded = false,
   onSelectorExpandedChange,
-  onDescribe,
-  isDescribing = false,
-  uploadedImages = [],
   isPresetGridOpen = false,
   onTogglePresetGrid,
   batchSize = 1,
@@ -162,7 +150,7 @@ export default function ControlToolbar({
     onSelectorExpandedChange?.(false);
   };
 
-  const Inputbutton2 = "h-10 w-auto text-white rounded-2xl bg-black/30 ";
+  const Inputbutton2 = "h-10 w-auto text-white/70 font-normal rounded-2xl bg-black/30  hover:bg-black/50 hover:text-primary  hover:border-primary  transition-colors duration-200";
   const triggerLabel = (() => {
     if (selectValue === 'seed3') return 'Seed 3';
     if (selectValue === 'seed4') return 'Seed 4';
@@ -218,7 +206,7 @@ export default function ControlToolbar({
           <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 4
         </DropdownMenuItem>
-        
+
         {BASE_MODEL_LIST.map((model) => (
           <DropdownMenuItem
             key={model.name}
@@ -240,133 +228,111 @@ export default function ControlToolbar({
 
       <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
         <div className="flex justify-start items-center gap-2">
-          <div className="flex items-center gap-2">
-             <Button
-            className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
-            onClick={onTogglePresetGrid}
-          >
-           
-            Presets
-            <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
-          </Button>
-          <ModelDropdown />
+          <div className="flex items-center gap-1">
+            <Button
+              className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
+              onClick={onTogglePresetGrid}
+            >
 
-         
-
-          {selectedModel === 'Workflow' && (
-            <Button variant="outline" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
-              {selectedLoraNames.length > 0 ? `LoRA (${selectedLoraNames.length})` : "LoRA"}
+              Presets
+              <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
             </Button>
-          )}
+            <ModelDropdown />
+
+
+
+            {selectedModel === 'Workflow' && (
+              <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
+                {selectedLoraNames.length > 0 ? `LoRA (${selectedLoraNames.length})` : "LoRA"}
+              </Button>
+            )}
           </div>
 
           {/* 尺寸按钮 */}
-         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="default" className={Inputbutton2}>
-              {currentAspectRatio}
-              <ChevronDown className="h-4 w-4 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[320px] p-6 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
-            <div className="space-y-4">
-              {selectedModel === 'Nano banana' && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" className={Inputbutton2}>
+                {currentAspectRatio}
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[320px] p-6 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
+              <div className="space-y-4">
+                {selectedModel === 'Nano banana' && (
+                  <div className="space-y-4">
+                    <div className="text-xs text-white/70">Resolution</div>
+                    <div className="flex gap-2">
+                      {(['1K', '2K', '4K'] as const).map(size => (
+                        <Button
+                          key={size}
+                          variant={currentImageSize === size ? "default" : "outline"}
+                          className={cn(
+                            "flex-1 h-8 rounded-xl transition-all",
+                            currentImageSize === size
+                              ? "bg-primary border-none text-black"
+                              : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10"
+                          )}
+                          onClick={() => onImageSizeChange(size)}
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                    <DropdownMenuSeparator className="bg-white/10 mt-2" />
+                  </div>
+                )}
+
                 <div className="space-y-4">
-                  <div className="text-xs text-white/70">Resolution</div>
-                  <div className="flex gap-2">
-                    {(['1K', '2K', '4K'] as const).map(size => (
+                  <div className="text-xs text-white/70">Aspect Ratio</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {aspectRatioPresets.map(preset => (
                       <Button
-                        key={size}
-                        variant={currentImageSize === size ? "default" : "outline"}
+                        key={preset.name}
+                        variant={currentAspectRatio === preset.name ? "default" : "outline"}
                         className={cn(
-                          "flex-1 h-8 rounded-xl transition-all",
-                          currentImageSize === size
+                          "h-8 rounded-xl transition-all",
+                          currentAspectRatio === preset.name
                             ? "bg-primary border-none text-black"
                             : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10"
                         )}
-                        onClick={() => onImageSizeChange(size)}
+                        onClick={() => onAspectRatioChange(preset.name)}
                       >
-                        {size}
+                        {preset.name}
                       </Button>
                     ))}
                   </div>
-                  <DropdownMenuSeparator className="bg-white/10 mt-2" />
                 </div>
-              )}
 
-              <div className="space-y-4">
-                <div className="text-xs text-white/70">Aspect Ratio</div>
-                <div className="grid grid-cols-4 gap-2">
-                  {aspectRatioPresets.map(preset => (
-                    <Button
-                      key={preset.name}
-                      variant={currentAspectRatio === preset.name ? "default" : "outline"}
-                      className={cn(
-                        "h-8 rounded-xl transition-all",
-                        currentAspectRatio === preset.name
-                          ? "bg-primary border-none text-black"
-                          : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10"
-                      )}
-                      onClick={() => onAspectRatioChange(preset.name)}
-                    >
-                      {preset.name}
-                    </Button>
-                  ))}
+                <DropdownMenuSeparator className="bg-white/10" />
+
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-white/50">W</Label>
+                  <Input
+                    className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
+                    placeholder="2048"
+                    value={config.img_width}
+                    onChange={(e) => onWidthChange(parseInt(e.target.value) || 1024)}
+                  />
+                  <Label className="text-xs text-white/50">H</Label>
+                  <Input
+                    className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
+                    placeholder="2048"
+                    value={config.img_height}
+                    onChange={(e) => onHeightChange(parseInt(e.target.value) || 1024)}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white text-white/60"
+                    onClick={onToggleAspectRatioLock}
+                  >
+                    {isAspectRatioLocked ? <Link className="h-4 w-4" /> : <Unlink className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-              <DropdownMenuSeparator className="bg-white/10" />
-
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-white/50">W</Label>
-                <Input
-                  className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
-                  placeholder="2048"
-                  value={config.img_width}
-                  onChange={(e) => onWidthChange(parseInt(e.target.value) || 1024)}
-                />
-                <Label className="text-xs text-white/50">H</Label>
-                <Input
-                  className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
-                  placeholder="2048"
-                  value={config.img_height}
-                  onChange={(e) => onHeightChange(parseInt(e.target.value) || 1024)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white text-white/60"
-                  onClick={onToggleAspectRatioLock}
-                >
-                  {isAspectRatioLocked ? <Link className="h-4 w-4" /> : <Unlink className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-          </DropdownMenuContent>
-         </DropdownMenu>
-
-           <div className="flex items-center w-auto gap-2">
-          {uploadedImages.length > 0 && (
-            <Button
-              variant="default"
-              size="sm"
-              className={cn(Inputbutton2, "px-4 hover:border-emerald-500/50 hover:bg-emerald-500/10")}
-              onClick={onDescribe}
-              disabled={isGenerating || isDescribing}
-            >
-              {isDescribing ? (
-                <>
-                  <Loader2 className="w-3 h-3 mr-2 animate-spin text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-400">Analysing...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3 h-3 mr-2 text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-400">Describe</span>
-                </>
-              )}
-            </Button>
-          )}
           <Button
             variant="default"
             size="sm"
@@ -377,18 +343,16 @@ export default function ControlToolbar({
             <Sparkles className={cn("w-2 h-2", isMockMode && "animate-pulse")} />
             {isMockMode && <span className="ml-1 text-[10px] font-bold">MOCK</span>}
           </Button>
-          </div>
-
         </div>
-        
+
 
         <div className="flex items-center justify-end gap-2">
           {/* Batch Size Selector */}
-          <div className="flex items-center bg-black/30 rounded-full border border-white/5 h-10 px-1">
+          <div className="flex items-center bg-black/30 rounded-2xl border border-white/5 h-10 px-1">
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 rounded-full hover:bg-white/10 text-white/60 hover:text-white"
+              className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
               onClick={() => onBatchSizeChange?.(Math.max(1, batchSize - 1))}
               disabled={batchSize <= 1 || isGenerating}
             >
@@ -400,7 +364,7 @@ export default function ControlToolbar({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 rounded-full hover:bg-white/10 text-white/60 hover:text-white"
+              className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
               onClick={() => onBatchSizeChange?.(Math.min(10, batchSize + 1))}
               disabled={batchSize >= 10 || isGenerating}
             >
@@ -408,10 +372,10 @@ export default function ControlToolbar({
             </Button>
           </div>
 
-          <div className="relative rounded-full">
+          <div className="relative rounded-xl">
             <Button
               onClick={onGenerate}
-              className="relative z-10 w-auto h-10 px-6 rounded-full text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center gap-2 border-[2px] border-transparent transition-all duration-300 hover:animate-border-rotate"
+              className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center gap-2 border-[2px] border-transparent transition-all duration-300 hover:animate-border-rotate"
               style={{
                 // backgroundImage: `
                 //   linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
@@ -424,12 +388,12 @@ export default function ControlToolbar({
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4  animate-spin" />
                   {loadingText}
                 </>
               ) : (
                 <>
-                  <Wand2 className="w-4 h-4" />
+
                   Generate {batchSize > 1 ? `(${batchSize})` : ''}
                 </>
               )}
@@ -438,7 +402,7 @@ export default function ControlToolbar({
         </div>
       </div>
       <AnimatePresence>
-        
+
       </AnimatePresence>
     </div >
   );

@@ -16,6 +16,7 @@ interface PromptInputProps {
   onAddImages: (files: File[] | FileList) => void;
   isPresetGridOpen?: boolean;
   onTogglePresetGrid?: () => void;
+  onFocusChange?: (focused: boolean) => void;
 }
 
 import { useDebounce } from '@/hooks/common/use-debounce';
@@ -24,6 +25,7 @@ export default function PromptInput({
   prompt,
   onPromptChange,
   onAddImages,
+  onFocusChange,
 }: PromptInputProps) {
   const [localPrompt, setLocalPrompt] = React.useState(prompt);
   const debouncedPrompt = useDebounce(localPrompt, 100);
@@ -75,8 +77,14 @@ export default function PromptInput({
       <AutosizeTextarea
         placeholder="请描述您想要生成的图像，例如：黄色的lemo圣诞老人，淡蓝色的背景"
         value={localPrompt}
-        onFocus={() => setIsFocused(true)}
-        onBlur={handleBlur}
+        onFocus={() => {
+          setIsFocused(true);
+          onFocusChange?.(true);
+        }}
+        onBlur={() => {
+          handleBlur();
+          onFocusChange?.(false);
+        }}
         minHeight={86}
         maxHeight={isFocused ? undefined : 86}
         onChange={handleChange}
@@ -96,13 +104,7 @@ export default function PromptInput({
             onAddImages(files);
           }
         }}
-        className="w-full placeholder:text-white/40 bg-transparent text-white leading-relaxed tracking-wide p-2 px-4 pt-3 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none transition-all duration-200"
-      />
-
-      {/* 底部模糊遮罩 - 仅在非 Focus 状态且有内容时显示，用于优雅处理文字溢出 */}
-      <div
-        className={`absolute bottom-1 left-1 right-1 h-10 pointer-events-none bg-gradient-to-t from-black/95 via-black/50 to-transparent transition-opacity duration-300 rounded-b-3xl z-10 ${!isFocused && prompt.length > 0 ? 'opacity-80' : 'opacity-0'
-          }`}
+        className="w-full placeholder:text-white/40 bg-transparent text-white leading-relaxed tracking-wide p-2 pl-2   pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none"
       />
     </div>
   );

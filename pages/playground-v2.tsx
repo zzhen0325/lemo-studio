@@ -28,7 +28,7 @@ import type { Preset } from "@/components/features/playground-v2/types";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { X, Plus, Sparkles, History, PanelRightOpen, LayoutGrid, List } from "lucide-react";
+import { X, Plus, Sparkles, History, PanelRightOpen, LayoutGrid, List, Loader2, Upload } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
@@ -128,9 +128,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isPresetGridOpen, setIsPresetGridOpen] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
+  const [isDescribeMode, setIsDescribeMode] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
   const [showGallery, setShowGallery] = useState(true); // 独立控制Gallery面板显示
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [batchSize, setBatchSize] = useState(4); // Default batch size
   const showHistory = usePlaygroundStore(s => s.showHistory);
   const setShowHistory = usePlaygroundStore(s => s.setShowHistory);
@@ -411,19 +413,44 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const handleFilesUpload = async (files: File[] | FileList) => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     for (const file of uploads) {
+      const tempId = Math.random().toString(36).substring(7);
       const reader = new FileReader();
-      const dataUrl: string = await new Promise((resolve) => { reader.onload = (e) => resolve(String(e.target?.result)); reader.readAsDataURL(file); });
+      const dataUrl: string = await new Promise((resolve) => {
+        reader.onload = (e) => resolve(String(e.target?.result));
+        reader.readAsDataURL(file);
+      });
+
+      // Add placeholder
+      setUploadedImages(prev => [...prev, {
+        id: tempId,
+        file,
+        base64: '',
+        previewUrl: dataUrl,
+        isUploading: true
+      }]);
+
       const form = new FormData();
       form.append('file', file);
+
       try {
         const resp = await fetch('/api/upload', { method: 'POST', body: form });
         const json = await resp.json();
         const path = resp.ok && json?.path ? String(json.path) : undefined;
         const base64Data = dataUrl.split(',')[1];
-        setUploadedImages(prev => [...prev, { file, base64: base64Data, previewUrl: dataUrl, path }]);
-      } catch {
+
+        setUploadedImages(prev => prev.map(img =>
+          img.id === tempId
+            ? { ...img, base64: base64Data, path, isUploading: false }
+            : img
+        ));
+      } catch (err) {
+        console.error("Upload failed", err);
         const base64Data = dataUrl.split(',')[1];
-        setUploadedImages(prev => [...prev, { file, base64: base64Data, previewUrl: dataUrl }]);
+        setUploadedImages(prev => prev.map(img =>
+          img.id === tempId
+            ? { ...img, base64: base64Data, isUploading: false }
+            : img
+        ));
       }
     }
   };
@@ -722,81 +749,88 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             "relative z-10 flex items-center justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20 p-2 transition-colors duration-100",
             hasGenerated ? "bg-[#302e38]" : "bg-black/40"
           )}>
-          <div className="flex items-start gap-0 bg-black/80 border border-white/20 rounded-3xl w-full pl-2">
-            <div
-              className="flex items-center"
+          <div className="flex items-start gap-0 bg-black/10 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden ">
+            <motion.div
+              className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
               onMouseEnter={() => setIsStackHovered(true)}
               onMouseLeave={() => setIsStackHovered(false)}
             >
-              <div className="relative flex items-center h-[94px] ml-3 z-[200]">
-                <div
-                  className="relative flex items-center transition-all"
-                  style={{ width: uploadedImages.length > 0 ? (isStackHovered ? (uploadedImages.length * 60 + 20) : 64) : 40 }}
-                >
-                  {uploadedImages.map((image, index) => {
-                    const rotations = [-6, 4, -2, 3];
-                    const rotation = rotations[index % rotations.length];
-                    return (
-                      <div
-                        key={index}
-                        style={{
-                          transform: `translateX(${isStackHovered ? (index * 60) : (index * 4)}px) translateY(${isStackHovered ? 0 : (index * 2)}px) rotate(${isStackHovered ? 0 : rotation}deg)`,
-                          zIndex: (uploadedImages.length - index) + 100,
-                          opacity: 1
-                        }}
-                        className="absolute left-0 transition-transform duration-100"
-                      >
-                        <div className="relative group">
-                          <Image
-                            src={image.previewUrl}
-                            alt={`Uploaded ${index + 1}`}
-                            width={56}
-                            height={56}
-                            className="w-14 h-14 object-cover rounded-sm  bg-black shadow-lg transition-transform duration-100"
-                          />
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                            className="absolute -top-2 -right-2 bg-black text-white border border-white/40 rounded-full w-6 h-6 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {/* 上传按钮 */}
-                  <motion.button
-                    onClick={() => fileInputRef.current?.click()}
-                    initial={{ rotate: -6 }}
-                    animate={{ rotate: -6 }}
-                    whileHover={{
-                      rotate: 0,
-
+              {/* 图片堆栈 */}
+              {uploadedImages.map((image, index) => {
+                const rotations = [-6, 4, -2, 3];
+                return (
+                  <motion.div
+                    key={image.id || index}
+                    initial={false}
+                    animate={{
+                      marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
+                      rotate: isStackHovered ? 0 : rotations[index % rotations.length],
+                      scale: 1
                     }}
-                    transition={{
-                      type: "tween",
-                      ease: "linear",
-                      duration: 0.2
-                    }}
-
-
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
                     style={{
-                      transform: uploadedImages.length > 0
-                        ? `translateX(${isStackHovered ? (uploadedImages.length * 60 - 0) : 34}px) translateY(16px) scale(0.8)`
-                        : 'none'
+                      zIndex: (uploadedImages.length - index) + 100,
+                      position: 'relative'
                     }}
-                    className={cn(
-                      "flex items-center justify-center rounded-2xl text-white border-2 border-white/20 bg-white/10 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]  hover:translate-y-2 hover:bg-white/20 transition-all group z-[1100]",
-                      uploadedImages.length > 0 ? "w-8 h-8 absolute top-0 -right-3 bg-black/40 backdrop-blur-md " : "w-14 h-14 absolute"
-                    )}
                   >
-                    <Plus className={cn("w-4 h-4", uploadedImages.length > 0 ? "w-4 h-4" : "w-5 h-5")} />
-                  </motion.button>
-                </div>
-              </div>
-            </div>
+                    <div className="relative group ">
+                      <div className="relative">
+                        <Image
+                          src={image.previewUrl}
+                          alt={`Uploaded ${index + 1}`}
+                          width={56}
+                          height={56}
+                          className={cn(
+                            "w-14 h-14 object-cover rounded-2xl bg-black  border border-primary shadow-xl",
+                            image.isUploading && "opacity-50 grayscale blur-[1px]"
+                          )}
+                        />
+                        {image.isUploading && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="w-4 h-4 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                      {!image.isUploading && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                          className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
+                        >
+                          <X className="w-2 h-2" />
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
 
-            <div className="flex-1 mt-1 ml-4 flex items-center gap-2">
+              {/* 上传按钮 - 作为堆栈的最后一个元素 */}
+              <motion.button
+                onClick={() => fileInputRef.current?.click()}
+                initial={false}
+                animate={{
+                  rotate: 3,
+                  marginLeft: uploadedImages.length > 0 ? (isStackHovered ? 8 : -36) : 0,
+                  scale: 1
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "tween", duration: 0.05 }}
+                style={{
+                  zIndex: 0,
+                  position: 'relative'
+                }}
+                className={cn(
+                  "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
+                )}
+              >
+                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              </motion.button>
+            </motion.div>
+
+
+
+            <div className="flex-1 mt-1  flex items-center gap-2">
               <div className="flex-1">
                 <PromptInput
                   prompt={config.prompt}
@@ -808,12 +842,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   selectedAIModel={selectedAIModel}
                   onAIModelChange={setSelectedAIModel}
                   onAddImages={handleFilesUpload}
+                  onFocusChange={setIsInputFocused}
                 />
               </div>
               <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
-                className="h-10 absolute right-4 w-auto top-4 text-white rounded-2xl hover:bg-white/10 "
+                className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:text-white hover:drop-shadow(0 0 2px rgba(255, 255, 255, 0.4)) text-white/70 rounded-2xl "
                 disabled={isOptimizing}
                 onClick={() => {
                   if (!isOptimizing) {
@@ -840,6 +875,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 </motion.div>
               </Button>
             </div>
+
+            {/* 底部模糊遮罩 - 从 PromptInput 移动到此处以覆盖整个输入区范围 */}
+            <div
+              className={cn(
+                "absolute bottom-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-t from-black/95 via-black/50 to-transparent transition-opacity duration-300 rounded-b-3xl z-10",
+                (!isInputFocused && config.prompt?.length > 0) ? "opacity-80" : "opacity-0"
+              )}
+            />
           </div>
 
           <ControlToolbar
@@ -855,7 +898,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               const size = (config.base_model === 'Nano banana') ? (config.image_size || '1K') : '1K';
               const resolution = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
               if (resolution) {
-                updateConfig({ img_width: resolution.w, img_height: resolution.h });
+                setConfig(prev => ({ ...prev, img_width: resolution.w, img_height: resolution.h }));
               }
             }}
             currentImageSize={(config.image_size as '1K' | '2K' | '4K') || '1K'}
@@ -863,38 +906,33 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               const ar = getCurrentAspectRatio();
               const resolution = AR_MAP[ar]?.[size];
               if (resolution) {
-                updateConfig({
+                setConfig(prev => ({
+                  ...prev,
                   img_width: resolution.w,
                   img_height: resolution.h,
                   image_size: size
-                });
+                }));
               }
             }}
             isAspectRatioLocked={isAspectRatioLocked}
             onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
             onGenerate={() => { handleGenerate(); }}
             isGenerating={isGenerating}
-            uploadedImagesCount={uploadedImages.length}
             loadingText={selectedModel === "Seed 4.0" ? "Seed 4.0 生成中..." : "生成中..."}
-            onOpenWorkflowSelector={() => setIsWorkflowDialogOpen(true)}
-            onOpenBaseModelSelector={() => setIsBaseModelDialogOpen(true)}
-            onOpenLoraSelector={() => setIsLoraDialogOpen(true)}
             selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
             selectedBaseModelName={config.base_model}
-            selectedLoraNames={selectedLoras.map(l => l.model_name)}
             workflows={workflows}
             onWorkflowSelect={(wf) => { setSelectedWorkflowConfig(wf); applyWorkflowDefaults(wf); }}
             isMockMode={isMockMode}
             onMockModeChange={setMockMode}
             isSelectorExpanded={isSelectorExpanded}
             onSelectorExpandedChange={setIsSelectorExpanded}
-            onDescribe={handleDescribe}
-            isDescribing={isDescribing}
-            uploadedImages={uploadedImages}
-            isPresetGridOpen={isPresetGridOpen}
-            onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
             batchSize={batchSize}
             onBatchSizeChange={setBatchSize}
+            onOpenLoraSelector={() => setIsLoraDialogOpen(true)}
+            selectedLoraNames={selectedLoras.map(l => l.model_name)}
+            onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
+            isPresetGridOpen={isPresetGridOpen}
           />
           {/* 
           预设按钮
@@ -943,7 +981,108 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           </div>
         </div>
       </div>
-    </div >
+
+      <AnimatePresence>
+        {isDescribeMode && !isDashboardActive && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="flex w-full max-w-4xl max-auto  inset-0 z-20  py-2"
+          >
+            <div className="w-full h-full flex flex-col items-center p-2 bg-white/10 border border-white/20  rounded-[30px] ">
+              <div className="w-full h-full flex flex-col items-center p-4  bg-white/5 rounded-3xl border-white/10 border transition-all cursor-pointer group relative"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFilesUpload(Array.from(e.dataTransfer.files));
+                  }
+                }}
+              >
+
+                {/* Close Button for Describe Overlay */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsDescribeMode(false); }}
+                  className="absolute right-4 top-4 z-30 p-1.5 rounded-full bg-black/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                {uploadedImages.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center py-2  justify-center gap-3 opacity-70 group-hover:opacity-100 transition-opacity">
+                    <div className="w-10 h-10 rounded-full bg-black/5 border border-white/20 flex items-center justify-center">
+                      <Upload className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white text-sm font-normal">拖拽图片到此处 或 点击选择图片</p>
+
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-between gap-4 py-2">
+                    <div className="flex-1 flex flex-wrap justify-center overflow-y-auto gap-4 scrollbar-hide p-2">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={img.id || idx} className="relative group/img shrink-0">
+                          <div className="relative">
+                            <Image
+                              src={img.previewUrl}
+                              alt="Preview"
+                              width={80}
+                              height={80}
+                              className={cn(
+                                "w-20 h-20 object-cover rounded-xl border-2 border-white/20 shadow-xl transition-all",
+                                img.isUploading && "opacity-50 grayscale blur-[px]"
+                              )}
+                            />
+                            {img.isUploading && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <Loader2 className="w-6 h-6 text-white animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                          {!img.isUploading && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500 shadow-lg"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <div className="w-20 h-20 rounded-xl border border-dashed border-white/10 flex items-center justify-center hover:border-primary/30 transition-all">
+                        <Plus className="w-5 h-5 text-white/20" />
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={(e) => { e.stopPropagation(); handleDescribe(); }}
+                      disabled={isDescribing || isGenerating}
+                      className="h-10 px-8 rounded-xl bg-primary text-black font-normal hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.3)] active:scale-95 disabled:opacity-50 shrink-0"
+                    >
+                      {isDescribing ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span className="text-sm">描述中...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span className="text-sm">Describe</span>
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 
   return (
@@ -975,18 +1114,31 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
                     {/* <video
-                      src="/images/1.mp4"
+                      src="/images/12.webm"
                       autoPlay
                       loop
                       muted
+
                       playsInline
                       poster="/images/1.webp"
                       preload="metadata"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover "
                     /> */}
+
+                    {/* <Image
+                      src="/images/47.png"
+                      alt="Background"
+                      fill
+                      className="object-cover opacity-100 "
+                      priority
+                    /> */}
+
+
                     <div className="absolute inset-0" style={{
                       background: "linear-gradient(180deg, #0F0F15 0%, #131718 12.62%, #1079BB 48.49%, #FBC6E2 74.56%, #D8C6B8 87.73%, #EB9469 100%)",
                     }} />
+
+
                   </motion.div>
                 ) : (
                   <motion.div
@@ -1037,8 +1189,24 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 </div>
 
                 {/* History Entry Capsule Button - Only show if not in dashboard active mode */}
-                {!isDashboardActive && !isPresetGridOpen && (
-                  <div className="flex justify-center mt-6">
+                {!isDashboardActive && (
+                  <motion.div
+                    layout
+                    transition={{ type: "tween", easeOut: "easeInOut", duration: 0.1 }}
+                    className="flex justify-center mt-4 gap-4"
+                  >
+                    <button
+                      onClick={() => setIsDescribeMode(!isDescribeMode)}
+                      className={cn(
+                        "flex items-center gap-2 px-6 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
+                        isDescribeMode
+                          ? "text-white bg-black/40 border-white/60"
+                          : "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span className="text-sm font-medium">Describe</span>
+                    </button>
                     <button
                       onClick={() => setShowHistory(true)}
                       className={cn(
@@ -1048,8 +1216,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       <History className="w-4 h-4" />
                       <span className="text-sm font-medium">History</span>
                     </button>
-                  </div>
+                  </motion.div>
                 )}
+
+                {/* ... Existing History Entry Capsule Button logic ... */}
 
                 {!isDashboardActive && isPresetGridOpen && (
                   <PresetGridOverlay
