@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Preset, PRESET_CATEGORIES } from './types';
+import { Preset, PRESET_CATEGORIES } from '../types';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Plus, Trash2, Save, X, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';

@@ -4,8 +4,6 @@ import { projectStore, Project } from "@/lib/store/project-store";
 import { X, Search, Folder } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-
 interface AllProjectsViewProps {
   onClose: () => void;
 }

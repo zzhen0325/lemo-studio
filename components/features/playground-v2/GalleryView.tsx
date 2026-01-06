@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X } from "lucide-react";
-import ImagePreviewModal from './ImagePreviewModal';
-import ImageEditorModal from './ImageEditorModal';
+import ImagePreviewModal from './Dialogs/ImagePreviewModal';
+import ImageEditorModal from './Dialogs/ImageEditorModal';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
@@ -347,9 +347,9 @@ function MasonryGrid<T extends GenerationResult>({
     }, [items, columnsCount]);
 
 
-// 瀑布流布局
+    // 瀑布流布局
     return (
-        
+
         <div className="flex gap-0 w-full ">
             {columns.map((colItems, colIndex) => (
                 <div key={colIndex} className="flex flex-col gap-0 flex-1 min-w-0">
@@ -417,9 +417,9 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
                         <span className="text-[10px] text-white/30 font-medium uppercase tracking-widest animate-pulse">Generating</span>
                     </div>
                 ) : !isInView ? (
-                    <div style={{ 
+                    <div style={{
                         paddingBottom: `${((item.metadata?.img_height || 1024) / (item.metadata?.img_width || 1024)) * 100}%`,
-                        width: '100%' 
+                        width: '100%'
                     }} />
                 ) : (
                     <Image

@@ -1,24 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Upload, 
-  Save, 
-  Download, 
-  Settings, 
-  FileText, 
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Upload,
+  Save,
+  Download,
+  Settings,
   Layers,
-  ArrowRight,
   Plus,
-  Trash2,
   Play
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +24,7 @@ import { WorkflowAnalyzer } from "@/components/features/mapping-editor/workflow-
 import { ParameterMappingPanel } from "@/components/features/mapping-editor/parameter-mapping-panel";
 import { NodeConfigurationDialog } from "@/components/features/mapping-editor/node-configuration-dialog";
 import { MappingList } from "@/components/features/mapping-editor/mapping-list";
-import WorkflowSelectorDialog from "@/components/features/playground-v2/WorkflowSelectorDialog";
+import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 
 interface MappingEditorPageProps {
@@ -58,35 +52,12 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
     isLoading: false
   });
 
-  const [workflowFile, setWorkflowFile] = useState<File | null>(null);
   const [configTitle, setConfigTitle] = useState("");
   const [isWorkflowSelectorOpen, setIsWorkflowSelectorOpen] = useState(false);
   const [isNodeDialogOpen, setIsNodeDialogOpen] = useState(false);
   const [workflows, setWorkflows] = useState<IViewComfy[]>([]);
 
-  useEffect(() => {
-    // 初始化编辑器
-    initializeEditor();
-    // 加载工作流列表
-    fetchWorkflows();
-  }, []);
-
-  // Auto-save effect
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    
-    if (editorState.isDirty && editorState.currentConfig) {
-      timer = setTimeout(() => {
-        handleSaveConfig(); 
-      }, 30000); // 30 seconds auto-save
-    }
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [editorState.isDirty, editorState.currentConfig]); 
-
-  const fetchWorkflows = async () => {
+  const fetchWorkflows = useCallback(async () => {
     try {
       const res = await fetch('/api/view-comfy');
       if (res.ok) {
@@ -96,48 +67,48 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
     } catch (error) {
       console.error("Failed to fetch workflows", error);
     }
-  };
+  }, []);
 
-  const initializeEditor = async () => {
+  const initializeEditor = useCallback(async () => {
     try {
       setEditorState(prev => ({ ...prev, isLoading: true }));
-      
+
       // 加载编辑器设置
       const settings = await localStorageManager.getEditorSettings();
       console.log("编辑器设置已加载:", settings);
-      
+
       // Check for pending workflow from Playground
       const pendingWorkflowStr = localStorage.getItem("MAPPING_EDITOR_INITIAL_WORKFLOW");
       if (pendingWorkflowStr) {
-          try {
-            const workflow = JSON.parse(pendingWorkflowStr);
-            // Assuming workflow has workflowApiJSON
-            if (workflow.workflowApiJSON) {
-               const newConfig: MappingConfig = {
-                  id: `config_${Date.now()}`,
-                  title: workflow.viewComfyJSON?.id || "Untitled Workflow",
-                  description: "Imported from Playground",
-                  workflowApiJSON: workflow.workflowApiJSON,
-                  uiConfig: {
-                      layout: { type: "grid", columns: 2, gap: 16 },
-                      theme: { primaryColor: "#3b82f6", backgroundColor: "#ffffff" },
-                      components: []
-                  },
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-               };
-               setEditorState(prev => ({
-                   ...prev,
-                   currentConfig: newConfig,
-                   isDirty: true
-               }));
-               setConfigTitle(newConfig.title);
-               toast.success("已加载选中的工作流");
-               localStorage.removeItem("MAPPING_EDITOR_INITIAL_WORKFLOW");
-            }
-          } catch (e) {
-            console.error("Failed to parse pending workflow", e);
+        try {
+          const workflow = JSON.parse(pendingWorkflowStr);
+          // Assuming workflow has workflowApiJSON
+          if (workflow.workflowApiJSON) {
+            const newConfig: MappingConfig = {
+              id: `config_${Date.now()}`,
+              title: workflow.viewComfyJSON?.id || "Untitled Workflow",
+              description: "Imported from Playground",
+              workflowApiJSON: workflow.workflowApiJSON,
+              uiConfig: {
+                layout: { type: "grid", columns: 2, gap: 16 },
+                theme: { primaryColor: "#3b82f6", backgroundColor: "#ffffff" },
+                components: []
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            setEditorState(prev => ({
+              ...prev,
+              currentConfig: newConfig,
+              isDirty: true
+            }));
+            setConfigTitle(newConfig.title);
+            toast.success("已加载选中的工作流");
+            localStorage.removeItem("MAPPING_EDITOR_INITIAL_WORKFLOW");
           }
+        } catch (e) {
+          console.error("Failed to parse pending workflow", e);
+        }
       }
 
       setEditorState(prev => ({ ...prev, isLoading: false }));
@@ -146,7 +117,116 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
       toast.error("初始化编辑器失败");
       setEditorState(prev => ({ ...prev, isLoading: false }));
     }
-  };
+  }, [setConfigTitle]);
+
+  const handleSaveConfig = useCallback(async () => {
+    if (!editorState.currentConfig) {
+      toast.error("没有可保存的配置");
+      return;
+    }
+
+    try {
+      setEditorState(prev => ({ ...prev, isLoading: true }));
+
+      // 1. Save to local storage (backup)
+      await localStorageManager.saveConfig(editorState.currentConfig);
+
+      // 2. Save to server
+      const updatedWorkflows = workflows.map(wf => {
+        if (wf.viewComfyJSON.title === editorState.currentConfig!.title) {
+          return {
+            ...wf,
+            viewComfyJSON: {
+              ...wf.viewComfyJSON,
+              mappingConfig: {
+                components: editorState.currentConfig!.uiConfig.components
+              }
+            }
+          };
+        }
+        return wf;
+      });
+
+      // Check if it's a new workflow
+      const exists = workflows.some(w => w.viewComfyJSON.title === editorState.currentConfig!.title);
+      if (!exists) {
+        // Create basic ViewComfy structure
+        const newWorkflow: IViewComfy = {
+          viewComfyJSON: {
+            id: editorState.currentConfig.id,
+            title: editorState.currentConfig.title,
+            description: editorState.currentConfig.description || "",
+            inputs: [], // Should ideally be parsed from API
+            advancedInputs: [],
+            previewImages: [],
+            mappingConfig: {
+              components: editorState.currentConfig.uiConfig.components
+            }
+          },
+          workflowApiJSON: editorState.currentConfig.workflowApiJSON
+        };
+        updatedWorkflows.push(newWorkflow);
+      }
+
+      const payload = {
+        appTitle: "ViewComfy",
+        appImg: "",
+        viewComfys: updatedWorkflows
+      };
+
+      const res = await fetch('/api/view-comfy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save to server");
+      }
+
+      setEditorState(prev => ({
+        ...prev,
+        isDirty: false,
+        isLoading: false
+      }));
+
+      toast.success("配置已保存到服务器");
+
+      // Refresh list
+      fetchWorkflows();
+
+    } catch (error) {
+      console.error("保存配置失败:", error);
+      toast.error("保存配置失败");
+      setEditorState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, [editorState.currentConfig, workflows, fetchWorkflows]);
+
+  useEffect(() => {
+    // 初始化编辑器
+    initializeEditor();
+    // 加载工作流列表
+    fetchWorkflows();
+  }, [initializeEditor, fetchWorkflows]);
+
+  // Auto-save effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (editorState.isDirty && editorState.currentConfig) {
+      timer = setTimeout(() => {
+        handleSaveConfig();
+      }, 30000); // 30 seconds auto-save
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [editorState.isDirty, editorState.currentConfig, handleSaveConfig]);
+
+
+
+
 
   const handleWorkflowUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -154,17 +234,16 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
 
     try {
       setEditorState(prev => ({ ...prev, isLoading: true }));
-      
+
       const text = await file.text();
       const workflowApiJSON: WorkflowApiJSON = JSON.parse(text);
-      
+
       // 验证工作流格式
       if (!workflowApiJSON || typeof workflowApiJSON !== 'object') {
         throw new Error('无效的工作流文件格式');
       }
 
-      setWorkflowFile(file);
-      
+
       // 创建新的映射配置
       const newConfig: MappingConfig = {
         id: `config_${Date.now()}`,
@@ -238,88 +317,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
     }
   };
 
-  const handleSaveConfig = async () => {
-    if (!editorState.currentConfig) {
-      toast.error("没有可保存的配置");
-      return;
-    }
 
-    try {
-      setEditorState(prev => ({ ...prev, isLoading: true }));
-      
-      // 1. Save to local storage (backup)
-      await localStorageManager.saveConfig(editorState.currentConfig);
-      
-      // 2. Save to server
-      const updatedWorkflows = workflows.map(wf => {
-        if (wf.viewComfyJSON.title === editorState.currentConfig!.title) {
-             return {
-                 ...wf,
-                 viewComfyJSON: {
-                     ...wf.viewComfyJSON,
-                     mappingConfig: {
-                         components: editorState.currentConfig!.uiConfig.components
-                     }
-                 }
-             };
-        }
-        return wf;
-      });
-
-      // Check if it's a new workflow
-      const exists = workflows.some(w => w.viewComfyJSON.title === editorState.currentConfig!.title);
-      if (!exists) {
-          // Create basic ViewComfy structure
-          const newWorkflow: IViewComfy = {
-              viewComfyJSON: {
-                  id: editorState.currentConfig.id,
-                  title: editorState.currentConfig.title,
-                  description: editorState.currentConfig.description || "",
-                  inputs: [], // Should ideally be parsed from API
-                  advancedInputs: [],
-                  previewImages: [],
-                  mappingConfig: {
-                      components: editorState.currentConfig.uiConfig.components
-                  }
-              },
-              workflowApiJSON: editorState.currentConfig.workflowApiJSON
-          };
-          updatedWorkflows.push(newWorkflow);
-      }
-
-      const payload = {
-        appTitle: "ViewComfy", 
-        appImg: "",
-        viewComfys: updatedWorkflows
-      };
-
-      const res = await fetch('/api/view-comfy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-          throw new Error("Failed to save to server");
-      }
-
-      setEditorState(prev => ({
-        ...prev,
-        isDirty: false,
-        isLoading: false
-      }));
-
-      toast.success("配置已保存到服务器");
-      
-      // Refresh list
-      fetchWorkflows();
-
-    } catch (error) {
-      console.error("保存配置失败:", error);
-      toast.error("保存配置失败");
-      setEditorState(prev => ({ ...prev, isLoading: false }));
-    }
-  };
 
   const handleGoToGeneration = () => {
     if (!editorState.currentConfig) {
@@ -334,9 +332,9 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
 
     // 跳转到生成界面
     if (onNavigate) {
-        // TODO: 这里的参数需要根据实际 TabValue 调整，假设生成界面是 'custom-ui' 或其他
-        // 目前先提示
-        toast.info("跳转功能待集成");
+      // TODO: 这里的参数需要根据实际 TabValue 调整，假设生成界面是 'custom-ui' 或其他
+      // 目前先提示
+      toast.info("跳转功能待集成");
     }
   };
 
@@ -385,7 +383,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
     if (!editorState.currentConfig) return;
 
     const updatedComponents = [...editorState.currentConfig.uiConfig.components, component];
-    
+
     const updatedConfig = {
       ...editorState.currentConfig,
       uiConfig: {
@@ -455,26 +453,26 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
     if (!editorState.currentConfig) return;
 
     const updatedWorkflow = {
-        ...editorState.currentConfig.workflowApiJSON,
-        [nodeId]: {
-            ...editorState.currentConfig.workflowApiJSON[nodeId],
-            inputs: {
-                ...editorState.currentConfig.workflowApiJSON[nodeId].inputs,
-                [paramKey]: value
-            }
+      ...editorState.currentConfig.workflowApiJSON,
+      [nodeId]: {
+        ...editorState.currentConfig.workflowApiJSON[nodeId],
+        inputs: {
+          ...editorState.currentConfig.workflowApiJSON[nodeId].inputs,
+          [paramKey]: value
         }
+      }
     };
 
     const updatedConfig = {
-        ...editorState.currentConfig,
-        workflowApiJSON: updatedWorkflow,
-        updatedAt: new Date().toISOString()
+      ...editorState.currentConfig,
+      workflowApiJSON: updatedWorkflow,
+      updatedAt: new Date().toISOString()
     };
 
     setEditorState(prev => ({
-        ...prev,
-        currentConfig: updatedConfig,
-        isDirty: true
+      ...prev,
+      currentConfig: updatedConfig,
+      isDirty: true
     }));
   };
 
@@ -499,7 +497,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
             将 ComfyUI 工作流参数映射为用户友好的界面组件
           </p>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -510,7 +508,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
             <Save className="w-4 h-4 mr-2" />
             保存配置
           </Button>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -520,7 +518,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
             <Download className="w-4 h-4 mr-2" />
             导出配置
           </Button>
-          
+
           <Button
             onClick={handleGoToGeneration}
             disabled={!editorState.currentConfig || editorState.isDirty}
@@ -529,7 +527,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
             <Play className="w-4 h-4 mr-2" />
             生成界面
           </Button>
-          
+
           <Button variant="outline" size="sm">
             <Settings className="w-4 h-4 mr-2" />
             设置
@@ -553,13 +551,13 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
           className="w-full"
         >
           <TabsList className="w-full justify-start h-auto flex-wrap gap-2 bg-transparent p-0">
-             <TabsTrigger 
-                value="default"
-                className="rounded-full bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border border-transparent px-4 py-2"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                新建/上传
-              </TabsTrigger>
+            <TabsTrigger
+              value="default"
+              className="rounded-full bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border border-transparent px-4 py-2"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              新建/上传
+            </TabsTrigger>
             {workflows.map(wf => (
               <TabsTrigger
                 key={wf.viewComfyJSON.id}
@@ -592,7 +590,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
                 onChange={(e) => setConfigTitle(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="workflow-file">工作流文件 (JSON)</Label>
               <Input
@@ -613,7 +611,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
               <Layers className="w-4 h-4 mr-2" />
               从服务器加载现有工作流
             </Button>
-            
+
             <div className="text-sm text-muted-foreground">
               <p>请上传从 ComfyUI 导出的工作流 JSON 文件。</p>
               <p>文件应包含完整的节点定义和参数信息。</p>
@@ -626,18 +624,18 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
       {editorState.currentConfig && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
           <div className="lg:col-span-2 h-full flex flex-col overflow-hidden gap-4">
-             <MappingList 
-                components={editorState.currentConfig.uiConfig.components}
-                onEdit={(index: number) => {
-                   setEditorState(prev => ({
-                       ...prev,
-                       editingComponentIndex: index,
-                       selectedParameter: null, // Clear selected parameter to focus on editing
-                       selectedNode: null
-                   }));
-                }}
-                onDelete={handleComponentDelete}
-             />
+            <MappingList
+              components={editorState.currentConfig.uiConfig.components}
+              onEdit={(index: number) => {
+                setEditorState(prev => ({
+                  ...prev,
+                  editingComponentIndex: index,
+                  selectedParameter: null, // Clear selected parameter to focus on editing
+                  selectedNode: null
+                }));
+              }}
+              onDelete={handleComponentDelete}
+            />
             <WorkflowAnalyzer
               workflowApiJSON={editorState.currentConfig.workflowApiJSON}
               onNodeSelect={handleNodeSelect}
@@ -665,7 +663,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
         </div>
       )}
 
-      <WorkflowSelectorDialog 
+      <WorkflowSelectorDialog
         open={isWorkflowSelectorOpen}
         onOpenChange={setIsWorkflowSelectorOpen}
         onSelect={handleSelectWorkflow}
@@ -677,11 +675,11 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
         nodeId={editorState.selectedNode}
         workflowApiJSON={editorState.currentConfig?.workflowApiJSON || null}
         mappingConfig={editorState.currentConfig}
-         onUpdateValue={handleNodeValueUpdate}
-         onParameterSelect={handleParameterSelect}
-       />
-     </div>
-   );
+        onUpdateValue={handleNodeValueUpdate}
+        onParameterSelect={handleParameterSelect}
+      />
+    </div>
+  );
 }
 
 export default MappingEditorPage;

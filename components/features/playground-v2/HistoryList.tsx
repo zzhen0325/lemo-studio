@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, Settings2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GenerationResult } from '@/components/features/playground-v2/types';
+import { GenerationResult, GenerationConfig } from '@/components/features/playground-v2/types';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { cn } from "@/lib/utils";
@@ -73,7 +73,7 @@ export default function HistoryList({
             (gConfig?.img_width || 0) === width &&
             (gConfig?.img_height || 0) === height &&
             (gConfig?.lora || "") === lora &&
-            ((gConfig as any)?.ref_image || "") === refImage
+            (gConfig?.ref_image || "") === refImage
           );
         }
       });
@@ -318,7 +318,7 @@ function HistoryCard({
                 className="h-8 rounded-lg border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white gap-1.5 px-3"
                 onClick={() => {
                   if (config) {
-                    applyModel(config.base_model || '', config as any);
+                    applyModel(config.base_model || '', config as GenerationConfig);
                     applyPrompt(prompt);
                     toast({
                       title: "参数已回填",
@@ -474,7 +474,7 @@ function TextHistoryCard({
 }) {
   const { toast } = useToast();
   const { applyPrompt } = usePlaygroundStore();
-  const prompt = result.prompt || (result.config as any)?.prompt || '';
+  const prompt = result.prompt || result.config?.prompt || '';
 
   const handleApply = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -531,7 +531,7 @@ function DescribeInteractiveCard({
 }) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const currentItem = group.items[currentIndex];
-  const prompt = currentItem?.prompt || (currentItem?.config as any)?.prompt || '';
+  const prompt = currentItem?.prompt || currentItem?.config?.prompt || '';
   const { toast } = useToast();
   const { applyPrompt } = usePlaygroundStore();
 
