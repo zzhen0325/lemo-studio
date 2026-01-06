@@ -32,7 +32,7 @@ import { X, Plus, Sparkles, History, PanelRightOpen, LayoutGrid, List, Loader2, 
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
-import type { GenerationConfig, GenerationResult } from "@/components/features/playground-v2/types";
+import type { GenerationConfig, GenerationResult, UploadedImage } from "@/components/features/playground-v2/types";
 
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 
@@ -70,6 +70,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const containerRef = useRef<HTMLDivElement>(null);
   const uploadedImages = usePlaygroundStore(s => s.uploadedImages);
   const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
+  const describeImages = usePlaygroundStore(s => s.describeImages);
+  const setDescribeImages = usePlaygroundStore(s => s.setDescribeImages);
   const selectedModel = usePlaygroundStore(s => s.selectedModel);
   const setSelectedModel = usePlaygroundStore(s => s.setSelectedModel);
   const selectedWorkflowConfig = usePlaygroundStore(s => s.selectedWorkflowConfig);
@@ -101,6 +103,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setIsSelectorExpanded = usePlaygroundStore(s => s.setSelectorExpanded);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const describePanelRef = useRef<HTMLDivElement>(null);
 
   const [showAllProjects, setShowAllProjects] = useState(false);
 
@@ -129,6 +132,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isPresetGridOpen, setIsPresetGridOpen] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
   const [isDescribeMode, setIsDescribeMode] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
   const [showGallery, setShowGallery] = useState(true); // 独立控制Gallery面板显示
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
@@ -143,6 +148,27 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       setShowGallery(true); // 当显示历史记录时，同步显示Gallery
     }
   }, [showHistory]);
+
+  // Handle click outside to close Describe panel
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isDescribeMode &&
+        describePanelRef.current &&
+        !describePanelRef.current.contains(event.target as Node)
+      ) {
+        setIsDescribeMode(false);
+      }
+    };
+
+    if (isDescribeMode) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDescribeMode]);
 
   // Unified mode logic: either generated or manually showing history
   const isDashboardActive = hasGenerated || showHistory;
@@ -410,18 +436,20 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
   const { optimizePrompt, isOptimizing } = usePromptOptimization({ systemInstruction: baseSystemInstruction });
 
-  const handleFilesUpload = async (files: File[] | FileList) => {
+  const handleFilesUpload = async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
+    const setImages = target === 'describe' ? setDescribeImages : setUploadedImages;
+
     for (const file of uploads) {
       const tempId = Math.random().toString(36).substring(7);
-      const reader = new FileReader();
       const dataUrl: string = await new Promise((resolve) => {
+        const reader = new FileReader();
         reader.onload = (e) => resolve(String(e.target?.result));
         reader.readAsDataURL(file);
       });
 
       // Add placeholder
-      setUploadedImages(prev => [...prev, {
+      setImages((prev: UploadedImage[]) => [...prev, {
         id: tempId,
         file,
         base64: '',
@@ -438,7 +466,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         const path = resp.ok && json?.path ? String(json.path) : undefined;
         const base64Data = dataUrl.split(',')[1];
 
-        setUploadedImages(prev => prev.map(img =>
+        setImages((prev: UploadedImage[]) => prev.map((img: UploadedImage) =>
           img.id === tempId
             ? { ...img, base64: base64Data, path, isUploading: false }
             : img
@@ -446,7 +474,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       } catch (err) {
         console.error("Upload failed", err);
         const base64Data = dataUrl.split(',')[1];
-        setUploadedImages(prev => prev.map(img =>
+        setImages((prev: UploadedImage[]) => prev.map((img: UploadedImage) =>
           img.id === tempId
             ? { ...img, base64: base64Data, isUploading: false }
             : img
@@ -456,7 +484,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files; if (!files) return;
-    await handleFilesUpload(files);
+    // 默认通过 input 上传的归为参考图，除非有特殊逻辑
+    await handleFilesUpload(files, isDescribeMode ? 'describe' : 'reference');
   };
   const removeImage = (index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); };
 
@@ -533,7 +562,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
 
   const handleDescribe = async () => {
-    if (uploadedImages.length === 0) {
+    if (describeImages.length === 0) {
       toast({ title: "错误", description: "请先上传图片", variant: "destructive" });
       return;
     }
@@ -545,7 +574,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const loadingId = `describe-loading-${Date.now()}`;
     const loadingCard: GenerationResult = {
       id: loadingId,
-      imageUrl: uploadedImages[0].previewUrl,
+      imageUrl: describeImages[0].previewUrl,
       config: {
         ...config,
         prompt: "Analyzing image...",
@@ -553,7 +582,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       timestamp: new Date().toISOString(),
       isLoading: true,
       type: 'text',
-      sourceImage: uploadedImages[0].previewUrl,
+      sourceImage: describeImages[0].previewUrl,
     };
 
     // Insert loading card
@@ -561,9 +590,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     try {
       // 1. Convert the first image to base64 if needed, or use existing base64
-      let base64 = uploadedImages[0].base64;
-      if (!base64 && uploadedImages[0].previewUrl.startsWith('data:')) {
-        base64 = uploadedImages[0].previewUrl.split(',')[1];
+      let base64 = describeImages[0].base64;
+      if (!base64 && describeImages[0].previewUrl.startsWith('data:')) {
+        base64 = describeImages[0].previewUrl.split(',')[1];
       }
 
       if (!base64) {
@@ -600,7 +629,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         // Create history cards for each description result
         const newHistoryItems: GenerationResult[] = results.map((prompt: string, index: number) => ({
           id: `describe-${Date.now()}-${index}`,
-          imageUrl: uploadedImages[0].previewUrl, // Use uploaded image as preview
+          imageUrl: describeImages[0].previewUrl, // Use uploaded image as preview
           config: {
             ...config,
             prompt: prompt, // Each card has its own description
@@ -608,7 +637,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           timestamp: new Date().toISOString(),
           isLoading: false,
           type: 'text',
-          sourceImage: uploadedImages[0].previewUrl,
+          sourceImage: describeImages[0].previewUrl,
         }));
 
         // Remove loading card and add real results
@@ -843,6 +872,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   onAIModelChange={setSelectedAIModel}
                   onAddImages={handleFilesUpload}
                   onFocusChange={setIsInputFocused}
+                  isDraggingOver={isDraggingOver}
                 />
               </div>
               <Button
@@ -985,20 +1015,41 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       <AnimatePresence>
         {isDescribeMode && !isDashboardActive && (
           <motion.div
+            ref={describePanelRef}
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             className="flex w-full max-w-4xl max-auto  inset-0 z-20  py-2"
           >
             <div className="w-full h-full flex flex-col items-center p-2 bg-white/10 border border-white/20  rounded-[30px] ">
-              <div className="w-full h-full flex flex-col items-center p-4  bg-white/5 rounded-3xl border-white/10 border transition-all cursor-pointer group relative"
+              <div className={cn(
+                "w-full h-full flex flex-col items-center p-4 rounded-3xl border transition-all cursor-pointer group relative",
+                isDraggingOverPanel
+                  ? "bg-white/10 border-primary shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+                  : "bg-white/5 border-white/10"
+              )}
                 onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOverPanel(true);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOverPanel(false);
+                }}
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  setIsDraggingOverPanel(false);
+                  setIsDraggingOver(false);
                   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    handleFilesUpload(Array.from(e.dataTransfer.files));
+                    handleFilesUpload(Array.from(e.dataTransfer.files), 'describe');
                   }
                 }}
               >
@@ -1011,20 +1062,24 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   <X className="w-4 h-4" />
                 </button>
 
-                {uploadedImages.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center py-2  justify-center gap-3 opacity-70 group-hover:opacity-100 transition-opacity">
-                    <div className="w-10 h-10 rounded-full bg-black/5 border border-white/20 flex items-center justify-center">
-                      <Upload className="w-4 h-4 text-white" />
+                {describeImages.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center py-2  justify-center gap-3 opacity-70 group-hover/overlay:opacity-100 transition-opacity">
+                    <div className={cn(
+                      "w-10 h-10 rounded-full border flex items-center justify-center transition-all",
+                      isDraggingOverPanel ? "bg-black/5 border-primary" : "bg-black/5 border-white/20"
+                    )}>
+                      <Upload className={cn("w-4 h-4", isDraggingOverPanel ? "text-primary" : "text-white")} />
                     </div>
                     <div className="text-center">
-                      <p className="text-white text-sm font-normal">拖拽图片到此处 或 点击选择图片</p>
-
+                      <p className={cn("text-sm font-normal", isDraggingOverPanel ? "text-primary" : "text-white")}>
+                        {isDraggingOverPanel ? "松开以开始图像分析" : "拖动图片到此处 或 点击选择图片"}
+                      </p>
                     </div>
                   </div>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-between gap-4 py-2">
                     <div className="flex-1 flex flex-wrap justify-center overflow-y-auto gap-4 scrollbar-hide p-2">
-                      {uploadedImages.map((img, idx) => (
+                      {describeImages.map((img, idx) => (
                         <div key={img.id || idx} className="relative group/img shrink-0">
                           <div className="relative">
                             <Image
@@ -1033,7 +1088,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                               width={80}
                               height={80}
                               className={cn(
-                                "w-20 h-20 object-cover rounded-xl border-2 border-white/20 shadow-xl transition-all",
+                                "w-20 h-20 object-cover rounded-xl border-2 border-white/20  transition-all",
                                 img.isUploading && "opacity-50 grayscale blur-[px]"
                               )}
                             />
@@ -1045,7 +1100,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           </div>
                           {!img.isUploading && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                              onClick={(e) => { e.stopPropagation(); setDescribeImages((prev: UploadedImage[]) => prev.filter((_: UploadedImage, i: number) => i !== idx)); }}
                               className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500 shadow-lg"
                             >
                               <X className="w-2.5 h-2.5" />
@@ -1053,7 +1108,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           )}
                         </div>
                       ))}
-                      <div className="w-20 h-20 rounded-xl border border-dashed border-white/10 flex items-center justify-center hover:border-primary/30 transition-all">
+                      <div className="w-20 h-20 rounded-xl border border-dashed border-white/10 flex items-center justify-center hover:border-primary transition-all">
                         <Plus className="w-5 h-5 text-white/20" />
                       </div>
                     </div>
@@ -1086,7 +1141,62 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   );
 
   return (
-    <div className="flex-1 relative p-12 pt-16 h-full flex flex-col overflow-hidden">
+    <div
+      className="flex-1 relative p-12 pt-16 h-full flex flex-col overflow-hidden"
+      onDragEnter={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(true);
+        // 自动展开 Describe 面板
+        if (!isDescribeMode) {
+          setIsDescribeMode(true);
+        }
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isDraggingOver) setIsDraggingOver(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Check if we are really leaving the window
+        if (e.relatedTarget === null || (e.relatedTarget as Node).nodeName === 'HTML') {
+          setIsDraggingOver(false);
+          setIsDraggingOverPanel(false);
+          // 如果退出且没有图片，自动收起
+          if (describeImages.length === 0) {
+            setIsDescribeMode(false);
+          }
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+        setIsDraggingOverPanel(false);
+
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+          const dropY = e.clientY;
+          const windowHeight = window.innerHeight;
+
+          // 如果是在 Describe 面板区域附近（或当前面板已展开），上传到 Describe
+          if (isDescribeMode || dropY < windowHeight * 0.4) {
+            handleFilesUpload(files, 'describe');
+          } else {
+            toast({ title: "已添加参考图", description: "图片已上传至当前生成配置中" });
+            handleFilesUpload(files, 'reference');
+          }
+        } else {
+          // 如果松手时没有文件，则收起面板（如果是误操作）
+          if (describeImages.length === 0) {
+            setIsDescribeMode(false);
+          }
+        }
+      }}
+    >
+
       <div className="flex-1 bg-transparent border border-white/20 rounded-[2rem] overflow-hidden relative flex flex-col">
         <main className="relative h-full flex bg-transparent overflow-hidden">
           <input
@@ -1178,7 +1288,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               <div className={cn(
                 "flex flex-col",
                 isDashboardActive
-                  ? cn("py-6 h-full transition-all duration-300", showGallery ? "w-[60vw]" : "flex-1")
+                  ? cn("py-6 h-full", showGallery ? "w-[60vw]" : "flex-1")
                   : "w-full  mt-[30vh]"
               )}>
                 {/* Input UI */}
@@ -1189,12 +1299,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 </div>
 
                 {/* History Entry Capsule Button - Only show if not in dashboard active mode */}
-                {!isDashboardActive && (
-                  <motion.div
-                    layout
-                    transition={{ type: "tween", easeOut: "easeInOut", duration: 0.1 }}
-                    className="flex justify-center mt-4 gap-4"
-                  >
+                {!isDashboardActive && !isDescribeMode && (
+                  <div className="flex justify-center mt-4 gap-4">
                     <button
                       onClick={() => setIsDescribeMode(!isDescribeMode)}
                       className={cn(
@@ -1216,7 +1322,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       <History className="w-4 h-4" />
                       <span className="text-sm font-medium">History</span>
                     </button>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* ... Existing History Entry Capsule Button logic ... */}

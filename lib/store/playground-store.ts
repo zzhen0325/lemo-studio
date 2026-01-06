@@ -6,6 +6,7 @@ import { SelectedLora } from '@/components/features/playground-v2/LoraSelectorDi
 interface PlaygroundState {
     config: GenerationConfig;
     uploadedImages: UploadedImage[];
+    describeImages: UploadedImage[];
     selectedModel: string;
     selectedWorkflowConfig: IViewComfy | undefined;
     selectedLoras: SelectedLora[];
@@ -15,6 +16,7 @@ interface PlaygroundState {
     // Actions
     updateConfig: (config: Partial<GenerationConfig>) => void;
     setUploadedImages: (images: UploadedImage[] | ((prev: UploadedImage[]) => UploadedImage[])) => void;
+    setDescribeImages: (images: UploadedImage[] | ((prev: UploadedImage[]) => UploadedImage[])) => void;
     setSelectedModel: (model: string) => void;
     setSelectedWorkflowConfig: (workflow: IViewComfy | undefined) => void;
     setSelectedLoras: (loras: SelectedLora[]) => void;
@@ -69,6 +71,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
         lora: ''
     },
     uploadedImages: [],
+    describeImages: [],
     selectedModel: 'Nano banana',
     selectedWorkflowConfig: undefined,
     selectedLoras: [],
@@ -87,6 +90,9 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
 
     setUploadedImages: (updater) => set((state) => ({
         uploadedImages: typeof updater === 'function' ? updater(state.uploadedImages) : updater
+    })),
+    setDescribeImages: (updater) => set((state) => ({
+        describeImages: typeof updater === 'function' ? updater(state.describeImages) : updater
     })),
 
     setSelectedModel: (model) => set({ selectedModel: model }),
@@ -162,6 +168,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
                 lora: ''
             },
             uploadedImages: [],
+            describeImages: [],
             selectedModel: 'Nano banana',
             selectedWorkflowConfig: undefined,
             selectedLoras: [],

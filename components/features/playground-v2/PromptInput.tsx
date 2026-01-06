@@ -2,6 +2,7 @@ import React from 'react';
 import { AutosizeTextarea } from "@/components/ui/autosize-text-area";
 import { AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
 import { UploadedImage } from '@/components/features/playground-v2/types';
+import { cn } from "@/lib/utils";
 
 
 interface PromptInputProps {
@@ -17,6 +18,7 @@ interface PromptInputProps {
   isPresetGridOpen?: boolean;
   onTogglePresetGrid?: () => void;
   onFocusChange?: (focused: boolean) => void;
+  isDraggingOver?: boolean;
 }
 
 import { useDebounce } from '@/hooks/common/use-debounce';
@@ -26,6 +28,7 @@ export default function PromptInput({
   onPromptChange,
   onAddImages,
   onFocusChange,
+  isDraggingOver,
 }: PromptInputProps) {
   const [localPrompt, setLocalPrompt] = React.useState(prompt);
   const debouncedPrompt = useDebounce(localPrompt, 100);
@@ -66,10 +69,14 @@ export default function PromptInput({
 
   return (
     <div
-      className="w-full relative"
+      className={cn(
+        "w-full relative rounded-2xl",
+        isDraggingOver && "ring-2 ring-primary/50 bg-primary/5 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+      )}
       onDragOver={(e) => { e.preventDefault(); }}
       onDrop={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         const files = e.dataTransfer.files;
         if (files && files.length > 0) onAddImages(files);
       }}
