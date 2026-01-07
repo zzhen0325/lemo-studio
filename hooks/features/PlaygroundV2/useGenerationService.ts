@@ -316,23 +316,24 @@ export function useGenerationService() {
                             sourceImageUrl: undefined,
                         }
                     );
-                    const gen: Generation = {
-                        id: taskId,
-                        userId: 'anonymous',
-                        projectId: 'default',
-                        outputUrl: savedPath,
-                        config: {
-                            prompt: unified.prompt,
-                            width: Number(unified.width),
-                            height: Number(unified.height),
-                            model: unified.model,
-                            lora: formatLoras() ?? unified.lora,
-                        },
-                        status: 'completed',
-                        sourceImageUrl: undefined,
-                        createdAt: new Date().toISOString(),
-                    };
-                    updateHistoryAndSave(taskId, gen);
+            const gen: Generation = {
+                id: taskId,
+                userId: 'anonymous',
+                projectId: 'default',
+                outputUrl: savedPath,
+                config: {
+                    prompt: unified.prompt,
+                    width: Number(unified.width),
+                    height: Number(unified.height),
+                    model: unified.model,
+                    workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                    lora: formatLoras() ?? unified.lora,
+                },
+                status: 'completed',
+                sourceImageUrl: undefined,
+                createdAt: new Date().toISOString(),
+            };
+            updateHistoryAndSave(taskId, gen);
                 }
             },
             onError: (err) => {
