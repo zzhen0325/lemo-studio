@@ -45,7 +45,7 @@ export function DescribePanel({
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
-          className="flex w-full max-w-4xl max-auto inset-0 z-20 py-2"
+          className="flex w-full inset-0 z-20 py-2"
         >
           <div className="w-full h-full flex flex-col items-center p-2 bg-white/10 border border-white/20 rounded-[30px]">
             <div

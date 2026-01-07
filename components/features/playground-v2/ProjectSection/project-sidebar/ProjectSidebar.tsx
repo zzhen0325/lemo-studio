@@ -3,27 +3,18 @@ import { observer } from "mobx-react-lite";
 import { projectStore } from "@/lib/store/project-store";
 import { ProjectList } from "./ProjectList";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutGrid } from "lucide-react";
-import { motion } from "framer-motion";
-
+import { usePlaygroundStore } from "@/lib/store/playground-store";
+import { Plus, X, LayoutGrid } from "lucide-react";
 interface ProjectSidebarProps {
   onShowAllProjects: () => void;
 }
 
+
 export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarProps) => {
-  const isExpanded = projectStore.isSidebarExpanded;
 
   return (
-    <motion.div
-      initial={false}
-      animate={{ 
-        width: isExpanded ? 240 : 0,
-        opacity: isExpanded ? 1 : 0
-      }}
-      transition={{ duration: 0.3 }}
-      className="relative h-full shrink-0 py-6 flex flex-col overflow-hidden z-30"
-    >
-      <div className="bg-black/20 border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden backdrop-blur-md min-w-[240px]">
+    <div className="relative shrink-0 mt-10 mb-10 flex flex-col z-30 h-[calc(100%-80px)] w-[240px]">
+      <div className="bg-black/20 border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden backdrop-blur-md">
         <div className="px-4 pt-4 pb-4 flex flex-col gap-4 h-full">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -54,6 +45,6 @@ export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarPro
           <ProjectList />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 });

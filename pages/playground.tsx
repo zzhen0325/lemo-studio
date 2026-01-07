@@ -149,8 +149,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setShowProjectSidebar = usePlaygroundStore(s => s.setShowProjectSidebar);
 
   useEffect(() => {
-    projectStore.toggleSidebar(showProjectSidebar);
-  }, [showProjectSidebar]);
+    projectStore.toggleSidebar(showHistory);
+  }, [showHistory]);
 
   // Handle click outside to close Describe panel
   useEffect(() => {
@@ -649,10 +649,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         <div className={
           cn(
             "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20 p-2 transition-colors duration-100",
-            showHistory ? "bg-[#21252237]" : "bg-black/40"
+            showHistory ? "bg-[#13263161]" : "bg-black/40"
           )}>
-          <div className="flex items-start gap-0 bg-black/10 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden ">
-            <motion.div
+          <div className="flex items-start gap-0 bg-black/20 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden ">
+            <div
               className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
               onMouseEnter={() => setIsStackHovered(true)}
               onMouseLeave={() => setIsStackHovered(false)}
@@ -728,7 +728,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               >
                 <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
               </motion.button>
-            </motion.div>
+            </div>
 
 
 
@@ -841,7 +841,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         </div>
       </div>
 
-      <AnimatePresence>
+      {isDescribeMode && (
         <DescribePanel
           open={isDescribeMode}
           panelRef={describePanelRef}
@@ -857,7 +857,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           isGenerating={isGenerating}
           onDescribe={handleDescribe}
         />
-      </AnimatePresence>
+      )}
     </div>
   );
 
@@ -933,121 +933,81 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             <PlaygroundBackground />
             <div className="relative z-20 flex flex-col items-center justify-center w-full h-full ">
               {/* Project Sidebar Overlay */}
-              <div className="absolute left-6 top-6 bottom-6 z-40 pointer-events-none">
-                <div className="pointer-events-auto h-full">
-                  <AnimatePresence mode="popLayout">
-                    {showProjectSidebar ? (
-                      <motion.div
-                        key="project-sidebar"
-                        layout
-                        initial={{ x: -300, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: -300, opacity: 0 }}
-                        transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-                        className="relative shrink-0 py-6"
-                      >
-                        <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
-                        <button
-                          onClick={() => setShowProjectSidebar(false)}
-                          className="absolute top-10 left-4 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
-                          title="收起项目"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>Project</span>
-                        </button>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="project-open-btn"
-                        layout
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="py-6 shrink-0"
-                      >
-                        <button
-                          onClick={() => setShowProjectSidebar(true)}
-                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
-                          title="展开项目"
-                        >
-                          <PanelLeftOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Project</span>
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+              {showHistory && (
+                <div className="absolute left-6 top-0 bottom-0 h-full z-40 pointer-events-none">
+                  <div className="pointer-events-auto h-full">
+                    <div
+                      key="project-sidebar"
+                      className="relative shrink-0 h-full"
+                    >
+                      <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Gallery Overlay */}
               <div className="absolute right-6 top-6 bottom-6 z-40 pointer-events-none">
                 <div className="pointer-events-auto h-full">
-                  <AnimatePresence mode="popLayout">
-                    {showGallery ? (
-                      <motion.div
-                        key="gallery-panel"
-                        layout
-                        initial={{ x: 300, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 300, opacity: 0 }}
-                        transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-                        className="w-[380px] h-full py-6 flex flex-col"
-                      >
-                        <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
-                          <div className="flex items-center justify-between p-4 sticky top-0 z-10">
-                            <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
-                              {(['gallery', 'styles'] as const).map(tab => (
-                                <button
-                                  key={tab}
-                                  onClick={() => setActiveGalleryTab(tab)}
-                                  className={cn(
-                                    "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
-                                    activeGalleryTab === tab
-                                      ? "bg-primary text-black shadow-lg"
-                                      : "text-white/50 hover:text-white hover:bg-white/10"
-                                  )}
-                                >
-                                  {tab === 'gallery' && "全部作品"}
-                                  {tab === 'styles' && "Style"}
-                                </button>
-                              ))}
-                            </div>
-                            <button
-                              onClick={() => setShowGallery(false)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span>Close</span>
-                            </button>
+
+                  {showGallery ? (
+                    <div
+                      key="gallery-panel"
+                      className="w-[380px] h-full py-6 flex flex-col"
+                    >
+                      <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
+                        <div className="flex items-center justify-between p-4 sticky top-0 z-10">
+                          <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
+                            {(['gallery', 'styles'] as const).map(tab => (
+                              <button
+                                key={tab}
+                                onClick={() => setActiveGalleryTab(tab)}
+                                className={cn(
+                                  "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
+                                  activeGalleryTab === tab
+                                    ? "bg-primary text-black shadow-lg"
+                                    : "text-white/50 hover:text-white hover:bg-white/10"
+                                )}
+                              >
+                                {tab === 'gallery' && "全部作品"}
+                                {tab === 'styles' && "Style"}
+                              </button>
+                            ))}
                           </div>
-                          <div className="flex-1 min-h-0">
-                            <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
-                          </div>
+                          <button
+                            onClick={() => setShowGallery(false)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Close</span>
+                          </button>
                         </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="gallery-open-btn"
-                        layout
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="py-6"
+                        <div className="flex-1 min-h-0">
+                          <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      key="gallery-open-btn"
+                      className="py-6"
+                    >
+                      <button
+                        onClick={() => setShowGallery(true)}
+                        className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
+                        title="展开画廊"
                       >
-                        <button
-                          onClick={() => setShowGallery(true)}
-                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
-                          title="展开画廊"
-                        >
-                          <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Gallery</span>
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        <span className="text-sm font-medium">Gallery</span>
+                      </button>
+                    </div>
+                  )}
+
                 </div>
               </div>
 
               <div className={cn(
-                "flex flex-col items-center max-w-4xl w-full relative z-30 transition-all duration-500",
+                "flex flex-col items-center max-w-4xl w-full relative z-30",
                 showHistory ? "w-[55vw] max-w-full h-[85vh] mt-10" : (isPresetGridOpen ? "mt-0" : "-mt-60")
               )}>
                 {/* Input UI */}
@@ -1092,69 +1052,66 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 )}
 
                 {/* 历史记录区域 */}
-                <AnimatePresence mode="popLayout">
-                  {showHistory && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.98, y: 10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.98, y: 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="mt-6 w-full flex-1 overflow-hidden min-h-0 relative z-10"
-                    >
-                      <div className="bg-white/5  border border-white/10 rounded-3xl h-full flex flex-col relative">
-                        {/* Header Actions: Layout Toggle \u0026 Collapse */}
-                        <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
-                          <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
-                            <button
-                              onClick={() => setHistoryLayoutMode('grid')}
-                              className={cn(
-                                "p-1.5 rounded-md transition-all",
-                                historyLayoutMode === 'grid'
-                                  ? "bg-white/10 text-white"
-                                  : "text-white/40 hover:text-white hover:bg-white/5"
-                              )}
-                              title="Grid View"
-                            >
-                              <LayoutGrid className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setHistoryLayoutMode('list')}
-                              className={cn(
-                                "p-1.5 rounded-md transition-all",
-                                historyLayoutMode === 'list'
-                                  ? "bg-white/10 text-white"
-                                  : "text-white/40 hover:text-white hover:bg-white/5"
-                              )}
-                              title="List View"
-                            >
-                              <List className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
 
+                {showHistory && (
+                  <div
+
+                    className="mt-6 w-full flex-1 overflow-hidden min-h-0 relative z-10"
+                  >
+                    <div className="bg-white/5  border border-white/10 rounded-3xl h-full flex flex-col relative">
+                      {/* Header Actions: Layout Toggle \u0026 Collapse */}
+                      <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
+                        <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
                           <button
-                            onClick={() => setShowHistory(false)}
-                            className="flex items-center h-8 w-8 justify-center rounded-full border border-white/10 bg-white/5  text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                            onClick={() => setHistoryLayoutMode('grid')}
+                            className={cn(
+                              "p-1.5 rounded-md transition-all",
+                              historyLayoutMode === 'grid'
+                                ? "bg-white/10 text-white"
+                                : "text-white/40 hover:text-white hover:bg-white/5"
+                            )}
+                            title="Grid View"
                           >
-                            <X className="w-4 h-4 hover:drop-shadow(0 0 10px rgba(255, 255, 255, 0.4))" />
-
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setHistoryLayoutMode('list')}
+                            className={cn(
+                              "p-1.5 rounded-md transition-all",
+                              historyLayoutMode === 'list'
+                                ? "bg-white/10 text-white"
+                                : "text-white/40 hover:text-white hover:bg-white/5"
+                            )}
+                            title="List View"
+                          >
+                            <List className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        <div className="flex-1 overflow-hidden">
-                          <HistoryList
-                            variant="sidebar"
-                            history={generationHistory}
-                            onRegenerate={handleRegenerate}
-                            onDownload={handleDownload}
-                            onImageClick={openImageModal}
-                            onBatchUse={handleBatchUse}
-                            layoutMode={historyLayoutMode}
-                          />
-                        </div>
+                        <button
+                          onClick={() => setShowHistory(false)}
+                          className="flex items-center h-8 w-8 justify-center rounded-full border border-white/10 bg-white/5  text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                        >
+                          <X className="w-4 h-4 hover:drop-shadow(0 0 10px rgba(255, 255, 255, 0.4))" />
+
+                        </button>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+
+                      <div className="flex-1 overflow-hidden">
+                        <HistoryList
+                          variant="sidebar"
+                          history={generationHistory}
+                          onRegenerate={handleRegenerate}
+                          onDownload={handleDownload}
+                          onImageClick={openImageModal}
+                          onBatchUse={handleBatchUse}
+                          layoutMode={historyLayoutMode}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
 
 
               </div>
@@ -1163,7 +1120,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
           </div>
           {!isPresetGridOpen && !isPresetManagerOpen && !showHistory && (
-            <div className=" absolute bottom-0 w-full z-20 overflow-visible">
+            <div className=" absolute bottom-0 w-full  overflow-visible">
               <StylesMarquee />
             </div>
 
@@ -1171,9 +1128,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
           <GoogleApiStatus className="fixed bottom-4 right-4 z-[60]" />
 
-          <AnimatePresence>
-            {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
-          </AnimatePresence>
+          {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
 
           <div className="top-0 left-0 right-0 pt-24 pointer-events-none">
             <ImagePreviewModal

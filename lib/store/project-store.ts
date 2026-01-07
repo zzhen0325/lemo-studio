@@ -31,9 +31,16 @@ class ProjectStore {
     return [...this.projects].sort((a, b) => b.createdAt - a.createdAt);
   }
 
+  generateId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+  }
+
   addProject(name: string = "Untitled") {
     const newProject: Project = {
-      id: crypto.randomUUID(),
+      id: this.generateId(),
       name: name.slice(0, 20),
       createdAt: Date.now(),
       history: []
@@ -68,20 +75,20 @@ class ProjectStore {
       }
     }
   }
-  
+
   // Method to sync history from external source (like when loading from local storage)
   setProjectHistory(projectId: string, history: GenerationResult[]) {
-      const project = this.projects.find(p => p.id === projectId);
-      if (project) {
-          project.history = history;
-           if (!project.thumbnailUrl && history.length > 0) {
-              const firstItem = history[0];
-              const image = firstItem.imageUrl || firstItem.imageUrls?.[0];
-              if (image) {
-                project.thumbnailUrl = image;
-              }
-          }
+    const project = this.projects.find(p => p.id === projectId);
+    if (project) {
+      project.history = history;
+      if (!project.thumbnailUrl && history.length > 0) {
+        const firstItem = history[0];
+        const image = firstItem.imageUrl || firstItem.imageUrls?.[0];
+        if (image) {
+          project.thumbnailUrl = image;
+        }
       }
+    }
   }
 }
 

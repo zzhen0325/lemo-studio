@@ -31,7 +31,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="w-full max-w-4xl mx-auto mt-6 flex flex-col gap-2"
+            className="w-full mt-6 flex flex-col gap-2"
         >
             {/* Header: Tabs & Manager Entry */}
             <div className="flex items-center justify-between bg-black/20 border border-white/10 rounded-2xl p-1 backdrop-blur-md">
