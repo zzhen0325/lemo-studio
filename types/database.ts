@@ -23,6 +23,7 @@ export interface GenerationConfig {
   width: number;
   height: number;
   model: string;
+  workflowName?: string;
   lora?: string;
   seed?: number;
   resolution?: Resolution;
@@ -64,4 +65,3 @@ export interface User {
   avatarUrl: string;
   createdAt: string;
 }
-
