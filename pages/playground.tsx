@@ -28,13 +28,16 @@ import type { Preset } from "@/components/features/playground-v2/types";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { X, Plus, Sparkles, History, PanelRightOpen, LayoutGrid, List, Loader2, Upload } from "lucide-react";
+import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, LayoutGrid, List, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import type { GenerationConfig, GenerationResult, UploadedImage } from "@/components/features/playground-v2/types";
+import { BASE_SYSTEM_INSTRUCTION, VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-v2/types";
 
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
+import { DescribePanel } from "@/components/features/playground-v2/DescribePanel";
+import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
 
 import gsap from "gsap";
 import { Flip } from "gsap/all";
@@ -135,19 +138,19 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
-  const [showGallery, setShowGallery] = useState(true); // 独立控制Gallery面板显示
+  const showHistory = usePlaygroundStore(s => s.showHistory);
+  const setShowHistory = usePlaygroundStore(s => s.setShowHistory);
+  const showGallery = usePlaygroundStore(s => s.showGallery);
+  const setShowGallery = usePlaygroundStore(s => s.setShowGallery);
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [batchSize, setBatchSize] = useState(4); // Default batch size
-  const showHistory = usePlaygroundStore(s => s.showHistory);
-  const setShowHistory = usePlaygroundStore(s => s.setShowHistory);
+  const showProjectSidebar = usePlaygroundStore(s => s.showProjectSidebar);
+  const setShowProjectSidebar = usePlaygroundStore(s => s.setShowProjectSidebar);
 
   useEffect(() => {
-    if (showHistory) {
-      projectStore.toggleSidebar(true);
-      setShowGallery(true); // 当显示历史记录时，同步显示Gallery
-    }
-  }, [showHistory]);
+    projectStore.toggleSidebar(showProjectSidebar);
+  }, [showProjectSidebar]);
 
   // Handle click outside to close Describe panel
   useEffect(() => {
@@ -170,97 +173,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     };
   }, [isDescribeMode]);
 
-  // Unified mode logic: either generated or manually showing history
-  const isDashboardActive = hasGenerated || showHistory;
-
-  const lastState = useRef<Flip.FlipState | null>(null);
-  const prevActive = useRef(false);
-  const lastPromptHeight = useRef<number | null>(null);
   const promptWrapperRef = useRef<HTMLDivElement | null>(null);
-  const releasePromptHeightTimeoutRef = useRef<number | null>(null);
 
-  // Capture state whenever we are in the "Center" mode, so we have it ready when we switch.
-  useGSAP(() => {
-    if (!isDashboardActive) {
-      const state = Flip.getState("[data-flip-id='prompt-input-container']");
-      lastState.current = state;
-      const el = document.querySelector<HTMLElement>("[data-flip-id='prompt-input-container']");
-      if (el) {
-        lastPromptHeight.current = el.getBoundingClientRect().height;
-      }
-    }
-  }, [isDashboardActive, uploadedImages.length]); // Update state if images change (resizes container)
-
-
-  useGSAP(() => {
-    // Only trigger flip if we ARE active now but WEREN'T before
-    if (isDashboardActive && !prevActive.current) {
-      const hasFromState = !!lastState.current;
-
-      // 1. Flip Input (only if we have a previous state to flip from)
-      if (hasFromState && lastState.current) {
-        if (releasePromptHeightTimeoutRef.current) {
-          window.clearTimeout(releasePromptHeightTimeoutRef.current);
-          releasePromptHeightTimeoutRef.current = null;
-        }
-        const wrapperEl = promptWrapperRef.current;
-        if (wrapperEl && lastPromptHeight.current) {
-          wrapperEl.style.height = `${lastPromptHeight.current}px`;
-        }
-
-        const releasePromptHeight = () => {
-          const wrapper = promptWrapperRef.current;
-          const target = document.querySelector<HTMLElement>("[data-flip-id='prompt-input-container']");
-          if (!wrapper) return;
-          const targetHeight = target?.getBoundingClientRect().height;
-          if (!targetHeight) {
-            wrapper.style.height = "";
-            return;
-          }
-          gsap.killTweensOf(wrapper);
-          gsap.set(wrapper, { height: wrapper.getBoundingClientRect().height });
-          gsap.to(wrapper, {
-            height: targetHeight,
-            duration: 0.25,
-            ease: "power2.out",
-            onComplete: () => {
-              wrapper.style.height = "";
-            },
-          });
-        };
-
-        Flip.from(lastState.current, {
-          targets: "[data-flip-id='prompt-input-container']",
-          duration: 0.5,
-          ease: "power2.out",
-          absolute: true,
-          zIndex: 50,
-          onComplete: () => releasePromptHeight(),
-        });
-        releasePromptHeightTimeoutRef.current = window.setTimeout(() => releasePromptHeight(), 650);
-      }
-
-      // 2. Animate History/Gallery Enter
-      gsap.set(".history-enter-container", { opacity: 1 });
-      gsap.fromTo(".history-enter-container",
-        { opacity: 0 },
-        { opacity: 1, duration: 0.4, delay: 0 }
-      );
-
-      gsap.fromTo([".history-list-content", ".gallery-view-content"],
-        { y: 60, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 0.5,
-          stagger: 0.1,
-          ease: "power3.out",
-          delay: 0.3
-        }
-      );
-    }
-    prevActive.current = isDashboardActive;
-  }, [isDashboardActive]);
+  useEffect(() => {
+    initPresets();
+  }, [initPresets]);
 
   useEffect(() => {
     initPresets();
@@ -307,25 +224,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const path = uploadedImages[0]?.path;
     updateConfig({ ref_image: path });
   }, [uploadedImages, updateConfig]);
-
-  const baseSystemInstruction = `
-  # 角色
-你是备受赞誉的提示词大师Lemo-prompt，专为AI绘图工具flux打造提示词。
-
-## 技能
-### 技能1: 理解用户意图
-利用先进的自然语言处理技术，准确剖析用户输入自然语言背后的真实意图，精准定位用户对于图像生成的核心需求。在描述物品时，避免使用"各种""各类"等概称，要详细列出具体物品。若用户提供图片，你会精准描述图片中的内容信息与构图，并按照图片信息完善提示词。
-
-### 2: 优化构图与细节
-运用专业的构图知识和美学原理，自动为场景增添丰富且合理的细节，精心调整构图，显著提升生成图像的构图完整性、故事性和视觉吸引力。
-
-### 技能3: 概念转化
-熟练运用丰富的视觉语言库，将用户提出的抽象概念快速且准确地转化为可执行的视觉描述，让抽象想法能通过图像生动、直观地呈现。
-
-## 输出格式
-1. 仅输出完整提示词中文版本
-2. 使用精炼且生动的语言表达
-3. 文字控制在200字以内`
 
 
   const applyWorkflowDefaults = (workflow: IViewComfy) => {
@@ -434,7 +332,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       console.error("Batch generation failed:", error);
     }
   };
-  const { optimizePrompt, isOptimizing } = usePromptOptimization({ systemInstruction: baseSystemInstruction });
+  const { optimizePrompt, isOptimizing } = usePromptOptimization({ systemInstruction: BASE_SYSTEM_INSTRUCTION });
 
   const handleFilesUpload = async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -602,24 +500,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       // 2. Call unified Vision service
       const result = await callVision({
         image: `data:image/png;base64,${base64}`,
-        systemPrompt: `## 角色
-您是一位专业的AI图像标注员，专门为生成式AI模型创建高质量、精准的训练数据集。您的目标是使用自然语言准确、客观地描述图像。
-
-## 任务
-分析提供的图像，并生成 4 份内容侧重点略有不同的描述。
-
-## 标注指南
-1. **格式：**自然语言，80字左右。
-2. **客观性：**仅描述图像中呈现的主要视觉内容。
-3. **分段：**请一次性返回 4 个结果，每个结果之间使用 '|||' 作为分隔符。
-4. **精确性：**使用精确的术语（例如，不要用“花”，而应使用“红玫瑰”；不要用“枪”，而应使用“AK-47”）。
-
-仅返回中文结果
-
-## 输出结构优先级
-[主体] -> [动作/姿势] -> [服装] -> [背景] -> [文字信息]
-
-注意：**除了 4 个描述内容及其之间的 '|||' 分隔符外，不要返回任何额外文字。**`
+        systemPrompt: VISION_DESCRIBE_SYSTEM_PROMPT
       });
 
       const text = result?.text || "";
@@ -697,7 +578,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setSelectedResult(result);
     setIsImageModalOpen(true);
     // Ensure dashboard mode is active if we're viewing a specific result
-    if (!isDashboardActive) {
+    if (!showHistory) {
       setShowHistory(true);
     }
   };
@@ -746,22 +627,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
 
 
-  // 样式定义
-
-
-  /**
-   * Refactored to inline into the main input container for aggregation + hover expansion
-   */
-
 
 
   // Input UI Helper to avoid duplication
-  const renderInputUI = (isSidebar: boolean) => (
+  const renderInputUI = () => (
     <div className={cn(
-      "flex flex-col items-center w-full pointer-events-auto",
-      isSidebar ? "w-full" : "w-full max-w-4xl -mt-40 mx-auto"
+      "flex flex-col items-center w-full pointer-events-auto"
     )}>
-      {!isSidebar && (
+      {!showHistory && (
         <h1
           className="text-[2rem] text-white font-medium text-center mb-4 h-auto opacity-100 z-10 transition-all duration-300  whitespace-nowrap"
           style={{ fontFamily: "'InstrumentSerif', serif" }}
@@ -775,8 +648,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       >
         <div className={
           cn(
-            "relative z-10 flex items-center justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20 p-2 transition-colors duration-100",
-            hasGenerated ? "bg-[#302e38]" : "bg-black/40"
+            "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20 p-2 transition-colors duration-100",
+            showHistory ? "bg-[#21252237]" : "bg-black/40"
           )}>
           <div className="flex items-start gap-0 bg-black/10 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden ">
             <motion.div
@@ -964,178 +837,26 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
             isPresetGridOpen={isPresetGridOpen}
           />
-          {/* 
-          预设按钮
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-4 gap-1 text-white/30 hover:text-white/60 hover:bg-white/5 rounded-full px-3 transition-all"
-            onClick={() => setIsPresetExpanded(!isPresetExpanded)}
-          >
-            {isPresetExpanded ? (
-              <>
-                <ChevronUp className="w-3 h-3" />
-                <span className="text-xs">收起预设</span>
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-3 h-3" />
-                <span className="text-xs">展开预设</span>
-              </>
-            )}
-          </Button> */}
 
-          <div className="w-full px-4">
-            {/* <div className="flex justify-center mb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-4 gap-1 text-white/30 hover:text-white/60 hover:bg-white/5 rounded-full px-3 transition-all"
-                onClick={() => setIsPresetExpanded(!isPresetExpanded)}
-              >
-                {isPresetExpanded ? (
-                  <>
-                    <ChevronUp className="w-3 h-3" />
-                    <span className="text-xs">收起预设</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3 h-3" />
-
-                  </>
-                )}
-              </Button>
-            </div> */}
-
-
-          </div>
         </div>
       </div>
 
       <AnimatePresence>
-        {isDescribeMode && !isDashboardActive && (
-          <motion.div
-            ref={describePanelRef}
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            className="flex w-full max-w-4xl max-auto  inset-0 z-20  py-2"
-          >
-            <div className="w-full h-full flex flex-col items-center p-2 bg-white/10 border border-white/20  rounded-[30px] ">
-              <div className={cn(
-                "w-full h-full flex flex-col items-center p-4 rounded-3xl border transition-all cursor-pointer group relative",
-                isDraggingOverPanel
-                  ? "bg-white/10 border-primary shadow-[0_0_20px_rgba(255,255,255,0.3)]"
-                  : "bg-white/5 border-white/10"
-              )}
-                onClick={() => fileInputRef.current?.click()}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsDraggingOverPanel(true);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsDraggingOverPanel(false);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setIsDraggingOverPanel(false);
-                  setIsDraggingOver(false);
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    handleFilesUpload(Array.from(e.dataTransfer.files), 'describe');
-                  }
-                }}
-              >
-
-                {/* Close Button for Describe Overlay */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); setIsDescribeMode(false); }}
-                  className="absolute right-4 top-4 z-30 p-1.5 rounded-full bg-black/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-
-                {describeImages.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center py-2  justify-center gap-3 opacity-70 group-hover/overlay:opacity-100 transition-opacity">
-                    <div className={cn(
-                      "w-10 h-10 rounded-full border flex items-center justify-center transition-all",
-                      isDraggingOverPanel ? "bg-black/5 border-primary" : "bg-black/5 border-white/20"
-                    )}>
-                      <Upload className={cn("w-4 h-4", isDraggingOverPanel ? "text-primary" : "text-white")} />
-                    </div>
-                    <div className="text-center">
-                      <p className={cn("text-sm font-normal", isDraggingOverPanel ? "text-primary" : "text-white")}>
-                        {isDraggingOverPanel ? "松开以开始图像分析" : "拖动图片到此处 或 点击选择图片"}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-between gap-4 py-2">
-                    <div className="flex-1 flex flex-wrap justify-center overflow-y-auto gap-4 scrollbar-hide p-2">
-                      {describeImages.map((img, idx) => (
-                        <div key={img.id || idx} className="relative group/img shrink-0">
-                          <div className="relative">
-                            <Image
-                              src={img.previewUrl}
-                              alt="Preview"
-                              width={80}
-                              height={80}
-                              className={cn(
-                                "w-20 h-20 object-cover rounded-xl border-2 border-white/20  transition-all",
-                                img.isUploading && "opacity-50 grayscale blur-[px]"
-                              )}
-                            />
-                            {img.isUploading && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Loader2 className="w-6 h-6 text-white animate-spin" />
-                              </div>
-                            )}
-                          </div>
-                          {!img.isUploading && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setDescribeImages((prev: UploadedImage[]) => prev.filter((_: UploadedImage, i: number) => i !== idx)); }}
-                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500 shadow-lg"
-                            >
-                              <X className="w-2.5 h-2.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      <div className="w-20 h-20 rounded-xl border border-dashed border-white/10 flex items-center justify-center hover:border-primary transition-all">
-                        <Plus className="w-5 h-5 text-white/20" />
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={(e) => { e.stopPropagation(); handleDescribe(); }}
-                      disabled={isDescribing || isGenerating}
-                      className="h-10 px-8 rounded-xl bg-primary text-black font-normal hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.3)] active:scale-95 disabled:opacity-50 shrink-0"
-                    >
-                      {isDescribing ? (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span className="text-sm">描述中...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span className="text-sm">Describe</span>
-                        </div>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
+        <DescribePanel
+          open={isDescribeMode}
+          panelRef={describePanelRef}
+          describeImages={describeImages}
+          isDraggingOverPanel={isDraggingOverPanel}
+          setIsDraggingOverPanel={setIsDraggingOverPanel}
+          setIsDraggingOver={setIsDraggingOver}
+          onUploadClick={() => fileInputRef.current?.click()}
+          onDropFiles={(files) => handleFilesUpload(files, 'describe')}
+          onClose={() => setIsDescribeMode(false)}
+          onRemoveImage={(idx) => setDescribeImages((prev: UploadedImage[]) => prev.filter((_: UploadedImage, i: number) => i !== idx))}
+          isDescribing={isDescribing}
+          isGenerating={isGenerating}
+          onDescribe={handleDescribe}
+        />
       </AnimatePresence>
     </div>
   );
@@ -1209,97 +930,135 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           />
 
           <div ref={containerRef} className="relative w-full h-full flex flex-col items-center">
-            {/* 背景处理 */}
-            <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-              <AnimatePresence mode="wait">
-                {!isDashboardActive ? (
-                  <motion.div
-                    key="video-bg"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="absolute inset-0"
-                  >
+            <PlaygroundBackground />
+            <div className="relative z-20 flex flex-col items-center justify-center w-full h-full ">
+              {/* Project Sidebar Overlay */}
+              <div className="absolute left-6 top-6 bottom-6 z-40 pointer-events-none">
+                <div className="pointer-events-auto h-full">
+                  <AnimatePresence mode="popLayout">
+                    {showProjectSidebar ? (
+                      <motion.div
+                        key="project-sidebar"
+                        layout
+                        initial={{ x: -300, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: -300, opacity: 0 }}
+                        transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+                        className="relative shrink-0 py-6"
+                      >
+                        <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
+                        <button
+                          onClick={() => setShowProjectSidebar(false)}
+                          className="absolute top-10 left-4 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
+                          title="收起项目"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Project</span>
+                        </button>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="project-open-btn"
+                        layout
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="py-6 shrink-0"
+                      >
+                        <button
+                          onClick={() => setShowProjectSidebar(true)}
+                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                          title="展开项目"
+                        >
+                          <PanelLeftOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          <span className="text-sm font-medium">Project</span>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
+              {/* Gallery Overlay */}
+              <div className="absolute right-6 top-6 bottom-6 z-40 pointer-events-none">
+                <div className="pointer-events-auto h-full">
+                  <AnimatePresence mode="popLayout">
+                    {showGallery ? (
+                      <motion.div
+                        key="gallery-panel"
+                        layout
+                        initial={{ x: 300, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: 300, opacity: 0 }}
+                        transition={{ type: 'spring', damping: 20, stiffness: 100 }}
+                        className="w-[380px] h-full py-6 flex flex-col"
+                      >
+                        <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
+                          <div className="flex items-center justify-between p-4 sticky top-0 z-10">
+                            <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
+                              {(['gallery', 'styles'] as const).map(tab => (
+                                <button
+                                  key={tab}
+                                  onClick={() => setActiveGalleryTab(tab)}
+                                  className={cn(
+                                    "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
+                                    activeGalleryTab === tab
+                                      ? "bg-primary text-black shadow-lg"
+                                      : "text-white/50 hover:text-white hover:bg-white/10"
+                                  )}
+                                >
+                                  {tab === 'gallery' && "全部作品"}
+                                  {tab === 'styles' && "Style"}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setShowGallery(false)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Close</span>
+                            </button>
+                          </div>
+                          <div className="flex-1 min-h-0">
+                            <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="gallery-open-btn"
+                        layout
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="py-6"
+                      >
+                        <button
+                          onClick={() => setShowGallery(true)}
+                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
+                          title="展开画廊"
+                        >
+                          <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          <span className="text-sm font-medium">Gallery</span>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
-                    {/* <video
-                      src="/images/12.webm"
-                      autoPlay
-                      loop
-                      muted
-
-                      playsInline
-                      poster="/images/1.webp"
-                      preload="metadata"
-                      className="w-full h-full object-cover "
-                    /> */}
-
-                    {/* <Image
-                      src="/images/47.png"
-                      alt="Background"
-                      fill
-                      className="object-cover opacity-100 "
-                      priority
-                    /> */}
-
-
-                    <div className="absolute inset-0" style={{
-                      background: "linear-gradient(180deg, #0F0F15 0%, #131718 12.62%, #1079BB 48.49%, #FBC6E2 74.56%, #D8C6B8 87.73%, #EB9469 100%)",
-                    }} />
-
-
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="image-bg"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-
-                  >
-                    {/* <Image
-                      src="/images/112.jpg"
-                      alt="Background"
-                      fill
-                      className="object-cover opacity-100 "
-                      priority
-                    /> */}
-                    {/* bg-gradient-to-b from-[#56bbff] via-[#fbfeff] to-[#fff7ef] */}
-                    <div className="absolute inset-0 "
-                      style={{
-                        background: "linear-gradient(180deg, #0F0F15 0%, #131718 33.12%, #1079BB 62.71%, #FBC6E2 82.24%, #D8C6B8 94.52%, #EB9469 100%)",
-                      }} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            {/* Input and History Container - Centered max-w-4xl if not active, or left part of dashboard */}
-            <div className={cn(
-              "relative z-20 flex w-full h-full",
-              isDashboardActive ? "flex-row px-6 gap-6" : "flex-col items-center"
-            )}>
-              {isDashboardActive && (
-                <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
-              )}
-
-              {/* Left Side: Creation Area (Input + History) */}
               <div className={cn(
-                "flex flex-col",
-                isDashboardActive
-                  ? cn("py-6 h-full", showGallery ? "w-[60vw]" : "flex-1")
-                  : "w-full  mt-[30vh]"
+                "flex flex-col items-center max-w-4xl w-full relative z-30 transition-all duration-500",
+                showHistory ? "w-[55vw] max-w-full h-[85vh] mt-10" : (isPresetGridOpen ? "mt-0" : "-mt-60")
               )}>
                 {/* Input UI */}
                 <div ref={promptWrapperRef} className="w-full">
-                  <div data-flip-id="prompt-input-container" className="w-full">
-                    {renderInputUI(isDashboardActive)}
+                  <div className="w-full">
+                    {renderInputUI()}
                   </div>
                 </div>
 
-                {/* History Entry Capsule Button - Only show if not in dashboard active mode */}
-                {!isDashboardActive && !isDescribeMode && (
+                {/* History/Describe Trigger - Only show if history is NOT visible */}
+                {!showHistory && !isDescribeMode && !isPresetGridOpen && (
                   <div className="flex justify-center mt-4 gap-4">
                     <button
                       onClick={() => setIsDescribeMode(!isDescribeMode)}
@@ -1325,9 +1084,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   </div>
                 )}
 
-                {/* ... Existing History Entry Capsule Button logic ... */}
-
-                {!isDashboardActive && isPresetGridOpen && (
+                {!isDescribeMode && isPresetGridOpen && (
                   <PresetGridOverlay
                     onOpenManager={() => setIsPresetManagerOpen(true)}
                     onSelectPreset={handlePresetSelect}
@@ -1335,20 +1092,18 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 )}
 
                 {/* 历史记录区域 */}
-
-                <AnimatePresence>
-                  {isDashboardActive && (
+                <AnimatePresence mode="popLayout">
+                  {showHistory && (
                     <motion.div
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 30 }}
-                      className="mt-6 flex-1 overflow-hidden min-h-0 relative z-10"
+                      initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="mt-6 w-full flex-1 overflow-hidden min-h-0 relative z-10"
                     >
-
-                      <div className="bg-transparent h-full flex flex-col relative">
-                        {/* Header Actions: Layout Toggle & Collapse */}
+                      <div className="bg-white/5  border border-white/10 rounded-3xl h-full flex flex-col relative">
+                        {/* Header Actions: Layout Toggle \u0026 Collapse */}
                         <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
-                          {/* Layout Toggle */}
                           <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
                             <button
                               onClick={() => setHistoryLayoutMode('grid')}
@@ -1377,93 +1132,42 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           </div>
 
                           <button
-                            onClick={() => {
-                              setShowHistory(false);
-                              setHasGenerated(false);
-                            }}
-                            className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white transition-all text-xs"
+                            onClick={() => setShowHistory(false)}
+                            className="flex items-center h-8 w-8 justify-center rounded-full border border-white/10 bg-white/5  text-white/40 hover:bg-white/10 hover:text-white transition-all"
                           >
-                            <X className="w-3.5 h-3.5" />
-                            <span>收起历史记录</span>
+                            <X className="w-4 h-4 hover:drop-shadow(0 0 10px rgba(255, 255, 255, 0.4))" />
+
                           </button>
                         </div>
 
-                        <HistoryList
-                          variant="sidebar"
-                          history={generationHistory}
-                          onRegenerate={handleRegenerate}
-                          onDownload={handleDownload}
-                          onImageClick={openImageModal}
-                          onBatchUse={handleBatchUse}
-                          layoutMode={historyLayoutMode}
-                        />
+                        <div className="flex-1 overflow-hidden">
+                          <HistoryList
+                            variant="sidebar"
+                            history={generationHistory}
+                            onRegenerate={handleRegenerate}
+                            onDownload={handleDownload}
+                            onImageClick={openImageModal}
+                            onBatchUse={handleBatchUse}
+                            layoutMode={historyLayoutMode}
+                          />
+                        </div>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+
               </div>
 
-              {/* Right Side: Gallery Module - Only show in active mode */}
-              {isDashboardActive && (
-                showGallery ? (
-                  <div className="flex-1 shrink-0 py-6 flex flex-col">
-                    <div className="bg-black/80  border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden">
-                      {/* Tab Switcher Header */}
-                      <div className="flex items-center justify-between p-4 sticky top-0 z-10">
-                        <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
-                          {(['gallery', 'styles'] as const).map(tab => (
-                            <button
-                              key={tab}
-                              onClick={() => setActiveGalleryTab(tab)}
-                              className={cn(
-                                "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
-                                activeGalleryTab === tab
-                                  ? "bg-primary text-black shadow-lg"
-                                  : "text-white/50 hover:text-white hover:bg-white/10"
-                              )}
-                            >
-                              {tab === 'gallery' && "全部作品"}
-                              {tab === 'styles' && "Style"}
-                            </button>
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={() => {
-                            setShowGallery(false); // 只收起Gallery面板
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>收起</span>
-                        </button>
-                      </div>
-
-                      <div className="flex-1 min-h-0">
-                        <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-6 flex flex-col items-center">
-                    <button
-                      onClick={() => setShowGallery(true)}
-                      className="flex items-center justify-center w-10 h-10 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
-                      title="展开"
-                    >
-                      <PanelRightOpen className="w-5 h-5" />
-                    </button>
-                  </div>
-                )
-              )}
-
-              {!isDashboardActive && !isPresetGridOpen && !isPresetManagerOpen && (
-                <div className="w-full mt-auto z-20 overflow-visible mb-4 shrink-0">
-                  <StylesMarquee />
-                </div>
-              )}
             </div>
+
           </div>
+          {!isPresetGridOpen && !isPresetManagerOpen && !showHistory && (
+            <div className=" absolute bottom-0 w-full z-20 overflow-visible">
+              <StylesMarquee />
+            </div>
+
+          )}
 
           <GoogleApiStatus className="fixed bottom-4 right-4 z-[60]" />
 

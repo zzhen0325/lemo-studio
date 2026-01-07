@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { GenerationConfig, UploadedImage, Preset, GenerationResult, StyleStack } from '@/components/features/playground-v2/types';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
-import { SelectedLora } from '@/components/features/playground-v2/LoraSelectorDialog';
+import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
 
 interface PlaygroundState {
     config: GenerationConfig;
@@ -12,6 +12,8 @@ interface PlaygroundState {
     selectedLoras: SelectedLora[];
     hasGenerated: boolean;
     showHistory: boolean;
+    showGallery: boolean;
+    showProjectSidebar: boolean;
 
     // Actions
     updateConfig: (config: Partial<GenerationConfig>) => void;
@@ -22,6 +24,8 @@ interface PlaygroundState {
     setSelectedLoras: (loras: SelectedLora[]) => void;
     setHasGenerated: (val: boolean) => void;
     setShowHistory: (val: boolean) => void;
+    setShowGallery: (val: boolean) => void;
+    setShowProjectSidebar: (val: boolean) => void;
     setActiveTab: (tab: string) => void;
 
     // UI States
@@ -77,6 +81,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     selectedLoras: [],
     hasGenerated: false,
     showHistory: false,
+    showGallery: false,
+    showProjectSidebar: false,
     isAspectRatioLocked: false,
     setAspectRatioLocked: (locked) => set({ isAspectRatioLocked: locked }),
     isMockMode: false,
@@ -100,6 +106,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     setSelectedLoras: (loras) => set({ selectedLoras: loras }),
     setHasGenerated: (val) => set({ hasGenerated: val }),
     setShowHistory: (val) => set({ showHistory: val }),
+    setShowGallery: (val) => set({ showGallery: val }),
+    setShowProjectSidebar: (val) => set({ showProjectSidebar: val }),
     setActiveTab: () => {
         // Placeholder
     },
@@ -174,6 +182,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
             selectedLoras: [],
             hasGenerated: false,
             showHistory: false,
+            showGallery: false,
+            showProjectSidebar: false,
             isAspectRatioLocked: false,
             isMockMode: false,
             isSelectorExpanded: false

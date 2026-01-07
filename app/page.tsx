@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 
 // 动态导入核心视图
-const PlaygroundV2Page = dynamic(() => import("@/pages/playground-v2").then(m => m.PlaygroundV2Page), {
+const PlaygroundV2Page = dynamic(() => import("@/pages/playground").then(m => m.PlaygroundV2Page), {
     loading: () => <div className="flex items-center justify-center h-full text-white">Loading Playground...</div>,
     ssr: false
 });

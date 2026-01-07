@@ -111,7 +111,7 @@ export default function PromptInput({
             onAddImages(files);
           }
         }}
-        className="w-full placeholder:text-white/40 bg-transparent text-white leading-relaxed tracking-wide p-2 pl-2   pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none"
+        className="w-full placeholder:text-white/40 bg-transparent text-white leading-relaxed tracking-wide p-2 pl-4   pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none"
       />
     </div>
   );
