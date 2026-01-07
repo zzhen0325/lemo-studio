@@ -17,6 +17,7 @@ interface LoraMeta {
 export interface SelectedLora {
   model_name: string;
   strength: number;
+  preview_url?: string;
 }
 
 interface LoraSelectorDialogProps {
@@ -67,7 +68,10 @@ export default function LoraSelectorDialog({ open, onOpenChange, value, onConfir
   const setStrength = (name: string, v: number) => { setSelected(prev => ({ ...prev, [name]: v })); };
 
   const confirm = () => {
-    const result: SelectedLora[] = Object.entries(selected).map(([k, v]) => ({ model_name: k, strength: v }));
+    const result: SelectedLora[] = Object.entries(selected).map(([k, v]) => {
+      const meta = list.find(item => item.model_name === k);
+      return { model_name: k, strength: v, preview_url: meta?.preview_url };
+    });
     onConfirm(result);
   };
 

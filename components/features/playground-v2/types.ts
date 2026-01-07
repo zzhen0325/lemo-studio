@@ -1,40 +1,5 @@
-import { Generation as UGeneration } from '@/types/database';
-
-export interface GenerationConfig {
-  prompt: string;
-  img_width: number;
-  img_height: number;
-  gen_num: number;
-  base_model: string;
-  image_size?: '1K' | '2K' | '4K';
-  lora?: string;
-  ref_image?: string;
-}
-
-export interface GenerationResult {
-  id: string;
-  outputUrl?: string;
-  imageUrl?: string;
-  imageUrls?: string[];
-
-  config?: GenerationConfig;
-  metadata?: {
-    prompt?: string;
-    base_model?: string;
-    img_width?: number;
-    img_height?: number;
-    lora?: string;
-    ref_image?: string;
-  };
-  createdAt?: string;
-  timestamp: string;
-  prompt?: string;
-  isLoading?: boolean;
-  savedPath?: string;
-  type?: 'image' | 'text';
-  sourceImage?: string;
-  projectId?: string;
-}
+import { Generation, GenerationConfig, Preset } from '@/types/database';
+export type { Generation, GenerationConfig, Preset };
 
 export interface UploadedImage {
   id?: string;
@@ -45,16 +10,7 @@ export interface UploadedImage {
   isUploading?: boolean;
 }
 
-export interface Preset {
-  id: string;
-  title: string;
-  cover: string; // Image URL
-  prompt: string;
-  base_model: string;
-  width: number;
-  height: number;
-  image_size?: '1K' | '2K' | '4K';
-  workflow_id?: string;
+export interface PresetExtended extends Preset {
   category?: string;
 }
 
@@ -69,6 +25,12 @@ export interface StyleStack {
 }
 
 export type SystemInstruction = string;
+
+
+
+
+//优化提示词指令
+
 
 export const BASE_SYSTEM_INSTRUCTION: SystemInstruction = `
   # 角色

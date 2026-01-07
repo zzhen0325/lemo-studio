@@ -11,6 +11,10 @@ export type AspectRatio =
   | '16:9'
   | '21:9';
 export type SizeFrom = 'ratioResolution' | 'custom';
+export interface SelectedLora {
+  model_name: string;
+  strength: number;
+}
 
 export interface Project {
   id: string;
@@ -25,10 +29,12 @@ export interface GenerationConfig {
   model: string;
   workflowName?: string;
   lora?: string;
+  loras?: SelectedLora[];
   seed?: number;
   resolution?: Resolution;
   aspectRatio?: AspectRatio;
   sizeFrom?: SizeFrom;
+  sourceImageUrl?: string;
 }
 
 export interface Generation {

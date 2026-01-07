@@ -152,11 +152,11 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
     return (
         <div className={cn(
             "w-full h-full",
-            variant === 'full' ? "p-12 pt-16 border bg-neutral-900" : ""
+            variant === 'full' ? "p-12 pt-16 border bg-[#0F0F15]" : ""
         )}>
             <div className={cn(
                 "flex flex-col w-full h-full overflow-hidden",
-                variant === 'full' ? "bg-black/40 rounded-3xl p-4" : "p-0"
+                variant === 'full' ? "bg-[#0F0F15]/40 rounded-3xl p-4" : "p-0"
             )}>
                 <div className={cn(
                     "flex-none z-20 pb-4 bg-transparent",
@@ -515,8 +515,8 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         tooltipSide="top"
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
-                            if (item.config?.model) {
-                                applyModel(item.config.model);
+                            if (item.config) {
+                                applyModel(item.config.model, item.config);
                                 toast({ title: "Model Selected", description: `已切换模型为: ${item.config.model}` });
                             }
                         }}
@@ -530,14 +530,15 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         className="w-8 h-8 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
                         onClick={() => {
                             remix({
+                                ...item,
                                 config: {
                                     prompt: item.config?.prompt || '',
-                                    base_model: item.config?.model || 'Nano banana',
+                                    model: item.config?.model || 'Nano banana',
                                     lora: item.config?.lora || '',
-                                    img_width: item.config?.width || 1376,
-                                    img_height: item.config?.height || 768,
-                                    gen_num: 1,
-                                    image_size: '1K'
+                                    loras: item.config?.loras || [],
+                                    width: item.config?.width || 1376,
+                                    height: item.config?.height || 768,
+                                    resolution: item.config?.resolution || '1K'
                                 }
                             });
                             toast({ title: "Remixing", description: "正在根据此图片重新生成..." });

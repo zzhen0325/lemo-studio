@@ -531,5 +531,93 @@
       "key": "151-Text Concatenate"
     }
   ],
-  "id": "wf_jp"
+  "id": "wf_jp",
+  "mappingConfig": {
+    "components": [
+      {
+        "id": "pg_map_1767783519376",
+        "type": "text",
+        "label": "Model",
+        "properties": {
+          "defaultValue": "flux1-dev-fp8.safetensors",
+          "paramName": "model",
+          "placeholder": "Mapped to Model"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "119",
+            "inputs",
+            "unet_name"
+          ],
+          "parameterKey": "unet_name",
+          "defaultValue": "flux1-dev-fp8.safetensors"
+        },
+        "orderIndex": 0
+      },
+      {
+        "id": "pg_map_1767783683388",
+        "type": "number",
+        "label": "Width",
+        "properties": {
+          "defaultValue": 1200,
+          "paramName": "width",
+          "placeholder": "Mapped to Width"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "142",
+            "inputs",
+            "width"
+          ],
+          "parameterKey": "width",
+          "defaultValue": 1200
+        },
+        "orderIndex": 1
+      },
+      {
+        "id": "pg_map_1767783685414",
+        "type": "number",
+        "label": "Height",
+        "properties": {
+          "defaultValue": 600,
+          "paramName": "height",
+          "placeholder": "Mapped to Height"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "142",
+            "inputs",
+            "height"
+          ],
+          "parameterKey": "height",
+          "defaultValue": 600
+        },
+        "orderIndex": 2
+      },
+      {
+        "id": "pg_map_1767783692567",
+        "type": "text",
+        "label": "LoRA",
+        "properties": {
+          "defaultValue": "Alt-Country Poster.safetensors",
+          "paramName": "lora",
+          "placeholder": "Mapped to LoRA"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "147",
+            "inputs",
+            "lora_name"
+          ],
+          "parameterKey": "lora_name",
+          "defaultValue": "Alt-Country Poster.safetensors"
+        },
+        "orderIndex": 3
+      }
+    ]
+  }
 }

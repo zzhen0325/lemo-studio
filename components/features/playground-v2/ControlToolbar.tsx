@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, ChevronDown, Link, Unlink, Sparkles, Plus, Minus } from "lucide-react";
+import Image from "next/image";
 
 
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GenerationConfig } from '@/components/features/playground-v2/types';
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
+import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
 
 
 
@@ -37,7 +39,9 @@ interface ControlToolbarProps {
   onOpenLoraSelector?: () => void;
   selectedWorkflowName?: string;
   selectedBaseModelName?: string;
+  selectedLoras?: SelectedLora[];
   selectedLoraNames?: string[];
+  selectedPresetName?: string;
   workflows?: IViewComfy[];
   onWorkflowSelect?: (wf: IViewComfy) => void;
   onAspectRatioChange: (ar: string) => void;
@@ -71,7 +75,8 @@ export default function ControlToolbar({
   onOpenLoraSelector,
   selectedWorkflowName,
   selectedBaseModelName,
-  selectedLoraNames = [],
+  selectedLoras = [],
+  selectedPresetName,
   workflows = [],
   onWorkflowSelect,
   onAspectRatioChange,
@@ -85,6 +90,7 @@ export default function ControlToolbar({
   onTogglePresetGrid,
   batchSize = 1,
   onBatchSizeChange,
+
 }: ControlToolbarProps) {
 
 
@@ -126,15 +132,15 @@ export default function ControlToolbar({
     setSelectValue(val);
     if (val === 'seed3') {
       onModelChange('3D Lemo seed3');
-      onConfigChange?.({ base_model: '3D Lemo seed3' });
+      onConfigChange?.({ model: '3D Lemo seed3' });
     }
     else if (val === 'seed4') {
       onModelChange('Seed 4.0');
-      onConfigChange?.({ base_model: 'Seed 4.0' });
+      onConfigChange?.({ model: 'Seed 4.0' });
     }
     else if (val === 'nano_banana') {
       onModelChange('Nano banana');
-      onConfigChange?.({ base_model: 'Nano banana' });
+      onConfigChange?.({ model: 'Nano banana' });
     }
     else if (val.startsWith('wf:')) {
       const id = val.slice(3);
@@ -143,7 +149,7 @@ export default function ControlToolbar({
       );
       if (wf) {
         onModelChange('Workflow');
-        onConfigChange?.({ base_model: 'Workflow' });
+        onConfigChange?.({ model: 'Workflow' });
         onWorkflowSelect?.(wf);
       }
     }
@@ -169,7 +175,7 @@ export default function ControlToolbar({
 
   const handleBaseModelSelect = (modelName: string) => {
     onModelChange('Workflow');
-    onConfigChange?.({ base_model: modelName });
+    onConfigChange?.({ model: modelName });
     onSelectorExpandedChange?.(false);
   };
 
@@ -234,7 +240,7 @@ export default function ControlToolbar({
               onClick={onTogglePresetGrid}
             >
 
-              Presets
+              {selectedPresetName ? selectedPresetName : 'Presets'}
               <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
             </Button>
             <ModelDropdown />
@@ -242,9 +248,32 @@ export default function ControlToolbar({
 
 
             {selectedModel === 'Workflow' && (
-              <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
-                {selectedLoraNames.length > 0 ? `LoRA (${selectedLoraNames.length})` : "LoRA"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
+                  LoRA
+                   {selectedLoras && selectedLoras.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {selectedLoras.slice(0, 5).map((lora) => (
+                      <div key={lora.model_name} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/20" title={lora.model_name}>
+                        {lora.preview_url ? (
+                          <Image
+                            src={lora.preview_url}
+                            alt={lora.model_name}
+                            fill
+                            sizes="24px"
+                            className="object-cover"
+                            quality={20}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-white/10" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                </Button>
+               
+              </div>
             )}
           </div>
 
@@ -310,14 +339,14 @@ export default function ControlToolbar({
                   <Input
                     className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
                     placeholder="2048"
-                    value={config.img_width}
+                    value={config.width}
                     onChange={(e) => onWidthChange(parseInt(e.target.value) || 1024)}
                   />
                   <Label className="text-xs text-white/50">H</Label>
                   <Input
                     className="h-8 w-full text-sm text-white rounded-xl bg-white/5 border border-white/10 shadow-none focus-visible:ring-emerald-500/50"
                     placeholder="2048"
-                    value={config.img_height}
+                    value={config.height}
                     onChange={(e) => onHeightChange(parseInt(e.target.value) || 1024)}
                   />
                   <Button
@@ -407,4 +436,3 @@ export default function ControlToolbar({
     </div >
   );
 }
-

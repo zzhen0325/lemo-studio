@@ -3,6 +3,7 @@ import { AutosizeTextarea } from "@/components/ui/autosize-text-area";
 import { AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
 import { UploadedImage } from '@/components/features/playground-v2/types';
 import { cn } from "@/lib/utils";
+import ShinyText from "@/components/ui/ShinyText";
 
 
 interface PromptInputProps {
@@ -29,6 +30,7 @@ export default function PromptInput({
   onAddImages,
   onFocusChange,
   isDraggingOver,
+  isOptimizing,
 }: PromptInputProps) {
   const [localPrompt, setLocalPrompt] = React.useState(prompt);
   const debouncedPrompt = useDebounce(localPrompt, 100);
@@ -111,8 +113,16 @@ export default function PromptInput({
             onAddImages(files);
           }
         }}
-        className="w-full placeholder:text-white/40 bg-transparent text-white leading-relaxed tracking-wide p-2 pl-4   pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none"
+        className={cn(
+          "w-full placeholder:text-white/40 bg-transparent leading-relaxed tracking-wide p-2 pl-4 pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none",
+          isOptimizing ? "text-transparent" : "text-white"
+        )}
       />
+      {isOptimizing && (
+        <div className="pointer-events-none absolute inset-0 p-2 pl-4 pr-10 text-sm leading-relaxed tracking-wide whitespace-pre-wrap break-words">
+          <ShinyText text={localPrompt} color="#ffffff" direction="left" shineColor="#c3e2ddff" speed={2} />
+        </div>
+      )}
     </div>
   );
 }

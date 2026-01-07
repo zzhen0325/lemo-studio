@@ -40,53 +40,43 @@ export function inferRatioResolution(width: number, height: number) {
   return { aspectRatio: best.aspectRatio, resolution: best.resolution };
 }
 
-export function toUnifiedConfigFromLegacy(input: {
-  prompt: string;
-  img_width: number;
-  img_height: number;
-  base_model: string;
-  image_size?: Resolution;
-  lora?: string;
-  seed?: number;
-}): GenerationConfig {
-  const model = input.base_model;
-  const width = Number(input.img_width);
-  const height = Number(input.img_height);
+export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationConfig {
+  const model = input.model || 'Nano banana';
+  const width = Number(input.width);
+  const height = Number(input.height);
+
   if (NANO_BANANA_MODELS.has(model)) {
     const inferred = inferRatioResolution(width, height);
-    const resolution = input.image_size || inferred?.resolution;
+    const resolution = input.resolution || inferred?.resolution;
     const aspectRatio = inferred?.aspectRatio;
     if (resolution && aspectRatio) {
       const size = deriveSize(aspectRatio, resolution);
       return {
+        ...input,
         prompt: input.prompt,
         width: size.width,
         height: size.height,
         model,
-        lora: input.lora,
-        seed: input.seed,
         resolution,
         aspectRatio,
         sizeFrom: 'ratioResolution',
       };
     }
     return {
+      ...input,
       prompt: input.prompt,
       width,
       height,
       model,
-      lora: input.lora,
-      seed: input.seed,
       sizeFrom: 'custom',
     };
   }
   return {
+    ...input,
     prompt: input.prompt,
     width,
     height,
     model,
-    lora: input.lora,
-    seed: input.seed,
   };
 }
 

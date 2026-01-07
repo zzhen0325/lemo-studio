@@ -4,6 +4,13 @@ import { Generation } from '@/types/database';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
 
+const BASE_MODELS = new Set([
+    'FLUX_fill',
+    'flux1-dev-fp8.safetensors',
+    'Zimage',
+    'qwen'
+]);
+
 interface PlaygroundState {
     config: GenerationConfig;
     uploadedImages: UploadedImage[];
@@ -68,11 +75,10 @@ interface PlaygroundState {
 export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     config: {
         prompt: '',
-        img_width: 1376,
-        img_height: 768,
-        gen_num: 1,
-        base_model: 'Nano banana',
-        image_size: '1K',
+        width: 1376,
+        height: 768,
+        model: 'Nano banana',
+        resolution: '1K',
         lora: ''
     },
     uploadedImages: [],
@@ -143,23 +149,43 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
 
     applyModel: (model, configData) => {
         set((state) => {
-            const newConfig = configData ? { ...state.config, ...configData, base_model: model } : { ...state.config, base_model: model };
+            const finalModel = model;
+            let uiModel = model;
+            if (BASE_MODELS.has(model)) {
+                uiModel = 'Workflow';
+            }
+
+            const newConfig = configData ? { ...state.config, ...configData, model: finalModel } : { ...state.config, model: finalModel };
             return {
-                selectedModel: model,
+                selectedModel: uiModel,
                 config: newConfig,
-                selectedWorkflowConfig: model === 'Workflow' ? state.selectedWorkflowConfig : undefined
+                selectedWorkflowConfig: uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined,
+                // If configData explicitly provides loras array, use it as priority
+                selectedLoras: (configData as any)?.loras || (state.config as any)?.loras || state.selectedLoras
             };
         });
     },
 
     remix: (result) => {
         set((state) => {
-            const finalModel = result.config.base_model || state.selectedModel;
+            const modelFromConfig = result.config?.model || (result as any).model;
+            const finalModel = (modelFromConfig as string) || state.selectedModel;
+            let uiModel = finalModel;
+
+            if (BASE_MODELS.has(finalModel)) {
+                uiModel = 'Workflow';
+            }
+
             return {
-                selectedModel: finalModel,
-                selectedWorkflowConfig: result.workflow || (finalModel === 'Workflow' ? state.selectedWorkflowConfig : undefined),
-                selectedLoras: result.loras || state.selectedLoras,
-                config: { ...state.config, ...result.config, base_model: finalModel },
+                selectedModel: uiModel,
+                selectedWorkflowConfig: result.workflow || (uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined),
+                selectedLoras: result.config?.loras || (result as any).loras || state.selectedLoras,
+                config: {
+                    ...state.config,
+                    ...(result.config || {}),
+                    model: finalModel,
+                    workflowName: (result.config?.workflowName || (result as any).workflowName) as string | undefined
+                },
                 hasGenerated: true
             };
         });
@@ -169,11 +195,10 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
         set({
             config: {
                 prompt: '',
-                img_width: 1376,
-                img_height: 768,
-                gen_num: 1,
-                base_model: 'Nano banana',
-                image_size: '1K',
+                width: 1376,
+                height: 768,
+                model: 'Nano banana',
+                resolution: '1K',
                 lora: ''
             },
             uploadedImages: [],
@@ -213,13 +238,73 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     presets: [],
     initPresets: async () => {
         try {
-            const res = await fetch('/api/presets');
-            if (res.ok) {
-                const data = await res.json();
-                set({ presets: data });
+            const [presetsRes, workflowsRes] = await Promise.all([
+                fetch('/api/presets'),
+                fetch('/api/view-comfy')
+            ]);
+
+            let allPresets: Preset[] = [];
+
+            if (presetsRes.ok) {
+                const presetsData = await presetsRes.json();
+                allPresets = [...presetsData];
             }
+
+            if (workflowsRes.ok) {
+                const workflowsData = await workflowsRes.json();
+                const workflowPresets: Preset[] = (workflowsData.viewComfys || []).map((wf: IViewComfy) => ({
+                    id: wf.viewComfyJSON.id || `wf_${Date.now()}_${Math.random()}`,
+                    name: wf.viewComfyJSON.title || "Untitled Workflow",
+                    coverUrl: wf.viewComfyJSON.previewImages?.[0] || "",
+                    category: 'Workflow',
+                    workflow_id: wf.viewComfyJSON.id, // Explicitly add this for handlePresetSelect
+                    config: {
+                        prompt: "",
+                        width: 1024,
+                        height: 1024,
+                        model: (() => {
+                            // 尝试从映射配置中提取
+                            const components = (wf.viewComfyJSON.mappingConfig?.components || []) as any[];
+                            const modelComp = components.find(c =>
+                                c.properties?.paramName === 'base_model' ||
+                                c.properties?.paramName === 'model'
+                            );
+
+                            if (modelComp) {
+                                const path = modelComp.mapping?.workflowPath;
+                                if (path && path.length >= 3 && wf.workflowApiJSON) {
+                                    const [nodeId, , key] = path;
+                                    const val = (wf.workflowApiJSON as any)[nodeId]?.inputs?.[key];
+                                    if (typeof val === 'string') return val;
+                                }
+                                if (modelComp.properties?.defaultValue) return modelComp.properties.defaultValue;
+                            }
+
+                            // 备选：从旧版 inputs 提取
+                            const allInputs = [
+                                ...(wf.viewComfyJSON.inputs || []),
+                                ...(wf.viewComfyJSON.advancedInputs || [])
+                            ].flatMap((group: any) => group.inputs || []);
+
+                            const inputModel = allInputs.find((i: any) => {
+                                const title = (i.title || "").toLowerCase();
+                                return title.includes("model") || title.includes("模型");
+                            });
+
+                            if (inputModel && typeof inputModel.value === 'string') return inputModel.value;
+
+                            return 'Workflow';
+                        })(),
+                        workflowName: wf.viewComfyJSON.title
+                    },
+                    createdAt: new Date().toISOString()
+                }));
+                allPresets = [...allPresets, ...workflowPresets];
+            }
+
+            set({ presets: allPresets });
         } catch (e) {
-            console.error("Error fetching presets:", e);
+            console.error("Error fetching presets and workflows:", e);
         }
     },
 

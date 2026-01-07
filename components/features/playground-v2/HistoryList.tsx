@@ -1,14 +1,14 @@
 import React from 'react';
-import { motion } from "framer-motion";
+
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, Settings2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/common/use-toast";
-
+import { motion, AnimatePresence } from "framer-motion";
 
 interface HistoryListProps {
   history: Generation[];
@@ -112,18 +112,22 @@ export default function HistoryList({
                 ) : (
                   // Grid mode: individual cards within a visually unified structure
                   <div className={cn(
-                    "p-2 rounded-2xl h-auto w-full gap-2 grid",
-                    group.items.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                    "p-2 rounded-2xl h-auto w-full gap-2 grid grid-cols-2"
+
                   )}>
                     {group.items.map((result, idx) => (
-                      <HistoryCard
+                      <div
                         key={result.id || result.outputUrl || `img-${idx}`}
-                        result={result}
-                        onRegenerate={onRegenerate}
-                        onDownload={onDownload}
-                        onImageClick={onImageClick}
-                        layoutMode={layoutMode}
-                      />
+                        className="relative w-full h-full"
+                      >
+                        <HistoryCard
+                          result={result}
+                          onRegenerate={onRegenerate}
+                          onDownload={onDownload}
+                          onImageClick={onImageClick}
+                          layoutMode={layoutMode}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -141,14 +145,18 @@ export default function HistoryList({
                 </div>
 
                 {layoutMode === 'list' ? (
-                  <div className="relative bg-transparent grid grid-cols-5 gap-4 items-stretch content-start">
+                  <div className="relative bg-transparent grid grid-cols-5 gap-2 items-stretch content-start">
                     {/* Source Image Card */}
                     <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
                       {group.sourceImage ? (
-                        <img
+                        <Image
                           src={group.sourceImage}
                           alt="Source for describe"
+                          width={1024}
+                          height={1024}
                           className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                          onClick={() => group.sourceImage && onImageClick(group.items[0])}
+                          unoptimized
                         />
                       ) : (
                         <div className="w-full aspect-square flex items-center justify-center text-white/20">
@@ -228,6 +236,12 @@ function HistoryCard({
     const resultsToDisplay = allResults || [result];
 
 
+    const width = config?.width || 1024;
+    const height = config?.height || 1024;
+    const isWide = width / height > 1.2;
+    // 使用纯粹的图片真实比例，满足“高度跟随图片高度自适应”
+    const effectiveAspectRatio = `${width} / ${height}`;
+
     return (
       <div className="flex flex-col w-full bg-transparent transition-all  group/card gap-4">
 
@@ -251,133 +265,152 @@ function HistoryCard({
 
         </div>
 
-        {/* Grid: Prompt Card + Images */}
-        <div className={cn(
-          "relative bg-transparent grid grid-cols-5 gap-4 content-start"
-        )}>
-          {/* Prompt slot (styled as a card) */}
-          <div
-            className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black/5 p-4 flex flex-col justify-start"
-            style={{ aspectRatio: `${config?.width || 1024} / ${config?.height || 1024}` }}
+        {/* Main Layout Grid: Prompt(1) + Images(4) */}
+        <AnimatePresence mode="wait">
+
+          <motion.div
+            key="selected"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
           >
-            <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
-              <span className="block w-1 h-1 rounded-full bg-white/20" />
-              Prompt
-            </div>
-            <p className="text-[11px] text-white/90 leading-relaxed line-clamp-[8]">
-              {prompt}
-            </p>
-
-            <div className="flex absolute  top-2 right-2 items-center gap-2 ">
-              <TooltipButton
-                icon={<Copy className="w-3 h-3" />}
-                label="Copy Prompt"
-                tooltipContent="Copy Prompt"
-                className="w-8 h-8 ml-2 text-white/70"
-                onClick={() => {
-                  navigator.clipboard.writeText(prompt);
-                  toast({
-                    title: "已复制",
-                    description: "提示词已复制到剪贴板",
-                  });
-                }}
-              />
 
 
-            </div>
 
-            <div className="flex absolute  bottom-2 left-1/2 -translate-x-1/2   gap-2 ">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-lg  border-white/10 bg-black/10 text-white/70 hover:bg-emerald-500/10 hover:border-emerald-500/40 gap-1.5 px-3"
-                onClick={() => onRegenerate(result)}
+            <motion.div className="relative h-full bg-transparent grid grid-cols-5 gap-4 items-stretch content-start">
+              {/* Prompt slot (fixed to one column) */}
+              <motion.div
+                className="relative w-full h-full overflow-hidden rounded-xl border border-white/10 bg-black/5 p-4 flex flex-col justify-start"
               >
-                <RefreshCw className="w-3 h-3" />
-                <span className="text-[10px]">Remix</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-lg border-white/10 bg-black/10 text-white/70 hover:bg-white/10 hover:text-white gap-1.5 px-3"
-                onClick={() => {
-                  if (config) {
-                    applyModel(config.model || '', {
-                      prompt: config.prompt,
-                      img_width: config.width,
-                      img_height: config.height,
-                      gen_num: 1,
-                      base_model: config.model,
-                      lora: config.lora,
-                    });
-                    applyPrompt(prompt);
-                    toast({
-                      title: "参数已回填",
-                      description: "生成参数已应用到当前配置",
-                    });
-                  }
-                }}
-              >
-                <Settings2 className="w-3 h-3" />
-                <span className="text-[10px]">Edit</span>
-              </Button>
-
-            </div>
-          </div>
-          {resultsToDisplay.map((res, idx) => {
-            const img = res.outputUrl;
-            return (
-
-
-              <div
-                key={res.id || idx}
-                className="relative w-full overflow-hidden rounded-xl group/img border border-white/5 bg-white/5"
-                style={{ aspectRatio: `${config?.width || 1024} / ${config?.height || 1024}` }}
-              >
-                {res.status === 'pending' ? (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-white/10" />
+                <div className="flex items-center justify-between text-[10px] text-white/20 uppercase font-medium mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="block w-1 h-1 rounded-full bg-white/20" />
+                    Prompt
                   </div>
-                ) : img ? (
-                  <Image
-                    src={img}
-                    alt="Generated image"
-                    fill
-                    sizes="(max-width: 1536px) 50vw, 800px"
-                    className="object-contain cursor-pointer transition-transform duration-500  rounded-xl group-hover/img:scale-[1.05]"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      onImageClick(res, rect);
+
+                  <TooltipButton
+                    icon={<Copy className="w-2 h-2 transition-all duration-300 group-hover/copy:drop-shadow-[0_0_3px_rgba(255,255,255,0.8)]" />}
+                    label="Copy Prompt"
+                    tooltipContent="Copy Prompt"
+                    tooltipSide="top"
+                    className="w-3 h-3 bg-transparent hover:bg-transparent text-white/40 hover:text-white transition-all group/copy -mr-1"
+                    onClick={() => {
+                      navigator.clipboard.writeText(prompt);
+                      toast({
+                        title: "已复制",
+                        description: "提示词已复制到剪贴板",
+                      });
                     }}
                   />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/5">
-                    <ImageIcon className="w-8 h-8" />
-                  </div>
-                )}
-                {/* Individual Actions Overlay */}
-                {res.status !== 'pending' && img && (
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
-                    <TooltipButton
-                      icon={<Download className="w-3.5 h-3.5" />}
-                      label="Download"
-                      tooltipContent="Download"
-                      className="w-7 h-7 bg-black/60 rounded-lg"
-                      onClick={() => onDownload(img)}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                </div>
+                <motion.div className="flex-1 max-h-[70%]  pr-1">
+                  <p className="text-[12px] text-white/90 leading-relaxed line-clamp-6">
+                    {prompt}
+                  </p>
+                </motion.div>
+
+                <div className="absolute w-full bottom-2 left-0 right-0 flex justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg border-white/10 bg-black/10 backdrop-blur-xl  text-white/70 hover:bg-black/30 hover:text-white gap-1.5 px-3"
+                    onClick={() => onRegenerate(result)}
+                  >
+
+                    <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Recrate</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg border-white/10 backdrop-blur-xl bg-black/10 text-white/70  hover:bg-black/30 hover:text-white gap-1.5 px-3"
+                    onClick={() => {
+                      if (config) {
+                        applyModel(config.model || '', {
+                          prompt: config.prompt,
+                          width: config.width,
+                          height: config.height,
+                          model: config.model,
+                          lora: config.lora,
+                        });
+                        applyPrompt(prompt);
+                        toast({
+                          title: "参数已回填",
+                          description: "生成参数已应用到当前配置",
+                        });
+                      }
+                    }}
+                  >
+
+                    <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Edit Again</span>
+                  </Button>
+                </div>
+              </motion.div>
+
+              {/* Images Section (takes 4 columns) */}
+              <motion.div className={cn(
+                "col-span-4 grid gap-4",
+                isWide ? "grid-cols-2" : "grid-cols-4"
+              )}>
+                {resultsToDisplay.map((res, idx) => {
+                  const img = res.outputUrl;
+                  return (
+                    <div
+                      key={res.id || idx}
+                      className="relative w-full overflow-hidden rounded-xl group/img border border-white/5 bg-white/5"
+                      style={{ aspectRatio: effectiveAspectRatio }}
+                    >
+                      {res.status === 'pending' ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Loader2 className="w-6 h-6 animate-spin text-white/10" />
+                        </div>
+                      ) : img ? (
+                        <Image
+                          src={img}
+                          alt="Generated image"
+                          fill
+                          sizes="(max-width: 1536px) 50vw, 800px"
+                          className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            onImageClick(res, rect);
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white/5">
+                          <ImageIcon className="w-8 h-8" />
+                        </div>
+                      )}
+                      {/* Individual Actions Overlay */}
+                      {res.status !== 'pending' && img && (
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                          <TooltipButton
+                            icon={<Download className="w-3.5 h-3.5" />}
+                            label="Download"
+                            tooltipContent="Download"
+                            className="w-7 h-7 bg-black/60 rounded-lg"
+                            onClick={() => onDownload(img)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>
       </div>
+
     );
   }
 
   return (
     <div
-      className="group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30"
+      className={cn(
+        "group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30",
+        layoutMode === 'grid' && "h-full"
+      )}
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
     >
@@ -386,7 +419,7 @@ function HistoryCard({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="relative z-0 w-full h-auto"
+        className={cn("relative z-0 w-full", layoutMode === 'grid' ? "h-full" : "h-auto")}
       >
         {result.status === 'pending' ? (
           <div className="w-full h-full flex flex-col items-center justify-center bg-black/20">
@@ -400,7 +433,10 @@ function HistoryCard({
             height={result.config?.height || 1024}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             quality={95}
-            className="w-full h-auto cursor-pointer scale-100 group-hover:scale-105 transition-transform duration-500"
+            className={cn(
+              "w-full cursor-pointer scale-100 group-hover:scale-105 transition-transform duration-500",
+              layoutMode === 'grid' ? "h-full object-cover" : "h-auto"
+            )}
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               onImageClick(result, rect);
@@ -436,11 +472,11 @@ function HistoryCard({
           className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
           onClick={() => result.config && applyModel(result.config.model, {
             prompt: result.config.prompt,
-            img_width: result.config.width,
-            img_height: result.config.height,
-            gen_num: 1,
-            base_model: result.config.model,
+            width: result.config.width,
+            height: result.config.height,
+            model: result.config.model,
             lora: result.config.lora,
+            loras: result.config.loras,
           })}
         />
         <div className="w-[1px] h-4 bg-white/10 mx-0.5" />

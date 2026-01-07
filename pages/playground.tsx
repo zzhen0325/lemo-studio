@@ -24,21 +24,21 @@ import { PresetManagerDialog } from "@/components/features/playground-v2/Dialogs
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
-import type { Preset } from "@/components/features/playground-v2/types";
+import type { GenerationConfig, UploadedImage, PresetExtended } from "@/components/features/playground-v2/types";
+import { Resolution } from "@/types/database";
+import { BASE_SYSTEM_INSTRUCTION, VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-v2/types";
+import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, LayoutGrid, List, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
-import type { GenerationConfig, UploadedImage } from "@/components/features/playground-v2/types";
-import { BASE_SYSTEM_INSTRUCTION, VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-v2/types";
-import type { Generation } from "@/types/database";
-
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { DescribePanel } from "@/components/features/playground-v2/DescribePanel";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
+import SplitText from "@/components/ui/split-text";
 
 import gsap from "gsap";
 import { Flip } from "gsap/all";
@@ -86,6 +86,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
   const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
+  const applyModel = usePlaygroundStore(s => s.applyModel);
 
   const setConfig = (val: GenerationConfig | ((prev: GenerationConfig) => GenerationConfig)) => {
     const currentConfig = usePlaygroundStore.getState().config;
@@ -96,9 +97,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
   };
 
-  const hasGenerated = usePlaygroundStore(s => s.hasGenerated);
+  // const hasGenerated = usePlaygroundStore(s => s.hasGenerated);
   const setHasGenerated = usePlaygroundStore(s => s.setHasGenerated);
-  const remix = usePlaygroundStore(s => s.remix);
+  // const remix = usePlaygroundStore(s => s.remix);
   const isAspectRatioLocked = usePlaygroundStore(s => s.isAspectRatioLocked);
   const setIsAspectRatioLocked = usePlaygroundStore(s => s.setAspectRatioLocked);
   const isMockMode = usePlaygroundStore(s => s.isMockMode);
@@ -153,6 +154,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     projectStore.toggleSidebar(showProjectSidebar);
   }, [showProjectSidebar]);
 
+  // Sync workflow config when workflowName changes (e.g., during backfilling/remix)
+  useEffect(() => {
+    if (selectedModel === 'Workflow' && config.workflowName && !selectedWorkflowConfig) {
+      const wf = workflows.find(w => w.viewComfyJSON.title === config.workflowName);
+      if (wf) {
+        setSelectedWorkflowConfig(wf);
+      }
+    }
+  }, [config.workflowName, selectedModel, workflows, selectedWorkflowConfig, setSelectedWorkflowConfig]);
+
   // Handle click outside to close Describe panel
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -180,14 +191,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     initPresets();
   }, [initPresets]);
 
-  useEffect(() => {
-    initPresets();
-  }, [initPresets]);
-
   // Helper: save history using unified fields
   const saveHistoryToBackend = async (item: import('@/types/database').Generation) => {
     try {
-      const uiCfg = usePlaygroundStore.getState().config;
       const gen = {
         id: item.id,
         userId: item.userId || 'anonymous',
@@ -226,7 +232,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   useEffect(() => {
     const path = uploadedImages[0]?.path;
-    updateConfig({ ref_image: path });
+    updateConfig({ sourceImageUrl: path });
   }, [uploadedImages, updateConfig]);
 
 
@@ -257,17 +263,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           if (actualValue && typeof actualValue === 'string') newConfig.prompt = actualValue;
           else if (defaultValue) newConfig.prompt = defaultValue;
         } else if (paramName === 'width') {
-          if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.img_width = Number(actualValue);
-          else if (defaultValue) newConfig.img_width = Number(defaultValue);
+          if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.width = Number(actualValue);
+          else if (defaultValue) newConfig.width = Number(defaultValue);
         } else if (paramName === 'height') {
-          if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.img_height = Number(actualValue);
-          else if (defaultValue) newConfig.img_height = Number(defaultValue);
-        } else if (paramName === 'batch_size') {
-          if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.gen_num = Number(actualValue);
-          else if (defaultValue) newConfig.gen_num = Number(defaultValue);
-        } else if (paramName === 'base_model' || paramName === 'model') {
-          if (actualValue && typeof actualValue === 'string') newConfig.base_model = actualValue;
-          else if (defaultValue) newConfig.base_model = defaultValue;
+          if (actualValue && (typeof actualValue === 'number' || typeof actualValue === 'string')) newConfig.height = Number(actualValue);
+          else if (defaultValue) newConfig.height = Number(defaultValue);
+        } else if (paramName === 'model' || paramName === 'base_model') {
+          if (actualValue && typeof actualValue === 'string') newConfig.model = actualValue;
+          else if (defaultValue) newConfig.model = defaultValue;
         } else if (['lora', 'lora1', 'lora2', 'lora3'].includes(paramName)) {
           const val = (actualValue && typeof actualValue === 'string') ? actualValue : defaultValue;
           if (val && typeof val === 'string') {
@@ -286,14 +289,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         if (title.includes("prompt") || title.includes("文本") || title.includes("提示")) {
           if (typeof val === "string") newConfig.prompt = val;
         } else if (title === "width" || title.includes("width")) {
-          if (typeof val === "number" || typeof val === "string") newConfig.img_width = Number(val);
+          if (typeof val === "number" || typeof val === "string") newConfig.width = Number(val);
         } else if (title === "height" || title.includes("height")) {
-          if (typeof val === "number" || typeof val === "string") newConfig.img_height = Number(val);
-        } else if (title === "batch_size" || title.includes("batch") || title.includes("数量")) {
-          if (typeof val === "number" || typeof val === "string") newConfig.gen_num = Number(val);
+          if (typeof val === "number" || typeof val === "string") newConfig.height = Number(val);
         } else if (title.includes("model") || title.includes("模型")) {
           if (!title.includes("lora")) {
-            if (typeof val === "string") newConfig.base_model = val;
+            if (typeof val === "string") newConfig.model = val;
           }
         }
         if (title.includes("lora")) {
@@ -303,9 +304,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         }
       });
     }
-    setConfig(newConfig);
+    setConfig({ ...newConfig, loras: newLoras });
     if (selectedModel !== 'Workflow') setSelectedModel('Workflow');
-    if (newLoras.length > 0) setSelectedLoras(newLoras);
+    setSelectedLoras(newLoras);
   };
 
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -420,28 +421,34 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const sizeKeys = ['1K', '2K', '4K'];
     for (const [ar, sizes] of Object.entries(AR_MAP)) {
       for (const size of sizeKeys) {
-        if (sizes[size].w === config.img_width && sizes[size].h === config.img_height) return ar;
+        if (sizes[size].w === config.width && sizes[size].h === config.height) return ar;
       }
     }
     return "16:9";
   };
-  const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, img_width: newWidth, img_height: newHeight })); } else { setConfig(prev => ({ ...prev, img_width: newWidth })); } };
-  const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.img_height > 0) { const ratio = config.img_width / config.img_height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, img_height: newHeight, img_width: newWidth })); } else { setConfig(prev => ({ ...prev, img_height: newHeight })); } };
-  const handlePresetSelect = (preset: Preset) => {
+  const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.height > 0) { const ratio = config.width / config.height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, width: newWidth, height: newHeight })); } else { setConfig(prev => ({ ...prev, width: newWidth })); } };
+  const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.height > 0) { const ratio = config.width / config.height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, height: newHeight, width: newWidth })); } else { setConfig(prev => ({ ...prev, height: newHeight })); } };
+  const [selectedPresetName, setSelectedPresetName] = useState<string | undefined>(undefined);
+  const handlePresetSelect = (p: PresetExtended) => {
+    const preset = p as PresetExtended;
+    const effectiveConfig = (preset.config as GenerationConfig) || (preset as unknown as GenerationConfig);
+    const workflowId = (preset as PresetExtended & { workflow_id?: string }).workflow_id || effectiveConfig.workflowName;
+    const presetName = (preset as PresetExtended & { title?: string; name?: string }).title || (preset as PresetExtended & { title?: string; name?: string }).name || effectiveConfig.workflowName || 'Preset';
+
     // If it's a workflow preset, find and select the workflow first
-    if (preset.workflow_id) {
-      const workflow = workflows.find(w => w.viewComfyJSON.id === preset.workflow_id);
+    if (workflowId) {
+      const workflow = workflows.find(w => w.viewComfyJSON.id === workflowId);
       if (workflow) {
         setSelectedWorkflowConfig(workflow);
         setSelectedModel('Workflow');
         // Apply fixed config from preset
         setConfig({
           ...config,
-          prompt: preset.prompt,
-          img_width: preset.width,
-          img_height: preset.height,
-          base_model: preset.base_model || 'Workflow',
-          image_size: preset.image_size
+          prompt: effectiveConfig.prompt || '',
+          width: effectiveConfig.width || 1024,
+          height: effectiveConfig.height || 1024,
+          model: effectiveConfig.model || 'Workflow',
+          resolution: effectiveConfig.resolution || '1K'
         });
         // Then apply remaining defaults from workflow (loras, etc)
         applyWorkflowDefaults(workflow);
@@ -450,18 +457,19 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       // Regular preset
       setConfig({
         ...config,
-        prompt: preset.prompt,
-        img_width: preset.width,
-        img_height: preset.height,
-        base_model: preset.base_model,
-        image_size: preset.image_size
+        prompt: effectiveConfig.prompt || '',
+        width: effectiveConfig.width || 1024,
+        height: effectiveConfig.height || 1024,
+        model: effectiveConfig.model || 'Nano banana',
+        resolution: effectiveConfig.resolution || '1K'
       });
       setSelectedWorkflowConfig(undefined);
-      if (preset.base_model !== config.base_model) {
-        setSelectedModel(preset.base_model);
+      if (effectiveConfig.model && effectiveConfig.model !== config.model) {
+        setSelectedModel(effectiveConfig.model);
       }
     }
 
+    setSelectedPresetName(presetName);
     setIsPresetGridOpen(false);
   };
   const handleOptimizePrompt = async () => {
@@ -490,9 +498,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       outputUrl: describeImages[0].previewUrl,
       config: {
         prompt: "Analyzing image...",
-        width: Number(config.img_width),
-        height: Number(config.img_height),
-        model: config.base_model,
+        width: config.width,
+        height: config.height,
+        model: config.model,
         lora: config.lora,
       },
       status: 'pending',
@@ -525,16 +533,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
       if (results.length > 0) {
         // Create history cards for each description result
-        const newHistoryItems: import('@/types/database').Generation[] = results.map((prompt: string, index: number) => ({
+        const newHistoryItems: import('@/types/database').Generation[] = results.map((desc: string, index: number) => ({
           id: `describe-${Date.now()}-${index}`,
           userId: 'anonymous',
           projectId: 'default',
           outputUrl: describeImages[0].previewUrl,
           config: {
-            prompt,
-            width: Number(config.img_width),
-            height: Number(config.img_height),
-            model: config.base_model,
+            prompt: desc,
+            width: config.width,
+            height: config.height,
+            model: "gemini-1.5-flash",
             lora: config.lora,
           },
           status: 'completed',
@@ -576,25 +584,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   // The new handleGenerate from useGenerationService will be used.
 
   const handleRegenerate = async (result: Generation) => {
-    // 补全 config 中的 prompt 字段，因为 history 对象中它们可能是分开存储的
     const fullConfig: GenerationConfig = {
+      ...config,
       prompt: result.config?.prompt || '',
-      img_width: result.config?.width || config.img_width,
-      img_height: result.config?.height || config.img_height,
-      gen_num: 1,
-      base_model: result.config?.model || config.base_model,
-      lora: result.config?.lora,
+      width: result.config?.width || config.width,
+      height: result.config?.height || config.height,
+      model: result.config?.model || config.model,
     };
-
-    // 使用专用的 remix action 同步所有状态 (模型、Lora、配置)
-    remix({
-      config: fullConfig,
-      loras: undefined,
-      workflow: undefined
-    });
-
-    // 直接传递补全后的 config 避免竞态
-    handleGenerate(fullConfig);
+    await handleGenerate(fullConfig);
   };
 
   const handleDownload = (imageUrl: string) => { const link = document.createElement("a"); link.href = imageUrl; link.download = `PlaygroundV2-${Date.now()}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
@@ -660,13 +657,24 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       "flex flex-col items-center w-full pointer-events-auto"
     )}>
       {!showHistory && (
-        <h1
-          className="text-[2rem] text-white font-medium text-center mb-4 h-auto opacity-100 z-10 transition-all duration-300  whitespace-nowrap"
-          style={{ fontFamily: "'InstrumentSerif', serif" }}
-        >
-          ✨Turn any idea into a stunning image
-        </h1>
+        <div style={{ fontFamily: "'InstrumentSerif', serif" }}>
+          <SplitText
+            text="✨Turn any idea into a stunning image"
+            tag="h1"
+            className="text-[2rem] text-white font-medium text-center mb-4 h-auto opacity-100 z-10 whitespace-nowrap"
+            duration={0.5}
+            delay={30}
+            splitType="chars"
+            from={{ opacity: 0, y: 40 }}
+            to={{ opacity: 1, y: 0 }}
+            ease="power3.out"
+           
+            rootMargin="-100px"
+            threshold={0.1}
+          />
+        </div>
       )}
+        
 
       <div
         className="relative w-full rounded-[10px]"
@@ -776,7 +784,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               <Button
                 variant="default"
                 size="sm"
-                className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:text-white hover:drop-shadow(0 0 2px rgba(255, 255, 255, 0.4)) text-white/70 rounded-2xl "
+                className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:text-white hover:drop-shadow-[0_0_px_rgba(255,255,255,0.8)] text-white/70 rounded-2xl "
                 disabled={isOptimizing}
                 onClick={() => {
                   if (!isOptimizing) {
@@ -799,7 +807,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   }}
                   className="flex items-center justify-center"
                 >
-                  <Sparkles className="w-2 h-2" />
+                  <Sparkles className="w-2 h-2  " />
                 </motion.div>
               </Button>
             </div>
@@ -808,7 +816,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             <div
               className={cn(
                 "absolute bottom-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-t from-black/95 via-black/50 to-transparent transition-opacity duration-300 rounded-b-3xl z-10",
-                (!isInputFocused && config.prompt?.length > 0) ? "opacity-80" : "opacity-0"
+                (!isInputFocused && config.prompt?.length > 0) ? "opacity-40" : "opacity-0"
               )}
             />
           </div>
@@ -823,23 +831,23 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             aspectRatioPresets={aspectRatioPresets}
             currentAspectRatio={getCurrentAspectRatio()}
             onAspectRatioChange={(ar: string) => {
-              const size = (config.base_model === 'Nano banana') ? (config.image_size || '1K') : '1K';
+              const size = (config.model === 'Nano banana') ? (config.resolution || '1K') : '1K';
               const resolution = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
               if (resolution) {
-                setConfig(prev => ({ ...prev, img_width: resolution.w, img_height: resolution.h }));
+                setConfig(prev => ({ ...prev, width: resolution.w, height: resolution.h }));
               }
             }}
-            currentImageSize={(config.image_size as '1K' | '2K' | '4K') || '1K'}
-            onImageSizeChange={(size: '1K' | '2K' | '4K') => {
+            currentImageSize={(config.resolution as '1K' | '2K' | '4K') || '1K'}
+            onImageSizeChange={(size: string) => {
               const ar = getCurrentAspectRatio();
-              const resolution = AR_MAP[ar]?.[size];
+              const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
               if (resolution) {
-                setConfig(prev => ({
-                  ...prev,
-                  img_width: resolution.w,
-                  img_height: resolution.h,
-                  image_size: size
-                }));
+                setConfig({
+                  ...config,
+                  width: resolution.w,
+                  height: resolution.h,
+                  resolution: size as Resolution
+                });
               }
             }}
             isAspectRatioLocked={isAspectRatioLocked}
@@ -848,7 +856,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             isGenerating={isGenerating}
             loadingText={selectedModel === "Seed 4.0" ? "Seed 4.0 生成中..." : "生成中..."}
             selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
-            selectedBaseModelName={config.base_model}
+            selectedBaseModelName={config.model}
             workflows={workflows}
             onWorkflowSelect={(wf) => { setSelectedWorkflowConfig(wf); applyWorkflowDefaults(wf); }}
             isMockMode={isMockMode}
@@ -858,7 +866,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             batchSize={batchSize}
             onBatchSizeChange={setBatchSize}
             onOpenLoraSelector={() => setIsLoraDialogOpen(true)}
-            selectedLoraNames={selectedLoras.map(l => l.model_name)}
+            selectedLoras={selectedLoras}
+            selectedPresetName={selectedPresetName}
             onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
             isPresetGridOpen={isPresetGridOpen}
           />
@@ -1147,7 +1156,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         <HistoryList
                           variant="sidebar"
                           history={generationHistory}
-                          onRegenerate={handleRegenerate}
+                          onRegenerate={(res) => {
+                            if (res.config) {
+                              applyModel(res.config.model, {
+                                ...res.config,
+                                loras: res.config.loras || []
+                              });
+                            }
+                            handleRegenerate(res);
+                          }}
                           onDownload={handleDownload}
                           onImageClick={openImageModal}
                           onBatchUse={handleBatchUse}
@@ -1193,7 +1210,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           </div>
 
           <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
-          <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.base_model || selectedModel} onConfirm={(m) => updateConfig({ base_model: m })} />
+          <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.model || selectedModel} onConfirm={(m) => updateConfig({ model: m })} />
           <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />
           <PresetManagerDialog
             open={isPresetManagerOpen}

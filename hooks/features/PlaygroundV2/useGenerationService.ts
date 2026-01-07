@@ -57,9 +57,13 @@ export function useGenerationService() {
     const handleGenerate = async (configOverride?: GenerationConfig, fixedCreatedAt?: string) => {
         const generationTime = fixedCreatedAt || new Date().toISOString();
         const freshConfig = usePlaygroundStore.getState().config;
-        const finalConfig = configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
-            ? configOverride
-            : freshConfig;
+        const currentLoras = usePlaygroundStore.getState().selectedLoras;
+        const finalConfig = {
+            ...(configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
+                ? configOverride
+                : freshConfig),
+            loras: currentLoras
+        };
 
         if (!finalConfig.prompt?.trim()) {
             toast({ title: "错误", description: "请输入图像描述文本", variant: "destructive" });
@@ -70,14 +74,7 @@ export function useGenerationService() {
         setHasGenerated(true);
         const taskId = Date.now().toString() + Math.random().toString(36).substring(2, 7);
 
-        const unifiedCfg = toUnifiedConfigFromLegacy({
-            prompt: finalConfig.prompt,
-            img_width: Number(finalConfig.img_width),
-            img_height: Number(finalConfig.img_height),
-            base_model: finalConfig.base_model || selectedModel,
-            image_size: finalConfig.image_size,
-            lora: finalConfig.lora,
-        });
+        const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
         const sourceImageUrl = currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined;
 
@@ -86,13 +83,7 @@ export function useGenerationService() {
             userId: 'anonymous',
             projectId: 'default',
             outputUrl: "",
-            config: {
-                prompt: unifiedCfg.prompt,
-                width: unifiedCfg.width,
-                height: unifiedCfg.height,
-                model: unifiedCfg.model || selectedModel,
-                lora: unifiedCfg.lora,
-            },
+            config: unifiedCfg,
             status: 'pending',
             sourceImageUrl: sourceImageUrl,
             createdAt: generationTime,
@@ -116,6 +107,8 @@ export function useGenerationService() {
                         height: unifiedCfg.height,
                         model: unifiedCfg.model,
                         lora: unifiedCfg.lora,
+                        loras: usePlaygroundStore.getState().selectedLoras,
+                        workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
                     },
                     status: 'completed',
                     sourceImageUrl: undefined,
@@ -158,21 +151,14 @@ export function useGenerationService() {
         if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";
         if (selectedModel === "Seed 4.0") modelId = "seed4_lemo1230";
 
-        const unified = toUnifiedConfigFromLegacy({
-            prompt: currentConfig.prompt,
-            img_width: Number(currentConfig.img_width),
-            img_height: Number(currentConfig.img_height),
-            base_model: selectedModel || currentConfig.base_model,
-            image_size: currentConfig.image_size,
-            lora: currentConfig.lora,
-        });
+        const unified = toUnifiedConfigFromLegacy(currentConfig);
 
         const res = await callImage({
             model: modelId,
             prompt: unified.prompt,
             width: Number(unified.width),
             height: Number(unified.height),
-            batchSize: currentConfig.gen_num || 1,
+            batchSize: 1, // Single task per call now
             image: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
             options: {
                 seed: Math.floor(Math.random() * 2147483647)
@@ -190,6 +176,8 @@ export function useGenerationService() {
                         height: Number(unified.height),
                         model: unified.model || selectedModel,
                         lora: unified.lora,
+                        loras: usePlaygroundStore.getState().selectedLoras,
+                        workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
                     },
                     createdAt: generationTime,
                     sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
@@ -200,14 +188,7 @@ export function useGenerationService() {
                 userId: 'anonymous',
                 projectId: 'default',
                 outputUrl: savedPath,
-                config: {
-                    prompt: unified.prompt,
-                    width: Number(unified.width),
-                    height: Number(unified.height),
-                    model: unified.model || selectedModel,
-                    workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
-                    lora: unified.lora,
-                },
+                config: unified,
                 status: 'completed',
                 sourceImageUrl: sourceImageUrl, // 使用一开始获取的 sourceImageUrl
                 createdAt: generationTime,
@@ -233,17 +214,16 @@ export function useGenerationService() {
                 const pathKey = comp.mapping.workflowPath.join("-");
                 const pName = comp.properties.paramName;
                 if (pName === 'prompt' && currentConfig.prompt) paramMap.set(pathKey, currentConfig.prompt);
-                else if (pName === 'width') paramMap.set(pathKey, currentConfig.img_width);
-                else if (pName === 'height') paramMap.set(pathKey, currentConfig.img_height);
-                else if (pName === 'batch_size') paramMap.set(pathKey, currentConfig.gen_num);
+                else if (pName === 'width') paramMap.set(pathKey, currentConfig.width);
+                else if (pName === 'height') paramMap.set(pathKey, currentConfig.height);
             });
             mappedInputs = allInputs.map(item => ({ key: item.key, value: paramMap.has(item.key) ? paramMap.get(item.key) : item.value }));
         } else {
             mappedInputs = allInputs.map(item => {
                 const title = item.title || "";
                 if (/prompt|文本|提示/i.test(title)) return { key: item.key, value: currentConfig.prompt };
-                if (/width/i.test(title)) return { key: item.key, value: currentConfig.img_width };
-                if (/height/i.test(title)) return { key: item.key, value: currentConfig.img_height };
+                if (/width/i.test(title)) return { key: item.key, value: currentConfig.width };
+                if (/height/i.test(title)) return { key: item.key, value: currentConfig.height };
                 return { key: item.key, value: item.value };
             });
         }
@@ -290,11 +270,6 @@ export function useGenerationService() {
             if (candidates.length) return candidates[0];
             return 'Workflow';
         };
-        const formatLoras = () => {
-            const loras = usePlaygroundStore.getState().selectedLoras || [];
-            if (!loras.length) return undefined;
-            return loras.map(l => `${l.model_name}@${typeof l.strength === 'number' ? l.strength.toFixed(2) : l.strength}`).join(',');
-        };
 
         await runComfyWorkflow({
             viewComfy: { inputs: mappedInputs, textOutputEnabled: false },
@@ -304,25 +279,18 @@ export function useGenerationService() {
                 if (outputs.length > 0) {
                     const dataUrl = await blobToDataURL(outputs[0]);
                     const unified = toUnifiedConfigFromLegacy({
-                        prompt: currentConfig.prompt,
-                        img_width: Number(currentConfig.img_width),
-                        img_height: Number(currentConfig.img_height),
-                        base_model: extractModelFromMapping(),
-                        image_size: currentConfig.image_size,
-                        lora: currentConfig.lora,
+                        ...currentConfig,
+                        model: extractModelFromMapping(),
                     });
                     const savedPath = await saveImageToOutputs(
                         dataUrl,
                         {
                             config: {
-                                prompt: unified.prompt,
-                                width: Number(unified.width),
-                                height: Number(unified.height),
-                                model: unified.model,
-                                lora: formatLoras() ?? unified.lora,
+                                ...unified,
+                                loras: usePlaygroundStore.getState().selectedLoras,
                             },
                             createdAt: generationTime,
-                            sourceImageUrl: undefined,
+                            sourceImageUrl: sourceImageUrl,
                         }
                     );
                     const gen: Generation = {
@@ -331,12 +299,9 @@ export function useGenerationService() {
                         projectId: 'default',
                         outputUrl: savedPath,
                         config: {
-                            prompt: unified.prompt,
-                            width: Number(unified.width),
-                            height: Number(unified.height),
-                            model: unified.model,
+                            ...unified,
+                            loras: usePlaygroundStore.getState().selectedLoras,
                             workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
-                            lora: formatLoras() ?? unified.lora,
                         },
                         status: 'completed',
                         sourceImageUrl: sourceImageUrl,

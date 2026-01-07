@@ -2,23 +2,22 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Button } from "@/components/ui/button";
-import { Settings, LayoutTemplate } from "lucide-react";
+import { LayoutTemplate, Settings } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { Preset, PRESET_CATEGORIES } from './types';
-import GradualBlur from "@/components/common/graphics/GradualBlur";
+import { PresetExtended, PRESET_CATEGORIES } from './types';
 
 interface PresetGridOverlayProps {
     onOpenManager: () => void;
-    onSelectPreset: (preset: Preset) => void;
-    externalPresets?: Preset[];
+    onSelectPreset: (preset: PresetExtended) => void;
+    externalPresets?: PresetExtended[];
 }
 
 const CATEGORIES = ["All", ...PRESET_CATEGORIES];
 
 export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenManager, onSelectPreset, externalPresets }) => {
     const storePresets = usePlaygroundStore(s => s.presets);
-    const presets = externalPresets || storePresets;
+    const presets = (externalPresets || storePresets) as PresetExtended[];
     const [activeCategory, setActiveCategory] = useState("All");
 
     // Filter logic
@@ -75,58 +74,37 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
+                        {filteredPresets.map(preset => {
+                            const p = preset as any;
+                            const cover = p.coverUrl || p.cover;
+                            const name = p.name || p.title || "Untitled";
 
-                        {filteredPresets.map(preset => (
-                            <button
-                                key={preset.id}
-                                className="group relative flex flex-col items-start overflow-hidden bg-black/5 hover:bg-black/20 transition-colors rounded-3xl p-3 w-full border border-white/20"
-                                onClick={() => onSelectPreset(preset)}
-                            >
-
-                                <div className="relative w-full aspect-[1/1] rounded-2xl bg-white/10  overflow-hidden">
-                                    {preset.cover ? (
-                                        <Image src={preset.cover} alt={preset.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
-
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-white/20">
-                                            <LayoutTemplate className="w-6 h-6" />
-
-                                        </div>
-
-                                    )}
-
-
-
-
-
-                                    {/* Title with Gradual Blur */}
-                                    <div className="absolute inset-x-0 rounded-xl overflow-hidden bottom-0">
-                                        {/* <div className="absolute inset-0 rounded-xl pointer-events-none">
-                                            <GradualBlur 
-                                                position="bottom" 
-                                                height="100%"
-                                                strength={2} 
-                                                opacity={1}
-                                                visibleColor="black"
-                                                zIndex={1}
+                            return (
+                                <button
+                                    key={preset.id}
+                                    className="group relative flex flex-col items-start overflow-hidden bg-black/5 hover:bg-black/20 transition-colors rounded-3xl p-3 w-full border border-white/20"
+                                    onClick={() => onSelectPreset(preset)}
+                                >
+                                    <div className="relative w-full aspect-[1/1] rounded-2xl bg-white/10  overflow-hidden">
+                                        {cover ? (
+                                            <Image
+                                                src={cover}
+                                                alt={name}
+                                                fill
+                                                className="object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
-                                        </div> */}
-                                        {/* <div className="relative flex flex-col items-center p-3 pt-6 z-10">
-                                            <h3 className="text-sm font-medium text-white">{preset.title}</h3>
-                                            <p className="text-[10px] text-white/70 ">{preset.base_model}</p>
-                                         
-                                        </div> */}
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-white/20">
+                                                <LayoutTemplate className="w-6 h-6" />
+                                            </div>
+                                        )}
                                     </div>
-
-
-                                </div>
-                                <div className="w-full flex pt-2  justify-center">
-                                    <h3 className="text-xs font-medium text-white">{preset.title}</h3>
-
-                                </div>
-
-                            </button>
-                        ))}
+                                    <div className="w-full flex pt-2 justify-center">
+                                        <h3 className="text-xs font-medium text-white line-clamp-1">{name}</h3>
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
             </div>

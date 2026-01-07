@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
             const filePath = path.join(PRESET_DIR, fileName);
 
             await fs.writeFile(filePath, buffer);
-            presetData.cover = `/preset/${fileName}`;
+            presetData.coverUrl = `/preset/${fileName}`;
         }
 
         // Save JSON

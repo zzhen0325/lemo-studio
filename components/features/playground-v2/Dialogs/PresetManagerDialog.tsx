@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Preset, PRESET_CATEGORIES } from '../types';
+import { Preset, GenerationConfig } from '../types';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Plus, Trash2, Save, X, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
@@ -35,32 +35,28 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
 
-    // Form State
-    const [formData, setFormData] = useState<Partial<Preset>>({
-        title: '',
+    const DEFAULT_CONFIG: GenerationConfig = {
         prompt: '',
-        base_model: 'Nano banana',
-        cover: '',
+        model: 'Nano banana',
         width: 1024,
         height: 1024,
-        image_size: '1K',
-        workflow_id: undefined,
-        category: 'General'
+        resolution: '1K'
+    };
+
+    // Unified Preset state
+    const [formData, setFormData] = useState<Partial<Preset>>({
+        name: '',
+        coverUrl: '',
+        config: DEFAULT_CONFIG
     });
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string>('');
 
     const resetForm = () => {
         setFormData({
-            title: '',
-            prompt: '',
-            base_model: 'Nano banana',
-            cover: '',
-            width: 1024,
-            height: 1024,
-            image_size: '1K',
-            workflow_id: undefined,
-            category: 'General'
+            name: '',
+            coverUrl: '',
+            config: DEFAULT_CONFIG
         });
         setCoverFile(null);
         setPreviewUrl('');
@@ -70,7 +66,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
     const handleEdit = (preset: Preset) => {
         setFormData(preset);
-        setPreviewUrl(preset.cover);
+        setPreviewUrl(preset.coverUrl);
         setEditingId(preset.id);
         setIsCreating(false);
         setCoverFile(null);
@@ -90,12 +86,12 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     };
 
     const handleSave = async () => {
-        if (!formData.title || !formData.prompt) return;
+        if (!formData.name || !formData.config?.prompt) return;
 
         const presetToSave = {
             ...formData,
-            id: editingId || '', // backend or store will handle ID if empty/new, but better to let backend handle it or store
-            // We keep cover as is if not updating, or it will be updated by backend return
+            id: editingId || '',
+            createdAt: new Date().toISOString()
         } as Preset;
 
         if (editingId) {
@@ -134,17 +130,16 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                 onClick={() => handleEdit(preset)}
                             >
                                 <div className="w-10 h-10 rounded-lg bg-zinc-800 relative overflow-hidden flex-shrink-0">
-                                    {preset.cover ? (
-                                        <Image src={preset.cover} alt={preset.title} fill className="object-cover" />
+                                    {preset.coverUrl ? (
+                                        <Image src={preset.coverUrl} alt={preset.name} fill className="object-cover" />
                                     ) : (
                                         <ImageIcon className="w-4 h-4 m-auto text-white/20" />
                                     )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-medium truncate">{preset.title}</h4>
+                                    <h4 className="text-sm font-medium truncate">{preset.name}</h4>
                                     <p className="text-xs text-white/40 truncate">
-                                        <span className="text-emerald-500/70 mr-1">{preset.category || 'General'}</span>
-                                        {preset.base_model}
+                                        {preset.config?.model}
                                     </p>
                                 </div>
                                 <Button
@@ -180,28 +175,14 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
                             <div className="flex-1 p-6 space-y-6 overflow-y-auto">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2 col-span-1">
-                                        <Label>Preset Title</Label>
+                                    <div className="space-y-2 col-span-2">
+                                        <Label>Preset Name</Label>
                                         <Input
-                                            value={formData.title}
-                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                             className="bg-black/20 border-white/10 focus-visible:ring-emerald-500/50"
                                             placeholder="e.g. Dreamy Landscape"
                                         />
-                                    </div>
-
-                                    <div className="space-y-2 col-span-1">
-                                        <Label>Category</Label>
-                                        <Select value={formData.category || 'General'} onValueChange={(val) => setFormData({ ...formData, category: val })}>
-                                            <SelectTrigger className="bg-black/20 border-white/10">
-                                                <SelectValue placeholder="Select category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {PRESET_CATEGORIES.map(cat => (
-                                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
                                     </div>
 
                                     <div className="space-y-2 col-span-2">
@@ -216,9 +197,9 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                 />
                                                 <p className="text-xs text-white/40 mt-1">Upload an image or paste a URL below</p>
                                                 <Input
-                                                    value={formData.cover}
+                                                    value={formData.coverUrl}
                                                     onChange={(e) => {
-                                                        setFormData({ ...formData, cover: e.target.value });
+                                                        setFormData({ ...formData, coverUrl: e.target.value });
                                                         setPreviewUrl(e.target.value);
                                                     }}
                                                     className="bg-black/20 border-white/10 mt-2 text-xs"
@@ -235,7 +216,13 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
                                     <div className="space-y-2">
                                         <Label>Base Model</Label>
-                                        <Select value={formData.base_model} onValueChange={(val) => setFormData({ ...formData, base_model: val })}>
+                                        <Select
+                                            value={formData.config?.model}
+                                            onValueChange={(val) => setFormData({
+                                                ...formData,
+                                                config: { ...(formData.config || DEFAULT_CONFIG), model: val }
+                                            })}
+                                        >
                                             <SelectTrigger className="bg-black/20 border-white/10">
                                                 <SelectValue placeholder="Select model" />
                                             </SelectTrigger>
@@ -255,7 +242,13 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
                                     <div className="space-y-2">
                                         <Label>Image Size</Label>
-                                        <Select value={formData.image_size || '1K'} onValueChange={(val: '1K' | '2K' | '4K') => setFormData({ ...formData, image_size: val })}>
+                                        <Select
+                                            value={formData.config?.resolution || '1K'}
+                                            onValueChange={(val: '1K' | '2K' | '4K') => setFormData({
+                                                ...formData,
+                                                config: { ...(formData.config || DEFAULT_CONFIG), resolution: val }
+                                            })}
+                                        >
                                             <SelectTrigger className="bg-black/20 border-white/10">
                                                 <SelectValue placeholder="Select size" />
                                             </SelectTrigger>
@@ -267,12 +260,15 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                         </Select>
                                     </div>
 
-                                    {!NATIVE_MODELS.includes(formData.base_model || '') && (
+                                    {!NATIVE_MODELS.includes(formData.config?.model || '') && (
                                         <div className="space-y-2">
                                             <Label>Workflow</Label>
                                             <Select
-                                                value={formData.workflow_id || 'default'}
-                                                onValueChange={(val) => setFormData({ ...formData, workflow_id: val === 'default' ? undefined : val })}
+                                                value={formData.config?.workflowName || 'default'}
+                                                onValueChange={(val) => setFormData({
+                                                    ...formData,
+                                                    config: { ...(formData.config || DEFAULT_CONFIG), workflowName: val === 'default' ? undefined : val }
+                                                })}
                                             >
                                                 <SelectTrigger className="bg-black/20 border-white/10">
                                                     <SelectValue placeholder="Select workflow (optional)" />
@@ -292,8 +288,11 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                     <div className="space-y-2 col-span-2">
                                         <Label>Prompt (User Input)</Label>
                                         <Textarea
-                                            value={formData.prompt}
-                                            onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+                                            value={formData.config?.prompt}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                config: { ...(formData.config || DEFAULT_CONFIG), prompt: e.target.value }
+                                            })}
                                             className="bg-black/20 border-white/10 focus-visible:ring-emerald-500/50 min-h-[120px]"
                                             placeholder="Enter the prompt text..."
                                         />
