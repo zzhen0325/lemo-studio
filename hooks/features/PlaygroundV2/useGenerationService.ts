@@ -3,10 +3,12 @@
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
-import { GenerationConfig, GenerationResult } from "@/components/features/playground-v2/types";
+import { GenerationConfig } from "@/components/features/playground-v2/types";
+import { Generation } from "@/types/database";
 import { IMultiValueInput } from "@/lib/workflow-api-parser";
 import { UIComponent } from "@/types/features/mapping-editor";
 import { usePostPlayground } from "@/hooks/features/playground/use-post-playground";
+import { toUnifiedConfigFromLegacy } from "@/lib/adapters/data-mapping";
 
 export function useGenerationService() {
     const { toast } = useToast();
@@ -39,26 +41,12 @@ export function useGenerationService() {
     };
 
     // Helper: Save to history.json
-    const saveHistoryToBackend = async (item: GenerationResult) => {
+    const saveHistoryToBackend = async (item: Generation) => {
         try {
-            const historyItem = {
-                imageUrl: item.savedPath || item.imageUrl || '',
-                timestamp: item.timestamp || new Date().toISOString(),
-                metadata: {
-                    prompt: item.prompt || item.config?.prompt || '',
-                    base_model: item.config?.base_model || '',
-                    img_width: item.config?.img_width || 1024,
-                    img_height: item.config?.img_height || 1024,
-                    lora: item.config?.lora || ''
-                },
-                type: item.type || 'image',
-                sourceImage: item.sourceImage,
-                projectId: item.projectId || 'default'
-            };
             await fetch('/api/history', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(historyItem),
+                body: JSON.stringify(item),
             });
         } catch (err) {
             console.error('Failed to save history:', err);
@@ -81,29 +69,53 @@ export function useGenerationService() {
         setHasGenerated(true);
         const taskId = Date.now().toString() + Math.random().toString(36).substring(2, 7);
 
-        const loadingResult: GenerationResult = {
-            id: taskId,
-            imageUrl: "",
+        const unifiedCfg = toUnifiedConfigFromLegacy({
             prompt: finalConfig.prompt,
-            config: { ...finalConfig, base_model: finalConfig.base_model || selectedModel },
-            timestamp: new Date().toISOString(),
-            isLoading: true
+            img_width: Number(finalConfig.img_width),
+            img_height: Number(finalConfig.img_height),
+            base_model: finalConfig.base_model || selectedModel,
+            image_size: finalConfig.image_size,
+            lora: finalConfig.lora,
+        });
+        const loadingGen: Generation = {
+            id: taskId,
+            userId: 'anonymous',
+            projectId: 'default',
+            outputUrl: "",
+            config: {
+                prompt: unifiedCfg.prompt,
+                width: unifiedCfg.width,
+                height: unifiedCfg.height,
+                model: unifiedCfg.model,
+                lora: unifiedCfg.lora,
+            },
+            status: 'pending',
+            sourceImageUrl: undefined,
+            createdAt: new Date().toISOString(),
         };
 
         // Use standard state update for history
-        setGenerationHistory(prev => [loadingResult, ...prev]);
+        setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
 
         try {
             if (isMockMode) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
-                const result: GenerationResult = {
+                const result: Generation = {
                     id: taskId,
-                    imageUrl: mockImageUrl,
-                    savedPath: mockImageUrl,
-                    prompt: finalConfig.prompt,
-                    config: { ...finalConfig },
-                    timestamp: new Date().toISOString(),
+                    userId: 'anonymous',
+                    projectId: 'default',
+                    outputUrl: mockImageUrl,
+                    config: {
+                        prompt: unifiedCfg.prompt,
+                        width: unifiedCfg.width,
+                        height: unifiedCfg.height,
+                        model: unifiedCfg.model,
+                        lora: unifiedCfg.lora,
+                    },
+                    status: 'completed',
+                    sourceImageUrl: undefined,
+                    createdAt: new Date().toISOString(),
                 };
                 updateHistoryAndSave(taskId, result);
                 return;
@@ -126,8 +138,8 @@ export function useGenerationService() {
         }
     };
 
-    const updateHistoryAndSave = (taskId: string, result: GenerationResult) => {
-        setGenerationHistory(prev => prev.map(item => item.id === taskId ? result : item));
+    const updateHistoryAndSave = (taskId: string, result: Generation) => {
+        setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === taskId ? result : item));
         saveHistoryToBackend(result);
     };
 
@@ -138,11 +150,20 @@ export function useGenerationService() {
         if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";
         if (selectedModel === "Seed 4.0") modelId = "seed4_lemo1230";
 
+        const unified = toUnifiedConfigFromLegacy({
+            prompt: currentConfig.prompt,
+            img_width: Number(currentConfig.img_width),
+            img_height: Number(currentConfig.img_height),
+            base_model: selectedModel || currentConfig.base_model,
+            image_size: currentConfig.image_size,
+            lora: currentConfig.lora,
+        });
+
         const res = await callImage({
             model: modelId,
-            prompt: currentConfig.prompt,
-            width: Number(currentConfig.img_width),
-            height: Number(currentConfig.img_height),
+            prompt: unified.prompt,
+            width: Number(unified.width),
+            height: Number(unified.height),
             batchSize: currentConfig.gen_num || 1,
             image: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
             options: {
@@ -152,8 +173,37 @@ export function useGenerationService() {
 
         if (res?.images && res.images.length > 0) {
             const dataUrl = res.images[0];
-            const savedPath = await saveImageToOutputs(dataUrl, { ...currentConfig, base_model: selectedModel });
-            updateHistoryAndSave(taskId, { id: taskId, imageUrl: dataUrl, savedPath, prompt: currentConfig.prompt, config: { ...currentConfig }, timestamp: new Date().toISOString() });
+            const savedPath = await saveImageToOutputs(
+                dataUrl,
+                {
+                    config: {
+                        prompt: unified.prompt,
+                        width: Number(unified.width),
+                        height: Number(unified.height),
+                        model: unified.model || selectedModel,
+                        lora: unified.lora,
+                    },
+                    createdAt: new Date().toISOString(),
+                    sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
+                }
+            );
+            const gen: Generation = {
+                id: taskId,
+                userId: 'anonymous',
+                projectId: 'default',
+                outputUrl: savedPath,
+                config: {
+                    prompt: unified.prompt,
+                    width: Number(unified.width),
+                    height: Number(unified.height),
+                    model: unified.model || selectedModel,
+                    lora: unified.lora,
+                },
+                status: 'completed',
+                sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
+                createdAt: new Date().toISOString(),
+            };
+            updateHistoryAndSave(taskId, gen);
         } else {
             throw new Error(`${selectedModel} returned empty result`);
         }
@@ -189,6 +239,54 @@ export function useGenerationService() {
             });
         }
 
+        const getWorkflowValue = (path: string[]) => {
+            if (!selectedWorkflowConfig?.workflowApiJSON) return undefined;
+            const [nodeId, section, key] = path;
+            const wf: Record<string, { inputs?: Record<string, unknown> }> = selectedWorkflowConfig.workflowApiJSON as unknown as Record<string, { inputs?: Record<string, unknown> }>;
+            const node = wf[nodeId];
+            if (!node || section !== 'inputs') return undefined;
+            return node.inputs?.[key];
+        };
+        const extractModelFromMapping = () => {
+            const comps = selectedWorkflowConfig.viewComfyJSON.mappingConfig?.components as { properties?: { paramName?: string }, mapping?: { workflowPath: string[] } }[] | undefined;
+            const modelComp = comps?.find(c => c.properties?.paramName === 'model');
+            if (modelComp?.mapping?.workflowPath) {
+                const val = getWorkflowValue(modelComp.mapping.workflowPath);
+                if (typeof val === 'string' && val) return val;
+            }
+            // Fallback: scan inputs by title
+            const all = [...(selectedWorkflowConfig.viewComfyJSON.inputs || []), ...(selectedWorkflowConfig.viewComfyJSON.advancedInputs || [])];
+            for (const group of all) {
+                for (const i of group.inputs) {
+                    const t = (i.title || '').toLowerCase();
+                    if (t.includes('model') || t.includes('checkpoint') || t.includes('ckpt') || t.includes('模型')) {
+                        if (typeof i.value === 'string' && i.value) return i.value;
+                    }
+                }
+            }
+            // Final fallback: scan workflowApiJSON nodes for checkpoint-like strings
+            const wf: Record<string, { class_type?: string; inputs?: Record<string, unknown> }> =
+                selectedWorkflowConfig.workflowApiJSON as unknown as Record<string, { class_type?: string; inputs?: Record<string, unknown> }>;
+            const candidates: string[] = [];
+            const isCkpt = (s: string) => /\.safetensors$/i.test(s) || s.toLowerCase().includes('safetensors');
+            const likelyKeys = new Set(['ckpt_name', 'model', 'checkpoint', 'base_model']);
+            Object.values(wf).forEach(node => {
+                const inputs = node.inputs || {};
+                Object.entries(inputs).forEach(([k, v]) => {
+                    if (typeof v === 'string') {
+                        if (isCkpt(v) || likelyKeys.has(k)) candidates.push(v);
+                    }
+                });
+            });
+            if (candidates.length) return candidates[0];
+            return 'Workflow';
+        };
+        const formatLoras = () => {
+            const loras = usePlaygroundStore.getState().selectedLoras || [];
+            if (!loras.length) return undefined;
+            return loras.map(l => `${l.model_name}@${typeof l.strength === 'number' ? l.strength.toFixed(2) : l.strength}`).join(',');
+        };
+
         await runComfyWorkflow({
             viewComfy: { inputs: mappedInputs, textOutputEnabled: false },
             workflow: selectedWorkflowConfig.workflowApiJSON || undefined,
@@ -196,8 +294,45 @@ export function useGenerationService() {
             onSuccess: async (outputs) => {
                 if (outputs.length > 0) {
                     const dataUrl = await blobToDataURL(outputs[0]);
-                    const savedPath = await saveImageToOutputs(dataUrl, { ...currentConfig, base_model: "Workflow" });
-                    updateHistoryAndSave(taskId, { id: taskId, imageUrl: dataUrl, savedPath, prompt: currentConfig.prompt, config: { ...currentConfig }, timestamp: new Date().toISOString() });
+                    const unified = toUnifiedConfigFromLegacy({
+                        prompt: currentConfig.prompt,
+                        img_width: Number(currentConfig.img_width),
+                        img_height: Number(currentConfig.img_height),
+                        base_model: extractModelFromMapping(),
+                        image_size: currentConfig.image_size,
+                        lora: currentConfig.lora,
+                    });
+                    const savedPath = await saveImageToOutputs(
+                        dataUrl,
+                        {
+                            config: {
+                                prompt: unified.prompt,
+                                width: Number(unified.width),
+                                height: Number(unified.height),
+                                model: unified.model,
+                                lora: formatLoras() ?? unified.lora,
+                            },
+                            createdAt: new Date().toISOString(),
+                            sourceImageUrl: undefined,
+                        }
+                    );
+                    const gen: Generation = {
+                        id: taskId,
+                        userId: 'anonymous',
+                        projectId: 'default',
+                        outputUrl: savedPath,
+                        config: {
+                            prompt: unified.prompt,
+                            width: Number(unified.width),
+                            height: Number(unified.height),
+                            model: unified.model,
+                            lora: formatLoras() ?? unified.lora,
+                        },
+                        status: 'completed',
+                        sourceImageUrl: undefined,
+                        createdAt: new Date().toISOString(),
+                    };
+                    updateHistoryAndSave(taskId, gen);
                 }
             },
             onError: (err) => {

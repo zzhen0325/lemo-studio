@@ -32,8 +32,9 @@ import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, LayoutGrid, 
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
-import type { GenerationConfig, GenerationResult, UploadedImage } from "@/components/features/playground-v2/types";
+import type { GenerationConfig, UploadedImage } from "@/components/features/playground-v2/types";
 import { BASE_SYSTEM_INSTRUCTION, VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-v2/types";
+import type { Generation } from "@/types/database";
 
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { DescribePanel } from "@/components/features/playground-v2/DescribePanel";
@@ -52,7 +53,7 @@ gsap.registerPlugin(Flip, useGSAP);
 export interface PlaygroundV2PageProps {
   onEditMapping?: (workflow: IViewComfy) => void;
   onGenerate?: () => void;
-  onHistoryChange?: (history: GenerationResult[]) => void;
+  onHistoryChange?: (history: Generation[]) => void;
   backgroundRefs?: {
     cloud: RefObject<HTMLDivElement | null>;
     tree: RefObject<HTMLDivElement | null>;
@@ -149,8 +150,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setShowProjectSidebar = usePlaygroundStore(s => s.setShowProjectSidebar);
 
   useEffect(() => {
-    projectStore.toggleSidebar(showHistory);
-  }, [showHistory]);
+    projectStore.toggleSidebar(showProjectSidebar);
+  }, [showProjectSidebar]);
 
   // Handle click outside to close Describe panel
   useEffect(() => {
@@ -183,21 +184,24 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     initPresets();
   }, [initPresets]);
 
-  // Helper to save history to backend
-  const saveHistoryToBackend = async (item: GenerationResult) => {
+  // Helper: save history using unified fields
+  const saveHistoryToBackend = async (item: import('@/types/database').Generation) => {
     try {
-      // Ensure we send essential fields for the lean history.json
-      const historyItem = {
-        imageUrl: item.savedPath || item.imageUrl || '',
-        prompt: item.config?.prompt || '',
-        timestamp: item.timestamp || new Date().toISOString()
+      const uiCfg = usePlaygroundStore.getState().config;
+      const gen = {
+        id: item.id,
+        userId: item.userId || 'anonymous',
+        projectId: item.projectId || 'default',
+        outputUrl: item.outputUrl || '',
+        config: item.config,
+        status: item.status || 'completed',
+        sourceImageUrl: item.sourceImageUrl,
+        createdAt: item.createdAt || new Date().toISOString(),
       };
       await fetch('/api/history', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(historyItem),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gen),
       });
     } catch (error) {
       console.error('Failed to save history:', error);
@@ -305,7 +309,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
 
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
-  const [selectedResult, setSelectedResult] = useState<GenerationResult | undefined>(undefined);
+  const [selectedResult, setSelectedResult] = useState<Generation | undefined>(undefined);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingImageUrl, setEditingImageUrl] = useState<string>("");
 
@@ -314,6 +318,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   // Wrapper for batch generation
   const handleGenerate = async (configOverride?: GenerationConfig) => {
+    // Auto-expand history panel
+    setShowHistory(true);
+
     // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
     const effectiveBatchSize = configOverride ? 1 : batchSize;
 
@@ -467,24 +474,29 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     setIsDescribing(true);
     setHasGenerated(true); // Trigger split layout immediately like generate
+    setShowHistory(true); // Auto-expand history panel
 
     // Create a temporary loading card
     const loadingId = `describe-loading-${Date.now()}`;
-    const loadingCard: GenerationResult = {
+    const loadingCard: import('@/types/database').Generation = {
       id: loadingId,
-      imageUrl: describeImages[0].previewUrl,
+      userId: 'anonymous',
+      projectId: 'default',
+      outputUrl: describeImages[0].previewUrl,
       config: {
-        ...config,
         prompt: "Analyzing image...",
+        width: Number(config.img_width),
+        height: Number(config.img_height),
+        model: config.base_model,
+        lora: config.lora,
       },
-      timestamp: new Date().toISOString(),
-      isLoading: true,
-      type: 'text',
-      sourceImage: describeImages[0].previewUrl,
+      status: 'pending',
+      sourceImageUrl: describeImages[0].previewUrl,
+      createdAt: new Date().toISOString(),
     };
 
     // Insert loading card
-    setGenerationHistory(prev => [loadingCard, ...prev]);
+    setGenerationHistory((prev: import('@/types/database').Generation[]) => [loadingCard, ...prev]);
 
     try {
       // 1. Convert the first image to base64 if needed, or use existing base64
@@ -508,21 +520,25 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
       if (results.length > 0) {
         // Create history cards for each description result
-        const newHistoryItems: GenerationResult[] = results.map((prompt: string, index: number) => ({
+        const newHistoryItems: import('@/types/database').Generation[] = results.map((prompt: string, index: number) => ({
           id: `describe-${Date.now()}-${index}`,
-          imageUrl: describeImages[0].previewUrl, // Use uploaded image as preview
+          userId: 'anonymous',
+          projectId: 'default',
+          outputUrl: describeImages[0].previewUrl,
           config: {
-            ...config,
-            prompt: prompt, // Each card has its own description
+            prompt,
+            width: Number(config.img_width),
+            height: Number(config.img_height),
+            model: config.base_model,
+            lora: config.lora,
           },
-          timestamp: new Date().toISOString(),
-          isLoading: false,
-          type: 'text',
-          sourceImage: describeImages[0].previewUrl,
+          status: 'completed',
+          sourceImageUrl: describeImages[0].previewUrl,
+          createdAt: new Date().toISOString(),
         }));
 
         // Remove loading card and add real results
-        setGenerationHistory(prev => [...newHistoryItems, ...prev.filter(item => item.id !== loadingId)]);
+        setGenerationHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => item.id !== loadingId)]);
 
         // Also save each description to backend
         newHistoryItems.forEach(item => saveHistoryToBackend(item));
@@ -534,18 +550,18 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } catch (error) {
       console.error("Describe Error:", error);
       // Remove loading card on error
-      setGenerationHistory(prev => prev.filter(item => item.id !== loadingId));
+      setGenerationHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => item.id !== loadingId));
       toast({ title: "描述失败", description: error instanceof Error ? error.message : "未知错误", variant: "destructive" });
     } finally {
       setIsDescribing(false);
     }
   };
 
-  const handleBatchUse = async (results: GenerationResult[]) => {
+  const handleBatchUse = async (results: Generation[]) => {
     if (!results || results.length === 0) return;
     toast({ title: "批量生成中", description: `即将开始 ${results.length} 个生成任务...` });
     for (const result of results) {
-      const newConfig = { ...config, prompt: result.prompt || result.config?.prompt || "" };
+      const newConfig = { ...config, prompt: result.config?.prompt || "" };
       await handleGenerate(newConfig);
       await new Promise(r => setTimeout(r, 200));
     }
@@ -554,18 +570,22 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   // Removed executeBackgroundGeneration and the old handleGenerate functions.
   // The new handleGenerate from useGenerationService will be used.
 
-  const handleRegenerate = async (result: GenerationResult) => {
+  const handleRegenerate = async (result: Generation) => {
     // 补全 config 中的 prompt 字段，因为 history 对象中它们可能是分开存储的
-    const fullConfig = {
-      ...(result.config || {}),
-      prompt: result.prompt || result.config?.prompt || ''
-    } as GenerationConfig;
+    const fullConfig: GenerationConfig = {
+      prompt: result.config?.prompt || '',
+      img_width: result.config?.width || config.img_width,
+      img_height: result.config?.height || config.img_height,
+      gen_num: 1,
+      base_model: result.config?.model || config.base_model,
+      lora: result.config?.lora,
+    };
 
     // 使用专用的 remix action 同步所有状态 (模型、Lora、配置)
     remix({
       config: fullConfig,
-      loras: (result as GenerationResult & { loras?: SelectedLora[] }).loras,
-      workflow: (result as GenerationResult & { workflow?: IViewComfy }).workflow
+      loras: undefined,
+      workflow: undefined
     });
 
     // 直接传递补全后的 config 避免竞态
@@ -574,7 +594,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const handleDownload = (imageUrl: string) => { const link = document.createElement("a"); link.href = imageUrl; link.download = `PlaygroundV2-${Date.now()}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
 
-  const openImageModal = (result: GenerationResult) => {
+  const openImageModal = (result: Generation) => {
     setSelectedResult(result);
     setIsImageModalOpen(true);
     // Ensure dashboard mode is active if we're viewing a specific result
@@ -588,8 +608,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     // Don't clear selectedResult here to allow exit animation to use the data
   };
 
-  const handleEditImage = (result: GenerationResult) => {
-    const url = result.imageUrl || (result.imageUrls && result.imageUrls[0]) || "";
+  const handleEditImage = (result: import('@/types/database').Generation) => {
+    const url = result.outputUrl || "";
     if (url) {
       setEditingImageUrl(url);
       setIsEditorOpen(true);
@@ -933,18 +953,35 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             <PlaygroundBackground />
             <div className="relative z-20 flex flex-col items-center justify-center w-full h-full ">
               {/* Project Sidebar Overlay */}
-              {showHistory && (
-                <div className="absolute left-6 top-0 bottom-0 h-full z-40 pointer-events-none">
-                  <div className="pointer-events-auto h-full">
+              <div className="absolute left-6 top-6  h-full z-40 pointer-events-none">
+                <div className="pointer-events-auto h-full">
+
+                  {showProjectSidebar ? (
                     <div
                       key="project-sidebar"
-                      className="relative shrink-0 h-full"
+                      className="relative shrink-0 py-6"
                     >
                       <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
+
                     </div>
-                  </div>
+                  ) : (
+                    <div
+                      key="project-open-btn"
+                      className="py-6 shrink-0"
+                    >
+                      <button
+                        onClick={() => setShowProjectSidebar(true)}
+                        className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                        title="展开项目"
+                      >
+                        <PanelLeftOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        <span className="text-sm font-medium">Project</span>
+                      </button>
+                    </div>
+                  )}
+
                 </div>
-              )}
+              </div>
 
               {/* Gallery Overlay */}
               <div className="absolute right-6 top-6 bottom-6 z-40 pointer-events-none">
@@ -1060,6 +1097,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   >
                     <div className="bg-white/5  border border-white/10 rounded-3xl h-full flex flex-col relative">
                       {/* Header Actions: Layout Toggle \u0026 Collapse */}
+                      <div className="absolute top-6 left-8 z-30  ">
+                        <span>History</span>
+                        
+                        </div>
                       <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
                         <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
                           <button

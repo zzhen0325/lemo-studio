@@ -1,0 +1,11 @@
+{
+  "prompt": "将白马提取到纯色背景上",
+  "img_width": 2752,
+  "image_height": 1536,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "2K",
+  "lora": "",
+  "ref_image": "/upload/ref_1766403112074_5vzvnc.png",
+  "timestamp": "2025-12-22T11:35:01.534Z"
+}

@@ -1,0 +1,11 @@
+{
+  "prompt": "将绿色的草地提取到纯色背景上",
+  "img_width": 1024,
+  "image_height": 1024,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "2K",
+  "lora": "",
+  "ref_image": "/upload/ref_1766404364176_v15otx.png",
+  "timestamp": "2025-12-22T11:53:51.663Z"
+}

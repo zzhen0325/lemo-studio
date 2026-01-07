@@ -8,7 +8,7 @@ import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
-import { GenerationResult } from './types';
+import { Generation } from '@/types/database';
 import { StyleStacksView } from './StyleStacksView';
 import {
     DropdownMenu,
@@ -30,7 +30,7 @@ interface GalleryViewProps {
 }
 
 export default function GalleryView({ variant = 'full', activeTab }: GalleryViewProps) {
-    const [selectedItem, setSelectedItem] = useState<GenerationResult | null>(null);
+    const [selectedItem, setSelectedItem] = useState<Generation | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingImageUrl, setEditingImageUrl] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
@@ -73,12 +73,12 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
         const filtered = searchQuery.trim() === ""
             ? generationHistory
             : generationHistory.filter(item =>
-                (item.prompt || item.metadata?.prompt || "").toLowerCase().includes(searchQuery.toLowerCase())
+                (item.config?.prompt || "").toLowerCase().includes(searchQuery.toLowerCase())
             );
 
         // Files are already sorted in the API, but we might want to re-sort here just in case of local updates
         return [...filtered].sort((a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
     }, [generationHistory, searchQuery]);
 
@@ -107,8 +107,8 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
         document.body.removeChild(link);
     };
 
-    const handleEditImage = (result: GenerationResult) => {
-        const url = result.imageUrl || (result.imageUrls && result.imageUrls[0]) || "";
+    const handleEditImage = (result: Generation) => {
+        const url = result.outputUrl || "";
         if (url) {
             setEditingImageUrl(url);
             setIsEditorOpen(true);
@@ -265,9 +265,9 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                                 columnsCount={columnsCount}
                                 renderItem={(item) => (
                                     <GalleryCard
-                                        key={item.id || item.timestamp}
+                                        key={item.id || item.createdAt}
                                         item={item}
-                                        onClick={() => !item.isLoading && setSelectedItem(item)}
+                                        onClick={() => item.status !== 'pending' && setSelectedItem(item)}
                                         onDownload={handleDownload}
                                     />
                                 )}
@@ -279,19 +279,7 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                 <ImagePreviewModal
                     isOpen={!!selectedItem}
                     onClose={() => setSelectedItem(null)}
-                    result={selectedItem ? {
-                        id: selectedItem.id || `img_${new Date(selectedItem.timestamp).getTime()}`,
-                        imageUrl: selectedItem.imageUrl || "",
-                        config: selectedItem.config || {
-                            prompt: selectedItem.prompt || selectedItem.metadata?.prompt || "",
-                            base_model: selectedItem.metadata?.base_model || "Standard",
-                            lora: selectedItem.metadata?.lora || "",
-                            img_width: selectedItem.metadata?.img_width || 1200,
-                            img_height: selectedItem.metadata?.img_height || 1200,
-                            gen_num: 1
-                        },
-                        timestamp: selectedItem.timestamp
-                    } : undefined}
+                    result={selectedItem || undefined}
                     onEdit={handleEditImage}
                 />
 
@@ -312,7 +300,7 @@ interface MasonryGridProps<T> {
     renderItem: (item: T) => React.ReactNode;
 }
 
-function MasonryGrid<T extends GenerationResult>({
+function MasonryGrid<T extends Generation>({
     items,
     columnsCount,
     renderItem
@@ -334,8 +322,8 @@ function MasonryGrid<T extends GenerationResult>({
                 }
             }
 
-            const imgWidth = item.metadata?.img_width || 1024;
-            const imgHeight = item.metadata?.img_height || 1024;
+            const imgWidth = item.config?.width || 1024;
+            const imgHeight = item.config?.height || 1024;
             // Use aspect ratio as proxy for height since width is fixed per column
             const aspectRatio = imgHeight / imgWidth;
 
@@ -384,7 +372,7 @@ function useInView(options?: IntersectionObserverInit) {
     return { ref, isInView };
 }
 
-function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, onClick: () => void, onDownload: (e: React.MouseEvent, url: string, filename: string) => void }) {
+function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick: () => void, onDownload: (e: React.MouseEvent, url: string, filename: string) => void }) {
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const { ref, isInView } = useInView({ rootMargin: '200px' });
@@ -396,9 +384,9 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
     const addImageToStyle = usePlaygroundStore(s => s.addImageToStyle);
     const { toast } = useToast();
     const performDownload = () => {
-        if (!item.imageUrl) return;
+        if (!item.outputUrl) return;
         const fakeEvent = { stopPropagation: () => void 0 } as unknown as React.MouseEvent;
-        onDownload(fakeEvent, item.imageUrl, item.id || `img_${new Date(item.timestamp).getTime()}`);
+        onDownload(fakeEvent, item.outputUrl, item.id || `img_${new Date(item.createdAt).getTime()}`);
     };
 
     return (
@@ -411,22 +399,22 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
         >
             {/* Image Container */}
             <div className="relative w-full  flex items-center justify-center bg-white/5">
-                {item.isLoading ? (
+                {item.status === 'pending' ? (
                     <div className="w-full flex flex-col items-center justify-center p-8 space-y-3">
                         <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
                         <span className="text-[10px] text-white/30 font-medium uppercase tracking-widest animate-pulse">Generating</span>
                     </div>
                 ) : !isInView ? (
                     <div style={{
-                        paddingBottom: `${((item.metadata?.img_height || 1024) / (item.metadata?.img_width || 1024)) * 100}%`,
+                        paddingBottom: `${((item.config?.height || 1024) / (item.config?.width || 1024)) * 100}%`,
                         width: '100%'
                     }} />
                 ) : (
                     <Image
-                        src={item.imageUrl || ""}
+                        src={item.outputUrl || ""}
                         alt="Generated masterwork"
-                        width={item.metadata?.img_width || 1024}
-                        height={item.metadata?.img_height || 1024}
+                        width={item.config?.width || 1024}
+                        height={item.config?.height || 1024}
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw"
                         quality={75}
                         placeholder="blur"
@@ -476,8 +464,8 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
                                         key={style.id}
                                         className="text-white hover:bg-white/10 rounded-xl cursor-pointer"
                                         onClick={() => {
-                                            if (item.imageUrl) {
-                                                addImageToStyle(style.id, item.imageUrl);
+                                            if (item.outputUrl) {
+                                                addImageToStyle(style.id, item.outputUrl);
                                                 toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
                                             }
                                         }}
@@ -501,8 +489,8 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
                         tooltipSide="top"
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
-                            if (item.metadata?.prompt) {
-                                applyPrompt(item.metadata.prompt);
+                            if (item.config?.prompt) {
+                                applyPrompt(item.config.prompt);
                                 toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
                             }
                         }}
@@ -514,8 +502,8 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
                         tooltipSide="top"
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
-                            if (item.imageUrl) {
-                                applyImage(item.imageUrl);
+                            if (item.outputUrl) {
+                                applyImage(item.outputUrl);
                                 toast({ title: "Image Applied", description: "图片已应用为参考图" });
                             }
                         }}
@@ -527,9 +515,9 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
                         tooltipSide="top"
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
-                            if (item.metadata?.base_model) {
-                                applyModel(item.metadata.base_model);
-                                toast({ title: "Model Selected", description: `已切换模型为: ${item.metadata.base_model}` });
+                            if (item.config?.model) {
+                                applyModel(item.config.model);
+                                toast({ title: "Model Selected", description: `已切换模型为: ${item.config.model}` });
                             }
                         }}
                     />
@@ -543,11 +531,11 @@ function GalleryCard({ item, onClick, onDownload }: { item: GenerationResult, on
                         onClick={() => {
                             remix({
                                 config: {
-                                    prompt: item.metadata?.prompt || '',
-                                    base_model: item.metadata?.base_model || 'Nano banana',
-                                    lora: item.metadata?.lora || '',
-                                    img_width: item.metadata?.img_width || 1376,
-                                    img_height: item.metadata?.img_height || 768,
+                                    prompt: item.config?.prompt || '',
+                                    base_model: item.config?.model || 'Nano banana',
+                                    lora: item.config?.lora || '',
+                                    img_width: item.config?.width || 1376,
+                                    img_height: item.config?.height || 768,
                                     gen_num: 1,
                                     image_size: '1K'
                                 }

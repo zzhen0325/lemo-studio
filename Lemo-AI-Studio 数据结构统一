@@ -1,0 +1,208 @@
+1. 现状分析：数据结构的挑战与机遇
+通过分析项目中的 types/generation.ts、pages/api/* 接口以及 data/history.json 等文件，我们梳理出当前应用主要涉及的核心数据实体及其存储现状。
+1.1. 核心实体与当前存储
+实体
+描述
+当前存储方式
+存在问题
+图片生成 (Generation)
+用户通过 Playground 生成的图片及其配置参数。
+- 元数据: 存在于 public/outputs/history.json 文件中，以一个大的 JSON 数组形式存在。 - 图片文件: 直接存储在 public/outputs/ 目录下，以 img_TIMESTAMP_RAND.png 格式命名。 - 关联元数据: 部分生成参数会以 img_TIMESTAMP_RAND.json 的形式同步存储在 public/outputs/。
+数据冗余、查询困难、无原子性保证。
+
+上传素材 (Upload)
+用户上传的参考图，用于图生图等功能。
+- 图片文件: 存储在 public/upload/ 目录下，以 ref_TIMESTAMP_RAND.ext 命名。
+仅有文件，无元数据关联，无法追溯上传者或用途。
+预设 (Preset)
+包含特定 Prompt、模型、尺寸等参数的模板，用于快速启动创作。
+- 元数据: 每个预设是一个独立的 JSON 文件，存储于 public/preset/{id}.json。 - 封面图: 存储于 public/preset/{id}.ext。
+读取所有预设需要遍历目录，性能低下；更新操作复杂。
+风格 (Style)
+包含特定 Prompt 片段的风格组合，可应用于生成任务。
+- 元数据: 每个风格是一个独立的 JSON 文件，存储于 public/styles/{id}.json。
+与 Preset 问题类似，不便管理和查询。
+1.2. 主要问题与不一致性
+当前基于本地文件系统的存储方案在项目初期起到了快速验证的作用，但随着功能的迭代，其弊端日益凸显：
+1. 数据结构与字段不一致：
+  - 尺寸字段混乱：
+    - GenerationResult 和 GenerationConfig 中使用 img_width / img_height。
+    - Preset 类型中使用 width / height。
+    - history.json 的示例中甚至出现了 image_height。
+  - Prompt 来源不清晰：GenerationResult 中同时存在 prompt、config.prompt 和 metadata.prompt 字段，造成数据冗余和混淆。
+  - 实体边界模糊：GenerationResult 类型承载了过多角色，既是 API 返回值，又是历史记录项，还包含了临时的加载状态（isLoading），职责不清。
+2. 存储与管理效率低下：
+  - 查询性能差：获取历史记录、预设或风格列表，都需要全量读取文件或遍历目录，无法进行分页、筛选或排序，严重影响前端性能和用户体验。
+  - 原子性缺失：在 POST /api/history 中，写 history.json 和保存图片文件是两个独立操作，缺乏事务保证。这导致了 history.json 中可能存在指向无效图片路径的“幽灵数据”。
+  - 扩展性受限：无法轻松实现用户间数据隔离。当前所有用户共享 public 目录下的数据，引入多用户体系的成本极高。
+3. 数据关联性弱：
+  - 上传的图片 (public/upload) 与最终的生成结果 (public/outputs) 之间缺乏明确的关联记录。
+  - 无法追踪哪个用户创建了哪个预设，或使用了哪个风格。
+这些问题共同指向一个结论：当前的数据架构已成为制约应用性能、可扩展性和可维护性的核心瓶颈。为了支持用户体系、提升性能和保障数据一致性，必须进行一次彻底的重构。
+核心机遇：迁移到云端数据库（如 Firebase）不仅能解决上述所有问题，还能为应用带来实时更新、用户认证、数据安全、弹性伸缩等现代化 Web 应用必备的能力，为未来的功能（如社区分享、跨设备同步）奠定坚实基础。
+2. 统一数据模型与 TypeScript 定义
+为了解决数据结构混乱和字段不一致的问题，我们需要设计一套清晰、规范、可扩展的数据模型。这套模型将作为应用的事实标准（Single Source of Truth），贯穿前端状态管理、后端 API 和数据库存储。
+2.1. 核心实体与统一字段
+我们重新定义核心实体，并统一字段命名规范（camelCase），确保语义清晰。
+实体
+TypeScript 接口
+核心字段 (统一后)
+说明
+Generation
+(图片生成记录)
+Generation
+id: string
+唯一标识符 (文档 ID)
+
+
+userId: string
+创建者用户 ID，用于数据隔离
+
+
+outputUrl: string
+[统一] 生成的图片在 Cloud Storage 中的 URL
+
+
+config: GenerationConfig
+[统一] 生成时使用的完整配置，作为嵌套对象
+
+
+status: 'pending' | 'completed' | 'failed'
+生成任务的状态
+
+
+createdAt: Timestamp
+创建时间 (Firestore 时间戳)
+
+
+sourceImageUrl?: string
+图生图时使用的源图片 URL (可选)
+Preset
+(预设模板)
+Preset
+id: string
+唯一标识符 (文档 ID)
+
+
+name: string
+预设名称
+
+
+coverUrl: string
+[统一] 预设的封面图在 Cloud Storage 中的 URL
+
+
+config: GenerationConfig
+[统一] 预设包含的生成配置
+
+
+createdAt: Timestamp
+创建时间
+Style
+(风格)
+Style
+id: string
+唯一标识符 (文档 ID)
+
+
+name: string
+风格名称
+
+
+prompt: string
+风格的核心 Prompt 文本
+
+
+previewUrls: string[]
+[统一] 关联的预览图在 Storage 中的 URL 列表
+
+
+updatedAt: Timestamp
+最后更新时间
+User
+(用户)
+User
+id: string (uid)
+Firebase Auth 的用户 UID
+
+
+displayName: string
+用户昵称
+
+
+avatarUrl: string
+用户头像 URL
+
+
+createdAt: Timestamp
+账户创建时间
+2.2. TypeScript 统一定义
+我们将在项目的 /types/index.ts（或新建的 /types/database.ts）中定义所有与数据库结构对应的类型。这些类型将用于 API 的 DTO（Data Transfer Object）、Zustand store 以及前端组件。
+示例：Generation 和 GenerationConfig
+import { Timestamp } from 'firebase/firestore';
+
+// 统一的生成配置，作为嵌套对象，可复用于 Generation 和 Preset
+export interface GenerationConfig {
+  prompt: string;
+
+  projectId?: string;
+  width: number;         // ✅ 统一为 width
+  height: number;        // ✅ 统一为 height
+  model: string;         // ✅ 统一为 model，不再使用 base_model
+  lora?: string;
+  seed?: number;
+
+}
+
+export interface Generation {
+  id: string;
+  userId: string;
+  outputUrl: string;       // ✅ 统一为 outputUrl, 不再使用 imageUrl 或 imageUrls
+  config: GenerationConfig;
+  status: 'pending' | 'completed' | 'failed';
+  sourceImageUrl?: string;  // ✅ 明确图生图来源
+  createdAt: Timestamp;
+}
+
+export interface Preset {
+  id: string;
+  name: string;
+  coverUrl: string;        // ✅ 统一为 coverUrl
+  config: GenerationConfig; // 复用配置
+  createdAt: Timestamp;
+  // createdBy: string; // 未来可扩展
+}
+
+// ... 其他类型定义 (Style, User 等)
+
+2.3. 在项目中落地的建议
+为了确保这套数据模型在整个项目中得到严格遵守，我们建议实施以下策略：
+1. 统一类型定义 (/types)：
+  - 所有与后端/数据库交互的实体类型，都应在 /types 目录下的特定文件中（如 database.ts）集中定义和导出。
+  - 避免在组件或 API 路由中定义临时的 interface。
+2. 使用 zod 进行边界校验：
+  - zod 是一个强大的 TypeScript-first 的 schema 校验库。我们应在所有 API Route Handler 的入口处，使用 zod schema 来校验请求体（body）的结构和类型。
+  - 这可以有效防止非法或格式错误的数据进入系统，是保障数据质量的第一道防线。
+  示例：创建 Generation 的 API 校验
+import { z } from 'zod';
+
+const createGenerationSchema = z.object({
+  prompt: z.string().min(1, "Prompt 不能为空"),
+  width: z.number().int().min(256).max(2048),
+  height: z.number().int().min(256).max(2048),
+  model: z.string(),
+  // ... 其他字段
+});
+
+// 在 /api/generations/route.ts 的 POST 方法中
+// const result = createGenerationSchema.safeParse(await request.json());
+// if (!result.success) {
+//   return NextResponse.json({ error: result.error.flatten() }, { status: 400 });
+// }
+// const validatedData = result.data;
+
+3. 定义清晰的 DTO 边界：
+  - DTO (Data Transfer Object) 是指用于在不同层（如客户端和服务器）之间传输数据的对象。
+  - 我们的 API 返回给客户端的数据（DTO）不应包含服务端的内部状态或敏感信息。例如，从数据库读取的 Generation 对象可以直接返回，因为它已经被设计为干净的数据结构。
+  - 前端的状态管理（如 Zustand Store）应直接使用从 /types 导入的实体类型，避免在 Store 内部创建不一致的衍生类型。例如，generationHistory 的类型应为 Generation[]。
+核心思想：通过类型定义先行、Schema 校验守卫和统一 DTO，我们能在代码层面强制推行数据模型的一致性，从而大幅提升代码的可维护性、健壮性和团队协作效率。

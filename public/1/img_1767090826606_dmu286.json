@@ -1,0 +1,9 @@
+{
+  "prompt": "a dog",
+  "img_width": 1376,
+  "image_height": 768,
+  "gen_num": 1,
+  "base_model": "Workflow",
+  "image_size": "1K",
+  "lora": ""
+}

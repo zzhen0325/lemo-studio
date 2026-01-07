@@ -1,0 +1,9 @@
+{
+  "prompt": "A banner image for an European - American hairstyle and hair - color generation event with a magazine - like feel and studio atmosphere. In the center of the picture is a model with exquisite makeup, confident demeanor, and elegant temperament, wearing simple and stylish clothing. The model has a fashionable and eye - catching European - American hairstyle and hair color (the specific style can be determined by yourself), with smooth and shiny hair strands. Around the model are neatly arranged icon images of different hairstyles with simple lines and exquisite designs, such as retro bob cut and lazy long straight hair icon images with delicate light and shadow effects and slight gradient colors. The background is a clean, pure, and textured solid - color backdrop; the main title \"Let Hair Lab Work Its Magic!\" at the top is presented in an elegant font with a slight metallic luster texture; the overall image is created in a high - end fashion photography style to achieve a clean and high - class feel, with delicate and natural use of light and shadow to highlight the three - dimensionality and exquisiteness of the model's hairstyle, hair color, and the overall picture.",
+  "img_width": 768,
+  "img_height": 1024,
+  "gen_num": 1,
+  "base_model": "Workflow",
+  "image_size": "1K",
+  "lora": ""
+}

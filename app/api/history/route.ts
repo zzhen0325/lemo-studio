@@ -1,26 +1,14 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { Generation, GenerationConfig } from '@/types/database';
 
 const OUTPUTS_DIR = path.join(process.cwd(), 'public', 'outputs');
 const HISTORY_FILE = path.join(OUTPUTS_DIR, 'history.json');
 const BACKUP_FILE = path.join(OUTPUTS_DIR, 'history.bak.json');
 const OLD_FILE = path.join(OUTPUTS_DIR, 'history.old.json');
 
-export interface HistoryItem {
-    imageUrl: string;
-    timestamp: string;
-    metadata: {
-        prompt?: string;
-        base_model?: string;
-        img_width?: number;
-        img_height?: number;
-        lora?: string;
-    };
-    type?: 'image' | 'text';
-    sourceImage?: string;
-    projectId?: string;
-}
+// Unified history item uses Generation DTO
 
 // Helper to ensure outputs directory exists
 async function ensureOutputsDir() {
@@ -49,7 +37,7 @@ async function readHistory() {
 }
 
 // Atomic write helper with backup
-async function saveHistory(history: HistoryItem[]) {
+async function saveHistory(history: Generation[]) {
     const tmpFile = `${HISTORY_FILE}.tmp`;
     const content = JSON.stringify(history, null, 2);
 
@@ -102,7 +90,7 @@ async function readHistoryFromDisk() {
             .map(async (filename) => {
                 const baseName = filename.split('.')[0];
                 const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
-                const imageUrl = `/outputs/${filename}`;
+                const outputUrl = `/outputs/${filename}`;
 
                 let metadata = null;
                 try {
@@ -111,32 +99,48 @@ async function readHistoryFromDisk() {
                 } catch { /* No metadata or folder exists */ }
 
                 // Determine timestamp: priority 1: json metadata, priority 2: filename stamp, priority 3: file stat
-                let timestamp = metadata?.timestamp;
-                if (!timestamp) {
+                let createdAt = metadata?.timestamp;
+                if (!createdAt) {
                     const parts = baseName.split('_');
                     const stampStr = parts[1]; // img_STAMP_RAND
                     if (stampStr && !isNaN(Number(stampStr))) {
-                        timestamp = new Date(Number(stampStr)).toISOString();
+                        createdAt = new Date(Number(stampStr)).toISOString();
                     } else {
                         const stats = await fs.stat(path.join(OUTPUTS_DIR, filename));
-                        timestamp = stats.mtime.toISOString();
+                        createdAt = stats.mtime.toISOString();
                     }
                 }
 
-                return {
-                    timestamp,
-                    imageUrl,
-                    metadata: {
+                const config: GenerationConfig = (() => {
+                    if (metadata?.config && typeof metadata.config === 'object') {
+                        return {
+                            prompt: metadata.config.prompt || '',
+                            width: Number(metadata.config.width || 1024),
+                            height: Number(metadata.config.height || 1024),
+                            model: metadata.config.model || '',
+                            lora: metadata.config.lora || '',
+                        };
+                    }
+                    return {
                         prompt: metadata?.prompt || metadata?.metadata?.prompt || '',
-                        base_model: metadata?.base_model || metadata?.metadata?.base_model || '',
-                        img_width: metadata?.img_width || metadata?.metadata?.img_width || 1024,
-                        img_height: metadata?.img_height || metadata?.metadata?.img_height || 1024,
-                        lora: metadata?.lora || metadata?.metadata?.lora || ''
-                    },
-                    type: metadata?.type || metadata?.metadata?.type || 'image',
-                    sourceImage: metadata?.sourceImage || metadata?.metadata?.sourceImage,
-                    projectId: metadata?.projectId || metadata?.metadata?.projectId || 'default'
-                } as HistoryItem;
+                        width: Number(metadata?.img_width || metadata?.metadata?.img_width || 1024),
+                        height: Number(metadata?.img_height || metadata?.metadata?.img_height || 1024),
+                        model: metadata?.base_model || metadata?.metadata?.base_model || '',
+                        lora: metadata?.lora || metadata?.metadata?.lora || '',
+                    };
+                })();
+
+                const gen: Generation = {
+                    id: baseName,
+                    userId: 'anonymous',
+                    projectId: metadata?.projectId || metadata?.metadata?.projectId || 'default',
+                    outputUrl,
+                    config,
+                    status: 'completed',
+                    sourceImageUrl: metadata?.sourceImageUrl || metadata?.sourceImage || metadata?.metadata?.sourceImage,
+                    createdAt: String(metadata?.createdAt || createdAt),
+                };
+                return gen;
             })
     );
 
@@ -144,7 +148,7 @@ async function readHistoryFromDisk() {
     const validItems = items.filter(Boolean);
 
     // Sort by timestamp descending
-    validItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    validItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return validItems;
 }
@@ -161,37 +165,30 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const item = await request.json();
-
-        if (!item || (!item.imageUrl && !item.id)) {
+        const item = await request.json() as Generation;
+        if (!item || (!item.outputUrl && !item.id)) {
             return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
         }
 
         await ensureOutputsDir();
-        const history = (await readHistory() || []) as HistoryItem[];
-
-        const imageUrl = item.imageUrl || (item.id ? `/outputs/${item.id}.png` : '');
-
-        const historyItem: HistoryItem = {
-            timestamp: item.timestamp || new Date().toISOString(),
-            imageUrl: imageUrl,
-            metadata: {
-                prompt: item.metadata?.prompt || item.prompt || item.config?.prompt || '',
-                base_model: item.metadata?.base_model || item.config?.base_model || '',
-                img_width: item.metadata?.img_width || item.config?.img_width || 1024,
-                img_height: item.metadata?.img_height || item.config?.image_height || 1024,
-                lora: item.metadata?.lora || item.config?.lora || ''
-            },
-            type: item.type || 'image',
-            sourceImage: item.sourceImage,
-            projectId: item.projectId || 'default'
+        const history = (await readHistory() || []) as Generation[];
+        const outputUrl = item.outputUrl || (item.id ? `/outputs/${item.id}.png` : '');
+        const record: Generation = {
+            id: item.id || path.basename(outputUrl, path.extname(outputUrl)),
+            userId: item.userId || 'anonymous',
+            projectId: item.projectId || 'default',
+            outputUrl,
+            config: item.config,
+            status: item.status || 'completed',
+            sourceImageUrl: item.sourceImageUrl,
+            createdAt: item.createdAt || new Date().toISOString(),
         };
 
-        const existsIndex = history.findIndex((h: HistoryItem) => h.imageUrl === historyItem.imageUrl);
+        const existsIndex = history.findIndex((h: Generation) => h.outputUrl === record.outputUrl || h.id === record.id);
         if (existsIndex > -1) {
-            history[existsIndex] = historyItem;
+            history[existsIndex] = record;
         } else {
-            history.unshift(historyItem);
+            history.unshift(record);
         }
 
         const success = await saveHistory(history);

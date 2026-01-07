@@ -1,0 +1,11 @@
+{
+  "prompt": "改成白底红马，并且调整马的形状更加日本插画风格",
+  "img_width": 1024,
+  "image_height": 1024,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "2K",
+  "lora": "",
+  "ref_image": "/upload/ref_1766397312125_s023p3.png",
+  "timestamp": "2025-12-22T10:10:04.499Z"
+}

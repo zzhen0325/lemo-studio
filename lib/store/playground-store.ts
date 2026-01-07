@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { GenerationConfig, UploadedImage, Preset, GenerationResult, StyleStack } from '@/components/features/playground-v2/types';
+import { GenerationConfig, UploadedImage, Preset, StyleStack } from '@/components/features/playground-v2/types';
+import { Generation } from '@/types/database';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
 
@@ -44,8 +45,8 @@ interface PlaygroundState {
     resetState: () => void;
 
     // Generation History
-    generationHistory: GenerationResult[];
-    setGenerationHistory: (history: GenerationResult[] | ((prev: GenerationResult[]) => GenerationResult[])) => void;
+    generationHistory: Generation[];
+    setGenerationHistory: (history: Generation[] | ((prev: Generation[]) => Generation[])) => void;
     fetchHistory: () => Promise<void>;
 
     // Presets
@@ -201,7 +202,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
             if (res.ok) {
                 const data = await res.json();
                 if (data.history) {
-                    set({ generationHistory: data.history });
+                    set({ generationHistory: data.history as Generation[] });
                 }
             }
         } catch (error) {

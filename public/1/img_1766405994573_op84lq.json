@@ -1,0 +1,10 @@
+{
+  "prompt": "将左上角的喜鹊提取到纯色背景上",
+  "img_width": 1024,
+  "image_height": 1024,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "2K",
+  "lora": "",
+  "timestamp": "2025-12-22T12:19:54.468Z"
+}

@@ -1,0 +1,10 @@
+{
+  "prompt": "Lemo,纯色背景",
+  "img_width": 1200,
+  "image_height": 600,
+  "gen_num": 1,
+  "base_model": "Workflow",
+  "image_size": "2K",
+  "lora": "",
+  "workflow": "3D lemo"
+}

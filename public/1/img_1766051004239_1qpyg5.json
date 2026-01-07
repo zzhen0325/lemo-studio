@@ -1,0 +1,14 @@
+{
+  "text": "A 2dlemo  working out in the gym, holding dumbbells in both hands, with obvious muscle shape, lemo skin color is brown, wearing a blue headband, a black vest with a lemon pattern on the upper body, black shorts on the lower body, and a serious expression，beige background",
+  "width": 768,
+  "height": 1200,
+  "batch_size": 1,
+  "prompt": "A 2dlemo  working out in the gym, holding dumbbells in both hands, with obvious muscle shape, lemo skin color is brown, wearing a blue headband, a black vest with a lemon pattern on the upper body, black shorts on the lower body, and a serious expression，beige background",
+  "img_width": 768,
+  "image_height": 1200,
+  "gen_num": 1,
+  "base_model": "",
+  "lora": "2dlemoV3.safetensors",
+  "model": "Workflow",
+  "workflow": "2D lemo"
+}

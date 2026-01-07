@@ -1,0 +1,15 @@
+{
+  "text": "参考这个风格，生成棕粉色沙漠场景",
+  "width": 1200,
+  "height": 1200,
+  "batch_size": 1,
+  "prompt": "参考这个风格，生成棕粉色沙漠场景",
+  "img_width": 1200,
+  "image_height": 1200,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "lora": "",
+  "ref_image": "/upload/ref_1766046810345_cdeyr4.png",
+  "model": "Nano banana",
+  "timestamp": "2025-12-18T08:34:10.368Z"
+}

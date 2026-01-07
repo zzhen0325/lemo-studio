@@ -1,0 +1,9 @@
+{
+  "prompt": "3d卡通IP，精致纹理",
+  "img_width": 1376,
+  "image_height": 768,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "1K",
+  "lora": ""
+}

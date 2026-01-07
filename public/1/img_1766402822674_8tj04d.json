@@ -1,0 +1,11 @@
+{
+  "prompt": "调整布局，将中间的树缩小往旁边移动，上方留出标题区域，“謹賀新年”四个字",
+  "img_width": 2400,
+  "image_height": 1792,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "2K",
+  "lora": "",
+  "ref_image": "/upload/ref_1766402719071_ew164p.png",
+  "timestamp": "2025-12-22T11:26:59.464Z"
+}

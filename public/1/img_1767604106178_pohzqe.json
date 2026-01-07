@@ -1,0 +1,9 @@
+{
+  "prompt": "2314",
+  "img_width": 1376,
+  "img_height": 768,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "1K",
+  "lora": ""
+}

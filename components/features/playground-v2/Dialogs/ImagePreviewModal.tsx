@@ -3,13 +3,13 @@ import { X, ZoomIn, ZoomOut, RefreshCw, Pencil } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
-import { GenerationResult } from './types';
+import { Generation } from '@/types/database';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  result?: GenerationResult;
-  onEdit?: (result: GenerationResult) => void;
+  result?: Generation;
+  onEdit?: (result: Generation) => void;
 }
 
 export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: ImagePreviewModalProps) {
@@ -29,7 +29,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
 
   if (!result) return null;
 
-  const imageUrl = result.imageUrl || (result.imageUrls && result.imageUrls[0]) || "";
+  const imageUrl = result.outputUrl || "";
   const config = result.config;
 
   const handleZoomIn = (e: React.MouseEvent) => { e.stopPropagation(); setScale(prev => Math.min(prev * 1.2, 5)); };
@@ -178,7 +178,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                 <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Model</h4>
                 <div className="flex flex-wrap gap-2">
                   <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20 uppercase tracking-wider">
-                    {config?.base_model || "Standard"}
+                    {config?.model || "Standard"}
                   </span>
                   {config?.lora && (
                     <span className="px-4 py-2 bg-white/5 text-white/60 text-xs font-bold rounded-full border border-white/5 uppercase tracking-wider">
@@ -193,19 +193,19 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
                     <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Width</span>
-                    <span className="text-white text-lg font-medium tabular-nums">{config?.img_width}</span>
+                    <span className="text-white text-lg font-medium tabular-nums">{config?.width}</span>
                   </div>
                   <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
                     <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Height</span>
-                    <span className="text-white text-lg font-medium tabular-nums">{config?.img_height}</span>
+                    <span className="text-white text-lg font-medium tabular-nums">{config?.height}</span>
                   </div>
                   <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
                     <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Count</span>
-                    <span className="text-white text-lg font-medium tabular-nums">{config?.gen_num}</span>
+                    <span className="text-white text-lg font-medium tabular-nums">{1}</span>
                   </div>
                   <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
                     <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Model</span>
-                    <span className="text-white text-xs font-medium tabular-nums truncate">{config?.base_model || 'Standard'}</span>
+                    <span className="text-white text-xs font-medium tabular-nums truncate">{config?.model || 'Standard'}</span>
                   </div>
                 </div>
               </div>

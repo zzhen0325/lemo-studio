@@ -1,0 +1,10 @@
+{
+  "prompt": "参考图一风格生成一个男孩\n",
+  "img_width": 1792,
+  "image_height": 768,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "1K",
+  "lora": "",
+  "timestamp": "2025-12-24T09:26:40.958Z"
+}

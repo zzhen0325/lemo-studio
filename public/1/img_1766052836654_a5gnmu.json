@@ -1,0 +1,9 @@
+{
+  "prompt": "man",
+  "img_width": 1200,
+  "image_height": 600,
+  "gen_num": 1,
+  "base_model": "Workflow",
+  "lora": "Alt-Country Poster.safetensors,JPv3.safetensors",
+  "workflow": "3D lemo"
+}

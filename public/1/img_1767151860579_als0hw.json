@@ -1,0 +1,9 @@
+{
+  "prompt": "12312",
+  "img_width": 1376,
+  "image_height": 768,
+  "gen_num": 1,
+  "base_model": "3D Lemo seed3",
+  "image_size": "1K",
+  "lora": ""
+}

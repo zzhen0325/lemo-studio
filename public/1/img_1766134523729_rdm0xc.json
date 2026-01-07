@@ -1,0 +1,11 @@
+{
+  "prompt": "参考这个画风，重新生成一张高清大图",
+  "img_width": 5504,
+  "image_height": 3072,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "4K",
+  "lora": "",
+  "ref_image": "/upload/ref_1766134415408_996bbe.png",
+  "timestamp": "2025-12-19T08:55:22.809Z"
+}

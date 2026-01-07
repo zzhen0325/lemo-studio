@@ -1,0 +1,10 @@
+{
+  "prompt": "新年 马主题的极简插画，纯色背景",
+  "img_width": 2048,
+  "image_height": 2048,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "2K",
+  "lora": "",
+  "timestamp": "2025-12-22T14:39:58.735Z"
+}

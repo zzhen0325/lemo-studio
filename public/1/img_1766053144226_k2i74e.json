@@ -1,0 +1,9 @@
+{
+  "prompt": "man",
+  "img_width": 1200,
+  "image_height": 600,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "lora": "flux_realism_lora.safetensors",
+  "timestamp": "2025-12-18T10:19:04.121Z"
+}

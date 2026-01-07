@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, Settings2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GenerationResult, GenerationConfig } from '@/components/features/playground-v2/types';
+import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { cn } from "@/lib/utils";
@@ -11,21 +11,22 @@ import { useToast } from "@/hooks/common/use-toast";
 
 
 interface HistoryListProps {
-  history: GenerationResult[];
-  onRegenerate: (result: GenerationResult) => void;
+  history: Generation[];
+  onRegenerate: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
-  onImageClick: (result: GenerationResult, initialRect?: DOMRect) => void;
+  onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   isGenerating?: boolean;
   variant?: 'default' | 'sidebar';
-  onBatchUse?: (results: GenerationResult[], sourceImage?: string) => void;
+  onBatchUse?: (results: Generation[], sourceImage?: string) => void;
   layoutMode?: 'grid' | 'list';
 }
 
 interface GroupedHistoryItem {
   type: 'image' | 'text';
-  key: string; // prompt for image, sourceImage for text
-  items: GenerationResult[];
-  sourceImage?: string; // only for text type
+  key: string;
+  items: Generation[];
+  sourceImage?: string;
+  startAt: string;
 }
 
 export default function HistoryList({
@@ -38,59 +39,41 @@ export default function HistoryList({
   layoutMode = 'list',
 }: HistoryListProps) {
 
-  // Group history by type & key
+  // Group history by start time (createdAt) and parameters to reflect single-click aggregation
   const groupedHistory = React.useMemo(() => {
-    const groups: GroupedHistoryItem[] = [];
-
+    const map = new Map<string, GroupedHistoryItem>();
     history.forEach((result) => {
-      const type = result.type || 'image';
-      const config = result.config || result.metadata;
-
-      // key components for comparison
-      const prompt = result.prompt || config?.prompt || "";
-      const model = config?.base_model || "";
-      const width = config?.img_width || 0;
-      const height = config?.img_height || 0;
-      const lora = config?.lora || "";
-      const refImage = (config as { ref_image?: string })?.ref_image || "";
-
-      // Find existing group for the same type, parameters and within 30s
-      const existingGroup = groups.find(g => {
-        if (g.type !== type) return false;
-
-        // Time check: within 30s of the first item in the group
-        const firstItemTime = new Date(g.items[0].timestamp).getTime();
-        const currentTime = new Date(result.timestamp).getTime();
-        if (Math.abs(firstItemTime - currentTime) > 30000) return false;
-
-        if (type === 'text') {
-          return g.sourceImage === result.sourceImage;
-        } else {
-          const gConfig = g.items[0].config || g.items[0].metadata;
-          return (
-            (g.items[0].prompt || gConfig?.prompt || "") === prompt &&
-            (gConfig?.base_model || "") === model &&
-            (gConfig?.img_width || 0) === width &&
-            (gConfig?.img_height || 0) === height &&
-            (gConfig?.lora || "") === lora &&
-            (gConfig?.ref_image || "") === refImage
-          );
+      const cfg = result.config;
+      const isText = !!result.sourceImageUrl && (result.outputUrl === result.sourceImageUrl);
+      const type: 'image' | 'text' = isText ? 'text' : 'image';
+      const prompt = cfg?.prompt || "";
+      const model = cfg?.model || "";
+      const width = cfg?.width || 0;
+      const height = cfg?.height || 0;
+      const lora = cfg?.lora || "";
+      const refImage = result.sourceImageUrl || "";
+      const startMs = new Date(result.createdAt).getTime();
+      const startBucket = Math.floor(startMs / 60000); // minute-level bucket
+      const key = type === 'text'
+        ? `text|${startBucket}|${refImage}`
+        : `image|${startBucket}|${prompt}|${model}|${width}|${height}|${lora}|${refImage}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.items.push(result);
+        if (new Date(result.createdAt).getTime() < new Date(existing.startAt).getTime()) {
+          existing.startAt = result.createdAt;
         }
-      });
-
-      if (existingGroup) {
-        existingGroup.items.push(result);
       } else {
-        groups.push({
+        map.set(key, {
           type,
-          key: type === 'text' ? (result.sourceImage || "Unknown") : prompt,
+          key,
           items: [result],
-          sourceImage: type === 'text' ? result.sourceImage : undefined
+          sourceImage: type === 'text' ? result.sourceImageUrl : undefined,
+          startAt: result.createdAt,
         });
       }
     });
-
-    return groups;
+    return Array.from(map.values()).sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
   }, [history]);
 
   if (history.length === 0) return null;
@@ -102,7 +85,7 @@ export default function HistoryList({
     )}>
       <div className={cn(
         layoutMode === 'list'
-          ? "flex flex-col gap-4 w-full mx-auto"
+          ? "flex flex-col gap-4 w-full mt-14 mx-auto"
           : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4 w-full mx-auto",
         variant === 'default' ? "max-w-[1500px]" : "max-w-full"
       )}>
@@ -135,7 +118,7 @@ export default function HistoryList({
                   )}>
                     {group.items.map((result, idx) => (
                       <HistoryCard
-                        key={result.id || result.imageUrl || `img-${idx}`}
+                        key={result.id || result.outputUrl || `img-${idx}`}
                         result={result}
                         onRegenerate={onRegenerate}
                         onDownload={onDownload}
@@ -148,11 +131,11 @@ export default function HistoryList({
               </div>
             ) : (
               // Text/Describe Group: Unified Grid for Source Image + Text Cards
-              <div className="flex flex-col gap-6 mt-16 group/card">
+              <div className="flex flex-col gap-6  group/card">
                 {/* Header: Metadata (timestamp and title) */}
                 <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
                   <div className="flex items-center gap-4">
-                    <span>{new Date(group.items[0].timestamp).toLocaleString()}</span>
+                    <span>{new Date(group.startAt).toLocaleString()}</span>
                     <span className="opacity-20">/</span>
                     <span className="text-white/40">Image Analysis</span>
                   </div>
@@ -226,36 +209,38 @@ function HistoryCard({
   onImageClick,
   layoutMode = 'list',
 }: {
-  result: GenerationResult;
-  allResults?: GenerationResult[];
-  onRegenerate: (result: GenerationResult) => void;
+  result: Generation;
+  allResults?: Generation[];
+  onRegenerate: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
-  onImageClick: (result: GenerationResult, initialRect?: DOMRect) => void;
+  onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   layoutMode?: 'grid' | 'list';
 }) {
   const [isHover, setIsHover] = React.useState(false);
   const { applyPrompt, applyModel, applyImage } = usePlaygroundStore();
   const { toast } = useToast();
-  const mainImage = result.imageUrl || (result.imageUrls && result.imageUrls[0]);
+  const mainImage = result.outputUrl;
 
-  const config = result.config || result.metadata;
-  const prompt = result.prompt || config?.prompt || '';
-  const timeStr = new Date(result.timestamp).toLocaleString();
+  const config = result.config;
+  const prompt = config?.prompt || '';
+  const timeStr = new Date(result.createdAt).toLocaleString();
 
   if (layoutMode === 'list') {
     const resultsToDisplay = allResults || [result];
 
 
     return (
-      <div className="flex flex-col w-full bg-transparent transition-all mt-16 group/card gap-6">
+      <div className="flex flex-col w-full bg-transparent transition-all  group/card gap-4">
+
+
         {/* Header: Metadata & Actions */}
         <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
           <div className="flex items-center gap-4">
             <span>{timeStr}</span>
             <span className="opacity-20">/</span>
-            <span className="text-white/40">{config?.base_model || 'Unknown'}</span>
+            <span className="text-white/40">{config?.model || 'Unknown'}</span>
             <span className="opacity-20">/</span>
-            <span className="text-white/40">{config?.img_width} x {config?.img_height}</span>
+            <span className="text-white/40">{config?.width} x {config?.height}</span>
             {config?.lora && (
               <>
                 <span className="opacity-20">/</span>
@@ -274,7 +259,7 @@ function HistoryCard({
           {/* Prompt slot (styled as a card) */}
           <div
             className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col justify-start"
-            style={{ aspectRatio: `${config?.img_width || 1024} / ${config?.img_height || 1024}` }}
+            style={{ aspectRatio: `${config?.width || 1024} / ${config?.height || 1024}` }}
           >
             <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
               <span className="block w-1 h-1 rounded-full bg-white/20" />
@@ -306,7 +291,7 @@ function HistoryCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 rounded-lg  border-white/10 bg-white/5 text-white/70 hover:bg-emerald-500/10 hover:border-emerald-500/40 gap-1.5 px-3"
+                className="h-8 rounded-lg  border-white/10 bg-black/10 text-white/70 hover:bg-emerald-500/10 hover:border-emerald-500/40 gap-1.5 px-3"
                 onClick={() => onRegenerate(result)}
               >
                 <RefreshCw className="w-3 h-3" />
@@ -315,10 +300,17 @@ function HistoryCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 rounded-lg border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white gap-1.5 px-3"
+                className="h-8 rounded-lg border-white/10 bg-black/10 text-white/70 hover:bg-white/10 hover:text-white gap-1.5 px-3"
                 onClick={() => {
                   if (config) {
-                    applyModel(config.base_model || '', config as GenerationConfig);
+                    applyModel(config.model || '', {
+                      prompt: config.prompt,
+                      img_width: config.width,
+                      img_height: config.height,
+                      gen_num: 1,
+                      base_model: config.model,
+                      lora: config.lora,
+                    });
                     applyPrompt(prompt);
                     toast({
                       title: "参数已回填",
@@ -334,16 +326,16 @@ function HistoryCard({
             </div>
           </div>
           {resultsToDisplay.map((res, idx) => {
-            const img = res.imageUrl || (res.imageUrls && res.imageUrls[0]);
+            const img = res.outputUrl;
             return (
 
 
               <div
                 key={res.id || idx}
                 className="relative w-full overflow-hidden rounded-xl group/img border border-white/5 bg-white/5"
-                style={{ aspectRatio: `${config?.img_width || 1024} / ${config?.img_height || 1024}` }}
+                style={{ aspectRatio: `${config?.width || 1024} / ${config?.height || 1024}` }}
               >
-                {res.isLoading ? (
+                {res.status === 'pending' ? (
                   <div className="w-full h-full flex items-center justify-center">
                     <Loader2 className="w-6 h-6 animate-spin text-white/10" />
                   </div>
@@ -365,7 +357,7 @@ function HistoryCard({
                   </div>
                 )}
                 {/* Individual Actions Overlay */}
-                {!res.isLoading && img && (
+                {res.status !== 'pending' && img && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
                     <TooltipButton
                       icon={<Download className="w-3.5 h-3.5" />}
@@ -397,7 +389,7 @@ function HistoryCard({
         transition={{ duration: 0.3 }}
         className="relative z-0 w-full h-auto"
       >
-        {result.isLoading ? (
+        {result.status === 'pending' ? (
           <div className="w-full h-full flex flex-col items-center justify-center bg-black/20">
             <Loader2 className="w-8 h-8 animate-spin text-white/20" />
           </div>
@@ -405,8 +397,8 @@ function HistoryCard({
           <Image
             src={mainImage}
             alt="Generated image"
-            width={result.config?.img_width || 1024}
-            height={result.config?.img_height || 1024}
+            width={result.config?.width || 1024}
+            height={result.config?.height || 1024}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             quality={95}
             className="w-full h-auto cursor-pointer scale-100 group-hover:scale-105 transition-transform duration-500"
@@ -427,7 +419,7 @@ function HistoryCard({
           tooltipContent="Use Prompt"
           tooltipSide="top"
           className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-          onClick={() => applyPrompt(result.prompt || result.config?.prompt || '')}
+          onClick={() => applyPrompt(result.config?.prompt || '')}
         />
         <TooltipButton
           icon={<ImageIcon className="w-4 h-4" />}
@@ -443,7 +435,14 @@ function HistoryCard({
           tooltipContent="Use Model"
           tooltipSide="top"
           className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-          onClick={() => result.config && applyModel(result.config.base_model, result.config)}
+          onClick={() => result.config && applyModel(result.config.model, {
+            prompt: result.config.prompt,
+            img_width: result.config.width,
+            img_height: result.config.height,
+            gen_num: 1,
+            base_model: result.config.model,
+            lora: result.config.lora,
+          })}
         />
         <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
         <TooltipButton
@@ -470,11 +469,11 @@ function HistoryCard({
 function TextHistoryCard({
   result,
 }: {
-  result: GenerationResult;
+  result: Generation;
 }) {
   const { toast } = useToast();
   const { applyPrompt } = usePlaygroundStore();
-  const prompt = result.prompt || result.config?.prompt || '';
+  const prompt = result.config?.prompt || '';
 
   const handleApply = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -484,15 +483,15 @@ function TextHistoryCard({
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col justify-start group/card"
+      className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black/5 p-4 flex flex-col justify-start group/card"
     >
       <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
         <span className="block w-1 h-1 rounded-full bg-white/20" />
-        {result.isLoading ? 'Analyzing...' : 'Image Description'}
+        {result.status === 'pending' ? 'Analyzing...' : 'Image Description'}
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {result.isLoading ? (
+        {result.status === 'pending' ? (
           <div className="w-full h-full flex items-center justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-white/10" />
           </div>
@@ -503,7 +502,7 @@ function TextHistoryCard({
         )}
       </div>
 
-      {!result.isLoading && (
+      {result.status !== 'pending' && (
         <>
           <div className="flex absolute bottom-3 left-1/2 -translate-x-1/2 gap-2 opacity-0 group-hover/card:opacity-100 transition-opacity">
             <Button
@@ -527,11 +526,11 @@ function DescribeInteractiveCard({
   onImageClick,
 }: {
   group: GroupedHistoryItem;
-  onImageClick: (result: GenerationResult, initialRect?: DOMRect) => void;
+  onImageClick: (result: Generation, initialRect?: DOMRect) => void;
 }) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const currentItem = group.items[currentIndex];
-  const prompt = currentItem?.prompt || currentItem?.config?.prompt || '';
+  const prompt = currentItem?.config?.prompt || '';
   const { toast } = useToast();
   const { applyPrompt } = usePlaygroundStore();
 

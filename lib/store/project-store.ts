@@ -1,12 +1,12 @@
 import { makeAutoObservable } from "mobx";
-import { GenerationResult } from "@/components/features/playground-v2/types";
+import { Generation } from "@/types/database";
 
 export interface Project {
   id: string;
   name: string;
   thumbnailUrl?: string;
   createdAt: number;
-  history: GenerationResult[];
+  history: Generation[];
 }
 
 class ProjectStore {
@@ -65,11 +65,11 @@ class ProjectStore {
     this.isSidebarExpanded = expanded ?? !this.isSidebarExpanded;
   }
 
-  addHistoryToCurrentProject(historyItem: GenerationResult) {
+  addHistoryToCurrentProject(historyItem: Generation) {
     if (this.currentProject) {
       this.currentProject.history.unshift(historyItem);
       // Update thumbnail if it's the first image
-      const image = historyItem.imageUrl || historyItem.imageUrls?.[0];
+      const image = historyItem.outputUrl;
       if (!this.currentProject.thumbnailUrl && image) {
         this.currentProject.thumbnailUrl = image;
       }
@@ -77,13 +77,13 @@ class ProjectStore {
   }
 
   // Method to sync history from external source (like when loading from local storage)
-  setProjectHistory(projectId: string, history: GenerationResult[]) {
+  setProjectHistory(projectId: string, history: Generation[]) {
     const project = this.projects.find(p => p.id === projectId);
     if (project) {
       project.history = history;
       if (!project.thumbnailUrl && history.length > 0) {
         const firstItem = history[0];
-        const image = firstItem.imageUrl || firstItem.imageUrls?.[0];
+        const image = firstItem.outputUrl;
         if (image) {
           project.thumbnailUrl = image;
         }

@@ -1,0 +1,10 @@
+{
+  "prompt": "A 2dlemo  working out in the gym, holding dumbbells in both hands, with obvious muscle shape, lemo skin color is brown, wearing a blue headband, a black vest with a lemon pattern on the upper body, black shorts on the lower body, and a serious expression，beige background",
+  "img_width": 1200,
+  "image_height": 600,
+  "gen_num": 1,
+  "base_model": "Workflow",
+  "image_size": "1K",
+  "lora": "",
+  "workflow": "3D lemo"
+}

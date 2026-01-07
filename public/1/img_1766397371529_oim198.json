@@ -1,0 +1,11 @@
+{
+  "prompt": "改成白底红马，并且调整马的形状更加现代",
+  "img_width": 1376,
+  "image_height": 768,
+  "gen_num": 1,
+  "base_model": "Nano banana",
+  "image_size": "1K",
+  "lora": "",
+  "ref_image": "/upload/ref_1766397312125_s023p3.png",
+  "timestamp": "2025-12-22T09:56:11.353Z"
+}

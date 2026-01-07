@@ -1,3 +1,5 @@
+import { Generation as UGeneration } from '@/types/database';
+
 export interface GenerationConfig {
   prompt: string;
   img_width: number;
@@ -11,6 +13,7 @@ export interface GenerationConfig {
 
 export interface GenerationResult {
   id: string;
+  outputUrl?: string;
   imageUrl?: string;
   imageUrls?: string[];
 
@@ -23,6 +26,7 @@ export interface GenerationResult {
     lora?: string;
     ref_image?: string;
   };
+  createdAt?: string;
   timestamp: string;
   prompt?: string;
   isLoading?: boolean;
