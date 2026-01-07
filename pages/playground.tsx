@@ -321,6 +321,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     // Auto-expand history panel
     setShowHistory(true);
 
+    // Create a unified timestamp for the entire batch to ensure grouping
+    const startTime = new Date().toISOString();
+
     // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
     const effectiveBatchSize = configOverride ? 1 : batchSize;
 
@@ -330,7 +333,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       if (index > 0) {
         await new Promise(resolve => setTimeout(resolve, index * 300));
       }
-      return await singleGenerate(configOverride);
+      return await singleGenerate(configOverride, startTime);
     });
 
     try {
@@ -476,6 +479,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setHasGenerated(true); // Trigger split layout immediately like generate
     setShowHistory(true); // Auto-expand history panel
 
+    const startTime = new Date().toISOString();
+
     // Create a temporary loading card
     const loadingId = `describe-loading-${Date.now()}`;
     const loadingCard: import('@/types/database').Generation = {
@@ -492,7 +497,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       },
       status: 'pending',
       sourceImageUrl: describeImages[0].previewUrl,
-      createdAt: new Date().toISOString(),
+      createdAt: startTime,
     };
 
     // Insert loading card
@@ -534,7 +539,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           },
           status: 'completed',
           sourceImageUrl: describeImages[0].previewUrl,
-          createdAt: new Date().toISOString(),
+          createdAt: startTime,
         }));
 
         // Remove loading card and add real results
@@ -1099,8 +1104,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       {/* Header Actions: Layout Toggle \u0026 Collapse */}
                       <div className="absolute top-6 left-8 z-30  ">
                         <span>History</span>
-                        
-                        </div>
+
+                      </div>
                       <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
                         <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
                           <button

@@ -51,12 +51,11 @@ export default function HistoryList({
       const width = cfg?.width || 0;
       const height = cfg?.height || 0;
       const lora = cfg?.lora || "";
-      const refImage = result.sourceImageUrl || "";
       const startMs = new Date(result.createdAt).getTime();
       const startBucket = Math.floor(startMs / 60000); // minute-level bucket
       const key = type === 'text'
-        ? `text|${startBucket}|${refImage}`
-        : `image|${startBucket}|${prompt}|${model}|${width}|${height}|${lora}|${refImage}`;
+        ? `text|${startBucket}`
+        : `image|${startBucket}|${prompt}|${model}|${width}|${height}|${lora}`;
       const existing = map.get(key);
       if (existing) {
         existing.items.push(result);
@@ -258,7 +257,7 @@ function HistoryCard({
         )}>
           {/* Prompt slot (styled as a card) */}
           <div
-            className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col justify-start"
+            className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black/5 p-4 flex flex-col justify-start"
             style={{ aspectRatio: `${config?.width || 1024} / ${config?.height || 1024}` }}
           >
             <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">

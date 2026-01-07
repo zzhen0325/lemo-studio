@@ -54,7 +54,8 @@ export function useGenerationService() {
         }
     };
 
-    const handleGenerate = async (configOverride?: GenerationConfig) => {
+    const handleGenerate = async (configOverride?: GenerationConfig, fixedCreatedAt?: string) => {
+        const generationTime = fixedCreatedAt || new Date().toISOString();
         const freshConfig = usePlaygroundStore.getState().config;
         const finalConfig = configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
             ? configOverride
@@ -77,6 +78,9 @@ export function useGenerationService() {
             image_size: finalConfig.image_size,
             lora: finalConfig.lora,
         });
+        const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
+        const sourceImageUrl = currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined;
+
         const loadingGen: Generation = {
             id: taskId,
             userId: 'anonymous',
@@ -86,12 +90,12 @@ export function useGenerationService() {
                 prompt: unifiedCfg.prompt,
                 width: unifiedCfg.width,
                 height: unifiedCfg.height,
-                model: unifiedCfg.model,
+                model: unifiedCfg.model || selectedModel,
                 lora: unifiedCfg.lora,
             },
             status: 'pending',
-            sourceImageUrl: undefined,
-            createdAt: new Date().toISOString(),
+            sourceImageUrl: sourceImageUrl,
+            createdAt: generationTime,
         };
 
         // Use standard state update for history
@@ -122,9 +126,9 @@ export function useGenerationService() {
             }
 
             if (selectedModel === "Workflow") {
-                await handleWorkflow(taskId, finalConfig);
+                await handleWorkflow(taskId, finalConfig, generationTime, sourceImageUrl);
             } else {
-                await handleUnifiedImageGen(taskId, finalConfig);
+                await handleUnifiedImageGen(taskId, finalConfig, generationTime, sourceImageUrl);
             }
         } catch (err) {
             console.error("Generation failed:", err);
@@ -139,11 +143,15 @@ export function useGenerationService() {
     };
 
     const updateHistoryAndSave = (taskId: string, result: Generation) => {
-        setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === taskId ? result : item));
+        setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === taskId ? {
+            ...item,
+            ...result,
+            config: { ...item.config, ...result.config }
+        } : item));
         saveHistoryToBackend(result);
     };
 
-    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig) => {
+    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
 
         let modelId = "lemo_2dillustator"; // Default
@@ -183,7 +191,7 @@ export function useGenerationService() {
                         model: unified.model || selectedModel,
                         lora: unified.lora,
                     },
-                    createdAt: new Date().toISOString(),
+                    createdAt: generationTime,
                     sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
                 }
             );
@@ -201,8 +209,8 @@ export function useGenerationService() {
                     lora: unified.lora,
                 },
                 status: 'completed',
-                sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
-                createdAt: new Date().toISOString(),
+                sourceImageUrl: sourceImageUrl, // 使用一开始获取的 sourceImageUrl
+                createdAt: generationTime,
             };
             updateHistoryAndSave(taskId, gen);
         } else {
@@ -210,7 +218,7 @@ export function useGenerationService() {
         }
     };
 
-    const handleWorkflow = async (taskId: string, currentConfig: GenerationConfig) => {
+    const handleWorkflow = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
 
         const flattenInputs = (arr: IMultiValueInput[]) => arr.flatMap(g => g.inputs.map(i => ({ key: i.key, value: i.value, valueType: i.valueType, title: i.title })));
@@ -313,28 +321,28 @@ export function useGenerationService() {
                                 model: unified.model,
                                 lora: formatLoras() ?? unified.lora,
                             },
-                            createdAt: new Date().toISOString(),
+                            createdAt: generationTime,
                             sourceImageUrl: undefined,
                         }
                     );
-            const gen: Generation = {
-                id: taskId,
-                userId: 'anonymous',
-                projectId: 'default',
-                outputUrl: savedPath,
-                config: {
-                    prompt: unified.prompt,
-                    width: Number(unified.width),
-                    height: Number(unified.height),
-                    model: unified.model,
-                    workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
-                    lora: formatLoras() ?? unified.lora,
-                },
-                status: 'completed',
-                sourceImageUrl: undefined,
-                createdAt: new Date().toISOString(),
-            };
-            updateHistoryAndSave(taskId, gen);
+                    const gen: Generation = {
+                        id: taskId,
+                        userId: 'anonymous',
+                        projectId: 'default',
+                        outputUrl: savedPath,
+                        config: {
+                            prompt: unified.prompt,
+                            width: Number(unified.width),
+                            height: Number(unified.height),
+                            model: unified.model,
+                            workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                            lora: formatLoras() ?? unified.lora,
+                        },
+                        status: 'completed',
+                        sourceImageUrl: sourceImageUrl,
+                        createdAt: generationTime,
+                    };
+                    updateHistoryAndSave(taskId, gen);
                 }
             },
             onError: (err) => {
