@@ -197,6 +197,7 @@ export function useGenerationService() {
                     width: Number(unified.width),
                     height: Number(unified.height),
                     model: unified.model || selectedModel,
+                    workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
                     lora: unified.lora,
                 },
                 status: 'completed',
