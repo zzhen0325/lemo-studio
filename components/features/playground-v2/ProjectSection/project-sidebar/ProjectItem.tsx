@@ -54,16 +54,16 @@ export const ProjectItem = observer(({ project, isSelected, style }: ProjectItem
     <div
       style={style}
       className={cn(
-        "group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm",
+        "group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-colors text-sm",
         isSelected
-          ? "bg-black/20 text-white"
+          ? "bg-white/5 text-white border border-white/10"
           : "text-white/60 hover:bg-black/10 hover:text-white"
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
       <Folder className={cn("w-4 h-4 shrink-0", isSelected ? "text-primary" : "text-white/40")} />
-      
+
       {isEditing ? (
         <input
           ref={inputRef}

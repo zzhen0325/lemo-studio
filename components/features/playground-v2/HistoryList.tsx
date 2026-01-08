@@ -108,7 +108,9 @@ export default function HistoryList({
 
       {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
       <div className="absolute top-6 left-8 z-20 pointer-events-none">
-        <span className="text-white font-medium">History</span>
+        <span className="text-white text-2xl"
+          style={{ fontFamily: "'InstrumentSerif', serif" }}
+        >History</span>
       </div>
 
       <div className="absolute top-6 right-8 z-20 flex items-center gap-3">
@@ -141,7 +143,7 @@ export default function HistoryList({
 
         <button
           onClick={onClose}
-          className="flex items-center h-10 w-10 justify-center rounded-full border border-white/10 bg-black/40 backdrop-blur-md text-white/40 hover:bg-white/10 hover:text-white transition-all"
+          className="flex items-center h-9 w-9  justify-center rounded-full border border-white/10 bg-black/40 backdrop-blur-md text-white/40 hover:bg-white/10 hover:text-white transition-all"
         >
           <X className="w-4 h-4 hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]" />
         </button>
@@ -157,14 +159,41 @@ export default function HistoryList({
         <div className={cn(
           layoutMode === 'list'
             ? "flex flex-col gap-8 w-full mt-14 mx-auto"
-            : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4 w-full mx-auto",
+            : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 space-y-2 mt-14 w-full mx-auto",
           variant === 'default' ? "max-w-[1500px]" : "max-w-full"
         )}>
-          {groupedHistory.map((group, groupIdx) => (
-            <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-transparent overflow-hidden mb-2">
-              {group.type === 'image' ? (
-                <div className="flex flex-col">
-                  {layoutMode === 'list' ? (
+          {layoutMode === 'grid' ? (
+            history.map((result, idx) => {
+              const isText = !!result.sourceImageUrl && (result.outputUrl === result.sourceImageUrl);
+
+              if (isText) {
+                // 对于描述分析项，因为用户说“保留现有”，而现有在网格下是 DescribeInteractiveCard
+                // 但那是基于 group 的。在扁平 history 中遇到 text 项时，我们跳过它（因为它已经在 group 逻辑中处理过，或者我们需要在这里单独处理）
+                // 观察原代码：groupedHistory 包含了所有项。
+                // 如果用户想在网格下“打散”图片但“保留聚合”的 Describe，我们需要一点混合逻辑。
+                return null;
+              }
+
+              return (
+                <div key={result.id || result.outputUrl || `img-${idx}`} className="break-inside-avoid mb-4">
+                  <HistoryCard
+                    result={result}
+                    onRegenerate={onRegenerate}
+                    onDownload={onDownload}
+                    onImageClick={onImageClick}
+                    onRefImageClick={(url, id) => {
+                      setPreviewImage(url, id);
+                    }}
+                    layoutMode={layoutMode}
+                  />
+                </div>
+              );
+            })
+          ) : (
+            groupedHistory.map((group, groupIdx) => (
+              <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-transparent overflow-hidden mb-2">
+                {group.type === 'image' ? (
+                  <div className="flex flex-col">
                     <HistoryCard
                       result={group.items[0]}
                       allResults={group.items}
@@ -176,36 +205,17 @@ export default function HistoryList({
                       }}
                       layoutMode={layoutMode}
                     />
-                  ) : (
-                    <div className={cn("p-2 rounded-2xl h-auto w-full gap-2 grid grid-cols-2")}>
-                      {group.items.map((result, idx) => (
-                        <div key={result.id || result.outputUrl || `img-${idx}`} className="relative w-full h-full">
-                          <HistoryCard
-                            result={result}
-                            onRegenerate={onRegenerate}
-                            onDownload={onDownload}
-                            onImageClick={onImageClick}
-                            onRefImageClick={(url, id) => {
-                              setPreviewImage(url, id);
-                            }}
-                            layoutMode={layoutMode}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-6 group/card">
-                  <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
-                    <div className="flex items-center gap-4">
-                      <span>{new Date(group.startAt).toLocaleString()}</span>
-                      <span className="opacity-20">/</span>
-                      <span className="text-white/40">Image Analysis</span>
-                    </div>
                   </div>
+                ) : (
+                  <div className="flex flex-col gap-6 group/card">
+                    <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
+                      <div className="flex items-center gap-4">
+                        <span>{new Date(group.startAt).toLocaleString()}</span>
+                        <span className="opacity-20">/</span>
+                        <span className="text-white/40">Image Analysis</span>
+                      </div>
+                    </div>
 
-                  {layoutMode === 'list' ? (
                     <div className="relative bg-transparent grid grid-cols-[1.5fr_4fr] gap-2 items-stretch content-start">
                       <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
                         {group.sourceImage ? (
@@ -252,16 +262,19 @@ export default function HistoryList({
                         <TextHistoryCard key={result.id || `txt-${idx}`} result={result} />
                       ))}
                     </div>
-                  ) : (
-                    <div className="w-full">
-                      <DescribeInteractiveCard
-                        group={group}
-                        onRefImageClick={(url, id) => setPreviewImage(url, id)}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+
+          {/* 独立处理网格模式下的 Describe 项，保持现有的分组聚合交互 */}
+          {layoutMode === 'grid' && groupedHistory.filter(g => g.type === 'text').map((group, idx) => (
+            <div key={`grid-desc-${idx}`} className="break-inside-avoid mb-4">
+              <DescribeInteractiveCard
+                group={group}
+                onRefImageClick={(url, id) => setPreviewImage(url, id)}
+              />
             </div>
           ))}
         </div>
@@ -523,10 +536,15 @@ function HistoryCard({
     );
   }
 
+
+
+  // grid模式
+
+
   return (
     <div
       className={cn(
-        "group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30",
+        "group relative w-full overflow-hidden  bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30",
         layoutMode === 'grid' && "h-full"
       )}
       onMouseEnter={() => setIsHover(true)}

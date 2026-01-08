@@ -987,17 +987,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             <div className="relative z-20 flex flex-col items-center justify-center w-full h-full ">
               {/* Project Sidebar Overlay */}
-              <div className="absolute left-6 top-6  h-full z-40 pointer-events-none">
-                <div className="pointer-events-auto h-full">
+              <div className="absolute left-6 top-0 bottom-0 z-40 pointer-events-none">
+                <div className="pointer-events-auto h-full flex flex-col">
 
                   {showProjectSidebar ? (
-                    <div
-                      key="project-sidebar"
-                      className="relative shrink-0 py-6"
-                    >
-                      <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
-
-                    </div>
+                    <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
                   ) : (
                     <div
                       key="project-open-btn"

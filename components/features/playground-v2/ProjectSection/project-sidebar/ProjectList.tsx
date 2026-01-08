@@ -9,7 +9,7 @@ export const ProjectList = observer(() => {
   const currentProjectId = projectStore.currentProjectId;
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+    <div className="flex-1 overflow-y-auto  mt-2">
       <div className="flex flex-col gap-1">
         {projects.map((project: Project) => (
           <ProjectItem
