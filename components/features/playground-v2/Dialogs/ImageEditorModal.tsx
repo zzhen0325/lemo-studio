@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Undo2,
@@ -47,6 +47,8 @@ const COLORS = [
 ];
 
 export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: ImageEditorModalProps) {
+    const [showProperties, setShowProperties] = useState(true);
+
     const {
         canvasRef,
         editorState,
@@ -90,6 +92,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                 className="text-white/60 hover:text-white"
                                 onClick={undo}
                                 disabled={!editorState.canUndo}
+                                title="Ctrl+Z"
                             >
                                 <Undo2 className="w-5 h-5" />
                             </Button>
@@ -99,9 +102,11 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                 className="text-white/60 hover:text-white"
                                 onClick={redo}
                                 disabled={!editorState.canRedo}
+                                title="Ctrl+Y"
                             >
                                 <Redo2 className="w-5 h-5" />
                             </Button>
+                            <span className="text-white/30 text-xs ml-2 hidden sm:inline">Ctrl+Z / Ctrl+Y</span>
                         </div>
                     </div>
 
@@ -120,13 +125,19 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                             <Check className="w-4 h-4" />
                             Apply Changes
                         </Button>
+                        </div>
+                        <button
+                            onClick={() => setShowProperties(!showProperties)}
+                            className="lg:hidden p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+                        >
+                            <SlidersHorizontal className="w-6 h-6" />
+                        </button>
                     </div>
-                </div>
 
                 {/* Main Content */}
                 <div className="relative flex-1 flex overflow-hidden">
                     {/* Left Toolbar */}
-                    <div className="w-16 border-r border-white/10 flex flex-col items-center py-4 gap-4 bg-black/20">
+                    <div className="w-20 border-r border-white/10 flex flex-col items-center py-4 gap-4 bg-black/20">
                         <ToolButton
                             icon={Move}
                             active={editorState.activeTool === 'select'}
@@ -197,8 +208,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                     </div>
 
                     {/* Canvas Area */}
-                    <div className="flex-1 bg-black flex items-center justify-center p-8 overflow-auto">
-                        <div className="relative shadow-2xl rounded-sm border border-white/5 bg-zinc-900">
+                    <div className="flex-1 bg-zinc-900/50 flex items-center justify-center p-8 overflow-auto">
+                        <div className="relative shadow-2xl rounded-sm border border-white/5 bg-[#1a1a1a]">
                             <canvas ref={canvasRef} />
                         </div>
                     </div>
@@ -208,7 +219,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                         <motion.div
                             initial={{ x: 200, opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
-                            className="w-64 border-l border-white/10 bg-black/20 p-6 flex flex-col gap-8"
+                            className={`min-w-64 max-w-80 border-l border-white/10 bg-black/20 p-6 flex flex-col gap-8 ${showProperties ? 'lg:flex' : 'hidden lg:flex'}`}
                         >
                             {/* Color Picker */}
                             <div className="space-y-4">

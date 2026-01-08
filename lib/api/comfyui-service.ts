@@ -35,6 +35,9 @@ export class ComfyUIService {
             workflow = await this.getLocalWorkflow();
         }
 
+        // 同步引用图片到外部存储 (10.75.163.225:5000)
+        await this.syncImagesFromInputs(args.viewComfy.inputs);
+
         const comfyWorkflow = new ComfyWorkflow(workflow);
         await comfyWorkflow.setViewComfy(args.viewComfy.inputs);
 
@@ -146,4 +149,58 @@ export class ComfyUIService {
         });
     }
 
+    private async syncImagesFromInputs(inputs: any[]) {
+        if (!inputs || !Array.isArray(inputs)) return;
+
+        for (const input of inputs) {
+            const value = input.value;
+            // 识别本地上传路径 (例如 /upload/xxx.png 或 /outputs/xxx.png)
+            if (typeof value === 'string' && (value.startsWith('/upload/') || value.startsWith('/outputs/'))) {
+                try {
+                    await this.syncToExternalStorage(value);
+                } catch (error) {
+                    logger.error(`Failed to sync image ${value} to external storage:`, error);
+                }
+            }
+        }
+    }
+
+    private async syncToExternalStorage(imagePath: string) {
+        try {
+            const publicDir = path.join(process.cwd(), 'public');
+            const absolutePath = path.join(publicDir, imagePath);
+
+            // 检查文件是否存在
+            try {
+                await fs.access(absolutePath);
+            } catch {
+                logger.warn(`File not found, skipping sync: ${absolutePath}`);
+                return;
+            }
+
+            const fileBuffer = await fs.readFile(absolutePath);
+            const fileName = path.basename(imagePath);
+
+            const formData = new FormData();
+            const blob = new Blob([fileBuffer], { type: (mime.lookup(fileName) || 'image/png') as string });
+            formData.append('file', blob, fileName);
+
+            logger.info(`Syncing image to external storage: ${fileName} ...`);
+
+            const response = await fetch('http://10.75.163.225:5000/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`External storage responded with ${response.status}: ${errorText}`);
+            }
+
+            const result = await response.json();
+            logger.info(`Successfully synced image to external storage:`, result);
+        } catch (error) {
+            throw error;
+        }
+    }
 }

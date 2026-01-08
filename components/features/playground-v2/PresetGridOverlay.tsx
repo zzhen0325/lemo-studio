@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
     const storePresets = usePlaygroundStore(s => s.presets);
     const presets = (externalPresets || storePresets) as PresetExtended[];
     const [activeCategory, setActiveCategory] = useState("All");
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     // Filter logic
     const filteredPresets = activeCategory === "All"
@@ -33,7 +34,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
             className="w-full mt-6 flex flex-col gap-2"
         >
             {/* Header: Tabs & Manager Entry */}
-            <div className="flex items-center justify-between bg-black/20 border border-white/10 rounded-2xl p-1 backdrop-blur-md">
+            <div className="flex items-center justify-between bg-black/20 border  border-white/10 rounded-2xl p-1 backdrop-blur-md">
                 <div className="flex items-center gap-1 ">
                     {CATEGORIES.map(cat => (
                         <button
@@ -42,7 +43,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
                             className={cn(
                                 "px-3 py-2 rounded-xl text-xs font-medium transition-all",
                                 activeCategory === cat
-                                    ? "bg-white text-black"
+                                    ? "bg-white/20 text-white"
                                     : "text-white/50 hover:text-white hover:bg-white/10"
                             )}
                         >
@@ -73,11 +74,13 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
                         </Button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
+                    <div
+                        ref={scrollRef}
+                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[500px] overflow-y-auto p-1 "
+                    >
                         {filteredPresets.map(preset => {
-                            const p = preset as any;
-                            const cover = p.coverUrl || p.cover;
-                            const name = p.name || p.title || "Untitled";
+                            const cover = preset.coverUrl || preset.cover;
+                            const name = preset.name || preset.title || "Untitled";
 
                             return (
                                 <button

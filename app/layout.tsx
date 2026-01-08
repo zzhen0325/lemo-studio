@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ViewComfyProvider } from "@/lib/providers/view-comfy-provider";
 import { cn } from "@/lib/utils";
 import ScrollbarVisibility from "@/components/common/scrollbar-visibility";
+import { AppToaster } from "@/components/ui/AppToaster";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ViewComfyProvider>
               <ScrollbarVisibility />
               {children}
+              <AppToaster />
             </ViewComfyProvider>
           </TooltipProvider>
         </ThemeProvider>

@@ -35,6 +35,7 @@ export interface GenerationConfig {
   aspectRatio?: AspectRatio;
   sizeFrom?: SizeFrom;
   sourceImageUrl?: string;
+  presetName?: string;
 }
 
 export interface Generation {

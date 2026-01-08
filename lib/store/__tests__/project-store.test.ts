@@ -37,9 +37,9 @@ describe("ProjectStore", () => {
   it("should select project", () => {
     const p1 = projectStore.currentProject!;
     const p2 = projectStore.addProject("Project 2");
-    
+
     expect(projectStore.currentProjectId).toBe(p2.id);
-    
+
     projectStore.selectProject(p1.id);
     expect(projectStore.currentProjectId).toBe(p1.id);
   });
@@ -48,7 +48,7 @@ describe("ProjectStore", () => {
     projectStore.isSidebarExpanded = false;
     projectStore.toggleSidebar();
     expect(projectStore.isSidebarExpanded).toBe(true);
-    
+
     projectStore.toggleSidebar(false);
     expect(projectStore.isSidebarExpanded).toBe(false);
   });
@@ -57,9 +57,12 @@ describe("ProjectStore", () => {
     const project = projectStore.currentProject!;
     const historyItem: GenerationResult = {
       id: "1",
-      config: { prompt: "test", img_width: 512, image_height: 512, gen_num: 1, base_model: "test" },
-      timestamp: new Date().toISOString(),
-      imageUrl: "test.png"
+      userId: "u1",
+      projectId: project.id,
+      status: 'completed',
+      config: { prompt: "test", width: 512, height: 512, model: "test" },
+      createdAt: new Date().toISOString(),
+      outputUrl: "test.png"
     };
 
     projectStore.addHistoryToCurrentProject(historyItem);
@@ -72,9 +75,12 @@ describe("ProjectStore", () => {
     const project = projectStore.currentProject!;
     const historyItem: GenerationResult = {
       id: "1",
-      config: { prompt: "test", img_width: 512, image_height: 512, gen_num: 1, base_model: "test" },
-      timestamp: new Date().toISOString(),
-      imageUrl: "thumb.png"
+      userId: "u1",
+      projectId: project.id,
+      status: 'completed',
+      config: { prompt: "test", width: 512, height: 512, model: "test" },
+      createdAt: new Date().toISOString(),
+      outputUrl: "thumb.png"
     };
 
     projectStore.setProjectHistory(project.id, [historyItem]);

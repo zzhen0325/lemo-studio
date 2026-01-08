@@ -18,6 +18,7 @@ export function useGenerationService() {
     const isMockMode = usePlaygroundStore(s => s.isMockMode);
     const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
     const setHasGenerated = usePlaygroundStore(s => s.setHasGenerated);
+    const selectedPresetName = usePlaygroundStore(s => s.selectedPresetName);
 
     const { callImage, isLoading: isAIProcessing } = useAIService();
     const { doPost: runComfyWorkflow, loading: isWorkflowProcessing } = usePostPlayground();
@@ -62,13 +63,9 @@ export function useGenerationService() {
             ...(configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
                 ? configOverride
                 : freshConfig),
-            loras: currentLoras
+            loras: currentLoras,
+            presetName: selectedPresetName
         };
-
-        if (!finalConfig.prompt?.trim()) {
-            toast({ title: "错误", description: "请输入图像描述文本", variant: "destructive" });
-            return;
-        }
 
         // Set state to indicate generation has started
         setHasGenerated(true);
@@ -76,7 +73,8 @@ export function useGenerationService() {
 
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-        const sourceImageUrl = currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined;
+        const firstImage = currentUploadedImages[0];
+        const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
 
         const loadingGen: Generation = {
             id: taskId,

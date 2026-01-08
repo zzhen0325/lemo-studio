@@ -45,6 +45,7 @@ const PLAYGROUND_TARGETS = [
   { key: 'batch_size', label: 'Batch Size', type: 'number' as ComponentType, supportedTypes: ['number', 'string'], icon: '🔢' },
   { key: 'model', label: 'Model', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🤖' },
   { key: 'lora', label: 'LoRA', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🧩' },
+  { key: 'sourceImageUrl', label: 'Reference Image', type: 'image' as ComponentType, supportedTypes: ['string'], icon: '🖼️' },
 ];
 
 export function ParameterMappingPanel({
@@ -196,7 +197,10 @@ export function ParameterMappingPanel({
                     <div className="grid grid-cols-2 gap-2">
                       {PLAYGROUND_TARGETS.filter(t => {
                         const valType = selectedParameterInfo.valueType;
-                        if (valType === 'string' && t.supportedTypes.includes('string')) return true;
+                        if (valType === 'string') {
+                          // Allow mapping both text and image source to a string parameter
+                          return t.supportedTypes.includes('string');
+                        }
                         if (valType === 'number' && t.supportedTypes.includes('number')) return true;
                         return false;
                       }).map((target) => (

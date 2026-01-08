@@ -84,7 +84,10 @@ export function SettingsView() {
     ];
 
     return (
-        <div className="flex h-full w-full overflow-hidden bg-[#09090b] text-zinc-100">
+        <div className="flex h-full pt-20 w-full overflow-hidden  text-zinc-100"
+            style={{
+                background: "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 75%, #D8C6B8 100%)",
+            }}>
             {/* Sidebar */}
             <aside className="w-72 border-r border-white/5 flex flex-col bg-black/40">
                 <div className="p-6 pb-4">
@@ -134,7 +137,7 @@ export function SettingsView() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
                             transition={{ duration: 0.3, ease: "easeOut" }}
-                            className="h-full p-8 md:p-12 max-w-5xl mx-auto"
+                            className="h-full w-full"
                         >
                             {currentTab === SettingsTab.General && (
                                 <div className="space-y-10 pb-20">
@@ -309,7 +312,7 @@ export function SettingsView() {
 
                             {currentTab === SettingsTab.MappingEditor && (
                                 <div className="h-full w-full -m-8 md:-m-12">
-                                    <div className="h-full w-[calc(100%+4rem)] md:w-[calc(100%+6rem)] overflow-hidden">
+                                    <div className="h-full w-full">
                                         <MappingEditorPage />
                                     </div>
                                 </div>

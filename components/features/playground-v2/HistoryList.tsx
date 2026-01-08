@@ -1,7 +1,7 @@
 import React from 'react';
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, ChevronLeft, ChevronRight, LayoutGrid, List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -9,6 +9,7 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+// import GradualBlur from "@/components/GradualBlur";
 
 interface HistoryListProps {
   history: Generation[];
@@ -19,6 +20,8 @@ interface HistoryListProps {
   variant?: 'default' | 'sidebar';
   onBatchUse?: (results: Generation[], sourceImage?: string) => void;
   layoutMode?: 'grid' | 'list';
+  onLayoutModeChange?: (mode: 'grid' | 'list') => void;
+  onClose?: () => void;
 }
 
 interface GroupedHistoryItem {
@@ -37,7 +40,11 @@ export default function HistoryList({
   variant = 'default',
   onBatchUse,
   layoutMode = 'list',
+  onLayoutModeChange,
+  onClose,
 }: HistoryListProps) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const { setPreviewImage } = usePlaygroundStore();
 
   // Group history by start time (createdAt) and parameters to reflect single-click aggregation
   const groupedHistory = React.useMemo(() => {
@@ -78,133 +85,189 @@ export default function HistoryList({
   if (history.length === 0) return null;
 
   return (
-    <div className={cn(
-      "relative flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-4 pb-32",
-      variant === 'default' ? "mt-80" : "mt-4"
-    )}>
-      <div className={cn(
-        layoutMode === 'list'
-          ? "flex flex-col gap-4 w-full mt-14 mx-auto"
-          : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4 w-full mx-auto",
-        variant === 'default' ? "max-w-[1500px]" : "max-w-full"
-      )}>
-        {groupedHistory.map((group, groupIdx) => (
+    <div
+      className="bg-white/5 border border-white/10 rounded-3xl h-full flex flex-col relative overflow-hidden"
+    >
+      {/* <div className='relative h-[100px] rounded-3xl overflow-hidden'>
+        <div style={{ height: '100%', overflowY: 'auto', padding: '6rem 2rem' }}
+          className='rounded-3xl'>
 
-          // 卡片总背景
-          <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-transparent  overflow-hidden mb-2">
+        </div>
 
-            {group.type === 'image' ? (
-              // Image Generation Group: Standard header + Grid
-              <div className="flex flex-col">
-
-
-                {/* 图片生成分组内容 */}
-                {layoutMode === 'list' ? (
-                  // List mode: Display the entire group as one single card
-                  <HistoryCard
-                    result={group.items[0]}
-                    allResults={group.items}
-                    onRegenerate={onRegenerate}
-                    onDownload={onDownload}
-                    onImageClick={onImageClick}
-                    layoutMode={layoutMode}
-                  />
-                ) : (
-                  // Grid mode: individual cards within a visually unified structure
-                  <div className={cn(
-                    "p-2 rounded-2xl h-auto w-full gap-2 grid grid-cols-2"
-
-                  )}>
-                    {group.items.map((result, idx) => (
-                      <div
-                        key={result.id || result.outputUrl || `img-${idx}`}
-                        className="relative w-full h-full"
-                      >
-                        <HistoryCard
-                          result={result}
-                          onRegenerate={onRegenerate}
-                          onDownload={onDownload}
-                          onImageClick={onImageClick}
-                          layoutMode={layoutMode}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              // Text/Describe Group: Unified Grid for Source Image + Text Cards
-              <div className="flex flex-col gap-6  group/card">
-                {/* Header: Metadata (timestamp and title) */}
-                <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
-                  <div className="flex items-center gap-4">
-                    <span>{new Date(group.startAt).toLocaleString()}</span>
-                    <span className="opacity-20">/</span>
-                    <span className="text-white/40">Image Analysis</span>
-                  </div>
-                </div>
-
-                {layoutMode === 'list' ? (
-                  <div className="relative bg-transparent grid grid-cols-5 gap-2 items-stretch content-start">
-                    {/* Source Image Card */}
-                    <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
-                      {group.sourceImage ? (
-                        <Image
-                          src={group.sourceImage}
-                          alt="Source for describe"
-                          width={1024}
-                          height={1024}
-                          className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
-                          onClick={() => group.sourceImage && onImageClick(group.items[0])}
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full aspect-square flex items-center justify-center text-white/20">
-                          <ImageIcon className="w-8 h-8" />
-                        </div>
-                      )}
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
-                        Source
-                      </div>
-
-                      {onBatchUse && group.items.length > 0 && (
-                        <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/img:opacity-100 transition-opacity">
-                          <button
-                            className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
-                            onClick={() => onBatchUse(group.items, group.sourceImage)}
-                          >
-                            <Layers className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Text Cards */}
-                    {group.items.map((result, idx) => (
-                      <TextHistoryCard
-                        key={result.id || `txt-${idx}`}
-                        result={result}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  // Grid mode for text: Show as a unified interactive card
-                  <div className="w-full">
-                    <DescribeInteractiveCard
-                      group={group}
-                      onImageClick={(result, rect) => {
-                        onImageClick(result, rect);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-          </div>
-        ))}
+        <GradualBlur
+          position="top"
+          strength={5}
+          divCount={6}
+        />
       </div>
-    </div >
+ */}
+
+
+
+
+
+      {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
+      <div className="absolute top-6 left-8 z-20 pointer-events-none">
+        <span className="text-white font-medium">History</span>
+      </div>
+
+      <div className="absolute top-6 right-8 z-20 flex items-center gap-3">
+        <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
+          <button
+            onClick={() => onLayoutModeChange?.('grid')}
+            className={cn(
+              "p-1.5 rounded-md transition-all",
+              layoutMode === 'grid'
+                ? "bg-white/10 text-white"
+                : "text-white/40 hover:text-white hover:bg-white/5"
+            )}
+            title="Grid View"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onLayoutModeChange?.('list')}
+            className={cn(
+              "p-1.5 rounded-md transition-all",
+              layoutMode === 'list'
+                ? "bg-white/10 text-white"
+                : "text-white/40 hover:text-white hover:bg-white/5"
+            )}
+            title="List View"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="flex items-center h-10 w-10 justify-center rounded-full border border-white/10 bg-black/40 backdrop-blur-md text-white/40 hover:bg-white/10 hover:text-white transition-all"
+        >
+          <X className="w-4 h-4 hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]" />
+        </button>
+      </div>
+
+      <div
+        ref={scrollRef}
+        className={cn(
+          "flex-1 overflow-y-auto custom-scrollbar px-4 ",
+          variant === 'default' ? "mt-2" : "mt-4"
+        )}
+      >
+        <div className={cn(
+          layoutMode === 'list'
+            ? "flex flex-col gap-8 w-full mt-14 mx-auto"
+            : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 gap-2 space-y-4 w-full mx-auto",
+          variant === 'default' ? "max-w-[1500px]" : "max-w-full"
+        )}>
+          {groupedHistory.map((group, groupIdx) => (
+            <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-transparent overflow-hidden mb-2">
+              {group.type === 'image' ? (
+                <div className="flex flex-col">
+                  {layoutMode === 'list' ? (
+                    <HistoryCard
+                      result={group.items[0]}
+                      allResults={group.items}
+                      onRegenerate={onRegenerate}
+                      onDownload={onDownload}
+                      onImageClick={onImageClick}
+                      onRefImageClick={(url, id) => {
+                        setPreviewImage(url, id);
+                      }}
+                      layoutMode={layoutMode}
+                    />
+                  ) : (
+                    <div className={cn("p-2 rounded-2xl h-auto w-full gap-2 grid grid-cols-2")}>
+                      {group.items.map((result, idx) => (
+                        <div key={result.id || result.outputUrl || `img-${idx}`} className="relative w-full h-full">
+                          <HistoryCard
+                            result={result}
+                            onRegenerate={onRegenerate}
+                            onDownload={onDownload}
+                            onImageClick={onImageClick}
+                            onRefImageClick={(url, id) => {
+                              setPreviewImage(url, id);
+                            }}
+                            layoutMode={layoutMode}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-6 group/card">
+                  <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
+                    <div className="flex items-center gap-4">
+                      <span>{new Date(group.startAt).toLocaleString()}</span>
+                      <span className="opacity-20">/</span>
+                      <span className="text-white/40">Image Analysis</span>
+                    </div>
+                  </div>
+
+                  {layoutMode === 'list' ? (
+                    <div className="relative bg-transparent grid grid-cols-[1.5fr_4fr] gap-2 items-stretch content-start">
+                      <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
+                        {group.sourceImage ? (
+                          <motion.div
+                            layoutId={`img-ref-${group.items[0].id}`}
+                            className="w-full"
+                          >
+                            <Image
+                              src={group.sourceImage}
+                              alt="Source for describe"
+                              width={1024}
+                              height={1024}
+                              className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                              onClick={() => {
+                                if (group.sourceImage) {
+                                  setPreviewImage(group.sourceImage, `img-ref-${group.items[0].id}`);
+                                }
+                              }}
+                              unoptimized
+                            />
+                          </motion.div>
+                        ) : (
+                          <div className="w-full aspect-square flex items-center justify-center text-white/20">
+                            <ImageIcon className="w-8 h-8" />
+                          </div>
+                        )}
+                        <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
+                          Source
+                        </div>
+
+                        {onBatchUse && group.items.length > 0 && (
+                          <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                            <button
+                              className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
+                              onClick={() => onBatchUse(group.items, group.sourceImage)}
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {group.items.map((result, idx) => (
+                        <TextHistoryCard key={result.id || `txt-${idx}`} result={result} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="w-full">
+                      <DescribeInteractiveCard
+                        group={group}
+                        onRefImageClick={(url, id) => setPreviewImage(url, id)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
   );
 }
 
@@ -214,6 +277,7 @@ function HistoryCard({
   onRegenerate,
   onDownload,
   onImageClick,
+  onRefImageClick,
   layoutMode = 'list',
 }: {
   result: Generation;
@@ -221,6 +285,7 @@ function HistoryCard({
   onRegenerate: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
+  onRefImageClick: (url: string, id: string) => void;
   layoutMode?: 'grid' | 'list';
 }) {
   const [isHover, setIsHover] = React.useState(false);
@@ -247,20 +312,35 @@ function HistoryCard({
 
 
         {/* Header: Metadata & Actions */}
-        <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
+        <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
+
           <div className="flex items-center gap-4">
-            <span>{timeStr}</span>
-            <span className="opacity-20">/</span>
-            <span className="text-white/40">{config?.model || 'Unknown'}</span>
-            <span className="opacity-20">/</span>
-            <span className="text-white/40">{config?.width} x {config?.height}</span>
-            {config?.lora && (
+            {config?.presetName && (
               <>
-                <span className="opacity-20">/</span>
-                <span className="text-emerald-500/60 lowercase font-sans font-medium bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">lora: {config.lora}</span>
+
+                <span className="text-white text-md bg-[#b4cdbf4c] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
               </>
             )}
+            <span className="opacity-20">/</span>
+            <span className="text-white/40">{config?.width} x {config?.height}</span>
+            <span className="opacity-20">/</span>
+            <span className="text-white/40">{config?.model || 'Unknown'}</span>
+
+
+
+            {config?.loras && config.loras.length > 0 && config.loras.map((l, idx) => (
+              <React.Fragment key={idx}>
+                <span className="opacity-20">/</span>
+                <span className="text-white/40  ">
+                  LoRA: {l.model_name.replace('.safetensors', '')} ({l.strength})
+                </span>
+              </React.Fragment>
+            ))}
+            <span className="opacity-20">/</span>
+            <span>{timeStr}</span>
           </div>
+
+
 
 
         </div>
@@ -273,7 +353,7 @@ function HistoryCard({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="space-y-6"
+            className="space-y-2"
           >
 
 
@@ -304,26 +384,56 @@ function HistoryCard({
                     }}
                   />
                 </div>
-                <motion.div className="flex-1 max-h-[70%]  pr-1">
-                  <p className="text-[12px] text-white/90 leading-relaxed line-clamp-6">
+                <motion.div className="flex-1 max-h-[70%] pr-1">
+                  <p
+                    className="text-[12px] text-white/90 leading-relaxed line-clamp-6 cursor-pointer hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all"
+                    onClick={() => {
+                      applyPrompt(prompt);
+                      toast({
+                        title: "提示词已应用",
+                        description: "已将此条提示词填充到输入框",
+                      });
+                    }}
+                  >
                     {prompt}
                   </p>
+
+                  {result.sourceImageUrl && (
+                    <div className="mt-3 group/ref relative w-fit">
+                      <motion.div
+                        layoutId={`img-ref-${result.id}`}
+                        className="relative w-20 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
+                        onClick={() => onRefImageClick(result.sourceImageUrl!, `img-ref-${result.id}`)}
+                      >
+                        <Image
+                          src={result.sourceImageUrl}
+                          alt="Reference"
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                        <div className="absolute top-1 left-1 px-1 py-0.5 bg-black/60 backdrop-blur-[2px] rounded text-[8px] text-white/70 uppercase font-bold border border-white/5">
+                          Ref
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
                 </motion.div>
 
-                <div className="absolute w-full bottom-2 left-0 right-0 flex justify-center gap-2">
+                <div className="absolute w-full bottom-4 left-4 flex  gap-2">
                   <Button
-                    variant="outline"
+                    variant="ghost"
+
                     size="sm"
-                    className="h-8 rounded-lg border-white/10 bg-black/10 backdrop-blur-xl  text-white/70 hover:bg-black/30 hover:text-white gap-1.5 px-3"
+                    className="h-8 rounded-sm border-white/10 bg-black/5 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
                     onClick={() => onRegenerate(result)}
                   >
 
-                    <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Recrate</span>
+                    <span className="text-md hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Rerun</span>
                   </Button>
                   <Button
-                    variant="outline"
                     size="sm"
-                    className="h-8 rounded-lg border-white/10 backdrop-blur-xl bg-black/10 text-white/70  hover:bg-black/30 hover:text-white gap-1.5 px-3"
+                    className="h-8 rounded-sm border-white/10 bg-black/5 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
                     onClick={() => {
                       if (config) {
                         applyModel(config.model || '', {
@@ -332,8 +442,16 @@ function HistoryCard({
                           height: config.height,
                           model: config.model,
                           lora: config.lora,
+                          loras: config.loras,
+                          presetName: config.presetName,
                         });
                         applyPrompt(prompt);
+
+                        // Backfill reference image if available
+                        if (result.sourceImageUrl) {
+                          applyImage(result.sourceImageUrl);
+                        }
+
                         toast({
                           title: "参数已回填",
                           description: "生成参数已应用到当前配置",
@@ -342,7 +460,7 @@ function HistoryCard({
                     }}
                   >
 
-                    <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Edit Again</span>
+                    <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Use All</span>
                   </Button>
                 </div>
               </motion.div>
@@ -531,7 +649,14 @@ function TextHistoryCard({
             <Loader2 className="w-5 h-5 animate-spin text-white/10" />
           </div>
         ) : (
-          <p className="text-[11px] text-white/90 leading-relaxed line-clamp-[10]">
+          <p
+            className="text-[11px] text-white/90 leading-relaxed line-clamp-[10] cursor-pointer hover:drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] transition-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              applyPrompt(prompt);
+              toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
+            }}
+          >
             {prompt}
           </p>
         )}
@@ -558,10 +683,10 @@ function TextHistoryCard({
 
 function DescribeInteractiveCard({
   group,
-  onImageClick,
+  onRefImageClick,
 }: {
   group: GroupedHistoryItem;
-  onImageClick: (result: Generation, initialRect?: DOMRect) => void;
+  onRefImageClick: (url: string, id: string) => void;
 }) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const currentItem = group.items[currentIndex];
@@ -589,16 +714,22 @@ function DescribeInteractiveCard({
     <div className="group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30 aspect-square">
       {/* Base Image */}
       {group.sourceImage ? (
-        <Image
-          src={group.sourceImage}
-          alt="Source"
-          fill
-          className="object-cover"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            onImageClick(currentItem, rect);
-          }}
-        />
+        <motion.div
+          layoutId={`img-ref-${currentItem.id}`}
+          className="w-full h-full"
+        >
+          <Image
+            src={group.sourceImage}
+            alt="Source"
+            fill
+            className="object-cover"
+            onClick={() => {
+              if (group.sourceImage) {
+                onRefImageClick(group.sourceImage, `img-ref-${currentItem.id}`);
+              }
+            }}
+          />
+        </motion.div>
       ) : (
         <div className="w-full h-full bg-black/40 flex items-center justify-center">
           <ImageIcon className="w-8 h-8 text-white/20" />
@@ -668,6 +799,7 @@ function DescribeInteractiveCard({
       <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
         Analysis
       </div>
+
     </div>
   );
 }

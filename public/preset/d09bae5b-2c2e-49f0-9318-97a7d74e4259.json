@@ -1,0 +1,13 @@
+{
+  "name": "Nano banana",
+  "coverUrl": "",
+  "config": {
+    "prompt": " ",
+    "model": "Nano banana",
+    "width": 1024,
+    "height": 1024,
+    "resolution": "1K"
+  },
+  "id": "d09bae5b-2c2e-49f0-9318-97a7d74e4259",
+  "createdAt": "2026-01-08T03:52:07.309Z"
+}

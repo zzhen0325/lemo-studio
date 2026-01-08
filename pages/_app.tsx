@@ -6,6 +6,7 @@ import { ViewComfyProvider } from "@/lib/providers/view-comfy-provider";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/common/PageTransition";
 import { useRouter } from 'next/router';
+import { AppToaster } from "@/components/ui/AppToaster";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
     const router = useRouter();
@@ -18,6 +19,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
                             <Component {...pageProps} />
                         </PageTransition>
                     </AnimatePresence>
+                    <AppToaster />
                 </ViewComfyProvider>
             </TooltipProvider>
         </ThemeProvider>

@@ -1,5 +1,6 @@
 import { Generation, GenerationConfig, Preset } from '@/types/database';
 export type { Generation, GenerationConfig, Preset };
+export type GenerationResult = Generation;
 
 export interface UploadedImage {
   id?: string;
@@ -10,8 +11,11 @@ export interface UploadedImage {
   isUploading?: boolean;
 }
 
-export interface PresetExtended extends Preset {
+export interface PresetExtended extends Omit<Preset, 'coverUrl'> {
   category?: string;
+  coverUrl?: string;
+  cover?: string;
+  title?: string;
 }
 
 export const PRESET_CATEGORIES = ['General', 'Portrait', 'Landscape', 'Anime', '3D', 'Architecture', 'Character', 'Workflow', 'Other'];

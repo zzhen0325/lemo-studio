@@ -219,11 +219,31 @@
 
 /* Global Sonner Toast Overrides for Sidebar */
 [data-sonner-toast].sidebar-toast [data-title] {
-  color: #ffffff !important;
   font-weight: 500 !important;
 }
 
 [data-sonner-toast].sidebar-toast [data-description] {
   color: #ffffffa4 !important;
   opacity: 1 !important;
+}
+
+/* Global Sonner Toast Glassmorphism Override */
+[data-sonner-toast].glass-toast {
+  background: rgba(0, 0, 0, 0.1) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+  border-radius: 20px !important;
+  margin-bottom: 60px !important;
+  position: bottom-right !important;
+}
+
+[data-sonner-toast].glass-toast [data-title] {
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+[data-sonner-toast].glass-toast [data-description] {
+  color: rgba(255, 255, 255, 0.6) !important;
 }

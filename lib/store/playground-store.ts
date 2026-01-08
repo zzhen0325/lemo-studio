@@ -22,6 +22,7 @@ interface PlaygroundState {
     showHistory: boolean;
     showGallery: boolean;
     showProjectSidebar: boolean;
+    selectedPresetName: string | undefined;
 
     // Actions
     updateConfig: (config: Partial<GenerationConfig>) => void;
@@ -34,6 +35,7 @@ interface PlaygroundState {
     setShowHistory: (val: boolean) => void;
     setShowGallery: (val: boolean) => void;
     setShowProjectSidebar: (val: boolean) => void;
+    setSelectedPresetName: (name: string | undefined) => void;
     setActiveTab: (tab: string) => void;
 
     // UI States
@@ -48,7 +50,7 @@ interface PlaygroundState {
     applyPrompt: (prompt: string) => void;
     applyImage: (imageUrl: string) => Promise<void>;
     applyModel: (model: string, configData?: GenerationConfig) => void;
-    remix: (result: { config: GenerationConfig, workflow?: IViewComfy, loras?: SelectedLora[] }) => void;
+    remix: (result: Generation) => void;
     resetState: () => void;
 
     // Generation History
@@ -57,7 +59,7 @@ interface PlaygroundState {
     fetchHistory: () => Promise<void>;
 
     // Presets
-    presets: Preset[];
+    presets: (Preset & { workflow_id?: string })[];
     initPresets: () => void;
     addPreset: (preset: Preset, coverFile?: File) => void;
     removePreset: (id: string) => void;
@@ -70,6 +72,11 @@ interface PlaygroundState {
     updateStyle: (style: StyleStack) => void;
     deleteStyle: (id: string) => void;
     addImageToStyle: (styleId: string, imagePath: string) => void;
+
+    // Global Preview State
+    previewImageUrl: string | null;
+    previewLayoutId: string | null;
+    setPreviewImage: (url: string | null, layoutId?: string | null) => void;
 }
 
 export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
@@ -96,6 +103,15 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     setMockMode: (mode) => set({ isMockMode: mode }),
     isSelectorExpanded: false,
     setSelectorExpanded: (expanded) => set({ isSelectorExpanded: expanded }),
+    selectedPresetName: undefined,
+    setSelectedPresetName: (name) => set({ selectedPresetName: name }),
+
+    previewImageUrl: null,
+    previewLayoutId: null,
+    setPreviewImage: (url, layoutId = null) => set({
+        previewImageUrl: url,
+        previewLayoutId: layoutId
+    }),
 
     updateConfig: (newConfig) => set((state) => ({
         config: { ...state.config, ...newConfig }
@@ -135,8 +151,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
             });
             const base64Data = dataUrl.split(',')[1];
 
-            set((state) => ({
-                uploadedImages: [...state.uploadedImages, {
+            set(() => ({
+                uploadedImages: [{
                     file,
                     base64: base64Data,
                     previewUrl: dataUrl
@@ -161,14 +177,15 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
                 config: newConfig,
                 selectedWorkflowConfig: uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined,
                 // If configData explicitly provides loras array, use it as priority
-                selectedLoras: (configData as any)?.loras || (state.config as any)?.loras || state.selectedLoras
+                selectedLoras: configData?.loras || state.config?.loras || state.selectedLoras,
+                selectedPresetName: configData?.presetName || state.selectedPresetName
             };
         });
     },
 
-    remix: (result) => {
+    remix: (result: Generation) => {
         set((state) => {
-            const modelFromConfig = result.config?.model || (result as any).model;
+            const modelFromConfig = result.config?.model;
             const finalModel = (modelFromConfig as string) || state.selectedModel;
             let uiModel = finalModel;
 
@@ -178,13 +195,21 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
 
             return {
                 selectedModel: uiModel,
-                selectedWorkflowConfig: result.workflow || (uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined),
-                selectedLoras: result.config?.loras || (result as any).loras || state.selectedLoras,
+                selectedWorkflowConfig: result.config?.workflowName ? (state.presets.find(p => p.workflow_id === result.id || p.name === result.config.workflowName) as unknown as IViewComfy) : (uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined),
+                selectedLoras: result.config?.loras || state.selectedLoras,
+                selectedPresetName: result.config?.presetName || state.selectedPresetName,
                 config: {
                     ...state.config,
-                    ...(result.config || {}),
+                    prompt: result.config?.prompt || state.config.prompt,
+                    width: result.config?.width || state.config.width,
+                    height: result.config?.height || state.config.height,
                     model: finalModel,
-                    workflowName: (result.config?.workflowName || (result as any).workflowName) as string | undefined
+                    workflowName: result.config?.workflowName,
+                    loras: result.config?.loras || state.config.loras,
+                    seed: result.config?.seed,
+                    resolution: result.config?.resolution,
+                    aspectRatio: result.config?.aspectRatio,
+                    sizeFrom: result.config?.sizeFrom
                 },
                 hasGenerated: true
             };
@@ -212,7 +237,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
             showProjectSidebar: false,
             isAspectRatioLocked: false,
             isMockMode: false,
-            isSelectorExpanded: false
+            isSelectorExpanded: false,
+            selectedPresetName: undefined
         });
     },
 
@@ -264,7 +290,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
                         height: 1024,
                         model: (() => {
                             // 尝试从映射配置中提取
-                            const components = (wf.viewComfyJSON.mappingConfig?.components || []) as any[];
+                            const components = (wf.viewComfyJSON.mappingConfig?.components || []) as { properties?: { paramName?: string; defaultValue?: string }; mapping?: { workflowPath?: string[] } }[];
                             const modelComp = components.find(c =>
                                 c.properties?.paramName === 'base_model' ||
                                 c.properties?.paramName === 'model'
@@ -274,7 +300,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
                                 const path = modelComp.mapping?.workflowPath;
                                 if (path && path.length >= 3 && wf.workflowApiJSON) {
                                     const [nodeId, , key] = path;
-                                    const val = (wf.workflowApiJSON as any)[nodeId]?.inputs?.[key];
+                                    const val = (wf.workflowApiJSON as Record<string, { inputs?: Record<string, string | number | boolean> }>)[nodeId]?.inputs?.[key];
                                     if (typeof val === 'string') return val;
                                 }
                                 if (modelComp.properties?.defaultValue) return modelComp.properties.defaultValue;
@@ -284,9 +310,9 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
                             const allInputs = [
                                 ...(wf.viewComfyJSON.inputs || []),
                                 ...(wf.viewComfyJSON.advancedInputs || [])
-                            ].flatMap((group: any) => group.inputs || []);
+                            ].flatMap((group) => group.inputs || []);
 
-                            const inputModel = allInputs.find((i: any) => {
+                            const inputModel = allInputs.find((i) => {
                                 const title = (i.title || "").toLowerCase();
                                 return title.includes("model") || title.includes("模型");
                             });

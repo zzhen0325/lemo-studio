@@ -25,7 +25,7 @@ export interface CozeWorkflowResponse {
     result?: {
       images?: string[];
       text?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     };
   };
 }

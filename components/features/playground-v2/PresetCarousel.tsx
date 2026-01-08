@@ -1,12 +1,12 @@
 import React, { useRef } from 'react';
-import { Preset } from './types';
+import { PresetExtended } from './types';
 import { PresetCard } from './PresetCard';
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PresetCarouselProps {
-    presets: Preset[];
-    onSelectPreset: (preset: Preset) => void;
+    presets: PresetExtended[];
+    onSelectPreset: (preset: PresetExtended) => void;
     onOpenManager: () => void;
 }
 

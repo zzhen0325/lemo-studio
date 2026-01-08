@@ -13,6 +13,7 @@ import { useAIService } from "@/hooks/ai/useAIService";
 import { GoogleApiStatus } from "@/components/features/playground-v2/GoogleApiStatus";
 import PromptInput from "@/components/features/playground-v2/PromptInput";
 import ControlToolbar from "@/components/features/playground-v2/ControlToolbar";
+import SimpleImagePreview from "@/components/features/playground-v2/SimpleImagePreview";
 import HistoryList from "@/components/features/playground-v2/HistoryList";
 import GalleryView from "@/components/features/playground-v2/GalleryView";
 import ImagePreviewModal from "@/components/features/playground-v2/Dialogs/ImagePreviewModal";
@@ -31,13 +32,14 @@ import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, LayoutGrid, List, Loader2 } from "lucide-react";
+import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { DescribePanel } from "@/components/features/playground-v2/DescribePanel";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
+import GradualBlur from "@/components/GradualBlur";
 import SplitText from "@/components/ui/split-text";
 
 import gsap from "gsap";
@@ -71,7 +73,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const { toast } = useToast();
   const config = usePlaygroundStore(s => s.config);
   const updateConfig = usePlaygroundStore(s => s.updateConfig);
-  const containerRef = useRef<HTMLDivElement>(null);
   const uploadedImages = usePlaygroundStore(s => s.uploadedImages);
   const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
   const describeImages = usePlaygroundStore(s => s.describeImages);
@@ -140,15 +141,23 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
   const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
-  const showHistory = usePlaygroundStore(s => s.showHistory);
-  const setShowHistory = usePlaygroundStore(s => s.setShowHistory);
-  const showGallery = usePlaygroundStore(s => s.showGallery);
-  const setShowGallery = usePlaygroundStore(s => s.setShowGallery);
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [batchSize, setBatchSize] = useState(4); // Default batch size
-  const showProjectSidebar = usePlaygroundStore(s => s.showProjectSidebar);
-  const setShowProjectSidebar = usePlaygroundStore(s => s.setShowProjectSidebar);
+
+  const {
+    showHistory,
+    setShowHistory,
+    showGallery,
+    setShowGallery,
+    showProjectSidebar,
+    setShowProjectSidebar,
+    selectedPresetName,
+    setSelectedPresetName,
+    previewImageUrl,
+    previewLayoutId,
+    setPreviewImage
+  } = usePlaygroundStore();
 
   useEffect(() => {
     projectStore.toggleSidebar(showProjectSidebar);
@@ -428,7 +437,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
   const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.height > 0) { const ratio = config.width / config.height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, width: newWidth, height: newHeight })); } else { setConfig(prev => ({ ...prev, width: newWidth })); } };
   const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.height > 0) { const ratio = config.width / config.height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, height: newHeight, width: newWidth })); } else { setConfig(prev => ({ ...prev, height: newHeight })); } };
-  const [selectedPresetName, setSelectedPresetName] = useState<string | undefined>(undefined);
   const handlePresetSelect = (p: PresetExtended) => {
     const preset = p as PresetExtended;
     const effectiveConfig = (preset.config as GenerationConfig) || (preset as unknown as GenerationConfig);
@@ -455,17 +463,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       }
     } else {
       // Regular preset
+      const modelToSet = effectiveConfig.model || 'Nano banana';
       setConfig({
-        ...config,
-        prompt: effectiveConfig.prompt || '',
-        width: effectiveConfig.width || 1024,
-        height: effectiveConfig.height || 1024,
-        model: effectiveConfig.model || 'Nano banana',
-        resolution: effectiveConfig.resolution || '1K'
+        ...effectiveConfig,
+        presetName: presetName,
+        loras: effectiveConfig.loras || [],
+        model: modelToSet
       });
       setSelectedWorkflowConfig(undefined);
-      if (effectiveConfig.model && effectiveConfig.model !== config.model) {
-        setSelectedModel(effectiveConfig.model);
+      if (modelToSet !== config.model) {
+        setSelectedModel(modelToSet);
       }
     }
 
@@ -663,18 +670,18 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             tag="h1"
             className="text-[2rem] text-white font-medium text-center mb-4 h-auto opacity-100 z-10 whitespace-nowrap"
             duration={0.5}
-            delay={30}
+            delay={20}
             splitType="chars"
-            from={{ opacity: 0, y: 40 }}
+            from={{ opacity: 0, y: 20 }}
             to={{ opacity: 1, y: 0 }}
             ease="power3.out"
-           
-            rootMargin="-100px"
+
+            rootMargin="-10px"
             threshold={0.1}
           />
         </div>
       )}
-        
+
 
       <div
         className="relative w-full rounded-[10px]"
@@ -708,8 +715,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       position: 'relative'
                     }}
                   >
-                    <div className="relative group ">
-                      <div className="relative">
+                    <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(image.previewUrl, `stack-img-${image.id || index}`)}>
+                      <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
                         <Image
                           src={image.previewUrl}
                           alt={`Uploaded ${index + 1}`}
@@ -725,7 +732,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                             <Loader2 className="w-4 h-4 text-white animate-spin" />
                           </div>
                         )}
-                      </div>
+                      </motion.div>
                       {!image.isUploading && (
                         <button
                           onClick={(e) => { e.stopPropagation(); removeImage(index); }}
@@ -963,8 +970,21 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             onChange={handleImageUpload}
           />
 
-          <div ref={containerRef} className="relative w-full h-full flex flex-col items-center">
+          <div className="relative w-full h-full flex flex-col items-center">
             <PlaygroundBackground />
+
+            {/* 全局底部渐进模糊 - 仅在预设面板展开且历史记录隐藏时显示 */}
+            {isPresetGridOpen && !showHistory && (
+              <GradualBlur
+                position="bottom"
+                height="8rem"
+                strength={5}
+                animated={true}
+                duration="0.4s"
+                className="pointer-events-none z-30"
+              />
+            )}
+
             <div className="relative z-20 flex flex-col items-center justify-center w-full h-full ">
               {/* Project Sidebar Overlay */}
               <div className="absolute left-6 top-6  h-full z-40 pointer-events-none">
@@ -1059,7 +1079,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
               <div className={cn(
                 "flex flex-col items-center max-w-4xl w-full relative z-30",
-                showHistory ? "w-[55vw] max-w-full h-[85vh] mt-10" : (isPresetGridOpen ? "mt-0" : "-mt-60")
+                showHistory ? "w-[70vw] max-w-full h-[100vh] mt-[14rem]" : (isPresetGridOpen ? "mt-0" : "-mt-60")
               )}>
                 {/* Input UI */}
                 <div ref={promptWrapperRef} className="w-full">
@@ -1105,73 +1125,27 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 {/* 历史记录区域 */}
 
                 {showHistory && (
-                  <div
-
-                    className="mt-6 w-full flex-1 overflow-hidden min-h-0 relative z-10"
-                  >
-                    <div className="bg-white/5  border border-white/10 rounded-3xl h-full flex flex-col relative">
-                      {/* Header Actions: Layout Toggle \u0026 Collapse */}
-                      <div className="absolute top-6 left-8 z-30  ">
-                        <span>History</span>
-
-                      </div>
-                      <div className="absolute top-6 right-8 z-30 flex items-center gap-3">
-                        <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
-                          <button
-                            onClick={() => setHistoryLayoutMode('grid')}
-                            className={cn(
-                              "p-1.5 rounded-md transition-all",
-                              historyLayoutMode === 'grid'
-                                ? "bg-white/10 text-white"
-                                : "text-white/40 hover:text-white hover:bg-white/5"
-                            )}
-                            title="Grid View"
-                          >
-                            <LayoutGrid className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setHistoryLayoutMode('list')}
-                            className={cn(
-                              "p-1.5 rounded-md transition-all",
-                              historyLayoutMode === 'list'
-                                ? "bg-white/10 text-white"
-                                : "text-white/40 hover:text-white hover:bg-white/5"
-                            )}
-                            title="List View"
-                          >
-                            <List className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        <button
-                          onClick={() => setShowHistory(false)}
-                          className="flex items-center h-8 w-8 justify-center rounded-full border border-white/10 bg-white/5  text-white/40 hover:bg-white/10 hover:text-white transition-all"
-                        >
-                          <X className="w-4 h-4 hover:drop-shadow(0 0 10px rgba(255, 255, 255, 0.4))" />
-
-                        </button>
-                      </div>
-
-                      <div className="flex-1 overflow-hidden">
-                        <HistoryList
-                          variant="sidebar"
-                          history={generationHistory}
-                          onRegenerate={(res) => {
-                            if (res.config) {
-                              applyModel(res.config.model, {
-                                ...res.config,
-                                loras: res.config.loras || []
-                              });
-                            }
-                            handleRegenerate(res);
-                          }}
-                          onDownload={handleDownload}
-                          onImageClick={openImageModal}
-                          onBatchUse={handleBatchUse}
-                          layoutMode={historyLayoutMode}
-                        />
-                      </div>
-                    </div>
+                  <div className="mt-6 w-full relative h-full overflow-hidden z-30">
+                    <HistoryList
+                      variant="sidebar"
+                      history={generationHistory}
+                      onRegenerate={(res) => {
+                        if (res.config) {
+                          applyModel(res.config.model, {
+                            ...res.config,
+                            loras: res.config.loras || [],
+                            presetName: res.config.presetName,
+                          });
+                        }
+                        handleRegenerate(res);
+                      }}
+                      onDownload={handleDownload}
+                      onImageClick={openImageModal}
+                      onBatchUse={handleBatchUse}
+                      layoutMode={historyLayoutMode}
+                      onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
+                      onClose={() => setShowHistory(false)}
+                    />
                   </div>
                 )}
 
@@ -1219,6 +1193,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           />
         </main>
       </div>
+
+      <SimpleImagePreview
+        imageUrl={previewImageUrl}
+        layoutId={previewLayoutId}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 });

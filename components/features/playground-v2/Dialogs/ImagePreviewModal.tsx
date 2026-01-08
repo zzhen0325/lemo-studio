@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, ZoomIn, ZoomOut, RefreshCw, Pencil } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, RefreshCw, Pencil, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Generation } from '@/types/database';
@@ -18,6 +19,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
   const [hasMoved, setHasMoved] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [showSidebar, setShowSidebar] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,7 +64,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[60] flex overflow-hidden"
+          className="fixed inset-0 z-50 flex overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -70,7 +72,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
           {/* Backdrop */}
           <div
             onClick={handleBackgroundClick}
-            className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            className="absolute inset-0 bg-black/80 backdrop-blur-xl"
           />
 
           {/* Main Content */}
@@ -142,10 +144,32 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                 Edit
               </Button>
               <div className="w-px h-8 bg-white/10 mx-2" />
-              <Button variant="ghost" size="icon" className="w-10 h-10 rounded-full bg-white/10 text-white hover:bg-red-500 hover:text-white transition-colors" onClick={onClose}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-10 h-10 rounded-full bg-white/10 text-white hover:bg-red-500 hover:text-white transition-colors" onClick={onClose}
+              >
                 <X className="w-5 h-5" />
               </Button>
             </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="absolute top-4 left-4 z-[100] px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 text-white/40 text-xs font-medium"
+            >
+              Esc to close
+            </motion.div>
+
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute top-4 right-4 md:hidden z-[100] p-3 rounded-full bg-black/60 backdrop-blur-xl border border-white/20 text-white hover:bg-white/10 transition-colors"
+              onClick={() => setShowSidebar(!showSidebar)}
+            >
+              <Info className="w-5 h-5" />
+            </motion.button>
           </div>
 
           {/* Sidebar */}
@@ -154,62 +178,66 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="w-[360px] h-full bg-black/40 backdrop-blur-3xl border-l border-white/10 hidden md:flex flex-col z-[70]"
+            className={`w-[360px] h-full bg-black/40 backdrop-blur-xl border-l border-white/10 flex-col z-50 ${showSidebar ? 'flex' : 'hidden md:flex'}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-8 border-b border-white/10 flex items-center justify-between">
+            <div className="p-6 border-b border-white/10 flex items-center justify-between">
               <h3 className="text-xl font-bold text-white tracking-tight">Image Details</h3>
               <Button variant="ghost" size="icon" className="rounded-full text-white/40 hover:text-white hover:bg-white/10" onClick={onClose}>
                 <X className="w-5 h-5" />
               </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10">
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Prompt</h4>
-                <div className="p-5 bg-white/5 rounded-[2rem] border border-white/5 group hover:border-white/10 transition-colors duration-300">
-                  <p className="text-white/80 text-sm leading-relaxed font-light italic">
-                    &ldquo;{config?.prompt}&rdquo;
-                  </p>
+            <ScrollArea className="flex-1">
+              <div className="p-6 space-y-8">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Prompt</h4>
+                  <div className="p-5 bg-white/5 rounded-[2rem] border border-white/5 group hover:border-white/10 transition-colors duration-300">
+                    <p className="text-white/80 text-sm leading-relaxed font-light italic">
+                      &ldquo;{config?.prompt}&rdquo;
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Model</h4>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20 uppercase tracking-wider">
-                    {config?.model || "Standard"}
-                  </span>
-                  {config?.lora && (
-                    <span className="px-4 py-2 bg-white/5 text-white/60 text-xs font-bold rounded-full border border-white/5 uppercase tracking-wider">
-                      {config.lora}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Model</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="px-4 py-2 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20 uppercase tracking-wider">
+                      {config?.model || "Standard"}
                     </span>
-                  )}
+                    {config?.loras && config.loras.length > 0 && (
+                      config.loras.map((l, idx) => (
+                        <span key={idx} className="px-4 py-2 bg-white/5 text-white/60 text-xs font-bold rounded-full border border-white/5 uppercase tracking-wider">
+                          {l.model_name.replace('.safetensors', '')} ({l.strength})
+                        </span>
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Parameters</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
-                    <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Width</span>
-                    <span className="text-white text-lg font-medium tabular-nums">{config?.width}</span>
-                  </div>
-                  <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
-                    <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Height</span>
-                    <span className="text-white text-lg font-medium tabular-nums">{config?.height}</span>
-                  </div>
-                  <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
-                    <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Count</span>
-                    <span className="text-white text-lg font-medium tabular-nums">{1}</span>
-                  </div>
-                  <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
-                    <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Model</span>
-                    <span className="text-white text-xs font-medium tabular-nums truncate">{config?.model || 'Standard'}</span>
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Parameters</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
+                      <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Width</span>
+                      <span className="text-white text-lg font-medium tabular-nums">{config?.width}</span>
+                    </div>
+                    <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
+                      <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Height</span>
+                      <span className="text-white text-lg font-medium tabular-nums">{config?.height}</span>
+                    </div>
+                    <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
+                      <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Count</span>
+                      <span className="text-white text-lg font-medium tabular-nums">{1}</span>
+                    </div>
+                    <div className="p-5 bg-black/20 rounded-3xl border border-white/5 flex flex-col space-y-1">
+                      <span className="text-[9px] text-white/20 uppercase font-bold tracking-widest">Model</span>
+                      <span className="text-white text-xs font-medium tabular-nums truncate">{config?.model || 'Standard'}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </ScrollArea>
           </motion.div>
         </motion.div>
       )}

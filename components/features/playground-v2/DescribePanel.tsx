@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { X, Upload, Loader2, Sparkles, Plus } from "lucide-react";
 import type { RefObject } from "react";
 import type { UploadedImage } from "@/components/features/playground-v2/types";
+import { usePlaygroundStore } from "@/lib/store/playground-store";
 
 export interface DescribePanelProps {
   open: boolean;
@@ -37,6 +38,7 @@ export function DescribePanel({
   isGenerating,
   onDescribe,
 }: DescribePanelProps) {
+  const { setPreviewImage } = usePlaygroundStore();
   return (
     <AnimatePresence>
       {open && (
@@ -111,7 +113,14 @@ export function DescribePanel({
                   <div className="flex-1 flex flex-wrap justify-center overflow-y-auto gap-4 scrollbar-hide p-2">
                     {describeImages.map((img, idx) => (
                       <div key={img.id || idx} className="relative group/img shrink-0">
-                        <div className="relative">
+                        <motion.div
+                          layoutId={`img-input-${img.id || idx}`}
+                          className="relative cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(img.previewUrl, `img-input-${img.id || idx}`);
+                          }}
+                        >
                           <Image
                             src={img.previewUrl}
                             alt="Preview"
@@ -127,7 +136,7 @@ export function DescribePanel({
                               <Loader2 className="w-6 h-6 text-white animate-spin" />
                             </div>
                           )}
-                        </div>
+                        </motion.div>
                         {!img.isUploading && (
                           <button
                             onClick={(e) => {

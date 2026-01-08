@@ -1,0 +1,499 @@
+{
+  "17": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "168:162",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "21": {
+    "inputs": {
+      "image": "ref_1767009223426_n497cb.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "28": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_impsp_00005_.png&type=temp&subfolder=&rand=0.9274953386549012"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_impsp_00006_.png&type=temp&subfolder=&rand=0.5446284130505424"
+          }
+        ]
+      },
+      "image_a": [
+        "21",
+        0
+      ],
+      "image_b": [
+        "168:162",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "图像对比"
+    }
+  },
+  "69": {
+    "inputs": {
+      "model_name": "4x-NMKD-YandereNeo.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "放大模型加载器"
+    }
+  },
+  "80": {
+    "inputs": {
+      "PowerLoraLoaderHeaderWidget": {
+        "type": "PowerLoraLoaderHeaderWidget"
+      },
+      "lora_1": {
+        "on": false,
+        "lora": "lemo_flux_v1.safetensors",
+        "strength": 0.95
+      },
+      "lora_2": {
+        "on": false,
+        "lora": "【一元】FLUX-Brand Trend 3D_v1.0.safetensors",
+        "strength": 0.95
+      },
+      "➕ Add Lora": "",
+      "model": [
+        "143",
+        0
+      ],
+      "clip": [
+        "116",
+        0
+      ]
+    },
+    "class_type": "Power Lora Loader (rgthree)",
+    "_meta": {
+      "title": "强力LoRA加载器"
+    }
+  },
+  "116": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "双CLIP加载器"
+    }
+  },
+  "143": {
+    "inputs": {
+      "unet_name": "flux1-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNET加载器"
+    }
+  },
+  "168:144": {
+    "inputs": {
+      "upscale_model": [
+        "69",
+        0
+      ],
+      "image": [
+        "168:166",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "图像通过模型放大"
+    }
+  },
+  "168:145": {
+    "inputs": {
+      "tile_width": [
+        "168:156",
+        0
+      ],
+      "tile_height": [
+        "168:156",
+        1
+      ],
+      "image": [
+        "168:153",
+        0
+      ]
+    },
+    "class_type": "TTP_Image_Tile_Batch",
+    "_meta": {
+      "title": "TTP_Image_Tile_Batch"
+    }
+  },
+  "168:146": {
+    "inputs": {
+      "noise_seed": 316430325547060
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "168:147": {
+    "inputs": {
+      "model": [
+        "168:165",
+        0
+      ],
+      "conditioning": [
+        "168:148",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "基础引导"
+    }
+  },
+  "168:148": {
+    "inputs": {
+      "guidance": 2.5,
+      "conditioning": [
+        "168:164",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "Flux引导"
+    }
+  },
+  "168:149": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "168:150": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE加载器"
+    }
+  },
+  "168:151": {
+    "inputs": {
+      "tile_size": 1024,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8,
+      "samples": [
+        "168:155",
+        0
+      ],
+      "vae": [
+        "168:150",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "VAE分块解码"
+    }
+  },
+  "168:152": {
+    "inputs": {
+      "pixels": [
+        "168:159",
+        0
+      ],
+      "vae": [
+        "168:150",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE编码"
+    }
+  },
+  "168:153": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "megapixels": 4,
+      "image": [
+        "168:144",
+        0
+      ]
+    },
+    "class_type": "ImageScaleToTotalPixels",
+    "_meta": {
+      "title": "图像按像素缩放"
+    }
+  },
+  "168:154": {
+    "inputs": {
+      "delimiter": ", ",
+      "clean_whitespace": "true",
+      "text_a": [
+        "168:158",
+        0
+      ],
+      "text_b": [
+        "168:157",
+        0
+      ]
+    },
+    "class_type": "Text Concatenate",
+    "_meta": {
+      "title": "文本连锁"
+    }
+  },
+  "168:155": {
+    "inputs": {
+      "noise": [
+        "168:146",
+        0
+      ],
+      "guider": [
+        "168:147",
+        0
+      ],
+      "sampler": [
+        "168:149",
+        0
+      ],
+      "sigmas": [
+        "168:163",
+        0
+      ],
+      "latent_image": [
+        "168:152",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器(高级)"
+    }
+  },
+  "168:156": {
+    "inputs": {
+      "width_factor": 5,
+      "height_factor": 5,
+      "overlap_rate": 0.1,
+      "image": [
+        "168:153",
+        0
+      ]
+    },
+    "class_type": "TTP_Tile_image_size",
+    "_meta": {
+      "title": "TTP_Tile_image_size"
+    }
+  },
+  "168:157": {
+    "inputs": {
+      "text": "high quality, detailed, photograph , hd, 8k , 4k , sharp, highly detailed",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      }
+    },
+    "class_type": "TextInput_",
+    "_meta": {
+      "title": "文本"
+    }
+  },
+  "168:158": {
+    "inputs": {
+      "task": "more detailed caption",
+      "text_input": "",
+      "max_new_tokens": 1024,
+      "num_beams": 3,
+      "do_sample": false,
+      "fill_mask": false,
+      "florence2_model": [
+        "168:167",
+        0
+      ],
+      "image": [
+        "168:159",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: Florence2Image2Prompt",
+    "_meta": {
+      "title": "图层工具：Florence2 图像转提示（高级）"
+    }
+  },
+  "168:159": {
+    "inputs": {
+      "image": [
+        "168:145",
+        0
+      ]
+    },
+    "class_type": "easy imageBatchToImageList",
+    "_meta": {
+      "title": "图像批次到图像列表"
+    }
+  },
+  "168:160": {
+    "inputs": {
+      "anything": [
+        "168:162",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "清理GPU占用"
+    }
+  },
+  "168:161": {
+    "inputs": {
+      "images": [
+        "168:151",
+        0
+      ]
+    },
+    "class_type": "ImageListToImageBatch",
+    "_meta": {
+      "title": "图像列表到图像批次"
+    }
+  },
+  "168:162": {
+    "inputs": {
+      "padding": 128,
+      "tiles": [
+        "168:161",
+        0
+      ],
+      "positions": [
+        "168:145",
+        1
+      ],
+      "original_size": [
+        "168:145",
+        2
+      ],
+      "grid_size": [
+        "168:145",
+        3
+      ]
+    },
+    "class_type": "TTP_Image_Assy",
+    "_meta": {
+      "title": "TTP_Image_Assy"
+    }
+  },
+  "168:163": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 8,
+      "denoise": 0.30000000000000004,
+      "model": [
+        "168:165",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "基础调度器"
+    }
+  },
+  "168:164": {
+    "inputs": {
+      "text": [
+        "168:154",
+        0
+      ],
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "168:165",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码器"
+    }
+  },
+  "168:165": {
+    "inputs": {
+      "lora_name": "FLUX.1-Turbo-Alpha.safetensors",
+      "strength_model": 1,
+      "strength_clip": 1,
+      "model": [
+        "80",
+        0
+      ],
+      "clip": [
+        "80",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA加载器"
+    }
+  },
+  "168:166": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "upscale_method": "nearest-exact",
+      "keep_proportion": true,
+      "divisible_by": 4,
+      "crop": "disabled",
+      "image": [
+        "21",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJ",
+    "_meta": {
+      "title": "图像缩放（KJ）"
+    }
+  },
+  "168:167": {
+    "inputs": {
+      "version": "base"
+    },
+    "class_type": "LayerMask: LoadFlorence2Model",
+    "_meta": {
+      "title": "图层遮罩：加载Florence2模型（高级）"
+    }
+  }
+}

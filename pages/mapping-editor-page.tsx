@@ -9,11 +9,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Upload,
   Save,
-  Download,
-  Settings,
   Layers,
-  Plus,
-  Play
+  Plus
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,9 +24,6 @@ import { MappingList } from "@/components/features/mapping-editor/mapping-list";
 import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 
-interface MappingEditorPageProps {
-  onNavigate?: (tab: string) => void;
-}
 
 interface LocalEditorState {
   currentConfig: MappingConfig | null;
@@ -41,7 +35,7 @@ interface LocalEditorState {
   isLoading: boolean;
 }
 
-export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
+export function MappingEditorPage() {
   const [editorState, setEditorState] = useState<LocalEditorState>({
     currentConfig: null,
     selectedNode: null,
@@ -319,48 +313,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
 
 
 
-  const handleGoToGeneration = () => {
-    if (!editorState.currentConfig) {
-      toast.error("请先保存配置");
-      return;
-    }
 
-    if (editorState.isDirty) {
-      toast.error("请先保存当前配置");
-      return;
-    }
-
-    // 跳转到生成界面
-    if (onNavigate) {
-      // TODO: 这里的参数需要根据实际 TabValue 调整，假设生成界面是 'custom-ui' 或其他
-      // 目前先提示
-      toast.info("跳转功能待集成");
-    }
-  };
-
-  const handleExportConfig = async () => {
-    if (!editorState.currentConfig) {
-      toast.error("没有可导出的配置");
-      return;
-    }
-
-    try {
-      const blob = await localStorageManager.exportConfig(editorState.currentConfig.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${editorState.currentConfig.title}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success("配置导出成功");
-    } catch (error) {
-      console.error("导出配置失败:", error);
-      toast.error("导出配置失败");
-    }
-  };
 
   const handleNodeSelect = (nodeId: string) => {
     setEditorState(prev => ({
@@ -488,14 +441,12 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6 h-full overflow-y-auto">
+    <div className=" w-full max-w-8xl   mx-auto p-6 space-y-6 h-full mt-20 overflow-y-auto">
       {/* 页面标题和操作栏 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">ViewComfy 参数映射编辑器</h1>
-          <p className="text-muted-foreground mt-2">
-            将 ComfyUI 工作流参数映射为用户友好的界面组件
-          </p>
+          <h1 className="text-3xl font-bold">ViewComfy</h1>
+
         </div>
 
         <div className="flex items-center gap-2">
@@ -509,29 +460,10 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
             保存配置
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportConfig}
-            disabled={!editorState.currentConfig}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            导出配置
-          </Button>
 
-          <Button
-            onClick={handleGoToGeneration}
-            disabled={!editorState.currentConfig || editorState.isDirty}
-            size="sm"
-          >
-            <Play className="w-4 h-4 mr-2" />
-            生成界面
-          </Button>
 
-          <Button variant="outline" size="sm">
-            <Settings className="w-4 h-4 mr-2" />
-            设置
-          </Button>
+
+
         </div>
       </div>
 
@@ -573,7 +505,7 @@ export function MappingEditorPage({ onNavigate }: MappingEditorPageProps) {
 
       {/* 工作流上传区域 */}
       {!editorState.currentConfig && (
-        <Card>
+        <Card className="bg-white/5 border border-white/10 w-full">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="w-5 h-5" />

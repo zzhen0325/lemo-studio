@@ -1,12 +1,12 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Preset } from './types';
+import { PresetExtended } from './types';
 import GradualBlur from "../../common/graphics/GradualBlur";
 
 interface PresetCardProps {
-    preset: Preset;
-    onClick: (preset: Preset) => void;
+    preset: PresetExtended;
+    onClick: (preset: PresetExtended) => void;
 }
 
 export const PresetCard: React.FC<PresetCardProps> = ({ preset, onClick }) => {
@@ -19,8 +19,8 @@ export const PresetCard: React.FC<PresetCardProps> = ({ preset, onClick }) => {
         >
 
             <Image
-                src={preset.cover}
-                alt={preset.title}
+                src={preset.coverUrl || preset.cover || ''}
+                alt={preset.name || preset.title || 'Untitled'}
                 fill
                 sizes="(max-width: 300px) 50vw, (max-width: 600px) 33vw, 20vw"
                 quality={60}
@@ -39,7 +39,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({ preset, onClick }) => {
 
             <div className="absolute inset-x-0 bottom-0  z-20 flex flex-col items-center justify-end h-full">
                 <h3 className="text-white font-bold text-sm   group-hover:translate-y-0 transition-transform duration-300 mb-2">
-                    {preset.title}
+                    {preset.name || preset.title}
                 </h3>
 
             </div>

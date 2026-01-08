@@ -16,10 +16,6 @@ export async function POST(req: NextRequest) {
             options
         } = body;
 
-        if (!prompt) {
-            return NextResponse.json({ error: "Missing prompt" }, { status: 400 });
-        }
-
         if (!model) {
             return NextResponse.json({ error: "Missing model ID" }, { status: 400 });
         }

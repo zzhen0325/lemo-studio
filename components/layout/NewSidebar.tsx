@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TabValue } from "./sidebar";
-import { Toaster } from "sonner";
 import SplitText from "../ui/split-text";
 
 interface NewSidebarProps {
@@ -78,29 +77,6 @@ export function NewSidebar({ currentTab, onTabChange }: NewSidebarProps) {
             <div className="flex items-center gap-4">
                 <div className="text-white/20 text-[10px] tracking-tight">
                     v0.2.0
-                </div>
-                <div className="fixed top-20 right-6 z-[9999] pointer-events-auto">
-                    <Toaster
-                        position="top-right"
-                        toastOptions={{
-                            className: "navbar-toast",
-                            classNames: {
-                                description: "text-white/90",
-                                title: "text-white font-medium"
-                            },
-                            style: {
-                                background: 'rgba(0, 0, 0, 0.85)',
-                                backdropFilter: 'blur(20px)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                color: '#fff',
-                                fontSize: '13px',
-                                minWidth: '280px',
-                                borderRadius: '16px',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1) inset',
-                                padding: '16px',
-                            },
-                        }}
-                    />
                 </div>
             </div>
         </header>

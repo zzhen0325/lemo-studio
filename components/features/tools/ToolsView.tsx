@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Video, ArrowLeft, Grid } from 'lucide-react';
+import { Download, Video, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import WebGLRenderer from './WebGLRenderer';
@@ -75,7 +75,10 @@ const ToolsView: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col flex-1 h-screen overflow-hidden bg-black/20 backdrop-blur-md">
+        <div className="flex flex-col  h-screen overflow-hidden "
+            style={{
+                background: "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 75%, #D8C6B8 100%)",
+            }}>
             <AnimatePresence mode="wait">
                 {!selectedTool ? (
                     // Grid View
@@ -86,9 +89,9 @@ const ToolsView: React.FC = () => {
                         exit={{ opacity: 0, y: -20 }}
                         className="p-8 h-full overflow-y-auto"
                     >
-                        <div className="max-w-7xl mx-auto space-y-8">
+                        <div className="max-w-7xl mx-auto space-y-8 pt-20 ">
                             <div className="flex items-center gap-3">
-                                <Grid className="w-8 h-8 text-white/80" />
+
                                 <h2 className="text-3xl font-bold text-white font-instrument">WebGL Tools Studio</h2>
                             </div>
 

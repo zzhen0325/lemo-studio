@@ -66,6 +66,11 @@
       "title": "text",
       "folder": "text",
       "id": "wf_text"
+    },
+    {
+      "title": "高清放大2",
+      "folder": "高清放大2",
+      "id": "wf_高清放大2"
     }
   ]
 }
