@@ -4,7 +4,7 @@ import { projectStore } from "@/lib/store/project-store";
 import { ProjectList } from "./ProjectList";
 import { Button } from "@/components/ui/button";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
-import { Plus, X, LayoutGrid } from "lucide-react";
+import { Plus, LayoutGrid } from "lucide-react";
 interface ProjectSidebarProps {
   onShowAllProjects: () => void;
 }
@@ -13,9 +13,9 @@ interface ProjectSidebarProps {
 export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarProps) => {
 
   return (
-    <div className="relative shrink-0 mt-14 mb-14 flex flex-col z-30 h-[calc(100%-6rem)] w-[12vw]">
+    <div className="relative shrink-0   flex flex-col z-30 flex-1 w-[12vw] min-h-0">
       <div className="bg-white/5 border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden ">
-        <div className="px-4 pt-4 pb-4 flex flex-col gap-4 h-full">
+        <div className="p-4 flex flex-col gap-4 flex-1 min-h-0">
           {/* Header */}
           <div className="flex items-center px-2 justify-between">
             <span className="text-2xl  text-white"
@@ -43,7 +43,9 @@ export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarPro
           </div>
 
           {/* List */}
-          <ProjectList />
+          <div className="flex-1 min-h-0">
+            <ProjectList />
+          </div>
         </div>
       </div>
     </div>
