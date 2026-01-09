@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useState, useEffect, useRef, RefObject } from "react";
+import { useState, useEffect, useRef, RefObject, useMemo } from "react";
 import { useToast } from "@/hooks/common/use-toast";
 import { Button } from "@/components/ui/button";
 
@@ -32,7 +32,7 @@ import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, Loader2 } from "lucide-react";
+import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, Loader2, Image as ImageIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
@@ -49,6 +49,15 @@ import { observer } from "mobx-react-lite";
 import { projectStore } from "@/lib/store/project-store";
 import { ProjectSidebar } from "@/components/features/playground-v2/ProjectSection/project-sidebar/ProjectSidebar";
 import { AllProjectsView } from "@/components/features/playground-v2/ProjectSection/project-sidebar/AllProjectsView";
+import { 
+  DndContext, 
+  DragEndEvent, 
+  DragOverlay, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  defaultDropAnimationSideEffects
+} from "@dnd-kit/core";
 
 gsap.registerPlugin(Flip, useGSAP);
 
@@ -116,18 +125,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const mobxProjectId = projectStore.currentProjectId;
 
   useEffect(() => {
-    const project = projectStore.currentProject;
-    if (project) {
-      usePlaygroundStore.getState().setGenerationHistory([...project.history]);
-    } else {
-      fetchHistory();
-    }
-  }, [mobxProjectId, fetchHistory]);
+    fetchHistory();
+  }, [fetchHistory]);
 
-  useEffect(() => {
-    if (mobxProjectId) {
-      projectStore.setProjectHistory(mobxProjectId, generationHistory);
-    }
+  const filteredHistory = useMemo(() => {
+    if (!mobxProjectId) return generationHistory;
+    return generationHistory.filter(h => h.projectId === mobxProjectId);
   }, [generationHistory, mobxProjectId]);
 
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel>('gemini');
@@ -158,8 +161,64 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setSelectedPresetName,
     previewImageUrl,
     previewLayoutId,
-    setPreviewImage
+    setPreviewImage,
+    setIsSelectionMode,
+    selectedHistoryIds,
+    clearHistorySelection,
+    setGenerationHistory: setGlobalGenerationHistory
   } = usePlaygroundStore();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const [activeDragItem, setActiveDragItem] = useState<Generation | null>(null);
+
+  const handleDragStart = (event: any) => {
+    if (event.active.data.current?.type === 'history-item') {
+      setActiveDragItem(event.active.data.current.generation);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragItem(null);
+    const { over } = event;
+    if (!over) return;
+
+    const selectedItems = generationHistory.filter(h => selectedHistoryIds.has(h.id));
+
+    if (over.data.current?.type === 'project') {
+      const targetProjectId = over.data.current.projectId;
+      
+      // 1. Update project store
+      await projectStore.addGenerationsToProject(targetProjectId, selectedItems);
+      
+      // 2. Update global store
+      setGlobalGenerationHistory(prev => prev.map(item => 
+        selectedHistoryIds.has(item.id) ? { ...item, projectId: targetProjectId } : item
+      ));
+
+      toast({ title: "Success", description: `Moved ${selectedItems.length} items to project` });
+      setIsSelectionMode(false);
+      clearHistorySelection();
+    } else if (over.data.current?.type === 'new-project') {
+      // 1. Create new project
+      const newProject = await projectStore.createProjectWithHistory('New Project', selectedItems);
+      
+      // 2. Update global store
+      setGlobalGenerationHistory(prev => prev.map(item => 
+        selectedHistoryIds.has(item.id) ? { ...item, projectId: newProject.id } : item
+      ));
+
+      toast({ title: "Success", description: `Created new project with ${selectedItems.length} items` });
+      setIsSelectionMode(false);
+      clearHistorySelection();
+    }
+  };
 
   useEffect(() => {
     projectStore.toggleSidebar(showProjectSidebar);
@@ -912,8 +971,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   );
 
   return (
-    <div
-      className="flex-1 relative p-12 pt-16 h-full flex flex-col overflow-hidden"
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div
+        className="flex-1 relative p-12 pt-16 h-full flex flex-col overflow-hidden"
       onDragEnter={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1131,7 +1195,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   <div className="mt-6 w-full relative h-full overflow-hidden z-30">
                     <HistoryList
                       variant="sidebar"
-                      history={generationHistory}
+                      history={filteredHistory}
                       onRegenerate={(res) => {
                         if (res.config) {
                           applyModel(res.config.model, {
@@ -1202,7 +1266,42 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         layoutId={previewLayoutId}
         onClose={() => setPreviewImage(null)}
       />
-    </div>
+
+      <DragOverlay dropAnimation={{
+        sideEffects: defaultDropAnimationSideEffects({
+          styles: {
+            active: {
+              opacity: '0.5',
+            },
+          },
+        }),
+      }}>
+        {activeDragItem ? (
+          <div className="flex items-center gap-3 p-3 bg-black/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl scale-110">
+            {activeDragItem.outputUrl ? (
+              <img 
+                src={activeDragItem.outputUrl} 
+                alt="dragging" 
+                className="w-12 h-12 object-cover rounded-lg border border-white/10"
+              />
+            ) : (
+              <div className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
+                <ImageIcon className="w-5 h-5 text-white/20" />
+              </div>
+            )}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-white">
+                Moving {selectedHistoryIds.size} items
+              </span>
+              <span className="text-[10px] text-white/40 uppercase font-mono tracking-wider">
+                Release to move
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </div>
+    </DndContext>
   );
 });
 

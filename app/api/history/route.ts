@@ -167,7 +167,52 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const item = await request.json() as Generation;
+        const body = await request.json();
+        
+        // Handle batch update
+        if (body.action === 'batch-update' && Array.isArray(body.items)) {
+            const items = body.items as Generation[];
+            await ensureOutputsDir();
+            
+            // 1. Update individual metadata files
+            for (const item of items) {
+                if (!item.outputUrl) continue;
+                const baseName = path.basename(item.outputUrl, path.extname(item.outputUrl));
+                const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
+                
+                try {
+                    let metadata = {};
+                    try {
+                        const content = await fs.readFile(jsonPath, 'utf-8');
+                        metadata = JSON.parse(content);
+                    } catch { /* ignore */ }
+                    
+                    const updatedMetadata = {
+                        ...metadata,
+                        projectId: item.projectId,
+                        config: item.config,
+                    };
+                    
+                    await fs.writeFile(jsonPath, JSON.stringify(updatedMetadata, null, 2));
+                } catch (e) {
+                    console.warn(`Failed to update metadata for ${baseName}`, e);
+                }
+            }
+            
+            // 2. Update global history.json
+            const history = (await readHistory() || []) as Generation[];
+            for (const item of items) {
+                const idx = history.findIndex(h => h.id === item.id || h.outputUrl === item.outputUrl);
+                if (idx > -1) {
+                    history[idx] = { ...history[idx], ...item };
+                }
+            }
+            await saveHistory(history);
+            
+            return NextResponse.json({ success: true });
+        }
+
+        const item = body as Generation;
         if (!item || (!item.outputUrl && !item.id)) {
             return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
         }

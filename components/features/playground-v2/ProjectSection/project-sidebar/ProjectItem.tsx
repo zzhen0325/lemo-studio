@@ -3,6 +3,7 @@ import { observer } from "mobx-react-lite";
 import { cn } from "@/lib/utils";
 import { Project, projectStore } from "@/lib/store/project-store";
 import { Folder, Edit2 } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
 
 
 interface ProjectItemProps {
@@ -15,6 +16,14 @@ export const ProjectItem = observer(({ project, isSelected, style }: ProjectItem
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { setNodeRef, isOver } = useDroppable({
+    id: `project-${project.id}`,
+    data: {
+      type: 'project',
+      projectId: project.id,
+    },
+  });
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -52,12 +61,14 @@ export const ProjectItem = observer(({ project, isSelected, style }: ProjectItem
 
   return (
     <div
+      ref={setNodeRef}
       style={style}
       className={cn(
         "group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-colors text-sm",
         isSelected
           ? "bg-white/5 text-white border border-white/10"
-          : "text-white/60 hover:bg-black/10 hover:text-white"
+          : "text-white/60 hover:bg-black/10 hover:text-white",
+        isOver && "bg-primary/20 ring-1 ring-primary/50 text-white scale-[1.02]"
       )}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}

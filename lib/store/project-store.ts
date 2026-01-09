@@ -16,11 +16,7 @@ class ProjectStore {
 
   constructor() {
     makeAutoObservable(this);
-    // Initialize with a default project if empty
-    // In a real app, this might load from local storage or API
-    if (this.projects.length === 0) {
-      this.addProject("Default Project");
-    }
+    this.loadProjects();
   }
 
   get currentProject() {
@@ -38,6 +34,39 @@ class ProjectStore {
     return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
   }
 
+  async loadProjects() {
+    try {
+      const res = await fetch('/api/projects');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.projects) {
+          this.projects = data.projects;
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load projects", error);
+    }
+  }
+
+  async saveProjects() {
+    try {
+      // Don't save full history in projects.json to keep it small
+      // The history is already linked by projectId in the generation metadata
+      const projectsToSave = this.projects.map(p => ({
+        ...p,
+        history: [] // Clear history when saving project list
+      }));
+      
+      await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projects: projectsToSave }),
+      });
+    } catch (error) {
+      console.error("Failed to save projects", error);
+    }
+  }
+
   addProject(name: string = "Untitled") {
     const newProject: Project = {
       id: this.generateId(),
@@ -47,6 +76,7 @@ class ProjectStore {
     };
     this.projects.push(newProject);
     this.currentProjectId = newProject.id;
+    this.saveProjects();
     return newProject;
   }
 
@@ -54,10 +84,11 @@ class ProjectStore {
     const project = this.projects.find(p => p.id === id);
     if (project) {
       project.name = name.slice(0, 20);
+      this.saveProjects();
     }
   }
 
-  selectProject(id: string) {
+  selectProject(id: string | null) {
     this.currentProjectId = id;
   }
 
@@ -91,11 +122,13 @@ class ProjectStore {
     }
   }
 
-  addGenerationsToProject(projectId: string, generations: Generation[]) {
+  async addGenerationsToProject(projectId: string, generations: Generation[]) {
     const project = this.projects.find(p => p.id === projectId);
     if (project) {
+      const updatedGenerations = generations.map(g => ({ ...g, projectId }));
+      
       const existingIds = new Set(project.history.map(h => h.id));
-      const newItems = generations.filter(g => !existingIds.has(g.id));
+      const newItems = updatedGenerations.filter(g => !existingIds.has(g.id));
       
       const combined = [...newItems, ...project.history];
       // Sort by createdAt desc to maintain timeline
@@ -109,12 +142,26 @@ class ProjectStore {
           project.thumbnailUrl = firstWithImage.outputUrl;
         }
       }
+
+      // Sync with backend
+      try {
+        await fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'batch-update',
+            items: updatedGenerations
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to sync moved generations", error);
+      }
     }
   }
 
-  createProjectWithHistory(name: string, generations: Generation[]) {
+  async createProjectWithHistory(name: string, generations: Generation[]) {
     const newProject = this.addProject(name);
-    this.addGenerationsToProject(newProject.id, generations);
+    await this.addGenerationsToProject(newProject.id, generations);
     return newProject;
   }
 }

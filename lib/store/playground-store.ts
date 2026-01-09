@@ -24,6 +24,14 @@ interface PlaygroundState {
     showProjectSidebar: boolean;
     selectedPresetName: string | undefined;
 
+    // Selection Mode
+    isSelectionMode: boolean;
+    selectedHistoryIds: Set<string>;
+    setIsSelectionMode: (val: boolean) => void;
+    toggleHistorySelection: (id: string) => void;
+    setHistorySelection: (ids: string[]) => void;
+    clearHistorySelection: () => void;
+
     // Actions
     updateConfig: (config: Partial<GenerationConfig>) => void;
     setUploadedImages: (images: UploadedImage[] | ((prev: UploadedImage[]) => UploadedImage[])) => void;
@@ -97,6 +105,17 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
     showHistory: false,
     showGallery: false,
     showProjectSidebar: false,
+    isSelectionMode: false,
+    selectedHistoryIds: new Set(),
+    setIsSelectionMode: (val) => set({ isSelectionMode: val, selectedHistoryIds: val ? new Set() : new Set() }),
+    toggleHistorySelection: (id) => set((state) => {
+        const newSet = new Set(state.selectedHistoryIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        return { selectedHistoryIds: newSet };
+    }),
+    setHistorySelection: (ids) => set({ selectedHistoryIds: new Set(ids) }),
+    clearHistorySelection: () => set({ selectedHistoryIds: new Set() }),
     isAspectRatioLocked: false,
     setAspectRatioLocked: (locked) => set({ isAspectRatioLocked: locked }),
     isMockMode: false,
@@ -238,7 +257,9 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
             isAspectRatioLocked: false,
             isMockMode: false,
             isSelectorExpanded: false,
-            selectedPresetName: undefined
+            selectedPresetName: undefined,
+            isSelectionMode: false,
+            selectedHistoryIds: new Set()
         });
     },
 

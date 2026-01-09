@@ -1,6 +1,7 @@
 "use client";
 
 import { usePlaygroundStore } from "@/lib/store/playground-store";
+import { projectStore } from "@/lib/store/project-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
 import { GenerationConfig } from "@/components/features/playground-v2/types";
@@ -79,7 +80,7 @@ export function useGenerationService() {
         const loadingGen: Generation = {
             id: taskId,
             userId: 'anonymous',
-            projectId: 'default',
+            projectId: projectStore.currentProjectId || 'default',
             outputUrl: "",
             config: unifiedCfg,
             status: 'pending',
@@ -97,7 +98,7 @@ export function useGenerationService() {
                 const result: Generation = {
                     id: taskId,
                     userId: 'anonymous',
-                    projectId: 'default',
+                    projectId: projectStore.currentProjectId || 'default',
                     outputUrl: mockImageUrl,
                     config: {
                         prompt: unifiedCfg.prompt,
@@ -184,7 +185,7 @@ export function useGenerationService() {
             const gen: Generation = {
                 id: taskId,
                 userId: 'anonymous',
-                projectId: 'default',
+                projectId: projectStore.currentProjectId || 'default',
                 outputUrl: savedPath,
                 config: unified,
                 status: 'completed',
@@ -294,7 +295,7 @@ export function useGenerationService() {
                     const gen: Generation = {
                         id: taskId,
                         userId: 'anonymous',
-                        projectId: 'default',
+                        projectId: projectStore.currentProjectId || 'default',
                         outputUrl: savedPath,
                         config: {
                             ...unified,

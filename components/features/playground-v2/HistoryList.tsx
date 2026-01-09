@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { observer } from 'mobx-react-lite';
+import { projectStore } from "@/lib/store/project-store";
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, ChevronLeft, ChevronRight, LayoutGrid, List, X, CheckSquare, FolderPlus } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, LayoutGrid, List, X, FolderPlus, Plus, ChevronDown, GripVertical, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -11,6 +13,14 @@ import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
 import GradualBlur from "@/components/GradualBlur";
+import { useDraggable } from "@dnd-kit/core";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface HistoryListProps {
   history: Generation[];
@@ -33,7 +43,7 @@ interface GroupedHistoryItem {
   startAt: string;
 }
 
-export default function HistoryList({
+const HistoryList = observer(function HistoryList({
   history,
   onRegenerate,
   onDownload,
@@ -45,10 +55,54 @@ export default function HistoryList({
   onClose,
 }: HistoryListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const { setPreviewImage } = usePlaygroundStore();
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { 
+    setPreviewImage, 
+    setGenerationHistory,
+    isSelectionMode,
+    setIsSelectionMode,
+    selectedHistoryIds: selectedIds,
+    toggleHistorySelection: toggleSelection,
+    setHistorySelection,
+    clearHistorySelection: clearSelection
+  } = usePlaygroundStore();
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleSelectAll = () => {
+    const allIds = history.map(item => item.id);
+    setHistorySelection(allIds);
+  };
+
+  const handleDeselectAll = () => {
+    clearSelection();
+  };
+
+  const handleAddToProject = (projectId: string) => {
+    const selectedItems = history.filter(item => selectedIds.has(item.id));
+    if (selectedItems.length === 0) return;
+    
+    // 1. Update project store (handles backend sync for metadata)
+    projectStore.addGenerationsToProject(projectId, selectedItems);
+    
+    // 2. Update global playground store for immediate UI feedback
+    setGenerationHistory(prev => prev.map(item => 
+      selectedIds.has(item.id) ? { ...item, projectId } : item
+    ));
+
+    toast({
+      title: "Success",
+      description: `Added ${selectedItems.length} items to project`,
+    });
+    
+    // Clear selection and exit mode
+    clearSelection();
+    setIsSelectionMode(false);
+  };
+
+  const handleConfirmAction = () => {
+    setIsSelectionMode(false);
+    clearSelection();
+  };
 
   // Group history by start time (createdAt) and parameters to reflect single-click aggregation
   const groupedHistory = React.useMemo(() => {
@@ -86,26 +140,18 @@ export default function HistoryList({
     return Array.from(map.values()).sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
   }, [history]);
 
-  const toggleSelection = (id: string) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedIds(newSet);
-  };
-
   const toggleGroupSelection = (items: Generation[]) => {
-    const newSet = new Set(selectedIds);
-    const allSelected = items.every(item => newSet.has(item.id));
+    const allSelected = items.every(item => selectedIds.has(item.id));
     
     if (allSelected) {
-      items.forEach(item => newSet.delete(item.id));
+      items.forEach(item => {
+        if (selectedIds.has(item.id)) toggleSelection(item.id);
+      });
     } else {
-      items.forEach(item => newSet.add(item.id));
+      items.forEach(item => {
+        if (!selectedIds.has(item.id)) toggleSelection(item.id);
+      });
     }
-    setSelectedIds(newSet);
   };
 
   const getSelectedItems = () => {
@@ -121,11 +167,11 @@ export default function HistoryList({
       <GradualBlur
         target="parent"
         position="top"
-        height="100px"
-        strength={3}
-        divCount={7}
+        height="80px"
+        strength={10}
+        divCount={5}
         curve="bezier"
-      
+        exponential={true}
         zIndex={10}
         opacity={1}
         borderRadius="1.5rem"
@@ -137,31 +183,77 @@ export default function HistoryList({
         }}
       />
       {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
-      <div className="absolute top-6 left-8 z-20 pointer-events-none">
-
-        
+      <div className="absolute gap-4 flex top-6 left-8 z-20 ">
         <span className="text-white text-2xl"
           style={{ fontFamily: "'InstrumentSerif', serif" }}
         >History</span>
+
+        
       </div>
 
       <div className="absolute top-6 right-8 z-20 flex items-center gap-3">
         <div className="flex items-center p-1 gap-2 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
+        <div className='flex gap-2'>
            <button
             onClick={() => {
               setIsSelectionMode(!isSelectionMode);
-              if (isSelectionMode) setSelectedIds(new Set()); // Clear selection on exit
+              if (isSelectionMode) clearSelection(); // Clear selection on exit
             }}
             className={cn(
-              "p-1.5 rounded-md transition-all",
+              " px-2 rounded-md flex items-center gap-2 transition-all",
               isSelectionMode
                 ? "bg-white/10 text-primary"
                 : "text-white/40 hover:text-white hover:bg-white/5"
             )}
             title="Select Mode"
           >
-            <CheckSquare className="w-3.5 h-3.5" />
+            
+            <Folder className="w-3.5 h-3.5" />
+            <span className='text-sm'>Manager</span>
           </button>
+           <AnimatePresence>
+            {isSelectionMode && (
+              <motion.div
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="flex items-center gap-1"
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-sm  text-white/60 hover:text-white hover:bg-white/10"
+                  onClick={handleSelectAll}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-sm text-white/60 hover:text-white hover:bg-white/10"
+                  onClick={handleDeselectAll}
+                >
+                  Cancel
+                </Button>
+                
+                
+                <div className="w-[1px] h-3 bg-white/10 mx-1" />
+                 <Button
+                  size="sm"
+                  className="h-7 px-3 text-[11px] bg-white text-black hover:bg-white/90 font-medium rounded-md"
+                  onClick={handleConfirmAction}
+                  disabled={selectedIds.size === 0}
+                >
+                  Confirm
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          
+
+
+        </div>
           <div className="w-[1px] h-3.5 bg-white/10 mx-1" />
           <button
             onClick={() => onLayoutModeChange?.('grid')}
@@ -220,26 +312,31 @@ export default function HistoryList({
 
               return (
                 <div key={result.id || result.outputUrl || `img-${idx}`} className="break-inside-avoid mb-4">
-                  <HistoryCard
+                  <DraggableHistoryCard
                     result={result}
-                    onRegenerate={onRegenerate}
-                    onDownload={onDownload}
-                    onImageClick={onImageClick}
-                    onRefImageClick={(url, id) => {
-                      setPreviewImage(url, id);
-                    }}
-                    layoutMode={layoutMode}
+                    selectedIds={selectedIds}
                     isSelectionMode={isSelectionMode}
-                    isSelected={selectedIds.has(result.id)}
-                    onToggleSelect={() => toggleSelection(result.id)}
-                  />
+                  >
+                    <HistoryCard
+                      result={result}
+                      onRegenerate={onRegenerate}
+                      onDownload={onDownload}
+                      onImageClick={onImageClick}
+                      onRefImageClick={(url, id) => {
+                        setPreviewImage(url, id);
+                      }}
+                      layoutMode={layoutMode}
+                      isSelectionMode={isSelectionMode}
+                      isSelected={selectedIds.has(result.id)}
+                      onToggleSelect={() => toggleSelection(result.id)}
+                    />
+                  </DraggableHistoryCard>
                 </div>
               );
             })
           ) : (
             groupedHistory.map((group, groupIdx) => {
                const isGroupSelected = group.items.every(item => selectedIds.has(item.id));
-               const hasSelection = group.items.some(item => selectedIds.has(item.id));
                
                return (
               <div 
@@ -249,30 +346,34 @@ export default function HistoryList({
                   isSelectionMode ? "cursor-pointer border-2 p-2 rounded-3xl " : "bg-transparent border-0",
                   isSelectionMode && isGroupSelected ? "border-primary/20 bg-white/5" : (isSelectionMode ? "border-transparent hover:bg-white/5" : "")
                 )}
-                onClick={(e) => {
+                onClick={() => {
                   if (isSelectionMode) {
-                    // If clicking the container background, toggle group
-                    // Prevent if target is inside the card actions
                     toggleGroupSelection(group.items);
                   }
                 }}
               >
                 {group.type === 'image' ? (
                   <div className="flex flex-col">
-                    <HistoryCard
+                    <DraggableHistoryCard
                       result={group.items[0]}
-                      allResults={group.items}
-                      onRegenerate={onRegenerate}
-                      onDownload={onDownload}
-                      onImageClick={onImageClick}
-                      onRefImageClick={(url, id) => {
-                        setPreviewImage(url, id);
-                      }}
-                      layoutMode={layoutMode}
+                      selectedIds={selectedIds}
                       isSelectionMode={isSelectionMode}
-                      isSelected={isGroupSelected} // In list mode, the card represents the group
-                      onToggleSelect={() => toggleGroupSelection(group.items)}
-                    />
+                    >
+                      <HistoryCard
+                        result={group.items[0]}
+                        allResults={group.items}
+                        onRegenerate={onRegenerate}
+                        onDownload={onDownload}
+                        onImageClick={onImageClick}
+                        onRefImageClick={(url, id) => {
+                          setPreviewImage(url, id);
+                        }}
+                        layoutMode={layoutMode}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={isGroupSelected} // In list mode, the card represents the group
+                        onToggleSelect={() => toggleGroupSelection(group.items)}
+                      />
+                    </DraggableHistoryCard>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-6 group/card">
@@ -303,58 +404,38 @@ export default function HistoryList({
                                   setPreviewImage(group.sourceImage, `img-ref-${group.items[0].id}`);
                                 }
                               }}
-                              unoptimized
                             />
                           </motion.div>
                         ) : (
-                          <div className="w-full aspect-square flex items-center justify-center text-white/20">
-                            <ImageIcon className="w-8 h-8" />
-                          </div>
-                        )}
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
-                          Source
-                        </div>
-
-                        {onBatchUse && group.items.length > 0 && (
-                          <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/img:opacity-100 transition-opacity">
-                            <button
-                              className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onBatchUse(group.items, group.sourceImage);
-                              }}
-                            >
-                              <Layers className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-white/10" />
                           </div>
                         )}
                       </div>
 
-                      {group.items.map((result, idx) => (
-                        <TextHistoryCard 
-                          key={result.id || `txt-${idx}`} 
-                          result={result}
-                          isSelectionMode={isSelectionMode}
-                          isSelected={selectedIds.has(result.id)}
-                          onToggleSelect={() => toggleSelection(result.id)}
-                        />
-                      ))}
+                      <div className="grid grid-cols-2 gap-4">
+                        {group.items.map((item) => (
+                          <DraggableHistoryCard
+                            key={item.id}
+                            result={item}
+                            selectedIds={selectedIds}
+                            isSelectionMode={isSelectionMode}
+                          >
+                            <TextHistoryCard
+                              result={item}
+                              isSelectionMode={isSelectionMode}
+                              isSelected={selectedIds.has(item.id)}
+                              onToggleSelect={() => toggleSelection(item.id)}
+                            />
+                          </DraggableHistoryCard>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             )})
           )}
-
-          {/* 独立处理网格模式下的 Describe 项，保持现有的分组聚合交互 */}
-          {layoutMode === 'grid' && groupedHistory.filter(g => g.type === 'text').map((group, idx) => (
-            <div key={`grid-desc-${idx}`} className="break-inside-avoid mb-4">
-              <DescribeInteractiveCard
-                group={group}
-                onRefImageClick={(url, id) => setPreviewImage(url, id)}
-              />
-            </div>
-          ))}
         </div>
       </div>
 
@@ -365,10 +446,10 @@ export default function HistoryList({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30"
+            className="absolute bottom-60 left-1/2 -translate-x-1/2 z-30 w-fit"
           >
-            <div className="flex items-center gap-3 px-4 py-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
-              <span className="text-xs font-medium text-white/80 px-2">
+            <div className="flex items-center gap-3 px-4 py-2 bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl">
+              <span className="text-md text-white/80 px-2">
                 {selectedIds.size} selected
               </span>
               <div className="w-[1px] h-4 bg-white/10" />
@@ -392,11 +473,61 @@ export default function HistoryList({
         selectedItems={getSelectedItems()}
         onSuccess={() => {
           setIsSelectionMode(false);
-          setSelectedIds(new Set());
+          clearSelection();
         }}
       />
     </div>
+  );
+});
 
+export default HistoryList;
+
+function DraggableHistoryCard({
+  result,
+  selectedIds,
+  children,
+  isSelectionMode,
+}: {
+  result: Generation;
+  selectedIds: Set<string>;
+  children: React.ReactNode;
+  isSelectionMode: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `history-${result.id}`,
+    data: {
+      type: 'history-item',
+      generation: result,
+      selectedIds: Array.from(selectedIds),
+    },
+    disabled: !isSelectionMode || !selectedIds.has(result.id),
+  });
+
+  const style = transform ? {
+    transform: isDragging ? undefined : `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 100 : undefined,
+  } : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "relative",
+        isDragging && "cursor-grabbing",
+        isSelectionMode && selectedIds.has(result.id) && "cursor-grab"
+      )}
+    >
+      {children}
+      {isSelectionMode && selectedIds.has(result.id) && !isDragging && (
+        <div className="absolute top-2 left-2 z-30 p-1 bg-black/40 backdrop-blur-md rounded-md border border-white/10 text-white/60">
+          <GripVertical className="w-3 h-3" />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -434,12 +565,9 @@ function HistoryCard({
 
   if (layoutMode === 'list') {
     const resultsToDisplay = allResults || [result];
-
-
     const width = config?.width || 1024;
     const height = config?.height || 1024;
     const isWide = width / height > 1.2;
-    // 使用纯粹的图片真实比例，满足“高度跟随图片高度自适应”
     const effectiveAspectRatio = `${width} / ${height}`;
 
     return (
@@ -456,24 +584,15 @@ function HistoryCard({
           }
         }}
       >
-
-
-        {/* Header: Metadata & Actions */}
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
-
           <div className="flex items-center gap-4">
             {config?.presetName && (
-              <>
-
-                <span className="text-white text-md bg-[#b4cdbf4c] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
-              </>
+              <span className="text-white text-md bg-[#b4cdbf4c] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
             )}
             <span className="opacity-20">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
             <span className="opacity-20">/</span>
             <span className="text-white/40">{config?.model || 'Unknown'}</span>
-
-
 
             {config?.loras && config.loras.length > 0 && config.loras.map((l, idx) => (
               <React.Fragment key={idx}>
@@ -486,15 +605,9 @@ function HistoryCard({
             <span className="opacity-20">/</span>
             <span>{timeStr}</span>
           </div>
-
-
-
-
         </div>
 
-        {/* Main Layout Grid: Prompt(1) + Images(4) */}
         <AnimatePresence mode="wait">
-
           <motion.div
             key="selected"
             initial={{ opacity: 0, y: 20 }}
@@ -502,11 +615,7 @@ function HistoryCard({
             exit={{ opacity: 0, y: -20 }}
             className="space-y-2"
           >
-
-
-
             <motion.div className="relative h-full bg-transparent grid grid-cols-5 gap-4 items-stretch content-start">
-              {/* Prompt slot (fixed to one column) */}
               <motion.div
                 className="relative w-full h-full overflow-hidden rounded-xl border border-white/10 bg-black/5 p-4 flex flex-col justify-start"
               >
@@ -575,7 +684,6 @@ function HistoryCard({
                 <div className="absolute w-full bottom-4 left-4 flex  gap-2">
                   <Button
                     variant="ghost"
-
                     size="sm"
                     className="h-8 rounded-sm border-white/10 bg-black/5 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
                     onClick={(e) => {
@@ -583,7 +691,6 @@ function HistoryCard({
                       onRegenerate(result);
                     }}
                   >
-
                     <span className="text-md hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Rerun</span>
                   </Button>
                   <Button
@@ -603,7 +710,6 @@ function HistoryCard({
                         });
                         applyPrompt(prompt);
 
-                        // Backfill reference image if available
                         if (result.sourceImageUrl) {
                           applyImage(result.sourceImageUrl);
                         }
@@ -615,13 +721,11 @@ function HistoryCard({
                       }
                     }}
                   >
-
                     <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Use All</span>
                   </Button>
                 </div>
               </motion.div>
 
-              {/* Images Section (takes 4 columns) */}
               <motion.div className={cn(
                 "col-span-4 grid gap-4",
                 isWide ? "grid-cols-2" : "grid-cols-4"
@@ -660,7 +764,6 @@ function HistoryCard({
                           <ImageIcon className="w-8 h-8" />
                         </div>
                       )}
-                      {/* Individual Actions Overlay */}
                       {res.status !== 'pending' && img && !isSelectionMode && (
                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
                           <TooltipButton
@@ -683,14 +786,8 @@ function HistoryCard({
           </motion.div>
         </AnimatePresence>
       </div>
-
     );
   }
-
-
-
-  // grid模式
-
 
   return (
     <div
@@ -709,7 +806,6 @@ function HistoryCard({
         }
       }}
     >
-
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -867,143 +963,20 @@ function TextHistoryCard({
       </div>
 
       {result.status !== 'pending' && !isSelectionMode && (
-        <>
-          <div className="flex absolute bottom-3 left-1/2 -translate-x-1/2 gap-2 opacity-0 group-hover/card:opacity-100 transition-opacity">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 rounded-lg border-white/10 bg-white/5 text-primary hover:bg-white/20 hover:border-primary/40 gap-1.5 px-3"
-              onClick={handleApply}
-            >
-              <Type className="w-3 h-3" />
-              <span className="text-[10px]">Use Prompt</span>
-            </Button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function DescribeInteractiveCard({
-  group,
-  onRefImageClick,
-}: {
-  group: GroupedHistoryItem;
-  onRefImageClick: (url: string, id: string) => void;
-}) {
-  const [currentIndex, setCurrentIndex] = React.useState(0);
-  const currentItem = group.items[currentIndex];
-  const prompt = currentItem?.config?.prompt || '';
-  const { toast } = useToast();
-  const { applyPrompt } = usePlaygroundStore();
-
-  const handleApply = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    applyPrompt(prompt);
-    toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
-  };
-
-  const next = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev + 1) % group.items.length);
-  };
-
-  const prev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev - 1 + group.items.length) % group.items.length);
-  };
-
-  return (
-    <div className="group relative w-full overflow-hidden bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30 aspect-square">
-      {/* Base Image */}
-      {group.sourceImage ? (
-        <motion.div
-          layoutId={`img-ref-${currentItem.id}`}
-          className="w-full h-full"
-        >
-          <Image
-            src={group.sourceImage}
-            alt="Source"
-            fill
-            className="object-cover"
-            onClick={() => {
-              if (group.sourceImage) {
-                onRefImageClick(group.sourceImage, `img-ref-${currentItem.id}`);
-              }
-            }}
-          />
-        </motion.div>
-      ) : (
-        <div className="w-full h-full bg-black/40 flex items-center justify-center">
-          <ImageIcon className="w-8 h-8 text-white/20" />
-        </div>
-      )}
-
-      {/* Overlay Description */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col p-6 justify-center items-center text-center">
-        <div className="flex-1 overflow-y-auto custom-scrollbar flex items-center justify-center w-full px-4">
-          <p className="text-[11px] text-white/90 leading-relaxed line-clamp-[8]">
-            {prompt}
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 mt-4">
+        <div className="flex absolute bottom-3 left-1/2 -translate-x-1/2 gap-2 opacity-0 group-hover/card:opacity-100 transition-opacity">
           <Button
             variant="outline"
             size="sm"
-            className="h-8 rounded-xl border-white/10 bg-white/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/40 gap-1.5 px-3"
+            className="h-7 rounded-lg border-white/10 bg-white/5 text-primary hover:bg-white/20 hover:border-primary/40 gap-1.5 px-3"
             onClick={handleApply}
           >
-            <Type className="w-3.5 h-3.5" />
+            <Type className="w-3 h-3" />
             <span className="text-[10px]">Use Prompt</span>
           </Button>
         </div>
-      </div>
-
-      {/* Navigation Arrows */}
-      {group.items.length > 1 && (
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <button
-            onClick={prev}
-            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-all pointer-events-auto"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={next}
-            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/60 transition-all pointer-events-auto"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
       )}
-
-      {/* Pagination dots */}
-      {group.items.length > 1 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-30 bg-black/30 backdrop-blur-sm px-2.5 py-1.5 rounded-full border border-white/5">
-          {group.items.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentIndex(idx);
-              }}
-              className={cn(
-                "w-1.5 h-1.5 rounded-full transition-all",
-                currentIndex === idx ? "bg-emerald-400 w-3" : "bg-white/20 hover:bg-white/40"
-              )}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Type badge */}
-      <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur rounded-[4px] text-[10px] text-white/80 font-medium border border-white/10 z-10">
-        Analysis
-      </div>
-
     </div>
   );
 }
+
+

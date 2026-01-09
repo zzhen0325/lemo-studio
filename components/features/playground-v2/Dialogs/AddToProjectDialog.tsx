@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { projectStore } from "@/lib/store/project-store";
+import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { Generation } from '@/types/database';
 import { observer } from 'mobx-react-lite';
 import { Check } from "lucide-react";
@@ -26,16 +27,29 @@ export const AddToProjectDialog = observer(({
   const [newProjectName, setNewProjectName] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
+  const { setGenerationHistory } = usePlaygroundStore();
   const projects = projectStore.sortedProjects;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    let targetProjectId = selectedProjectId;
+    
     if (mode === 'create') {
       if (!newProjectName.trim()) return;
-      projectStore.createProjectWithHistory(newProjectName, selectedItems);
+      const newProject = projectStore.createProjectWithHistory(newProjectName, selectedItems);
+      targetProjectId = newProject.id;
     } else {
       if (!selectedProjectId) return;
       projectStore.addGenerationsToProject(selectedProjectId, selectedItems);
     }
+    
+    // Update global store for immediate UI feedback
+    if (targetProjectId) {
+      const selectedIds = new Set(selectedItems.map(i => i.id));
+      setGenerationHistory(prev => prev.map(item => 
+        selectedIds.has(item.id) ? { ...item, projectId: targetProjectId! } : item
+      ));
+    }
+
     onOpenChange(false);
     onSuccess?.();
     
