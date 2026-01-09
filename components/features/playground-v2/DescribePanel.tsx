@@ -161,7 +161,7 @@ export function DescribePanel({
                       onDescribe();
                     }}
                     disabled={isDescribing || isGenerating}
-                    className="h-10 px-8 rounded-xl bg-primary text-black font-normal hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(var(--primary),0.3)] active:scale-95 disabled:opacity-50 shrink-0"
+                    className="h-10 px-8 rounded-xl bg-primary text-black font-normal hover:bg-primary/90 transition-all shadow-[0_0_20px_oklch(var(--primary)/0.3)] active:scale-95 disabled:opacity-50 shrink-0"
                   >
                     {isDescribing ? (
                       <div className="flex items-center gap-2">

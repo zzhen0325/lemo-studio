@@ -45,6 +45,13 @@ type GradualBlurProps = {
   className?: string;
   style?: CSSProperties;
   visibleColor?: string;
+  borderRadius?: string | number;
+  animate?: {
+    type: 'scroll';
+    targetRef: React.RefObject<HTMLElement | null>;
+    startOffset?: number;
+    endOffset?: number;
+  };
 };
 
 const DEFAULT_CONFIG: Partial<GradualBlurProps> = {
@@ -172,6 +179,25 @@ const useIntersectionObserver = (ref: React.RefObject<HTMLDivElement | null>, sh
 const GradualBlur: React.FC<PropsWithChildren<GradualBlurProps>> = props => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(props.animate?.type === 'scroll' ? 0 : 1);
+
+  useEffect(() => {
+    const target = props.animate?.targetRef?.current;
+    if (props.animate?.type === 'scroll' && target) {
+      const start = props.animate.startOffset ?? 0;
+      const end = props.animate.endOffset ?? 50;
+
+      const handleScroll = () => {
+        const current = target.scrollTop;
+        const progress = Math.min(Math.max((current - start) / (end - start), 0), 1);
+        setScrollProgress(progress);
+      };
+
+      target.addEventListener('scroll', handleScroll);
+      handleScroll(); // 初始执行一次
+      return () => target.removeEventListener('scroll', handleScroll);
+    }
+  }, [props.animate?.type, props.animate?.targetRef?.current, props.animate?.startOffset, props.animate?.endOffset]);
 
   const config = useMemo(() => {
     const presetConfig = props.preset && PRESETS[props.preset] ? PRESETS[props.preset] : {};
@@ -200,10 +226,11 @@ const GradualBlur: React.FC<PropsWithChildren<GradualBlurProps>> = props => {
       const progressForBlur = isAround ? 1 - progress : progress;
 
       let blurValue: number;
+      const baseStrength = currentStrength * scrollProgress;
       if (config.exponential) {
-        blurValue = Number(math.pow(2, progressForBlur * 4)) * 0.0625 * currentStrength;
+        blurValue = Number(math.pow(2, progressForBlur * 4)) * 0.0625 * baseStrength;
       } else {
-        blurValue = 0.0625 * (progressForBlur * config.divCount + 1) * currentStrength;
+        blurValue = 0.0625 * (progressForBlur * config.divCount + 1) * baseStrength;
       }
 
       const p1 = math.round((increment * i - increment) * 10) / 10;
@@ -241,7 +268,8 @@ const GradualBlur: React.FC<PropsWithChildren<GradualBlurProps>> = props => {
             : `linear-gradient(${direction}, ${gradient})`,
         backdropFilter: `blur(${blurValue.toFixed(3)}rem)`,
         WebkitBackdropFilter: `blur(${blurValue.toFixed(3)}rem)`,
-        opacity: config.opacity,
+        opacity: config.opacity * scrollProgress,
+        borderRadius: props.borderRadius,
         transition:
           config.animated && config.animated !== 'scroll'
             ? `backdrop-filter ${config.duration} ${config.easing}`
@@ -252,7 +280,7 @@ const GradualBlur: React.FC<PropsWithChildren<GradualBlurProps>> = props => {
     }
 
     return divs;
-  }, [config, isHovered]);
+  }, [config, isHovered, scrollProgress, props.borderRadius]);
 
   const containerStyle: CSSProperties = useMemo(() => {
     const isVertical = ['top', 'bottom'].includes(config.position);
@@ -266,6 +294,8 @@ const GradualBlur: React.FC<PropsWithChildren<GradualBlurProps>> = props => {
       opacity: isVisible ? 1 : 0,
       transition: config.animated ? `opacity ${config.duration} ${config.easing}` : undefined,
       zIndex: isPageTarget ? config.zIndex + 100 : config.zIndex,
+      borderRadius: props.borderRadius,
+      overflow: 'hidden',
       ...config.style
     };
 

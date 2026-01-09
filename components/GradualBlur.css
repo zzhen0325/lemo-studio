@@ -5,8 +5,11 @@
 }
 
 .gradual-blur-inner>div {
-  -webkit-backdrop-filter: inherit;
-  backdrop-filter: inherit;
+  mask-image: linear-gradient(to top, transparent 60%, black 80%, black 100%);
+  -webkit-mask-image: linear-gradient(to top, transparent 60%, black 80%, black 100%);
+  backdrop-filter: blur(3.125rem);
+  -webkit-backdrop-filter: blur(3.125rem);
+  opacity: 1;
 }
 
 .gradual-blur {

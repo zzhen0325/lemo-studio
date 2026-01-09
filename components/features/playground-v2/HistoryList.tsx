@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, ChevronLeft, ChevronRight, LayoutGrid, List, X } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, Layers, ChevronLeft, ChevronRight, LayoutGrid, List, X, CheckSquare, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -9,7 +9,8 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-// import GradualBlur from "@/components/GradualBlur";
+import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
+import GradualBlur from "@/components/GradualBlur";
 
 interface HistoryListProps {
   history: Generation[];
@@ -45,6 +46,9 @@ export default function HistoryList({
 }: HistoryListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const { setPreviewImage } = usePlaygroundStore();
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
 
   // Group history by start time (createdAt) and parameters to reflect single-click aggregation
   const groupedHistory = React.useMemo(() => {
@@ -82,39 +86,83 @@ export default function HistoryList({
     return Array.from(map.values()).sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
   }, [history]);
 
+  const toggleSelection = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedIds(newSet);
+  };
+
+  const toggleGroupSelection = (items: Generation[]) => {
+    const newSet = new Set(selectedIds);
+    const allSelected = items.every(item => newSet.has(item.id));
+    
+    if (allSelected) {
+      items.forEach(item => newSet.delete(item.id));
+    } else {
+      items.forEach(item => newSet.add(item.id));
+    }
+    setSelectedIds(newSet);
+  };
+
+  const getSelectedItems = () => {
+    return history.filter(item => selectedIds.has(item.id));
+  };
+
   if (history.length === 0) return null;
 
   return (
     <div
       className="bg-white/5 border border-white/10 rounded-3xl h-full flex flex-col relative overflow-hidden"
     >
-      {/* <div className='relative h-[100px] rounded-3xl overflow-hidden'>
-        <div style={{ height: '100%', overflowY: 'auto', padding: '6rem 2rem' }}
-          className='rounded-3xl'>
-
-        </div>
-
-        <GradualBlur
-          position="top"
-          strength={5}
-          divCount={6}
-        />
-      </div>
- */}
-
-
-
-
-
+      <GradualBlur
+        target="parent"
+        position="top"
+        height="100px"
+        strength={3}
+        divCount={7}
+        curve="bezier"
+      
+        zIndex={10}
+        opacity={1}
+        borderRadius="1.5rem"
+        animate={{
+          type: 'scroll',
+          targetRef: scrollRef,
+          startOffset: 0,
+          endOffset: 80
+        }}
+      />
       {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
       <div className="absolute top-6 left-8 z-20 pointer-events-none">
+
+        
         <span className="text-white text-2xl"
           style={{ fontFamily: "'InstrumentSerif', serif" }}
         >History</span>
       </div>
 
       <div className="absolute top-6 right-8 z-20 flex items-center gap-3">
-        <div className="flex items-center p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
+        <div className="flex items-center p-1 gap-2 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
+           <button
+            onClick={() => {
+              setIsSelectionMode(!isSelectionMode);
+              if (isSelectionMode) setSelectedIds(new Set()); // Clear selection on exit
+            }}
+            className={cn(
+              "p-1.5 rounded-md transition-all",
+              isSelectionMode
+                ? "bg-white/10 text-primary"
+                : "text-white/40 hover:text-white hover:bg-white/5"
+            )}
+            title="Select Mode"
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+          </button>
+          <div className="w-[1px] h-3.5 bg-white/10 mx-1" />
           <button
             onClick={() => onLayoutModeChange?.('grid')}
             className={cn(
@@ -167,10 +215,6 @@ export default function HistoryList({
               const isText = !!result.sourceImageUrl && (result.outputUrl === result.sourceImageUrl);
 
               if (isText) {
-                // 对于描述分析项，因为用户说“保留现有”，而现有在网格下是 DescribeInteractiveCard
-                // 但那是基于 group 的。在扁平 history 中遇到 text 项时，我们跳过它（因为它已经在 group 逻辑中处理过，或者我们需要在这里单独处理）
-                // 观察原代码：groupedHistory 包含了所有项。
-                // 如果用户想在网格下“打散”图片但“保留聚合”的 Describe，我们需要一点混合逻辑。
                 return null;
               }
 
@@ -185,13 +229,34 @@ export default function HistoryList({
                       setPreviewImage(url, id);
                     }}
                     layoutMode={layoutMode}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedIds.has(result.id)}
+                    onToggleSelect={() => toggleSelection(result.id)}
                   />
                 </div>
               );
             })
           ) : (
-            groupedHistory.map((group, groupIdx) => (
-              <div key={`group-${groupIdx}`} className="break-inside-avoid flex flex-col bg-transparent overflow-hidden mb-2">
+            groupedHistory.map((group, groupIdx) => {
+               const isGroupSelected = group.items.every(item => selectedIds.has(item.id));
+               const hasSelection = group.items.some(item => selectedIds.has(item.id));
+               
+               return (
+              <div 
+                key={`group-${groupIdx}`} 
+                className={cn(
+                  "break-inside-avoid flex flex-col overflow-hidden mb-2  transition-all",
+                  isSelectionMode ? "cursor-pointer border-2 p-2 rounded-3xl " : "bg-transparent border-0",
+                  isSelectionMode && isGroupSelected ? "border-primary/20 bg-white/5" : (isSelectionMode ? "border-transparent hover:bg-white/5" : "")
+                )}
+                onClick={(e) => {
+                  if (isSelectionMode) {
+                    // If clicking the container background, toggle group
+                    // Prevent if target is inside the card actions
+                    toggleGroupSelection(group.items);
+                  }
+                }}
+              >
                 {group.type === 'image' ? (
                   <div className="flex flex-col">
                     <HistoryCard
@@ -204,6 +269,9 @@ export default function HistoryList({
                         setPreviewImage(url, id);
                       }}
                       layoutMode={layoutMode}
+                      isSelectionMode={isSelectionMode}
+                      isSelected={isGroupSelected} // In list mode, the card represents the group
+                      onToggleSelect={() => toggleGroupSelection(group.items)}
                     />
                   </div>
                 ) : (
@@ -229,7 +297,8 @@ export default function HistoryList({
                               width={1024}
                               height={1024}
                               className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 if (group.sourceImage) {
                                   setPreviewImage(group.sourceImage, `img-ref-${group.items[0].id}`);
                                 }
@@ -250,7 +319,10 @@ export default function HistoryList({
                           <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/img:opacity-100 transition-opacity">
                             <button
                               className="p-1.5 rounded-lg bg-black/60 hover:bg-emerald-500 text-white/80 hover:text-white border border-white/10 transition-colors"
-                              onClick={() => onBatchUse(group.items, group.sourceImage)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onBatchUse(group.items, group.sourceImage);
+                              }}
                             >
                               <Layers className="w-3.5 h-3.5" />
                             </button>
@@ -259,13 +331,19 @@ export default function HistoryList({
                       </div>
 
                       {group.items.map((result, idx) => (
-                        <TextHistoryCard key={result.id || `txt-${idx}`} result={result} />
+                        <TextHistoryCard 
+                          key={result.id || `txt-${idx}`} 
+                          result={result}
+                          isSelectionMode={isSelectionMode}
+                          isSelected={selectedIds.has(result.id)}
+                          onToggleSelect={() => toggleSelection(result.id)}
+                        />
                       ))}
                     </div>
                   </div>
                 )}
               </div>
-            ))
+            )})
           )}
 
           {/* 独立处理网格模式下的 Describe 项，保持现有的分组聚合交互 */}
@@ -279,6 +357,44 @@ export default function HistoryList({
           ))}
         </div>
       </div>
+
+      {/* Floating Action Bar */}
+      <AnimatePresence>
+        {isSelectionMode && selectedIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30"
+          >
+            <div className="flex items-center gap-3 px-4 py-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl">
+              <span className="text-xs font-medium text-white/80 px-2">
+                {selectedIds.size} selected
+              </span>
+              <div className="w-[1px] h-4 bg-white/10" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 rounded-full hover:bg-white/10 text-white gap-2"
+                onClick={() => setIsAddToProjectOpen(true)}
+              >
+                <FolderPlus className="w-4 h-4" />
+                Add to Project
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AddToProjectDialog 
+        open={isAddToProjectOpen} 
+        onOpenChange={setIsAddToProjectOpen}
+        selectedItems={getSelectedItems()}
+        onSuccess={() => {
+          setIsSelectionMode(false);
+          setSelectedIds(new Set());
+        }}
+      />
     </div>
 
   );
@@ -292,6 +408,9 @@ function HistoryCard({
   onImageClick,
   onRefImageClick,
   layoutMode = 'list',
+  isSelectionMode,
+  isSelected,
+  onToggleSelect
 }: {
   result: Generation;
   allResults?: Generation[];
@@ -300,6 +419,9 @@ function HistoryCard({
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onRefImageClick: (url: string, id: string) => void;
   layoutMode?: 'grid' | 'list';
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const [isHover, setIsHover] = React.useState(false);
   const { applyPrompt, applyModel, applyImage } = usePlaygroundStore();
@@ -321,7 +443,19 @@ function HistoryCard({
     const effectiveAspectRatio = `${width} / ${height}`;
 
     return (
-      <div className="flex flex-col w-full bg-transparent transition-all  group/card gap-4">
+      <div 
+        className={cn(
+          "flex flex-col w-full bg-transparent transition-all group/card gap-4 rounded-2xl",
+          isSelectionMode && "cursor-pointer p-4 border-2",
+          isSelectionMode && isSelected ? "border-primary/80 bg-emerald-500/5" : (isSelectionMode ? "border-white/5 hover:border-white/10" : "border-0")
+        )}
+        onClick={(e) => {
+          if (isSelectionMode) {
+            e.stopPropagation();
+            onToggleSelect?.();
+          }
+        }}
+      >
 
 
         {/* Header: Metadata & Actions */}
@@ -388,7 +522,8 @@ function HistoryCard({
                     tooltipContent="Copy Prompt"
                     tooltipSide="top"
                     className="w-3 h-3 bg-transparent hover:bg-transparent text-white/40 hover:text-white transition-all group/copy -mr-1"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       navigator.clipboard.writeText(prompt);
                       toast({
                         title: "已复制",
@@ -400,7 +535,8 @@ function HistoryCard({
                 <motion.div className="flex-1 max-h-[70%] pr-1">
                   <p
                     className="text-[12px] text-white/90 leading-relaxed line-clamp-6 cursor-pointer hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       applyPrompt(prompt);
                       toast({
                         title: "提示词已应用",
@@ -416,7 +552,10 @@ function HistoryCard({
                       <motion.div
                         layoutId={`img-ref-${result.id}`}
                         className="relative w-20 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
-                        onClick={() => onRefImageClick(result.sourceImageUrl!, `img-ref-${result.id}`)}
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           onRefImageClick(result.sourceImageUrl!, `img-ref-${result.id}`)
+                        }}
                       >
                         <Image
                           src={result.sourceImageUrl}
@@ -439,7 +578,10 @@ function HistoryCard({
 
                     size="sm"
                     className="h-8 rounded-sm border-white/10 bg-black/5 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
-                    onClick={() => onRegenerate(result)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRegenerate(result);
+                    }}
                   >
 
                     <span className="text-md hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Rerun</span>
@@ -447,7 +589,8 @@ function HistoryCard({
                   <Button
                     size="sm"
                     className="h-8 rounded-sm border-white/10 bg-black/5 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (config) {
                         applyModel(config.model || '', {
                           prompt: config.prompt,
@@ -503,8 +646,13 @@ function HistoryCard({
                           sizes="(max-width: 1536px) 50vw, 800px"
                           className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
                           onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            onImageClick(res, rect);
+                            e.stopPropagation();
+                            if (!isSelectionMode) {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              onImageClick(res, rect);
+                            } else {
+                              onToggleSelect?.();
+                            }
                           }}
                         />
                       ) : (
@@ -513,14 +661,17 @@ function HistoryCard({
                         </div>
                       )}
                       {/* Individual Actions Overlay */}
-                      {res.status !== 'pending' && img && (
+                      {res.status !== 'pending' && img && !isSelectionMode && (
                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
                           <TooltipButton
                             icon={<Download className="w-3.5 h-3.5" />}
                             label="Download"
                             tooltipContent="Download"
                             className="w-7 h-7 bg-black/60 rounded-lg"
-                            onClick={() => onDownload(img)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDownload(img);
+                            }}
                           />
                         </div>
                       )}
@@ -544,11 +695,19 @@ function HistoryCard({
   return (
     <div
       className={cn(
-        "group relative w-full overflow-hidden  bg-black/15 rounded-2xl border border-white/10 transition-all duration-300 hover:border-white/30",
-        layoutMode === 'grid' && "h-full"
+        "group relative w-full overflow-hidden  bg-black/15 rounded-2xl border transition-all duration-300",
+        layoutMode === 'grid' && "h-full",
+        isSelectionMode && "cursor-pointer border-2",
+        isSelectionMode && isSelected ? "border-emerald-500/50 bg-emerald-500/5" : (isSelectionMode ? "border-white/5 hover:border-white/10" : "border-white/10 hover:border-white/30")
       )}
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
+      onClick={(e) => {
+        if (isSelectionMode) {
+          e.stopPropagation();
+          onToggleSelect?.();
+        }
+      }}
     >
 
       <motion.div
@@ -574,8 +733,13 @@ function HistoryCard({
               layoutMode === 'grid' ? "h-full object-cover" : "h-auto"
             )}
             onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              onImageClick(result, rect);
+              if (isSelectionMode) {
+                 e.stopPropagation();
+                 onToggleSelect?.();
+              } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                onImageClick(result, rect);
+              }
             }}
           />
         ) : (
@@ -583,6 +747,7 @@ function HistoryCard({
         )}
       </motion.div>
 
+      {!isSelectionMode && (
       <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
         <TooltipButton
           icon={<Type className="w-4 h-4" />}
@@ -633,14 +798,21 @@ function HistoryCard({
           onClick={() => mainImage && onDownload(mainImage)}
         />
       </div>
+      )}
     </div>
   );
 }
 
 function TextHistoryCard({
   result,
+  isSelectionMode,
+  isSelected,
+  onToggleSelect
 }: {
   result: Generation;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const { toast } = useToast();
   const { applyPrompt } = usePlaygroundStore();
@@ -654,7 +826,17 @@ function TextHistoryCard({
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black/5 p-4 flex flex-col justify-start group/card"
+      className={cn(
+        "relative w-full overflow-hidden rounded-xl border bg-black/5 p-4 flex flex-col justify-start group/card transition-all",
+        isSelectionMode && "cursor-pointer",
+        isSelectionMode && isSelected ? "border-emerald-500/50 bg-emerald-500/5" : (isSelectionMode ? "border-white/5 hover:border-white/10" : "border-white/10")
+      )}
+      onClick={(e) => {
+        if (isSelectionMode) {
+          e.stopPropagation();
+          onToggleSelect?.();
+        }
+      }}
     >
       <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
         <span className="block w-1 h-1 rounded-full bg-white/20" />
@@ -671,8 +853,12 @@ function TextHistoryCard({
             className="text-[11px] text-white/90 leading-relaxed line-clamp-[10] cursor-pointer hover:drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] transition-all"
             onClick={(e) => {
               e.stopPropagation();
-              applyPrompt(prompt);
-              toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
+              if (!isSelectionMode) {
+                applyPrompt(prompt);
+                toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
+              } else {
+                onToggleSelect?.();
+              }
             }}
           >
             {prompt}
@@ -680,7 +866,7 @@ function TextHistoryCard({
         )}
       </div>
 
-      {result.status !== 'pending' && (
+      {result.status !== 'pending' && !isSelectionMode && (
         <>
           <div className="flex absolute bottom-3 left-1/2 -translate-x-1/2 gap-2 opacity-0 group-hover/card:opacity-100 transition-opacity">
             <Button

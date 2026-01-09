@@ -73,7 +73,7 @@ export default function PromptInput({
     <div
       className={cn(
         "w-full relative rounded-2xl",
-        isDraggingOver && "ring-2 ring-primary/50 bg-primary/5 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+        isDraggingOver && "ring-2 ring-primary/50 bg-primary/5 shadow-[0_0_20px_oklch(var(--primary)/0.1)]"
       )}
       onDragOver={(e) => { e.preventDefault(); }}
       onDrop={(e) => {

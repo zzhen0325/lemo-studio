@@ -118,7 +118,8 @@ async function readHistoryFromDisk() {
                             width: Number(metadata.config.width || 1024),
                             height: Number(metadata.config.height || 1024),
                             model: metadata.config.model || '',
-                            lora: metadata.config.lora || '',
+                            loras: metadata.config.loras || [],
+                            presetName: metadata.config.presetName || '',
                         };
                     }
                     return {
@@ -126,7 +127,8 @@ async function readHistoryFromDisk() {
                         width: Number(metadata?.img_width || metadata?.metadata?.img_width || 1024),
                         height: Number(metadata?.img_height || metadata?.metadata?.img_height || 1024),
                         model: metadata?.base_model || metadata?.metadata?.base_model || '',
-                        lora: metadata?.lora || metadata?.metadata?.lora || '',
+                        loras: metadata?.loras || metadata?.metadata?.loras || [],
+                        presetName: metadata?.presetName || metadata?.metadata?.presetName || '',
                     };
                 })();
 

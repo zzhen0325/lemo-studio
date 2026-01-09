@@ -405,25 +405,25 @@ export default function ControlToolbar({
             <Button
               onClick={onGenerate}
               className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center gap-2 border-[2px] border-transparent transition-all duration-300 hover:animate-border-rotate"
-              style={{
-                // backgroundImage: `
-                //   linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
-                //   linear-gradient(black, black),
-                //  conic-gradient(from var(--angle), #223895 0deg, #93a7fe 17%, #3a5efb 35%, #3a5efb 51%, #93a7ff 68%, #223895 84%) 
-                // `,
-                backgroundClip: 'padding-box, padding-box, border-box',
-                backgroundOrigin: 'border-box',
-              }}
+              // style={{
+              //   backgroundImage: `
+              //     linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
+              //     linear-gradient(primary, black),
+              //    conic-gradient(from var(--angle), #229563ff 0deg, #b0eed6ff 17%, #89d8acff 35%, #569466ff 51%, #87d690ff 68%, #a7d8b4ff 84%) 
+              //   `,
+              //   backgroundClip: 'padding-box, padding-box, border-box',
+              //   backgroundOrigin: 'border-box',
+              // }}
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-4 h-4  animate-spin" />
+                  <Loader2 className="w-4 h-4    animate-spin" />
                   {loadingText}
                 </>
               ) : (
                 <>
 
-                  Generate {batchSize > 1 ? `(${batchSize})` : ''}
+                  Generate
                 </>
               )}
             </Button>

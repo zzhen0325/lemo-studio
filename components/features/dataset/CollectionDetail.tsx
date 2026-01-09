@@ -102,7 +102,7 @@ const SortableImage = ({ img, gridColumns, onDelete, isSelected, onSelect }: Sor
                 }
             }}
             className={`group relative aspect-square bg-card border rounded-xl overflow-hidden transition-all select-none touch-none ${isSelected
-                ? 'ring-2 ring-primary border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]'
+                ? 'ring-2 ring-primary border-primary shadow-[0_0_15px_oklch(var(--primary)/0.3)]'
                 : 'border-border hover:ring-2 hover:ring-primary/50'
                 }`}
         >
@@ -1808,7 +1808,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     {/* Image Grid Items */}
                     {images.map((img: DatasetImage) => (
                         <div key={img.id} className={`flex flex-col sm:flex-row bg-card border rounded-2xl overflow-hidden group transition-all duration-100 ${selectedIds.has(img.id)
-                            ? 'border-primary ring-1 ring-primary shadow-[0_0_15px_rgba(var(--primary),0.2)]'
+                            ? 'border-primary ring-1 ring-primary shadow-[0_0_15px_oklch(var(--primary)/0.2)]'
                             : 'border-border hover:border-primary/30'}`}>
                             {/* Image Section */}
                             <div

@@ -90,6 +90,33 @@ class ProjectStore {
       }
     }
   }
+
+  addGenerationsToProject(projectId: string, generations: Generation[]) {
+    const project = this.projects.find(p => p.id === projectId);
+    if (project) {
+      const existingIds = new Set(project.history.map(h => h.id));
+      const newItems = generations.filter(g => !existingIds.has(g.id));
+      
+      const combined = [...newItems, ...project.history];
+      // Sort by createdAt desc to maintain timeline
+      combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      project.history = combined;
+
+      if (!project.thumbnailUrl && project.history.length > 0) {
+        const firstWithImage = project.history.find(h => h.outputUrl);
+        if (firstWithImage) {
+          project.thumbnailUrl = firstWithImage.outputUrl;
+        }
+      }
+    }
+  }
+
+  createProjectWithHistory(name: string, generations: Generation[]) {
+    const newProject = this.addProject(name);
+    this.addGenerationsToProject(newProject.id, generations);
+    return newProject;
+  }
 }
 
 export const projectStore = new ProjectStore();

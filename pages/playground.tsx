@@ -119,8 +119,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const project = projectStore.currentProject;
     if (project) {
       usePlaygroundStore.getState().setGenerationHistory([...project.history]);
+    } else {
+      fetchHistory();
     }
-  }, [mobxProjectId]);
+  }, [mobxProjectId, fetchHistory]);
 
   useEffect(() => {
     if (mobxProjectId) {
@@ -162,6 +164,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   useEffect(() => {
     projectStore.toggleSidebar(showProjectSidebar);
   }, [showProjectSidebar]);
+
+  // 进入历史记录时自动展开项目侧边栏
+  useEffect(() => {
+    if (showHistory) {
+      setShowProjectSidebar(true);
+    }
+  }, [showHistory, setShowProjectSidebar]);
 
   // Sync workflow config when workflowName changes (e.g., during backfilling/remix)
   useEffect(() => {

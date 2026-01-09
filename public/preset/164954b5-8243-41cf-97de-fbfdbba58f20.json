@@ -1,0 +1,13 @@
+{
+  "name": "byte",
+  "coverUrl": "",
+  "config": {
+    "prompt": "lemo",
+    "model": "3D Lemo seed3",
+    "width": 1024,
+    "height": 1024,
+    "resolution": "1K"
+  },
+  "id": "164954b5-8243-41cf-97de-fbfdbba58f20",
+  "createdAt": "2026-01-09T05:33:47.696Z"
+}
