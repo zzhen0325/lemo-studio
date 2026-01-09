@@ -149,8 +149,21 @@ export function useGenerationService() {
         let modelId = "lemo_2dillustator"; // Default
         if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";
         if (selectedModel === "Seed 4.0") modelId = "seed4_lemo1230";
+        if (selectedModel === "Seed 4.2") modelId = "seed4_2_lemo";
 
         const unified = toUnifiedConfigFromLegacy(currentConfig);
+
+        // Validation for Seed 4.2 dimensions
+        if (modelId === "seed4_2_lemo") {
+            if (Number(unified.width) < 1024 || Number(unified.height) < 1024) {
+                toast({
+                    title: "尺寸限制",
+                    description: "Seed 4.2 模型的宽高尺寸不能小于 1024px",
+                    variant: "destructive"
+                });
+                throw new Error("Seed 4.2 dimension validation failed");
+            }
+        }
 
         const res = await callImage({
             model: modelId,

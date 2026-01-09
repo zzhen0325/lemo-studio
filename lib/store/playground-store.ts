@@ -190,7 +190,13 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
                 uiModel = 'Workflow';
             }
 
-            const newConfig = configData ? { ...state.config, ...configData, model: finalModel } : { ...state.config, model: finalModel };
+            let newConfig = configData ? { ...state.config, ...configData, model: finalModel } : { ...state.config, model: finalModel };
+            
+            // Default to 2K for Seed 4.2
+            if (finalModel === 'Seed 4.2' && !newConfig.resolution) {
+                newConfig.resolution = '2K';
+            }
+
             return {
                 selectedModel: uiModel,
                 config: newConfig,

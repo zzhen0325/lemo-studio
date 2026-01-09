@@ -405,19 +405,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
     const effectiveBatchSize = configOverride ? 1 : batchSize;
 
-    // Launch multiple generation tasks
-    const promises = Array.from({ length: effectiveBatchSize }).map(async (_, index) => {
-      // Add a small delay for each task to avoid hitting rate limits or race conditions
-      if (index > 0) {
-        await new Promise(resolve => setTimeout(resolve, index * 300));
+    // Launch generation tasks with a 0.3s staggered start (do not wait for completion)
+    for (let i = 0; i < effectiveBatchSize; i++) {
+      singleGenerate(configOverride, startTime);
+      
+      // Delay 0.3s before triggering the next submission
+      if (i < effectiveBatchSize - 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
-      return await singleGenerate(configOverride, startTime);
-    });
-
-    try {
-      await Promise.all(promises);
-    } catch (error) {
-      console.error("Batch generation failed:", error);
     }
   };
   const { optimizePrompt, isOptimizing } = usePromptOptimization({ systemInstruction: BASE_SYSTEM_INSTRUCTION });

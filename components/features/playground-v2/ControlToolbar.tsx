@@ -103,6 +103,7 @@ export default function ControlToolbar({
     let v: string | undefined;
     if (selectedModel === '3D Lemo seed3') v = 'seed3';
     else if (selectedModel === 'Seed 4.0') v = 'seed4';
+    else if (selectedModel === 'Seed 4.2') v = 'seed4_2';
     else if (selectedModel === 'Nano banana') v = 'nano_banana';
     else if (selectedModel === 'Workflow' && selectedWorkflowName) {
       const wf = (Array.isArray(workflows) ? workflows : []).find(
@@ -138,6 +139,10 @@ export default function ControlToolbar({
       onModelChange('Seed 4.0');
       onConfigChange?.({ model: 'Seed 4.0' });
     }
+    else if (val === 'seed4_2') {
+      onModelChange('Seed 4.2');
+      onConfigChange?.({ model: 'Seed 4.2' });
+    }
     else if (val === 'nano_banana') {
       onModelChange('Nano banana');
       onConfigChange?.({ model: 'Nano banana' });
@@ -160,6 +165,7 @@ export default function ControlToolbar({
   const triggerLabel = (() => {
     if (selectValue === 'seed3') return 'Seed 3';
     if (selectValue === 'seed4') return 'Seed 4';
+    if (selectValue === 'seed4_2') return 'Seed 4.2';
     if (selectValue === 'nano_banana') return 'Nano banana';
     if (selectedModel === 'Workflow') return selectedBaseModelName || 'Base Model';
     return 'Model';
@@ -211,6 +217,13 @@ export default function ControlToolbar({
         >
           <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 4
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
+          onClick={() => handleUnifiedSelectChange('seed4_2')}
+        >
+          <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4_2' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+          Seed 4.2
         </DropdownMenuItem>
 
         {BASE_MODEL_LIST.map((model) => (
@@ -287,7 +300,7 @@ export default function ControlToolbar({
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[320px] p-6 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
               <div className="space-y-4">
-                {selectedModel === 'Nano banana' && (
+                {(selectedModel === 'Nano banana' || selectedModel === 'Seed 4.2') && (
                   <div className="space-y-4">
                     <div className="text-xs text-white/70">Resolution</div>
                     <div className="flex gap-2">

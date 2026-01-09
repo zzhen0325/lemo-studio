@@ -245,7 +245,7 @@ export class BytedanceAfrProvider implements ImageProvider {
         const { prompt, width, height, batchSize, options } = params;
 
         const API_CONFIG = {
-            BASE_URL: 'https://effect.bytedance.net/media/api/pic/afr',
+            BASE_URL: process.env.GATEWAY_BASE_URL || 'https://effect.bytedance.net',
             AID: process.env.BYTEDANCE_AID || '6834',
             APP_KEY: process.env.BYTEDANCE_APP_KEY || 'a89de09e9bca4723943e8830a642464d',
             APP_SECRET: process.env.BYTEDANCE_APP_SECRET || '8505d553a24c485fb7d9bb336a3651a8',
@@ -263,20 +263,36 @@ export class BytedanceAfrProvider implements ImageProvider {
             sign
         });
 
-        const url = `${API_CONFIG.BASE_URL}?${queryParams.toString()}`;
+        const url = `${API_CONFIG.BASE_URL}/media/api/pic/afr?${queryParams.toString()}`;
 
-        const conf = {
-            width: width || 1024,
-            height: height || 1024,
-            batch_size: batchSize || 1,
+        const isSeed42 = this.config.modelId === 'seed4_2_lemo';
+        const conf: Record<string, any> = {
+            width: width || (isSeed42 ? 2048 : 1024),
+            height: height || (isSeed42 ? 2048 : 1024),
             seed: options?.seed || Math.floor(Math.random() * 2147483647),
-            prompt: prompt,
         };
+
+        if (isSeed42) {
+            conf['Prompt'] = prompt; // Capital P as requested
+            conf['local_lora_name'] = "lemo_seed4_0104_doubao@v4.safetensors";
+        } else {
+            conf['prompt'] = prompt;
+            conf['batch_size'] = batchSize || 1;
+        }
 
         const formData = new URLSearchParams();
         formData.append('conf', JSON.stringify(conf));
         formData.append('algorithms', this.config.modelId); // Use modelId as the algorithm name
         formData.append('img_return_format', 'png');
+
+        if (params.image) {
+            if (params.image.startsWith('http')) {
+                formData.append('source', params.image);
+            } else {
+                const base64Data = params.image.includes(',') ? params.image.split(',')[1] : params.image;
+                formData.append('base64file', base64Data);
+            }
+        }
 
         const agent = getProxyAgent();
         const fetchOptions: RequestInit & { agent?: unknown } = {

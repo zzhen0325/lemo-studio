@@ -1,0 +1,13 @@
+{
+  "name": "Lemo SEED4",
+  "coverUrl": "",
+  "config": {
+    "prompt": "lemo，",
+    "model": "Seed 4.2",
+    "width": 1024,
+    "height": 1024,
+    "resolution": "1K"
+  },
+  "id": "5f6dd3e1-eb16-40ad-a70f-92a2a18cb3ae",
+  "createdAt": "2026-01-09T08:46:01.146Z"
+}

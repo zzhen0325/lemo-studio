@@ -18,7 +18,7 @@ interface PresetManagerDialogProps {
     workflows: IViewComfy[];
 }
 
-const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', '3D Lemo seed3'];
+const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', 'Seed 4.2', '3D Lemo seed3'];
 
 const BASE_MODEL_LIST = [
     { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
@@ -229,6 +229,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                             <SelectContent>
                                                 <SelectItem value="Nano banana">Nano banana</SelectItem>
                                                 <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
+                                                <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
                                                 <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
                                                 <SelectItem value="Workflow">Workflow</SelectItem>
                                                 {BASE_MODEL_LIST.map(model => (

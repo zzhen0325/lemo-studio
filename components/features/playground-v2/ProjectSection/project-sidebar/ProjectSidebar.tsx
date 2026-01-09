@@ -13,7 +13,7 @@ interface ProjectSidebarProps {
 export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarProps) => {
 
   return (
-    <div className="relative shrink-0 mt-14 mb-14 flex flex-col z-30 h-[calc(100%-10rem)] w-[280px]">
+    <div className="relative shrink-0 mt-14 mb-14 flex flex-col z-30 h-[calc(100%-6rem)] w-[12vw]">
       <div className="bg-white/5 border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden ">
         <div className="px-4 pt-4 pb-4 flex flex-col gap-4 h-full">
           {/* Header */}

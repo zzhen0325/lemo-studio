@@ -53,6 +53,15 @@ export const REGISTRY: RegistryItem[] = [
         }
     },
     {
+        id: 'seed4_2_lemo',
+        providerType: 'bytedance-afr',
+        task: ['image'],
+        defaultConfig: {
+            providerId: 'bytedance',
+            modelId: 'seed4_2_lemo'
+        }
+    },
+    {
         id: 'lemo_2dillustator',
         providerType: 'bytedance-afr',
         task: ['image'],

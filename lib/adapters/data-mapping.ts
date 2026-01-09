@@ -18,7 +18,7 @@ const AR_MAP: Record<AspectRatio, Record<Resolution, { w: number; h: number }>> 
   '21:9': { '1K': { w: 1584, h: 672 }, '2K': { w: 3168, h: 1344 }, '4K': { w: 6336, h: 2688 } },
 };
 
-export const NANO_BANANA_MODELS = new Set<string>(['Nano banana', 'nanobanana']);
+export const RATIO_BASED_MODELS = new Set<string>(['Nano banana', 'nanobanana', 'Seed 4.2']);
 
 export function deriveSize(aspectRatio: AspectRatio, resolution: Resolution) {
   const pair = AR_MAP[aspectRatio][resolution];
@@ -45,10 +45,17 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
   const width = Number(input.width);
   const height = Number(input.height);
 
-  if (NANO_BANANA_MODELS.has(model)) {
+  if (RATIO_BASED_MODELS.has(model)) {
     const inferred = inferRatioResolution(width, height);
-    const resolution = input.resolution || inferred?.resolution;
-    const aspectRatio = inferred?.aspectRatio;
+    let resolution = input.resolution || inferred?.resolution;
+
+    // Default to 2K for Seed 4.2 if no resolution specified
+    if (model === 'Seed 4.2' && !input.resolution) {
+      resolution = '2K';
+    }
+
+    const aspectRatio = input.aspectRatio || inferred?.aspectRatio || '1:1';
+
     if (resolution && aspectRatio) {
       const size = deriveSize(aspectRatio, resolution);
       return {
