@@ -55,8 +55,8 @@ const HistoryList = observer(function HistoryList({
   onClose,
 }: HistoryListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const { 
-    setPreviewImage, 
+  const {
+    setPreviewImage,
     setGenerationHistory,
     isSelectionMode,
     setIsSelectionMode,
@@ -80,12 +80,12 @@ const HistoryList = observer(function HistoryList({
   const handleAddToProject = (projectId: string) => {
     const selectedItems = history.filter(item => selectedIds.has(item.id));
     if (selectedItems.length === 0) return;
-    
+
     // 1. Update project store (handles backend sync for metadata)
     projectStore.addGenerationsToProject(projectId, selectedItems);
-    
+
     // 2. Update global playground store for immediate UI feedback
-    setGenerationHistory(prev => prev.map(item => 
+    setGenerationHistory(prev => prev.map(item =>
       selectedIds.has(item.id) ? { ...item, projectId } : item
     ));
 
@@ -93,7 +93,7 @@ const HistoryList = observer(function HistoryList({
       title: "Success",
       description: `Added ${selectedItems.length} items to project`,
     });
-    
+
     // Clear selection and exit mode
     clearSelection();
     setIsSelectionMode(false);
@@ -142,7 +142,7 @@ const HistoryList = observer(function HistoryList({
 
   const toggleGroupSelection = (items: Generation[]) => {
     const allSelected = items.every(item => selectedIds.has(item.id));
-    
+
     if (allSelected) {
       items.forEach(item => {
         if (selectedIds.has(item.id)) toggleSelection(item.id);
@@ -188,72 +188,64 @@ const HistoryList = observer(function HistoryList({
           style={{ fontFamily: "'InstrumentSerif', serif" }}
         >History</span>
 
-        
+
       </div>
 
       <div className="absolute top-6 right-8 z-20 flex items-center gap-3">
         <div className="flex items-center p-1 gap-2 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
-        <div className='flex gap-2'>
-           <button
-            onClick={() => {
-              setIsSelectionMode(!isSelectionMode);
-              if (isSelectionMode) clearSelection(); // Clear selection on exit
-            }}
-            className={cn(
-              " px-2 rounded-md flex items-center gap-2 transition-all",
-              isSelectionMode
-                ? "bg-white/10 text-primary"
-                : "text-white/40 hover:text-white hover:bg-white/5"
-            )}
-            title="Select Mode"
-          >
-            
-            <Folder className="w-3.5 h-3.5" />
-            <span className='text-sm'>Manager</span>
-          </button>
-           <AnimatePresence>
-            {isSelectionMode && (
-              <motion.div
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                className="flex items-center gap-1"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-sm  text-white/60 hover:text-white hover:bg-white/10"
-                  onClick={handleSelectAll}
-                >
-                  Select All
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-sm text-white/60 hover:text-white hover:bg-white/10"
-                  onClick={handleDeselectAll}
-                >
-                  Cancel
-                </Button>
-                
-                
-                <div className="w-[1px] h-3 bg-white/10 mx-1" />
-                 <Button
-                  size="sm"
-                  className="h-7 px-3 text-[11px] bg-white text-black hover:bg-white/90 font-medium rounded-md"
-                  onClick={handleConfirmAction}
-                  disabled={selectedIds.size === 0}
-                >
-                  Confirm
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className='flex gap-2'>
+            <button
+              onClick={() => {
+                setIsSelectionMode(!isSelectionMode);
+                if (isSelectionMode) clearSelection(); // Clear selection on exit
+              }}
+              className={cn(
+                " px-2 rounded-md flex items-center gap-2 transition-all",
+                isSelectionMode
+                  ? "bg-white/10 text-primary"
+                  : "text-white/40 hover:text-white hover:bg-white/5"
+              )}
+              title="Select Mode"
+            >
 
-          
+              <Folder className="w-3.5 h-3.5" />
+              <span className='text-sm'>Manager</span>
+            </button>
+            <AnimatePresence>
+              {isSelectionMode && (
+                <motion.div
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="flex items-center gap-1"
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-sm  text-white/60 hover:text-white hover:bg-white/10"
+                    onClick={handleSelectAll}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-sm text-white/60 hover:text-white hover:bg-white/10"
+                    onClick={handleDeselectAll}
+                  >
+                    Cancel
+                  </Button>
 
 
-        </div>
+
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+
+
+
+          </div>
           <div className="w-[1px] h-3.5 bg-white/10 mx-1" />
           <button
             onClick={() => onLayoutModeChange?.('grid')}
@@ -336,105 +328,106 @@ const HistoryList = observer(function HistoryList({
             })
           ) : (
             groupedHistory.map((group, groupIdx) => {
-               const isGroupSelected = group.items.every(item => selectedIds.has(item.id));
-               
-               return (
-              <div 
-                key={`group-${groupIdx}`} 
-                className={cn(
-                  "break-inside-avoid flex flex-col overflow-hidden mb-2  transition-all",
-                  isSelectionMode ? "cursor-pointer border-2 p-2 rounded-3xl " : "bg-transparent border-0",
-                  isSelectionMode && isGroupSelected ? "border-primary/20 bg-white/5" : (isSelectionMode ? "border-transparent hover:bg-white/5" : "")
-                )}
-                onClick={() => {
-                  if (isSelectionMode) {
-                    toggleGroupSelection(group.items);
-                  }
-                }}
-              >
-                {group.type === 'image' ? (
-                  <div className="flex flex-col">
-                    <DraggableHistoryCard
-                      result={group.items[0]}
-                      selectedIds={selectedIds}
-                      isSelectionMode={isSelectionMode}
-                    >
-                      <HistoryCard
+              const isGroupSelected = group.items.every(item => selectedIds.has(item.id));
+
+              return (
+                <div
+                  key={`group-${groupIdx}`}
+                  className={cn(
+                    "break-inside-avoid flex flex-col overflow-hidden mb-2  transition-all",
+                    isSelectionMode ? "cursor-pointer border-2 p-2 rounded-3xl " : "bg-transparent border-0",
+                    isSelectionMode && isGroupSelected ? "border-primary/20 bg-white/5" : (isSelectionMode ? "border-transparent hover:bg-white/5" : "")
+                  )}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      toggleGroupSelection(group.items);
+                    }
+                  }}
+                >
+                  {group.type === 'image' ? (
+                    <div className="flex flex-col">
+                      <DraggableHistoryCard
                         result={group.items[0]}
-                        allResults={group.items}
-                        onRegenerate={onRegenerate}
-                        onDownload={onDownload}
-                        onImageClick={onImageClick}
-                        onRefImageClick={(url, id) => {
-                          setPreviewImage(url, id);
-                        }}
-                        layoutMode={layoutMode}
+                        selectedIds={selectedIds}
                         isSelectionMode={isSelectionMode}
-                        isSelected={isGroupSelected} // In list mode, the card represents the group
-                        onToggleSelect={() => toggleGroupSelection(group.items)}
-                      />
-                    </DraggableHistoryCard>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-6 group/card">
-                    <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
-                      <div className="flex items-center gap-4">
-                        <span>{new Date(group.startAt).toLocaleString()}</span>
-                        <span className="opacity-20">/</span>
-                        <span className="text-white/40">Image Analysis</span>
-                      </div>
+                      >
+                        <HistoryCard
+                          result={group.items[0]}
+                          allResults={group.items}
+                          onRegenerate={onRegenerate}
+                          onDownload={onDownload}
+                          onImageClick={onImageClick}
+                          onRefImageClick={(url, id) => {
+                            setPreviewImage(url, id);
+                          }}
+                          layoutMode={layoutMode}
+                          isSelectionMode={isSelectionMode}
+                          isSelected={isGroupSelected} // In list mode, the card represents the group
+                          onToggleSelect={() => toggleGroupSelection(group.items)}
+                        />
+                      </DraggableHistoryCard>
                     </div>
-
-                    <div className="relative bg-transparent grid grid-cols-[1.5fr_4fr] gap-2 items-stretch content-start">
-                      <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
-                        {group.sourceImage ? (
-                          <motion.div
-                            layoutId={`img-ref-${group.items[0].id}`}
-                            className="w-full"
-                          >
-                            <Image
-                              src={group.sourceImage}
-                              alt="Source for describe"
-                              width={1024}
-                              height={1024}
-                              className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (group.sourceImage) {
-                                  setPreviewImage(group.sourceImage, `img-ref-${group.items[0].id}`);
-                                }
-                              }}
-                            />
-                          </motion.div>
-                        ) : (
-                          <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-white/10" />
-                          </div>
-                        )}
+                  ) : (
+                    <div className="flex flex-col gap-6 group/card">
+                      <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
+                        <div className="flex items-center gap-4">
+                          <span>{new Date(group.startAt).toLocaleString()}</span>
+                          <span className="opacity-20">/</span>
+                          <span className="text-white/40">Image Analysis</span>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        {group.items.map((item) => (
-                          <DraggableHistoryCard
-                            key={item.id}
-                            result={item}
-                            selectedIds={selectedIds}
-                            isSelectionMode={isSelectionMode}
-                          >
-                            <TextHistoryCard
+                      <div className="relative bg-transparent grid grid-cols-[1.5fr_4fr] gap-2 items-stretch content-start">
+                        <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
+                          {group.sourceImage ? (
+                            <motion.div
+                              layoutId={`img-ref-${group.items[0].id}`}
+                              className="w-full"
+                            >
+                              <Image
+                                src={group.sourceImage}
+                                alt="Source for describe"
+                                width={1024}
+                                height={1024}
+                                className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (group.sourceImage) {
+                                    setPreviewImage(group.sourceImage, `img-ref-${group.items[0].id}`);
+                                  }
+                                }}
+                              />
+                            </motion.div>
+                          ) : (
+                            <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                              <ImageIcon className="w-6 h-6 text-white/10" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          {group.items.map((item) => (
+                            <DraggableHistoryCard
+                              key={item.id}
                               result={item}
+                              selectedIds={selectedIds}
                               isSelectionMode={isSelectionMode}
-                              isSelected={selectedIds.has(item.id)}
-                              onToggleSelect={() => toggleSelection(item.id)}
-                            />
-                          </DraggableHistoryCard>
-                        ))}
+                            >
+                              <TextHistoryCard
+                                result={item}
+                                isSelectionMode={isSelectionMode}
+                                isSelected={selectedIds.has(item.id)}
+                                onToggleSelect={() => toggleSelection(item.id)}
+                              />
+                            </DraggableHistoryCard>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )})
+                  )}
+                </div>
+              )
+            })
           )}
         </div>
       </div>
@@ -467,8 +460,8 @@ const HistoryList = observer(function HistoryList({
         )}
       </AnimatePresence>
 
-      <AddToProjectDialog 
-        open={isAddToProjectOpen} 
+      <AddToProjectDialog
+        open={isAddToProjectOpen}
         onOpenChange={setIsAddToProjectOpen}
         selectedItems={getSelectedItems()}
         onSuccess={() => {
@@ -571,7 +564,7 @@ function HistoryCard({
     const effectiveAspectRatio = `${width} / ${height}`;
 
     return (
-      <div 
+      <div
         className={cn(
           "flex flex-col w-full bg-transparent transition-all group/card gap-4 rounded-2xl",
           isSelectionMode && "cursor-pointer p-4 border-2",
@@ -662,8 +655,8 @@ function HistoryCard({
                         layoutId={`img-ref-${result.id}`}
                         className="relative w-20 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
                         onClick={(e) => {
-                           e.stopPropagation();
-                           onRefImageClick(result.sourceImageUrl!, `img-ref-${result.id}`)
+                          e.stopPropagation();
+                          onRefImageClick(result.sourceImageUrl!, `img-ref-${result.id}`)
                         }}
                       >
                         <Image
@@ -830,8 +823,8 @@ function HistoryCard({
             )}
             onClick={(e) => {
               if (isSelectionMode) {
-                 e.stopPropagation();
-                 onToggleSelect?.();
+                e.stopPropagation();
+                onToggleSelect?.();
               } else {
                 const rect = e.currentTarget.getBoundingClientRect();
                 onImageClick(result, rect);
@@ -844,56 +837,56 @@ function HistoryCard({
       </motion.div>
 
       {!isSelectionMode && (
-      <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
-        <TooltipButton
-          icon={<Type className="w-4 h-4" />}
-          label="Use Prompt"
-          tooltipContent="Use Prompt"
-          tooltipSide="top"
-          className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-          onClick={() => applyPrompt(result.config?.prompt || '')}
-        />
-        <TooltipButton
-          icon={<ImageIcon className="w-4 h-4" />}
-          label="Use Image"
-          tooltipContent="Use Image"
-          tooltipSide="top"
-          className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-          onClick={() => mainImage && applyImage(mainImage)}
-        />
-        <TooltipButton
-          icon={<Box className="w-4 h-4" />}
-          label="Use Model"
-          tooltipContent="Use Model"
-          tooltipSide="top"
-          className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-          onClick={() => result.config && applyModel(result.config.model, {
-            prompt: result.config.prompt,
-            width: result.config.width,
-            height: result.config.height,
-            model: result.config.model,
-            lora: result.config.lora,
-            loras: result.config.loras,
-          })}
-        />
-        <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
-        <TooltipButton
-          icon={<RefreshCw className="w-4 h-4" />}
-          label="Remix"
-          tooltipContent="Recreate"
-          tooltipSide="top"
-          className="w-8 h-8 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-          onClick={() => onRegenerate(result)}
-        />
-        <TooltipButton
-          icon={<Download className="w-4 h-4" />}
-          label="Download"
-          tooltipContent="Download"
-          tooltipSide="top"
-          className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-          onClick={() => mainImage && onDownload(mainImage)}
-        />
-      </div>
+        <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+          <TooltipButton
+            icon={<Type className="w-4 h-4" />}
+            label="Use Prompt"
+            tooltipContent="Use Prompt"
+            tooltipSide="top"
+            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+            onClick={() => applyPrompt(result.config?.prompt || '')}
+          />
+          <TooltipButton
+            icon={<ImageIcon className="w-4 h-4" />}
+            label="Use Image"
+            tooltipContent="Use Image"
+            tooltipSide="top"
+            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+            onClick={() => mainImage && applyImage(mainImage)}
+          />
+          <TooltipButton
+            icon={<Box className="w-4 h-4" />}
+            label="Use Model"
+            tooltipContent="Use Model"
+            tooltipSide="top"
+            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+            onClick={() => result.config && applyModel(result.config.model, {
+              prompt: result.config.prompt,
+              width: result.config.width,
+              height: result.config.height,
+              model: result.config.model,
+              lora: result.config.lora,
+              loras: result.config.loras,
+            })}
+          />
+          <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+          <TooltipButton
+            icon={<RefreshCw className="w-4 h-4" />}
+            label="Remix"
+            tooltipContent="Recreate"
+            tooltipSide="top"
+            className="w-8 h-8 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+            onClick={() => onRegenerate(result)}
+          />
+          <TooltipButton
+            icon={<Download className="w-4 h-4" />}
+            label="Download"
+            tooltipContent="Download"
+            tooltipSide="top"
+            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+            onClick={() => mainImage && onDownload(mainImage)}
+          />
+        </div>
       )}
     </div>
   );

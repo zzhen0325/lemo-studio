@@ -49,15 +49,16 @@ import { observer } from "mobx-react-lite";
 import { projectStore } from "@/lib/store/project-store";
 import { ProjectSidebar } from "@/components/features/playground-v2/ProjectSection/project-sidebar/ProjectSidebar";
 import { AllProjectsView } from "@/components/features/playground-v2/ProjectSection/project-sidebar/AllProjectsView";
-import { 
-  DndContext, 
-  DragEndEvent, 
-  DragOverlay, 
-  PointerSensor, 
-  useSensor, 
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
   useSensors,
   defaultDropAnimationSideEffects
 } from "@dnd-kit/core";
+import { snapCenterToCursor } from "@dnd-kit/modifiers";
 
 gsap.registerPlugin(Flip, useGSAP);
 
@@ -193,12 +194,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     if (over.data.current?.type === 'project') {
       const targetProjectId = over.data.current.projectId;
-      
+
       // 1. Update project store
       await projectStore.addGenerationsToProject(targetProjectId, selectedItems);
-      
+
       // 2. Update global store
-      setGlobalGenerationHistory(prev => prev.map(item => 
+      setGlobalGenerationHistory(prev => prev.map(item =>
         selectedHistoryIds.has(item.id) ? { ...item, projectId: targetProjectId } : item
       ));
 
@@ -208,9 +209,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } else if (over.data.current?.type === 'new-project') {
       // 1. Create new project
       const newProject = await projectStore.createProjectWithHistory('New Project', selectedItems);
-      
+
       // 2. Update global store
-      setGlobalGenerationHistory(prev => prev.map(item => 
+      setGlobalGenerationHistory(prev => prev.map(item =>
         selectedHistoryIds.has(item.id) ? { ...item, projectId: newProject.id } : item
       ));
 
@@ -408,7 +409,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     // Launch generation tasks with a 0.3s staggered start (do not wait for completion)
     for (let i = 0; i < effectiveBatchSize; i++) {
       singleGenerate(configOverride, startTime);
-      
+
       // Delay 0.3s before triggering the next submission
       if (i < effectiveBatchSize - 1) {
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -973,328 +974,389 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     >
       <div
         className="flex-1 relative p-12 pt-16 h-full flex flex-col overflow-hidden"
-      onDragEnter={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDraggingOver(true);
-        // 自动展开 Describe 面板
-        if (!isDescribeMode) {
-          setIsDescribeMode(true);
-        }
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!isDraggingOver) setIsDraggingOver(true);
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        // Check if we are really leaving the window
-        if (e.relatedTarget === null || (e.relatedTarget as Node).nodeName === 'HTML') {
+        onDragEnter={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDraggingOver(true);
+          // 自动展开 Describe 面板
+          if (!isDescribeMode) {
+            setIsDescribeMode(true);
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isDraggingOver) setIsDraggingOver(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // Check if we are really leaving the window
+          if (e.relatedTarget === null || (e.relatedTarget as Node).nodeName === 'HTML') {
+            setIsDraggingOver(false);
+            setIsDraggingOverPanel(false);
+            // 如果退出且没有图片，自动收起
+            if (describeImages.length === 0) {
+              setIsDescribeMode(false);
+            }
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           setIsDraggingOver(false);
           setIsDraggingOverPanel(false);
-          // 如果退出且没有图片，自动收起
-          if (describeImages.length === 0) {
-            setIsDescribeMode(false);
-          }
-        }
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDraggingOver(false);
-        setIsDraggingOverPanel(false);
 
-        const files = e.dataTransfer.files;
-        if (files && files.length > 0) {
-          const dropY = e.clientY;
-          const windowHeight = window.innerHeight;
+          const files = e.dataTransfer.files;
+          if (files && files.length > 0) {
+            const dropY = e.clientY;
+            const windowHeight = window.innerHeight;
 
-          // 如果是在 Describe 面板区域附近（或当前面板已展开），上传到 Describe
-          if (isDescribeMode || dropY < windowHeight * 0.4) {
-            handleFilesUpload(files, 'describe');
+            // 如果是在 Describe 面板区域附近（或当前面板已展开），上传到 Describe
+            if (isDescribeMode || dropY < windowHeight * 0.4) {
+              handleFilesUpload(files, 'describe');
+            } else {
+              toast({ title: "已添加参考图", description: "图片已上传至当前生成配置中" });
+              handleFilesUpload(files, 'reference');
+            }
           } else {
-            toast({ title: "已添加参考图", description: "图片已上传至当前生成配置中" });
-            handleFilesUpload(files, 'reference');
+            // 如果松手时没有文件，则收起面板（如果是误操作）
+            if (describeImages.length === 0) {
+              setIsDescribeMode(false);
+            }
           }
-        } else {
-          // 如果松手时没有文件，则收起面板（如果是误操作）
-          if (describeImages.length === 0) {
-            setIsDescribeMode(false);
-          }
-        }
-      }}
-    >
+        }}
+      >
 
-      <div className="flex-1 bg-transparent border border-white/20 rounded-[2rem] overflow-hidden relative flex flex-col">
-        <main className="relative h-full flex bg-transparent overflow-hidden">
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept="image/*"
-            multiple
-            onChange={handleImageUpload}
-          />
+        <div className="flex-1 bg-transparent border border-white/20 rounded-[2rem] overflow-hidden relative flex flex-col">
+          <main className="relative h-full flex bg-transparent overflow-hidden">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+            />
 
-          <div className="relative w-full h-full flex flex-col items-center">
-            <PlaygroundBackground />
+            <div className="relative w-full h-full flex flex-col items-center">
+              <PlaygroundBackground />
 
-            {/* 全局底部渐进模糊 - 仅在预设面板展开且历史记录隐藏时显示 */}
-            {isPresetGridOpen && !showHistory && (
-              <GradualBlur
-                position="bottom"
-                height="8rem"
-                strength={5}
-                animated={true}
-                duration="0.4s"
-                className="pointer-events-none z-30"
-              />
-            )}
+              {/* 全局底部渐进模糊 - 仅在预设面板展开且历史记录隐藏时显示 */}
+              {isPresetGridOpen && !showHistory && (
+                <GradualBlur
+                  position="bottom"
+                  height="8rem"
+                  strength={5}
+                  animated={true}
+                  duration="0.4s"
+                  className="pointer-events-none z-30"
+                />
+              )}
 
-            <div className="relative z-20 flex flex-col items-center justify-center w-full h-full ">
-              {/* Project Sidebar Overlay */}
-              <div className="absolute left-6 top-0 bottom-0 z-40 pointer-events-none">
-                <div className="pointer-events-auto h-full flex flex-col">
+              {/* 三栏布局 - showHistory 为 true 时启用 */}
+              <div className={cn(
+                "relative z-20 w-full h-full",
+                showHistory
+                  ? "flex flex-row items-stretch"
+                  : "flex flex-col items-center justify-center"
+              )}>
+                {/* 左侧 Project 面板 - showHistory 时作为三栏的一部分 */}
+                {showHistory ? (
+                  <div className="w-[20%] min-w-[200px] max-w-[280px] h-full flex flex-col p-4 overflow-hidden min-h-0">
+                    {showProjectSidebar ? (
+                      <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
+                    ) : (
+                      <div className="py-6 shrink-0">
+                        <button
+                          onClick={() => setShowProjectSidebar(true)}
+                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
+                          title="展开项目"
+                        >
+                          <PanelLeftOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          <span className="text-sm font-medium">Project</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
 
-                  {showProjectSidebar ? (
-                    <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
-                  ) : (
-                    <div
-                      key="project-open-btn"
-                      className="py-6 shrink-0"
-                    >
+                {/* 中间内容区 */}
+                <div className={cn(
+                  "flex flex-col items-center relative z-30",
+                  showHistory
+                    ? "flex-1 h-full pt-4 overflow-hidden"
+                    : "max-w-4xl w-full",
+                  !showHistory && (isPresetGridOpen ? "mt-0" : "-mt-60")
+                )}>
+                  {/* Input UI */}
+                  <div ref={promptWrapperRef} className={cn(
+                    "w-full",
+                    showHistory && ""
+                  )}>
+                    <div className="w-full">
+                      {renderInputUI()}
+                    </div>
+                  </div>
+
+                  {/* History/Describe Trigger - Only show if history is NOT visible */}
+                  {!showHistory && !isDescribeMode && !isPresetGridOpen && (
+                    <div className="flex justify-center mt-4 gap-4">
                       <button
-                        onClick={() => setShowProjectSidebar(true)}
-                        className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
-                        title="展开项目"
+                        onClick={() => setIsDescribeMode(!isDescribeMode)}
+                        className={cn(
+                          "flex items-center gap-2 px-6 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
+                          isDescribeMode
+                            ? "text-white bg-black/40 border-white/60"
+                            : "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
+                        )}
                       >
-                        <PanelLeftOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        <span className="text-sm font-medium">Project</span>
+                        <Sparkles className="w-4 h-4" />
+                        <span className="text-sm font-medium">Describe</span>
+                      </button>
+                      <button
+                        onClick={() => setShowHistory(true)}
+                        className={cn(
+                          "flex items-center gap-2 px-6 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                        )}
+                      >
+                        <History className="w-4 h-4" />
+                        <span className="text-sm font-medium">History</span>
                       </button>
                     </div>
                   )}
 
+                  {!isDescribeMode && isPresetGridOpen && (
+                    <PresetGridOverlay
+                      onOpenManager={() => setIsPresetManagerOpen(true)}
+                      onSelectPreset={handlePresetSelect}
+                    />
+                  )}
+
+                  {/* 历史记录区域 */}
+                  {showHistory && (
+                    <div className="mt-6 w-full relative flex-1 overflow-hidden z-30">
+                      <HistoryList
+                        variant="sidebar"
+                        history={filteredHistory}
+                        onRegenerate={(res) => {
+                          if (res.config) {
+                            applyModel(res.config.model, {
+                              ...res.config,
+                              loras: res.config.loras || [],
+                              presetName: res.config.presetName,
+                            });
+                          }
+                          handleRegenerate(res);
+                        }}
+                        onDownload={handleDownload}
+                        onImageClick={openImageModal}
+                        onBatchUse={handleBatchUse}
+                        layoutMode={historyLayoutMode}
+                        onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
+                        onClose={() => setShowHistory(false)}
+                      />
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              {/* Gallery Overlay */}
-              <div className="absolute right-6 top-6 bottom-6 z-40 pointer-events-none">
-                <div className="pointer-events-auto h-full">
-
-                  {showGallery ? (
-                    <div
-                      key="gallery-panel"
-                      className="w-[380px] h-full py-6 flex flex-col"
-                    >
-                      <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
-                        <div className="flex items-center justify-between p-4 sticky top-0 z-10">
-                          <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
-                            {(['gallery', 'styles'] as const).map(tab => (
-                              <button
-                                key={tab}
-                                onClick={() => setActiveGalleryTab(tab)}
-                                className={cn(
-                                  "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
-                                  activeGalleryTab === tab
-                                    ? "bg-primary text-black shadow-lg"
-                                    : "text-white/50 hover:text-white hover:bg-white/10"
-                                )}
-                              >
-                                {tab === 'gallery' && "全部作品"}
-                                {tab === 'styles' && "Style"}
-                              </button>
-                            ))}
+                {/* 右侧 Gallery 面板 - showHistory 时作为三栏的一部分 */}
+                {showHistory ? (
+                  <div className={cn(
+                    "h-full flex flex-col p-4 transition-all duration-300",
+                    showGallery ? "w-[20%] min-w-[280px] max-w-[380px]" : "w-auto"
+                  )}>
+                    {showGallery ? (
+                      <div className="h-full flex flex-col">
+                        <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
+                          <div className="flex items-center justify-between p-4 sticky top-0 z-10">
+                            <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
+                              {(['gallery', 'styles'] as const).map(tab => (
+                                <button
+                                  key={tab}
+                                  onClick={() => setActiveGalleryTab(tab)}
+                                  className={cn(
+                                    "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
+                                    activeGalleryTab === tab
+                                      ? "bg-primary text-black shadow-lg"
+                                      : "text-white/50 hover:text-white hover:bg-white/10"
+                                  )}
+                                >
+                                  {tab === 'gallery' && "全部作品"}
+                                  {tab === 'styles' && "Style"}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setShowGallery(false)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>收起</span>
+                            </button>
                           </div>
-                          <button
-                            onClick={() => setShowGallery(false)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Close</span>
-                          </button>
-                        </div>
-                        <div className="flex-1 min-h-0">
-                          <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
+                          <div className="flex-1 min-h-0">
+                            <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div
-                      key="gallery-open-btn"
-                      className="py-6"
-                    >
-                      <button
-                        onClick={() => setShowGallery(true)}
-                        className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
-                        title="展开画廊"
-                      >
-                        <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        <span className="text-sm font-medium">Gallery</span>
-                      </button>
-                    </div>
-                  )}
-
-                </div>
-              </div>
-
-              <div className={cn(
-                "flex flex-col items-center max-w-4xl w-full relative z-30",
-                showHistory ? "w-[70vw] max-w-full h-[100vh] mt-[14rem]" : (isPresetGridOpen ? "mt-0" : "-mt-60")
-              )}>
-                {/* Input UI */}
-                <div ref={promptWrapperRef} className="w-full">
-                  <div className="w-full">
-                    {renderInputUI()}
+                    ) : (
+                      <div className="py-6 shrink-0">
+                        <button
+                          onClick={() => setShowGallery(true)}
+                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
+                          title="展开画廊"
+                        >
+                          <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          <span className="text-sm font-medium">Gallery</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                {/* History/Describe Trigger - Only show if history is NOT visible */}
-                {!showHistory && !isDescribeMode && !isPresetGridOpen && (
-                  <div className="flex justify-center mt-4 gap-4">
-                    <button
-                      onClick={() => setIsDescribeMode(!isDescribeMode)}
-                      className={cn(
-                        "flex items-center gap-2 px-6 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
-                        isDescribeMode
-                          ? "text-white bg-black/40 border-white/60"
-                          : "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
+                ) : (
+                  <div className="absolute right-6 top-6 bottom-6 z-40 pointer-events-none">
+                    <div className="pointer-events-auto h-full">
+                      {showGallery ? (
+                        <div
+                          key="gallery-panel"
+                          className="w-[380px] h-full py-6 flex flex-col"
+                        >
+                          <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
+                            <div className="flex items-center justify-between p-4 sticky top-0 z-10">
+                              <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
+                                {(['gallery', 'styles'] as const).map(tab => (
+                                  <button
+                                    key={tab}
+                                    onClick={() => setActiveGalleryTab(tab)}
+                                    className={cn(
+                                      "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
+                                      activeGalleryTab === tab
+                                        ? "bg-primary text-black shadow-lg"
+                                        : "text-white/50 hover:text-white hover:bg-white/10"
+                                    )}
+                                  >
+                                    {tab === 'gallery' && "全部作品"}
+                                    {tab === 'styles' && "Style"}
+                                  </button>
+                                ))}
+                              </div>
+                              <button
+                                onClick={() => setShowGallery(false)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Close</span>
+                              </button>
+                            </div>
+                            <div className="flex-1 min-h-0">
+                              <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          key="gallery-open-btn"
+                          className="py-6"
+                        >
+                          <button
+                            onClick={() => setShowGallery(true)}
+                            className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
+                            title="展开画廊"
+                          >
+                            <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            <span className="text-sm font-medium">Gallery</span>
+                          </button>
+                        </div>
                       )}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span className="text-sm font-medium">Describe</span>
-                    </button>
-                    <button
-                      onClick={() => setShowHistory(true)}
-                      className={cn(
-                        "flex items-center gap-2 px-6 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                      )}
-                    >
-                      <History className="w-4 h-4" />
-                      <span className="text-sm font-medium">History</span>
-                    </button>
+                    </div>
                   </div>
                 )}
-
-                {!isDescribeMode && isPresetGridOpen && (
-                  <PresetGridOverlay
-                    onOpenManager={() => setIsPresetManagerOpen(true)}
-                    onSelectPreset={handlePresetSelect}
-                  />
-                )}
-
-                {/* 历史记录区域 */}
-
-                {showHistory && (
-                  <div className="mt-6 w-full relative h-full overflow-hidden z-30">
-                    <HistoryList
-                      variant="sidebar"
-                      history={filteredHistory}
-                      onRegenerate={(res) => {
-                        if (res.config) {
-                          applyModel(res.config.model, {
-                            ...res.config,
-                            loras: res.config.loras || [],
-                            presetName: res.config.presetName,
-                          });
-                        }
-                        handleRegenerate(res);
-                      }}
-                      onDownload={handleDownload}
-                      onImageClick={openImageModal}
-                      onBatchUse={handleBatchUse}
-                      layoutMode={historyLayoutMode}
-                      onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
-                      onClose={() => setShowHistory(false)}
-                    />
-                  </div>
-                )}
-
-
 
               </div>
 
             </div>
-
-          </div>
-          {!isPresetGridOpen && !isPresetManagerOpen && !showHistory && (
-            <div className=" absolute bottom-0 w-full  overflow-visible">
-              <StylesMarquee />
-            </div>
-
-          )}
-
-          <GoogleApiStatus className="fixed bottom-4 right-4 z-[60]" />
-
-          {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
-
-          <div className="top-0 left-0 right-0 pt-24 pointer-events-none">
-            <ImagePreviewModal
-              isOpen={isImageModalOpen}
-              onClose={closeImageModal}
-              result={selectedResult}
-              onEdit={handleEditImage}
-            />
-
-            <ImageEditorModal
-              isOpen={isEditorOpen}
-              imageUrl={editingImageUrl}
-              onClose={() => setIsEditorOpen(false)}
-              onSave={handleSaveEditedImage}
-            />
-          </div>
-
-          <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
-          <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.model || selectedModel} onConfirm={(m) => updateConfig({ model: m })} />
-          <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />
-          <PresetManagerDialog
-            open={isPresetManagerOpen}
-            onOpenChange={setIsPresetManagerOpen}
-            workflows={workflows}
-          />
-        </main>
-      </div>
-
-      <SimpleImagePreview
-        imageUrl={previewImageUrl}
-        layoutId={previewLayoutId}
-        onClose={() => setPreviewImage(null)}
-      />
-
-      <DragOverlay dropAnimation={{
-        sideEffects: defaultDropAnimationSideEffects({
-          styles: {
-            active: {
-              opacity: '0.5',
-            },
-          },
-        }),
-      }}>
-        {activeDragItem ? (
-          <div className="flex items-center gap-3 p-3 bg-black/80 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl scale-110">
-            {activeDragItem.outputUrl ? (
-              <img 
-                src={activeDragItem.outputUrl} 
-                alt="dragging" 
-                className="w-12 h-12 object-cover rounded-lg border border-white/10"
-              />
-            ) : (
-              <div className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
-                <ImageIcon className="w-5 h-5 text-white/20" />
+            {!isPresetGridOpen && !isPresetManagerOpen && !showHistory && (
+              <div className=" absolute bottom-0 w-full  overflow-visible">
+                <StylesMarquee />
               </div>
+
             )}
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-white">
-                Moving {selectedHistoryIds.size} items
-              </span>
-              <span className="text-[10px] text-white/40 uppercase font-mono tracking-wider">
-                Release to move
-              </span>
+
+            <GoogleApiStatus className="fixed bottom-4 right-4 z-[60]" />
+
+            {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
+
+            <div className="top-0 left-0 right-0 pt-24 pointer-events-none">
+              <ImagePreviewModal
+                isOpen={isImageModalOpen}
+                onClose={closeImageModal}
+                result={selectedResult}
+                onEdit={handleEditImage}
+              />
+
+              <ImageEditorModal
+                isOpen={isEditorOpen}
+                imageUrl={editingImageUrl}
+                onClose={() => setIsEditorOpen(false)}
+                onSave={handleSaveEditedImage}
+              />
             </div>
-          </div>
-        ) : null}
-      </DragOverlay>
+
+            <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
+            <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.model || selectedModel} onConfirm={(m) => updateConfig({ model: m })} />
+            <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />
+            <PresetManagerDialog
+              open={isPresetManagerOpen}
+              onOpenChange={setIsPresetManagerOpen}
+              workflows={workflows}
+            />
+          </main>
+        </div>
+
+        <SimpleImagePreview
+          imageUrl={previewImageUrl}
+          layoutId={previewLayoutId}
+          onClose={() => setPreviewImage(null)}
+        />
+
+        <DragOverlay
+          dropAnimation={{
+            sideEffects: defaultDropAnimationSideEffects({
+              styles: {
+                active: {
+                  opacity: '0.5',
+                },
+              },
+            }),
+          }}
+          modifiers={[snapCenterToCursor]}
+        >
+          {activeDragItem ? (
+            <div
+              className="flex items-center w-[200px] gap-3 p-3 bg-black/70 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl pointer-events-none"
+            >
+              {activeDragItem.outputUrl ? (
+                <img
+                  src={activeDragItem.outputUrl}
+                  alt="dragging"
+                  className="w-10 h-10 object-cover rounded-lg border border-white/10"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
+                  <ImageIcon className="w-4 h-4 text-white/20" />
+                </div>
+              )}
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-medium text-white">
+                  Moving {selectedHistoryIds.size} items
+                </span>
+                <span className="text-[9px] text-white/40 uppercase font-mono tracking-wider">
+                  Release to move
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
       </div>
     </DndContext>
   );
