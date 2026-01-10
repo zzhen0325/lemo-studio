@@ -4,7 +4,7 @@ import { useAIService } from '@/hooks/ai/useAIService';
 export type AIModel = 'gemini' | 'doubao' | 'gpt' | 'auto';
 
 interface UsePromptOptimizationOptions {
-  systemInstruction: string;
+  systemInstruction?: string; // 可选，如果不传则使用settings中的配置
 }
 
 interface UsePromptOptimizationReturn {
@@ -12,7 +12,7 @@ interface UsePromptOptimizationReturn {
   optimizePrompt: (text: string, model?: AIModel, image?: string) => Promise<string | null>;
 }
 
-export function usePromptOptimization(options: UsePromptOptimizationOptions): UsePromptOptimizationReturn {
+export function usePromptOptimization(options: UsePromptOptimizationOptions = {}): UsePromptOptimizationReturn {
   const { callText, callVision, isLoading: isOptimizing } = useAIService();
   const { toast } = useToast();
 
@@ -23,29 +23,32 @@ export function usePromptOptimization(options: UsePromptOptimizationOptions): Us
     }
 
     try {
-      // Map legacy model names to registry IDs
+      // 只在明确指定模型时才覆盖settings中的配置
       let modelId: string | undefined = undefined;
-      if (model === 'doubao') modelId = 'doubao-pro-4k';
-      if (model === 'gpt') modelId = 'deepseek-chat';
-      if (model === 'gemini') modelId = 'gemini-1.5-flash';
+      if (model !== 'auto') {
+        if (model === 'doubao') modelId = 'doubao-seed-1-8-251228';
+        if (model === 'gpt') modelId = 'deepseek-chat';
+        if (model === 'gemini') modelId = 'gemini-1.5-flash';
+      }
+      // 如果model === 'auto'，则modelId为undefined，useAIService会使用settings中的配置
 
       let resultText = "";
 
       if (image) {
-        // Use vision service
+        // 使用视觉服务（描述服务）
         const result = await callVision({
-          model: modelId || 'gemini-1.5-flash', // Default to Gemini for vision
+          model: modelId, // undefined时使用settings配置
           image: image,
           input: text,
           profileId: 'optimization-with-image'
         });
         resultText = result.text;
       } else {
-        // Use text service
+        // 使用文本服务（优化服务）
         const result = await callText({
-          model: modelId, // If undefined, useAIService will pick the optimized model from settings
+          model: modelId, // undefined时使用settings配置
           input: text,
-          systemPrompt: options.systemInstruction,
+          systemPrompt: options.systemInstruction, // 可选，如果不传则useAIService会使用settings中的systemPrompt
           profileId: 'optimization'
         });
         resultText = result.text;

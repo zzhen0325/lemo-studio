@@ -1,0 +1,109 @@
+[
+  {
+    "id": "provider-doubao",
+    "name": "Doubao (豆包)",
+    "providerType": "openai-compatible",
+    "apiKey": "",
+    "baseURL": "https://ark.cn-beijing.volces.com/api/v3",
+    "models": [
+      {
+        "modelId": "doubao-seed-1-6-251015",
+        "displayName": "Doubao Seed 1.6",
+        "task": [
+          "text"
+        ]
+      },
+      {
+        "modelId": "doubao-seed-1-8-251228",
+        "displayName": "Doubao Seed 1.8 (视觉)",
+        "task": [
+          "text",
+          "vision"
+        ]
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-10T16:52:26.214Z"
+  },
+  {
+    "id": "provider-deepseek",
+    "name": "DeepSeek",
+    "providerType": "openai-compatible",
+    "apiKey": "",
+    "baseURL": "https://api.deepseek.com",
+    "models": [
+      {
+        "modelId": "deepseek-chat",
+        "displayName": "DeepSeek Chat",
+        "task": [
+          "text"
+        ]
+      },
+      {
+        "modelId": "deepseek-reasoner",
+        "displayName": "DeepSeek Reasoner",
+        "task": [
+          "text"
+        ]
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-11T00:00:00.000Z"
+  },
+  {
+    "id": "provider-google",
+    "name": "Google Gemini",
+    "providerType": "",
+    "apiKey": "",
+    "baseURL": "",
+    "models": [
+      {
+        "modelId": "gemini-3-pro-image-preview",
+        "displayName": "Gemini 3 Pro (图像生成)",
+        "task": [
+          "text",
+          "vision",
+          "image"
+        ]
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-10T16:42:38.219Z"
+  },
+  {
+    "id": "provider-bytedance",
+    "name": "Bytedance AFR (内部)",
+    "providerType": "bytedance-afr",
+    "apiKey": "",
+    "baseURL": "",
+    "models": [
+      {
+        "modelId": "seed4_lemo1230",
+        "displayName": "Seed4 Lemo",
+        "task": [
+          "image"
+        ]
+      },
+      {
+        "modelId": "seed4_2_lemo",
+        "displayName": "Seed4.2 Lemo",
+        "task": [
+          "image"
+        ]
+      },
+      {
+        "modelId": "lemo_2dillustator",
+        "displayName": "Lemo 2D Illustrator",
+        "task": [
+          "image"
+        ]
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-11T00:00:00.000Z"
+  }
+]

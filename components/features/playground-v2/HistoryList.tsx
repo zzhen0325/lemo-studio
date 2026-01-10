@@ -154,9 +154,14 @@ const HistoryList = observer(function HistoryList({
 
   if (history.length === 0) return null;
 
+
+  //主容器
+
   return (
+
+    // bg-white/5 border border-white/10 rounded-3xl
     <div
-      className="bg-white/5 border border-white/10 rounded-3xl h-full flex flex-col relative overflow-hidden"
+      className=" rounded-3xl h-full flex flex-col relative overflow-hidden"
     >
       <GradualBlur
         target="parent"

@@ -6,90 +6,180 @@ import {
     Settings as SettingsIcon,
     SquareTerminal,
     ChevronRight,
+    ChevronDown,
     Key,
     Globe,
     Languages,
     Sparkles,
-    Cpu
+    Plus,
+    RefreshCw,
+    Image as ImageIcon,
+    Wand2,
+    Eye
 } from "lucide-react";
-import { REGISTRY } from "@/lib/ai/registry";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/common/use-toast";
-import { SETTINGS_STORAGE_KEY } from "@/lib/constants";
 import MappingEditorPage from "@/pages/mapping-editor-page";
 
+import { useAPIConfigStore } from "@/lib/store/api-config-store";
+import { APIProviderConfig, ServiceType, SERVICE_METADATA } from "@/lib/api-config/types";
+import { ProviderCard } from "./ProviderCard";
+import { ProviderFormModal } from "./ProviderFormModal";
+
 enum SettingsTab {
-    General = "general",
+    Providers = "providers",
+    Services = "services",
     MappingEditor = "mapping-editor"
 }
 
+// 服务图标映射
+const serviceIcons: Record<ServiceType, React.ReactNode> = {
+    imageGeneration: <ImageIcon className="size-4" />,
+    translate: <Languages className="size-4" />,
+    describe: <Eye className="size-4" />,
+    optimize: <Wand2 className="size-4" />
+};
+
 export function SettingsView() {
-    const [currentTab, setCurrentTab] = useState<SettingsTab>(SettingsTab.General);
+    const [currentTab, setCurrentTab] = useState<SettingsTab>(SettingsTab.Providers);
     const { toast } = useToast();
-    const [apiKey, setApiKey] = useState<string>("");
-    const [deepseekApiKey, setDeepseekApiKey] = useState<string>("");
-    const [doubaoApiKey, setDoubaoApiKey] = useState<string>("");
-    const [doubaoModel, setDoubaoModel] = useState<string>("");
-    const [comfyUrl, setComfyUrl] = useState<string>("");
-    const [describeModel, setDescribeModel] = useState<string>("gemini-1.5-flash");
-    const [translateModel, setTranslateModel] = useState<string>("doubao-pro-4k");
-    const [optimizeModel, setOptimizeModel] = useState<string>("doubao-pro-4k");
+    const [expandedServices, setExpandedServices] = useState<Set<ServiceType>>(new Set(['describe', 'optimize']));
 
+    // Provider Form Modal State
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [editingProvider, setEditingProvider] = useState<APIProviderConfig | null>(null);
+
+    // Use the API Config Store
+    const {
+        providers,
+        settings,
+        isLoading,
+        fetchConfig,
+        addProvider,
+        updateProvider,
+        removeProvider,
+        updateSettings,
+        updateServiceConfig
+    } = useAPIConfigStore();
+
+    // Fetch config on mount
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
-            if (stored) {
-                const s = JSON.parse(stored);
-                if (s.apiKey) setApiKey(s.apiKey);
-                if (s.deepseekApiKey) setDeepseekApiKey(s.deepseekApiKey);
-                if (s.doubaoApiKey) setDoubaoApiKey(s.doubaoApiKey);
-                if (s.doubaoModel) setDoubaoModel(s.doubaoModel);
-                if (s.comfyUrl) setComfyUrl(s.comfyUrl);
-                if (s.describeModel) setDescribeModel(s.describeModel);
-                if (s.translateModel) setTranslateModel(s.translateModel);
-                if (s.optimizeModel) setOptimizeModel(s.optimizeModel);
-            }
-        } catch {
-            // ignore
-        }
-    }, []);
+        fetchConfig();
+    }, [fetchConfig]);
 
-    const handleSaveSettings = () => {
+    // Handlers
+    const handleOpenAddProvider = () => {
+        setEditingProvider(null);
+        setIsFormModalOpen(true);
+    };
+
+    const handleEditProvider = (provider: APIProviderConfig) => {
+        setEditingProvider(provider);
+        setIsFormModalOpen(true);
+    };
+
+    const handleDeleteProvider = async (id: string) => {
+        if (!confirm('确定要删除此 Provider 吗？')) return;
         try {
-            const payload = {
-                apiKey: apiKey.trim(),
-                deepseekApiKey: deepseekApiKey.trim(),
-                doubaoApiKey: doubaoApiKey.trim(),
-                doubaoModel: doubaoModel.trim(),
-                comfyUrl: comfyUrl.trim(),
-                describeModel,
-                translateModel,
-                optimizeModel
-            };
-            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload));
-            toast({ title: "Configuration Saved", description: "All preferences have been updated successfully." });
-        } catch (e) {
-            toast({ title: "Save Failed", description: e instanceof Error ? e.message : "Unknown error", variant: "destructive" });
+            await removeProvider(id);
+            toast({ title: "删除成功", description: "Provider 已删除" });
+        } catch {
+            toast({ title: "删除失败", variant: "destructive" });
         }
     };
 
+    const handleToggleEnabled = async (id: string, enabled: boolean) => {
+        try {
+            await updateProvider(id, { isEnabled: enabled });
+        } catch {
+            toast({ title: "更新失败", variant: "destructive" });
+        }
+    };
+
+    const handleSaveProvider = async (providerData: Partial<APIProviderConfig>) => {
+        if (providerData.id) {
+            await updateProvider(providerData.id, providerData);
+            toast({ title: "更新成功", description: "Provider 配置已更新" });
+        } else {
+            await addProvider(providerData);
+            toast({ title: "创建成功", description: "新 Provider 已添加" });
+        }
+    };
+
+    const handleSaveSettings = async () => {
+        try {
+            await updateSettings(settings);
+            toast({ title: "保存成功", description: "设置已更新" });
+        } catch {
+            toast({ title: "保存失败", variant: "destructive" });
+        }
+    };
+
+    const toggleServiceExpanded = (service: ServiceType) => {
+        setExpandedServices(prev => {
+            const next = new Set(prev);
+            if (next.has(service)) {
+                next.delete(service);
+            } else {
+                next.add(service);
+            }
+            return next;
+        });
+    };
+
+    // Get models for a specific task type
+    const getModelsForTask = (task: 'text' | 'vision' | 'image' | 'translate') => {
+        const models: { providerId: string; providerName: string; modelId: string; displayName: string }[] = [];
+
+        // 翻译服务使用固定的 Google Translate
+        if (task === 'translate') {
+            models.push({
+                providerId: 'google-translate',
+                providerName: 'Google',
+                modelId: 'google-translate-api',
+                displayName: 'Google Translation API'
+            });
+            return models;
+        }
+
+        for (const provider of providers.filter(p => p.isEnabled)) {
+            for (const model of provider.models) {
+                if (model.task.includes(task as 'text' | 'vision' | 'image')) {
+                    models.push({
+                        providerId: provider.id,
+                        providerName: provider.name,
+                        modelId: model.modelId,
+                        displayName: model.displayName || model.modelId
+                    });
+                }
+            }
+        }
+        return models;
+    };
+
     const sidebarItems = [
-        { id: SettingsTab.General, label: "General", description: "Service credentials & preferences", icon: SettingsIcon },
-        { id: SettingsTab.MappingEditor, label: "Mapping Editor", description: "Node mapping configuration", icon: SquareTerminal },
+        { id: SettingsTab.Providers, label: "API Providers", description: "管理模型服务商配置", icon: Key },
+        { id: SettingsTab.Services, label: "服务配置", description: "各功能的模型绑定和提示词", icon: SettingsIcon },
+        { id: SettingsTab.MappingEditor, label: "Mapping Editor", description: "节点映射配置", icon: SquareTerminal },
     ];
 
+    // 服务列表
+    const serviceList: ServiceType[] = ['imageGeneration', 'describe', 'optimize', 'translate'];
+
     return (
-        <div className="flex h-full pt-20 w-full overflow-hidden  text-zinc-100"
+        <div className="flex h-full pt-20 w-full overflow-hidden text-zinc-100"
             style={{
-                background: "linear-gradient(180deg,  #131718 0%, #1079BB 150%)",
+                background: "linear-gradient(180deg, #131718 0%, #1079BB 150%)",
             }}>
             {/* Sidebar */}
-            <aside className="w-72  flex flex-col bg-black/0">
+            <aside className="w-72 flex flex-col bg-black/0">
                 <div className="p-6 pb-4">
                     <h2 className="text-sm font-bold text-white/90 uppercase tracking-widest flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -139,172 +229,220 @@ export function SettingsView() {
                             transition={{ duration: 0.3, ease: "easeOut" }}
                             className="h-full w-full"
                         >
-                            {currentTab === SettingsTab.General && (
-                                <div className="space-y-10 pb-20">
+                            {/* API Providers Tab */}
+                            {currentTab === SettingsTab.Providers && (
+                                <div className="space-y-8 pb-20">
+                                    <div className="flex items-start justify-between">
+                                        <div className="space-y-2">
+                                            <h1 className="text-3xl font-bold tracking-tight text-white">API Providers</h1>
+                                            <p className="text-zinc-400 text-sm max-w-2xl">
+                                                管理模型服务商配置，支持 OpenAI 兼容接口、Google GenAI 等多种 Provider 类型。
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={fetchConfig}
+                                                disabled={isLoading}
+                                                className="text-zinc-400 hover:text-white"
+                                            >
+                                                <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+                                            </Button>
+                                            <Button
+                                                onClick={handleOpenAddProvider}
+                                                className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                                            >
+                                                <Plus className="size-4 mr-2" />
+                                                新增 Provider
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Provider List */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <AnimatePresence>
+                                            {providers.map((provider) => (
+                                                <ProviderCard
+                                                    key={provider.id}
+                                                    provider={provider}
+                                                    onEdit={handleEditProvider}
+                                                    onDelete={handleDeleteProvider}
+                                                    onToggleEnabled={handleToggleEnabled}
+                                                />
+                                            ))}
+                                        </AnimatePresence>
+                                    </div>
+
+                                    {providers.length === 0 && !isLoading && (
+                                        <div className="py-16 text-center">
+                                            <div className="text-zinc-500 text-sm mb-4">
+                                                还没有配置任何 Provider
+                                            </div>
+                                            <Button
+                                                onClick={handleOpenAddProvider}
+                                                variant="outline"
+                                                className="border-white/10 text-zinc-400 hover:text-white hover:border-white/20"
+                                            >
+                                                <Plus className="size-4 mr-2" />
+                                                添加第一个 Provider
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Services Configuration Tab */}
+                            {currentTab === SettingsTab.Services && (
+                                <div className="space-y-8 pb-20">
                                     <div className="space-y-2">
-                                        <h1 className="text-3xl font-bold tracking-tight text-white">General Settings</h1>
+                                        <h1 className="text-3xl font-bold tracking-tight text-white">服务配置</h1>
                                         <p className="text-zinc-400 text-sm max-w-2xl">
-                                            Manage your API credentials and configure global service providers for AI features.
+                                            配置各项AI服务使用的模型和系统提示词。
                                         </p>
                                     </div>
 
-                                    <div className="grid gap-8">
-                                        {/* API Credentials Section */}
-                                        <section className="space-y-4">
-                                            <div className="flex items-center gap-2 text-white/80 font-medium pb-2 border-b border-white/5">
-                                                <Key className="size-4 text-emerald-500" />
-                                                <h3>API Credentials</h3>
-                                            </div>
+                                    <div className="space-y-4">
+                                        {serviceList.map((serviceType) => {
+                                            const meta = SERVICE_METADATA[serviceType];
+                                            const serviceConfig = settings.services?.[serviceType];
+                                            const isExpanded = expandedServices.has(serviceType);
+                                            const models = getModelsForTask(meta.requiredTask);
+                                            const currentValue = serviceConfig?.binding
+                                                ? `${serviceConfig.binding.providerId}:${serviceConfig.binding.modelId}`
+                                                : '';
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <Card className="bg-black/40 border-white/10 hover:bg-black/5 transition-colors">
-                                                    <CardHeader className="pb-3">
-                                                        <CardTitle className="text-sm font-medium text-white">Google Gemini</CardTitle>
-                                                        <CardDescription className="text-xs text-zinc-500">Required for advanced vision capabilities</CardDescription>
-                                                    </CardHeader>
-                                                    <CardContent>
-                                                        <Input
-                                                            type="password"
-                                                            placeholder="AIzaSy..."
-                                                            value={apiKey}
-                                                            onChange={(e) => setApiKey(e.target.value)}
-                                                            className="bg-black/40 border-white/5 text-white/90 placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                                                        />
-                                                    </CardContent>
+                                            return (
+                                                <Card key={serviceType} className="bg-black/40 border-white/5">
+                                                    <Collapsible open={isExpanded} onOpenChange={() => toggleServiceExpanded(serviceType)}>
+                                                        <CollapsibleTrigger asChild>
+                                                            <CardHeader className="cursor-pointer hover:bg-white/5 transition-colors rounded-t-lg">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="p-2 rounded-lg bg-white/10 text-emerald-400">
+                                                                            {serviceIcons[serviceType]}
+                                                                        </div>
+                                                                        <div>
+                                                                            <CardTitle className="text-sm text-white">{meta.label}</CardTitle>
+                                                                            <CardDescription className="text-xs text-zinc-500">
+                                                                                {meta.description}
+                                                                            </CardDescription>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3">
+                                                                        <span className="text-xs text-zinc-500">
+                                                                            {serviceConfig?.binding?.modelId || '未配置'}
+                                                                        </span>
+                                                                        {isExpanded ? (
+                                                                            <ChevronDown className="size-4 text-zinc-400" />
+                                                                        ) : (
+                                                                            <ChevronRight className="size-4 text-zinc-400" />
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </CardHeader>
+                                                        </CollapsibleTrigger>
+
+                                                        <CollapsibleContent>
+                                                            <CardContent className="pt-0 space-y-4">
+                                                                {/* Model Binding */}
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs text-zinc-400 font-medium">
+                                                                        使用模型
+                                                                    </Label>
+                                                                    <Select
+                                                                        value={currentValue}
+                                                                        onValueChange={(val) => {
+                                                                            const [providerId, modelId] = val.split(':');
+                                                                            updateServiceConfig(serviceType, {
+                                                                                binding: { providerId, modelId }
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <SelectTrigger className="bg-black/40 border-white/10 text-white/90 h-10">
+                                                                            <SelectValue placeholder="选择模型" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="bg-zinc-950 border-white/10 text-zinc-200">
+                                                                            {models.map(m => (
+                                                                                <SelectItem
+                                                                                    key={`${m.providerId}:${m.modelId}`}
+                                                                                    value={`${m.providerId}:${m.modelId}`}
+                                                                                >
+                                                                                    {m.providerName} / {m.displayName}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+
+                                                                {/* System Prompt (only for services that support it) */}
+                                                                {meta.hasSystemPrompt && (
+                                                                    <div className="space-y-2">
+                                                                        <Label className="text-xs text-zinc-400 font-medium">
+                                                                            系统提示词
+                                                                        </Label>
+                                                                        <Textarea
+                                                                            value={serviceConfig?.systemPrompt || ''}
+                                                                            onChange={(e) => {
+                                                                                updateServiceConfig(serviceType, {
+                                                                                    systemPrompt: e.target.value
+                                                                                });
+                                                                            }}
+                                                                            placeholder="输入系统提示词..."
+                                                                            className="bg-black/40 border-white/10 text-white/90 placeholder:text-zinc-600 min-h-[120px] font-mono text-xs resize-y"
+                                                                        />
+                                                                        <p className="text-[10px] text-zinc-600">
+                                                                            用于指导AI模型的行为和输出格式
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </CardContent>
+                                                        </CollapsibleContent>
+                                                    </Collapsible>
                                                 </Card>
-
-                                                <Card className="bg-black/40 border-white/5 hover:bg-black/5 transition-colors">
-                                                    <CardHeader className="pb-3">
-                                                        <CardTitle className="text-sm font-medium text-white">DeepSeek</CardTitle>
-                                                        <CardDescription className="text-xs text-zinc-500">Required for reasoning tasks</CardDescription>
-                                                    </CardHeader>
-                                                    <CardContent>
-                                                        <Input
-                                                            type="password"
-                                                            placeholder="sk-..."
-                                                            value={deepseekApiKey}
-                                                            onChange={(e) => setDeepseekApiKey(e.target.value)}
-                                                            className="bg-black/40 border-white/5 text-white/90 placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                                                        />
-                                                    </CardContent>
-                                                </Card>
-
-                                                <Card className="bg-black/40 border-white/5 hover:bg-black/5 transition-colors md:col-span-2">
-                                                    <CardHeader className="pb-3">
-                                                        <CardTitle className="text-sm font-medium text-white">Doubao / Volcengine</CardTitle>
-                                                        <CardDescription className="text-xs text-zinc-500">Configure Volcengine credentials for translation and specialized models</CardDescription>
-                                                    </CardHeader>
-                                                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs text-zinc-400">API Key</Label>
-                                                            <Input
-                                                                type="password"
-                                                                placeholder="Volcengine API Key"
-                                                                value={doubaoApiKey}
-                                                                onChange={(e) => setDoubaoApiKey(e.target.value)}
-                                                                className="bg-black/40 border-white/5 text-white/90 placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs text-zinc-400">Model Endpoint ID</Label>
-                                                            <Input
-                                                                type="text"
-                                                                placeholder="ep-2024..."
-                                                                value={doubaoModel}
-                                                                onChange={(e) => setDoubaoModel(e.target.value)}
-                                                                className="bg-black/40 border-white/5 text-white/90 placeholder:text-zinc-600 focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                                                            />
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            </div>
-                                        </section>
-
-                                        {/* Services Section */}
-                                        <section className="space-y-4">
-                                            <div className="flex items-center gap-2 text-white/80 font-medium pb-2 border-b border-white/5">
-                                                <Cpu className="size-4 text-blue-500" />
-                                                <h3>Service Providers</h3>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 gap-4">
-                                                <Card className="bg-black/40 border-white/5">
-                                                    <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                        <div className="space-y-3">
-                                                            <Label className="text-xs text-zinc-400 font-medium flex items-center gap-2">
-                                                                <SettingsIcon className="size-3" /> Description Provider
-                                                            </Label>
-                                                            <Select value={describeModel} onValueChange={setDescribeModel}>
-                                                                <SelectTrigger className="bg-black/40 border-white/5 text-white/90 h-10 w-full hover:bg-black/60 focus:ring-emerald-500/20">
-                                                                    <SelectValue placeholder="Select Model" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-950 border-white/10 text-zinc-200">
-                                                                    {REGISTRY.filter(m => m.task.includes('vision')).map(model => (
-                                                                        <SelectItem key={model.id} value={model.id}>{model.id}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-
-                                                        <div className="space-y-3">
-                                                            <Label className="text-xs text-zinc-400 font-medium flex items-center gap-2">
-                                                                <Languages className="size-3" /> Translation Provider
-                                                            </Label>
-                                                            <Select value={translateModel} onValueChange={setTranslateModel}>
-                                                                <SelectTrigger className="bg-black/40 border-white/5 text-white/90 h-10 w-full hover:bg-black/60 focus:ring-emerald-500/20">
-                                                                    <SelectValue placeholder="Select Model" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-950 border-white/10 text-zinc-200">
-                                                                    {REGISTRY.filter(m => m.task.includes('text')).map(model => (
-                                                                        <SelectItem key={model.id} value={model.id}>{model.id}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-
-                                                        <div className="space-y-3">
-                                                            <Label className="text-xs text-zinc-400 font-medium flex items-center gap-2">
-                                                                <Sparkles className="size-3" /> Optimization Provider
-                                                            </Label>
-                                                            <Select value={optimizeModel} onValueChange={setOptimizeModel}>
-                                                                <SelectTrigger className="bg-black/40 border-white/5 text-white/90 h-10 w-full hover:bg-black/60 focus:ring-emerald-500/20">
-                                                                    <SelectValue placeholder="Select Model" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-950 border-white/10 text-zinc-200">
-                                                                    {REGISTRY.filter(m => m.task.includes('text')).map(model => (
-                                                                        <SelectItem key={model.id} value={model.id}>{model.id}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </div>
-                                                    </CardContent>
-                                                    <CardContent className="p-6 pt-0 border-t border-white/5 mt-4">
-                                                        <div className="mt-4 space-y-3">
-                                                            <Label htmlFor="comfyUrl" className="text-xs text-zinc-400 font-medium flex items-center gap-2">
-                                                                <Globe className="size-3" /> ComfyUI Server Address
-                                                            </Label>
-                                                            <Input
-                                                                id="comfyUrl"
-                                                                type="text"
-                                                                placeholder="e.g. http://127.0.0.1:8188/"
-                                                                value={comfyUrl}
-                                                                onChange={(e) => setComfyUrl(e.target.value)}
-                                                                className="bg-black/40 border-white/5 text-white/90 placeholder:text-zinc-600 font-mono text-sm focus:border-emerald-500/50 focus:ring-emerald-500/20"
-                                                            />
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            </div>
-                                        </section>
+                                            );
+                                        })}
                                     </div>
+
+                                    {/* ComfyUI Config */}
+                                    <Card className="bg-black/40 border-white/5">
+                                        <CardHeader>
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 rounded-lg bg-white/10 text-blue-400">
+                                                    <Globe className="size-4" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-sm text-white">ComfyUI 配置</CardTitle>
+                                                    <CardDescription className="text-xs text-zinc-500">
+                                                        配置 ComfyUI 服务器连接
+                                                    </CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="comfyUrl" className="text-xs text-zinc-400 font-medium">
+                                                    服务器地址
+                                                </Label>
+                                                <Input
+                                                    id="comfyUrl"
+                                                    type="text"
+                                                    placeholder="e.g. http://127.0.0.1:8188/"
+                                                    value={settings.comfyUrl || ''}
+                                                    onChange={(e) => updateSettings({ ...settings, comfyUrl: e.target.value })}
+                                                    className="bg-black/40 border-white/10 text-white/90 placeholder:text-zinc-600 font-mono text-sm"
+                                                />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
 
                                     {/* Footer Action */}
                                     <div className="sticky bottom-6 flex justify-end">
                                         <Button
                                             onClick={handleSaveSettings}
-                                            className="rounded-full px-8 h-12 bg-white text-black hover:bg-white/90 font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
+                                            className="rounded-full px-8 h-12 bg-white text-black hover:bg-white/90 font-medium shadow-lg"
                                         >
-                                            Save Changes
+                                            保存设置
                                         </Button>
                                     </div>
                                 </div>
@@ -321,6 +459,14 @@ export function SettingsView() {
                     </AnimatePresence>
                 </div>
             </main>
+
+            {/* Provider Form Modal */}
+            <ProviderFormModal
+                isOpen={isFormModalOpen}
+                onClose={() => setIsFormModalOpen(false)}
+                onSave={handleSaveProvider}
+                provider={editingProvider}
+            />
         </div>
     );
 }

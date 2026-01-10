@@ -72,6 +72,133 @@ export class OpenAICompatibleProvider implements TextProvider {
     }
 }
 
+/**
+ * 豆包视觉模型Provider - 支持文字和图片输入
+ * 使用 /api/v3/responses 端点，格式与标准OpenAI不同
+ */
+export class DoubaoVisionProvider implements TextProvider, VisionProvider {
+    private config: ModelConfig;
+
+    constructor(config: ModelConfig) {
+        this.config = config;
+    }
+
+    async generateText(params: TextGenerationInput): Promise<TextResult> {
+        const { input, systemPrompt } = params;
+
+        const content: { type: string; text?: string }[] = [];
+        if (systemPrompt) {
+            content.push({ type: 'input_text', text: systemPrompt });
+        }
+        content.push({ type: 'input_text', text: input });
+
+        const body = {
+            model: this.config.modelId,
+            input: [{ role: 'user', content }]
+        };
+
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.config.apiKey}`
+        };
+
+        const agent = getProxyAgent();
+        const fetchOptions: RequestInit & { agent?: unknown } = {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+        };
+
+        if (agent) {
+            fetchOptions.agent = agent;
+        }
+
+        const response = await fetch(`${this.config.baseURL}/responses`, fetchOptions);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Doubao API Error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        // 豆包响应格式: output数组中可能有reasoning和message两种类型
+        // 需要找到type为message的output，然后从其content中找到output_text
+        const typedData = data as {
+            output?: {
+                type: string;
+                content?: { type: string; text?: string }[]
+            }[]
+        };
+
+        // 找到message类型的output
+        const messageOutput = typedData.output?.find(o => o.type === 'message');
+        const text = messageOutput?.content?.find(c => c.type === 'output_text')?.text || "";
+
+        return { text };
+    }
+
+    async describeImage(params: VisionGenerationInput): Promise<TextResult> {
+        const { image, prompt, systemPrompt } = params;
+
+        // 处理图片URL或base64
+        let imageUrl = image;
+        if (image.startsWith('data:')) {
+            // 如果是base64，需要先上传或使用data URL
+            // 豆包API直接支持data URL格式
+            imageUrl = image;
+        }
+
+        const content: { type: string; text?: string; image_url?: string }[] = [];
+
+        // 先添加图片
+        content.push({ type: 'input_image', image_url: imageUrl });
+
+        // 添加系统提示词和用户提示词
+        if (systemPrompt) {
+            content.push({ type: 'input_text', text: systemPrompt });
+        }
+        if (prompt) {
+            content.push({ type: 'input_text', text: prompt });
+        } else {
+            content.push({ type: 'input_text', text: '请描述这张图片' });
+        }
+
+        const body = {
+            model: this.config.modelId,
+            input: [{ role: 'user', content }]
+        };
+
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.config.apiKey}`
+        };
+
+        const agent = getProxyAgent();
+        const fetchOptions: RequestInit & { agent?: unknown } = {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+        };
+
+        if (agent) {
+            fetchOptions.agent = agent;
+        }
+
+        const response = await fetch(`${this.config.baseURL}/responses`, fetchOptions);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Doubao Vision API Error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json() as { output?: { content?: { type: string; text?: string }[] }[] };
+        const text = data.output?.[0]?.content?.find(c => c.type === 'output_text')?.text || "";
+
+        return { text };
+    }
+}
+
 export class GoogleGenAIProvider implements TextProvider, VisionProvider, ImageProvider {
     private apiKey: string;
     private modelId: string;
@@ -266,7 +393,7 @@ export class BytedanceAfrProvider implements ImageProvider {
         const url = `${API_CONFIG.BASE_URL}/media/api/pic/afr?${queryParams.toString()}`;
 
         const isSeed42 = this.config.modelId === 'seed4_2_lemo';
-        const conf: Record<string, any> = {
+        const conf: Record<string, unknown> = {
             width: width || (isSeed42 ? 2048 : 1024),
             height: height || (isSeed42 ? 2048 : 1024),
             seed: options?.seed || Math.floor(Math.random() * 2147483647),

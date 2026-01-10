@@ -135,7 +135,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     return generationHistory.filter(h => h.projectId === mobxProjectId);
   }, [generationHistory, mobxProjectId]);
 
-  const [selectedAIModel, setSelectedAIModel] = useState<AIModel>('gemini');
+  const [selectedAIModel, setSelectedAIModel] = useState<AIModel>('auto'); // 默认使用settings中的配置
   const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
   const [isBaseModelDialogOpen, setIsBaseModelDialogOpen] = useState(false);
   const [isLoraDialogOpen, setIsLoraDialogOpen] = useState(false);
@@ -417,7 +417,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       }
     }
   };
-  const { optimizePrompt, isOptimizing } = usePromptOptimization({ systemInstruction: BASE_SYSTEM_INSTRUCTION });
+  const { optimizePrompt, isOptimizing } = usePromptOptimization(); // 使用settings中的配置
 
   const handleFilesUpload = async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
