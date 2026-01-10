@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -67,7 +67,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
     } = useImageEditor(imageUrl);
 
     const [annotationText, setAnnotationText] = useState("");
-    const annotInputRef = useRef<HTMLInputElement>(null);
+    const annotInputRef = useRef<HTMLTextAreaElement>(null);
     const canvasContainerRef = useRef<HTMLDivElement>(null);
 
     // 渲染带有徽章的标注文本（用于输入框预览）
@@ -84,7 +84,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                     </span>
                 );
             }
-            return <span key={i}>{part}</span>;
+            return <span key={i} className="whitespace-pre-wrap">{part}</span>;
         });
     }, []);
 
@@ -92,7 +92,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
     const insertRefImageTag = useCallback((label: string) => {
         const input = annotInputRef.current;
         if (!input) {
-            // 如果输入框没焦点，直接加在最后
             setAnnotationText(prev => prev + ` [${label}]`);
             return;
         }
@@ -104,7 +103,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
 
         setAnnotationText(newText);
 
-        // 延迟恢复焦点并移动光标到标记之后
         setTimeout(() => {
             input.focus();
             const newPos = start + label.length + 2;
@@ -136,6 +134,32 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
             reader.readAsDataURL(file);
         });
     }, [addReferenceImage, editorState.referenceImages.length, insertRefImageTag]);
+
+    // 处理文字选择，实现“原子化”标记：防止光标落入 [Image X] 内部
+    const handleTextSelect = useCallback(() => {
+        const input = annotInputRef.current;
+        if (!input) return;
+
+        const start = input.selectionStart || 0;
+        const text = input.value;
+
+        // 正则查找所有标记的位置
+        const regex = /\[Image \d+\]/g;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const matchStart = match.index;
+            const matchEnd = matchStart + match[0].length;
+
+            // 如果光标在标记中间（不包括边界），则将其移出
+            if (start > matchStart && start < matchEnd) {
+                // 距离哪头近就移到哪头
+                const newPos = (start - matchStart) < (matchEnd - start) ? matchStart : matchEnd;
+                input.setSelectionRange(newPos, newPos);
+                break;
+            }
+            // 处理范围选择穿过标记的情况（可选：这里简化为只处理单点光标）
+        }
+    }, []);
 
     // 处理文件上传
     const handleFileUpload = useCallback((files: FileList | null) => {
@@ -466,7 +490,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                     <div className="text-white/40 text-[10px] uppercase font-mono tracking-wider mb-1">
                                         Reference Images
                                     </div>
-                                    <div className="flex flex-wrap gap-2 max-w-[240px]">
+                                    <div className="flex flex-wrap gap-2 max-w-[300px]">
                                         {editorState.referenceImages.map((img) => (
                                             <div
                                                 key={img.id}
@@ -474,7 +498,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                                 onClick={() => insertRefImageTag(img.label)}
                                                 title={`点击插入光标位置: [${img.label}]`}
                                             >
-                                                <div className="w-16 h-16 rounded-lg overflow-hidden border border-white/20 bg-black/40 group-hover:border-primary/50 transition-colors">
+                                                <div className="w-36 h-36 rounded-lg overflow-hidden border border-white/20 bg-black/40 group-hover:border-primary/50 transition-colors">
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <img
                                                         src={img.dataUrl}
@@ -482,7 +506,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                                         className="w-full h-full object-cover"
                                                     />
                                                 </div>
-                                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[9px] text-white/80 whitespace-nowrap group-hover:text-primary transition-colors">
+                                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[12px] text-white/80 whitespace-nowrap group-hover:text-primary transition-colors">
                                                     {img.label}
                                                 </div>
                                                 <button
@@ -501,12 +525,12 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                         ))}
                                     </div>
                                 </div>
-                                <canvas ref={canvasRef} className="max-w-full max-h-full transition-all duration-300 shadow-2xl" />
+                                <canvas ref={canvasRef} className="max-w-full max-h-full transition-all duration-300 " />
 
                                 {/* Annotation Input Overlay */}
                                 {editorState.pendingAnnotation && (
                                     <div
-                                        className="absolute z-[120] flex flex-col gap-2 p-2 bg-black/80 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl min-w-[200px]"
+                                        className="absolute z-[120] flex flex-col gap-1 p-2 bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl min-w-[300px]"
                                         style={(() => {
                                             const bounds = editorState.pendingAnnotation.bounds;
                                             const container = canvasContainerRef.current;
@@ -541,39 +565,64 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         {/* 输入框区域 - 包含视觉徽章映射 */}
-                                        <div className="relative flex items-center gap-2 h-9 px-3 bg-white/5 border border-white/10 rounded-lg focus-within:border-primary/50 transition-colors overflow-hidden">
-                                            <div className="relative flex-1 h-full flex items-center">
+                                        <div className="relative flex flex-col gap-2 min-h-[60px] p-3 bg-white/5 border border-white/10 rounded-lg focus-within:border-primary/50 transition-colors">
+                                            <div className="relative flex-1 min-h-[60px]">
                                                 {/* 视觉层：解析并展示 [Image X] 为 Badge */}
-                                                <div className="absolute inset-0 flex items-center text-xs font-sans text-white/90 whitespace-pre pointer-events-none overflow-hidden pl-0">
+                                                <div className="absolute inset-0 p-1 text-sm font-sans text-white/90 whitespace-pre-wrap pointer-events-none overflow-hidden leading-6">
                                                     {renderAnnotTextWithBadges(annotationText)}
                                                 </div>
-                                                <Input
+                                                <Textarea
                                                     ref={annotInputRef}
                                                     value={annotationText}
                                                     onChange={(e) => setAnnotationText(e.target.value)}
-                                                    placeholder={annotationText ? "" : "说明..."}
-                                                    className="absolute inset-0 w-full h-full bg-transparent border-none text-xs font-sans focus-visible:ring-0 focus-visible:ring-offset-0 px-0 z-10 selection:bg-primary/20 caret-white"
+                                                    onSelect={handleTextSelect}
+                                                    placeholder={annotationText ? "" : "在此输入修改说明..."}
+                                                    className="absolute inset-0 w-full h-full bg-transparent border-none text-sm font-sans focus-visible:ring-0 focus-visible:ring-offset-0 p-1 z-10 selection:bg-primary/20 caret-white resize-none leading-6"
                                                     style={{
                                                         color: 'transparent',
                                                         textShadow: 'none'
                                                     }}
                                                     onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
+                                                        // Cmd+Enter 确认
+                                                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                                                             e.preventDefault();
                                                             confirmAnnotation(annotationText);
+                                                            return;
+                                                        }
+
+                                                        // Backspace 整块删除逻辑
+                                                        if (e.key === 'Backspace') {
+                                                            const input = annotInputRef.current;
+                                                            if (!input) return;
+
+                                                            const start = input.selectionStart || 0;
+                                                            const text = input.value;
+
+                                                            // 检查光标前是否紧跟 [Image X]
+                                                            const tagBeforeMatch = text.substring(0, start).match(/\[Image \d+\]$/);
+                                                            if (tagBeforeMatch) {
+                                                                e.preventDefault();
+                                                                const tagLen = tagBeforeMatch[0].length;
+                                                                const newText = text.substring(0, start - tagLen) + text.substring(start);
+                                                                setAnnotationText(newText);
+                                                                // 自动重新计算光标位置
+                                                                setTimeout(() => input.setSelectionRange(start - tagLen, start - tagLen), 0);
+                                                            }
                                                         }
                                                     }}
                                                 />
                                             </div>
 
-                                            <button
-                                                onClick={() => refImageInputRef.current?.click()}
-                                                className="relative z-20 flex items-center gap-1 h-6 px-2 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] text-white/60 hover:text-white transition-colors shrink-0"
-                                                title="上传并插入参考图"
-                                            >
-                                                <Upload className="w-3 h-3 text-primary" />
-                                                <span>Ref</span>
-                                            </button>
+                                            <div className="flex items-center justify-end  pt-2">
+                                                <button
+                                                    onClick={() => refImageInputRef.current?.click()}
+                                                    className="relative z-20 flex items-center gap-1 h-6 px-2 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] text-white/60 hover:text-white transition-colors shrink-0"
+                                                    title="上传并插入参考图"
+                                                >
+                                                    <Upload className="w-3 h-3 text-primary" />
+                                                    <span>Ref</span>
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {/* 隐藏的文件上传 input */}
@@ -587,7 +636,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                         />
 
                                         {/* 底部操作区 */}
-                                        <div className="flex items-center justify-between gap-3 pt-1 border-t border-white/5 mt-1">
+                                        <div className="flex items-center justify-between gap-3 pt-1 px-1 ">
                                             <div className="text-[9px] text-white/30 hidden sm:block">
                                                 按 Enter 确认
                                             </div>
@@ -648,19 +697,19 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                         </div>
                                     </div>
 
-                                    {/* Brush Settings */}
-                                    {editorState.activeTool === 'brush' && (
+                                    {/* Stroke Settings */}
+                                    {['brush', 'rect', 'circle', 'arrow', 'annotate'].includes(editorState.activeTool) && (
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
-                                                    <SlidersHorizontal className="w-3 h-3" /> Size
+                                                    <SlidersHorizontal className="w-3 h-3" /> Stroke Width
                                                 </div>
                                                 <span className="text-white/50 text-xs font-mono">{editorState.brushWidth}px</span>
                                             </div>
                                             <Slider
                                                 value={[editorState.brushWidth]}
                                                 min={1}
-                                                max={50}
+                                                max={20}
                                                 step={1}
                                                 onValueChange={(val) => updateBrushWidth(val[0])}
                                                 className="py-2"
@@ -701,14 +750,14 @@ function ToolButton({ icon: Icon, active, onClick, label }: ToolButtonProps) {
             className={cn(
                 "p-2 rounded-full transition-all duration-200 group relative",
                 active
-                    ? "bg-primary text-black shadow-[0_0_15px_rgba(var(--primary-rgb),0.4)]"
+                    ? "bg-primary text-black"
                     : "text-white/50 hover:text-white hover:bg-white/10"
             )}
             title={label}
         >
             <Icon className="w-5 h-5" />
             {!active && (
-                <span className="absolute left-12 bg-black/90 backdrop-blur-xl border border-white/10 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 transition-opacity pointer-events-none">
+                <span className="absolute  bg-black/90  border border-white/10 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 transition-opacity pointer-events-none">
                     {label}
                 </span>
             )}

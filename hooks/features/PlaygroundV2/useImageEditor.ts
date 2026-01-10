@@ -74,7 +74,7 @@ export const useImageEditor = (imageUrl: string) => {
 
     const [editorState, setEditorState] = useState<EditorState>({
         brushColor: '#40cf8f',
-        brushWidth: 5,
+        brushWidth: 2,
         fontSize: 32,
         activeTool: 'select',
         canUndo: false,
@@ -330,7 +330,7 @@ export const useImageEditor = (imageUrl: string) => {
         const common = {
             left: pointer.x,
             top: pointer.y,
-            fill: 'rgba(255, 255, 255, 0.0001)', // 近乎透明但可点击
+            fill: 'rgba(255, 255, 255, 0.00001)', // 近乎透明但可点击
             stroke: state.brushColor,
             strokeWidth: state.brushWidth,
             selectable: false,
@@ -354,17 +354,16 @@ export const useImageEditor = (imageUrl: string) => {
                 fill: 'transparent',
             });
         } else if (state.activeTool === 'annotate') {
-            // 标注工具：使用当前颜色的虚线框
+            // 标注工具：使用与形状工具相同的实现方式，仅增加虚线描边
             activeObjectRef.current = new fabric.Rect({
                 left: pointer.x,
                 top: pointer.y,
                 width: 0,
                 height: 0,
-                fill: `${state.brushColor}15`, // 15% 透明度
+                fill: 'transparent',
                 stroke: state.brushColor,
-                strokeWidth: 3, // 稍微加粗
-                strokeDashArray: [10, 5], // 优化虚线比例
-
+                strokeWidth: state.brushWidth,
+                strokeDashArray: [8, 4],
                 selectable: false,
                 evented: false,
             });
@@ -558,12 +557,45 @@ export const useImageEditor = (imageUrl: string) => {
 
         // 全局自定义控制点样式，增加清晰度
         fabric.Object.prototype.transparentCorners = false;
-        fabric.Object.prototype.cornerColor = '#40cf8f';
+        fabric.Object.prototype.cornerColor = '#ff0000';
         fabric.Object.prototype.cornerStrokeColor = '#ffffff';
-        fabric.Object.prototype.cornerSize = 10;
+        fabric.Object.prototype.cornerSize = 4;
         fabric.Object.prototype.cornerStyle = 'circle';
-        fabric.Object.prototype.borderColor = '#40cf8f';
-        fabric.Object.prototype.borderDashArray = [3, 3];
+        fabric.Object.prototype.borderColor = '#ffffff';
+        fabric.Object.prototype.borderScaleFactor = 2; // 边框粗细为2
+        fabric.Object.prototype.borderDashArray = []; // 实线边框
+
+        // 自定义控制点渲染函数：实现圆形控制点，带白色外描边
+        const renderModernCircleCorner = (ctx: CanvasRenderingContext2D, left: number, top: number, styleOverride: any, fabricObject: fabric.Object) => {
+            const size = fabricObject.cornerSize || 12;
+            const radius = size / 2;
+
+            ctx.save();
+
+            // 绘制主色圆形 (#1079BB)
+            ctx.beginPath();
+            ctx.arc(left, top, radius, 0, Math.PI * 2, false);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            // 绘制白色外描边 (1px)
+            // ctx.stroke() 会在路径两侧绘制，这里设为 1px 的 lineWidth 会有 0.5px 在圆内，0.5px 在圆外
+            // 为了视觉上更接近 1px 且更清晰，我们使用 1px 的宽度并在填充后绘制
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.restore();
+        };
+
+        // 应用自定义渲染到所有标注和标准控制点
+        const controls = fabric.Object.prototype.controls;
+        if (controls) {
+            // 包含所有标准控制点和旋转点
+            Object.keys(controls).forEach(key => {
+                controls[key].render = renderModernCircleCorner;
+            });
+        }
 
         fabricCanvasRef.current = canvas;
 
@@ -611,12 +643,34 @@ export const useImageEditor = (imageUrl: string) => {
         });
 
         // 使用包装器函数确保调用最新的回调引用
+        // 边界框描边和角点大小
         canvas.on('mouse:wheel', (opt) => callbackRefs.current.handleMouseWheel(opt));
         canvas.on('mouse:down', (opt) => callbackRefs.current.onMouseDown(opt));
         canvas.on('mouse:move', (opt) => callbackRefs.current.onMouseMove(opt));
         canvas.on('mouse:up', () => callbackRefs.current.onMouseUp());
         canvas.on('path:created', () => callbackRefs.current.saveHistory());
-        canvas.on('object:added', () => callbackRefs.current.saveHistory());
+        canvas.on('object:added', (opt) => {
+            const obj = opt.target;
+            if (obj && obj !== imageObj) {
+                obj.set({
+                    borderColor: '#ffffff',
+                    borderScaleFactor: 2,
+                    cornerColor: '#1079BB',
+                    cornerStrokeColor: '#ffffff',
+                    transparentCorners: false,
+                    cornerSize: 8,
+                    cornerStyle: 'circle'
+                });
+
+                // 确保自定义渲染也被应用（以防 prototype 没生效）
+                if (obj.controls) {
+                    Object.keys(obj.controls).forEach(key => {
+                        obj.controls[key].render = renderModernCircleCorner;
+                    });
+                }
+            }
+            callbackRefs.current.saveHistory();
+        });
         canvas.on('object:modified', () => callbackRefs.current.saveHistory());
 
         // 选中标注触发编辑
@@ -785,7 +839,7 @@ export const useImageEditor = (imageUrl: string) => {
             shape = new fabric.Path('M 0 0 L 50 0 L 40 -10 M 50 0 L 40 10', {
                 ...common,
                 stroke: editorState.brushColor,
-                strokeWidth: 2,
+                strokeWidth: 1,
             });
         }
 
@@ -880,8 +934,26 @@ export const useImageEditor = (imageUrl: string) => {
 
     const updateBrushWidth = (width: number) => {
         setEditorState(prev => ({ ...prev, brushWidth: width }));
-        if (fabricCanvasRef.current?.freeDrawingBrush) {
-            fabricCanvasRef.current.freeDrawingBrush.width = width;
+
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        // 更新自由画笔宽度
+        if (canvas.freeDrawingBrush) {
+            canvas.freeDrawingBrush.width = width;
+        }
+
+        // 同步修改选中对象的状态
+        const activeObjects = canvas.getActiveObjects();
+        if (activeObjects.length > 0) {
+            activeObjects.forEach(obj => {
+                // 如果对象支持描边且不是背景图
+                if (obj.stroke !== undefined && obj !== canvas.getObjects()[0]) {
+                    obj.set('strokeWidth', width);
+                }
+            });
+            canvas.renderAll();
+            saveHistory();
         }
     };
 
