@@ -116,8 +116,13 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
         }
     };
 
-    const handleSaveEditedImage = async (dataUrl: string) => {
+    const handleSaveEditedImage = async (dataUrl: string, prompt?: string) => {
         try {
+            // Apply prompt if provided (from labeling tool)
+            if (prompt) {
+                usePlaygroundStore.getState().applyPrompt(prompt);
+            }
+
             // 1. Convert dataUrl to Blob/File
             const response = await fetch(dataUrl);
             const blob = await response.blob();

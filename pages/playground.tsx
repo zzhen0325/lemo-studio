@@ -32,13 +32,14 @@ import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { X, Plus, Sparkles, History, PanelRightOpen, PanelLeftOpen, Loader2, Image as ImageIcon } from "lucide-react";
+import { X, Plus, Sparkles, History, Loader2, Image as ImageIcon, Edit2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { DescribePanel } from "@/components/features/playground-v2/DescribePanel";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
+import { AR_MAP, getAspectRatioPresets, getAspectRatioByDimensions } from "@/components/features/playground-v2/constants/aspect-ratio";
 import GradualBlur from "@/components/GradualBlur";
 import SplitText from "@/components/ui/split-text";
 
@@ -470,37 +471,39 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     await handleFilesUpload(files, isDescribeMode ? 'describe' : 'reference');
   };
   const removeImage = (index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); };
-
-  const AR_MAP: Record<string, Record<string, { w: number; h: number }>> = {
-    '1:1': { '1K': { w: 1024, h: 1024 }, '2K': { w: 2048, h: 2048 }, '4K': { w: 4096, h: 4096 } },
-    '2:3': { '1K': { w: 848, h: 1264 }, '2K': { w: 1696, h: 2528 }, '4K': { w: 3392, h: 5056 } },
-    '3:2': { '1K': { w: 1264, h: 848 }, '2K': { w: 2528, h: 1696 }, '4K': { w: 5056, h: 3392 } },
-    '3:4': { '1K': { w: 896, h: 1200 }, '2K': { w: 1792, h: 2400 }, '4K': { w: 3584, h: 4800 } },
-    '4:3': { '1K': { w: 1200, h: 896 }, '2K': { w: 2400, h: 1792 }, '4K': { w: 4800, h: 3584 } },
-    '4:5': { '1K': { w: 928, h: 1152 }, '2K': { w: 1856, h: 2304 }, '4K': { w: 3712, h: 4608 } },
-    '5:4': { '1K': { w: 1152, h: 928 }, '2K': { w: 2304, h: 1856 }, '4K': { w: 4608, h: 3712 } },
-    '9:16': { '1K': { w: 768, h: 1376 }, '2K': { w: 1536, h: 2752 }, '4K': { w: 3072, h: 5504 } },
-    '16:9': { '1K': { w: 1376, h: 768 }, '2K': { w: 2752, h: 1536 }, '4K': { w: 5504, h: 3072 } },
-    '21:9': { '1K': { w: 1584, h: 672 }, '2K': { w: 3168, h: 1344 }, '4K': { w: 6336, h: 2688 } },
-  };
-
-  const aspectRatioPresets = Object.keys(AR_MAP).map(name => ({
-    name,
-    width: AR_MAP[name]['1K'].w,
-    height: AR_MAP[name]['1K'].h
-  }));
-
-  const getCurrentAspectRatio = () => {
-    const sizeKeys = ['1K', '2K', '4K'];
-    for (const [ar, sizes] of Object.entries(AR_MAP)) {
-      for (const size of sizeKeys) {
-        if (sizes[size].w === config.width && sizes[size].h === config.height) return ar;
-      }
+  const handleEditUploadedImage = () => {
+    if (uploadedImages.length > 0) {
+      setEditingImageUrl(uploadedImages[0].previewUrl);
+      setIsEditorOpen(true);
+    } else {
+      toast({ title: "No image", description: "Please upload an image first." });
     }
-    return "16:9";
   };
-  const handleWidthChange = (newWidth: number) => { if (isAspectRatioLocked && config.height > 0) { const ratio = config.width / config.height; const newHeight = Math.round(newWidth / ratio); setConfig(prev => ({ ...prev, width: newWidth, height: newHeight })); } else { setConfig(prev => ({ ...prev, width: newWidth })); } };
-  const handleHeightChange = (newHeight: number) => { if (isAspectRatioLocked && config.height > 0) { const ratio = config.width / config.height; const newWidth = Math.round(newHeight * ratio); setConfig(prev => ({ ...prev, height: newHeight, width: newWidth })); } else { setConfig(prev => ({ ...prev, height: newHeight })); } };
+
+
+  // 使用从常量文件导入的宽高比配置
+  const aspectRatioPresets = getAspectRatioPresets();
+  const getCurrentAspectRatio = () => getAspectRatioByDimensions(config.width, config.height);
+
+  const handleWidthChange = (newWidth: number) => {
+    if (isAspectRatioLocked && config.height > 0) {
+      const ratio = config.width / config.height;
+      const newHeight = Math.round(newWidth / ratio);
+      setConfig(prev => ({ ...prev, width: newWidth, height: newHeight }));
+    } else {
+      setConfig(prev => ({ ...prev, width: newWidth }));
+    }
+  };
+
+  const handleHeightChange = (newHeight: number) => {
+    if (isAspectRatioLocked && config.height > 0) {
+      const ratio = config.width / config.height;
+      const newWidth = Math.round(newHeight * ratio);
+      setConfig(prev => ({ ...prev, height: newHeight, width: newWidth }));
+    } else {
+      setConfig(prev => ({ ...prev, height: newHeight }));
+    }
+  };
   const handlePresetSelect = (p: PresetExtended) => {
     const preset = p as PresetExtended;
     const effectiveConfig = (preset.config as GenerationConfig) || (preset as unknown as GenerationConfig);
@@ -690,9 +693,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
   };
 
-  const handleSaveEditedImage = async (dataUrl: string) => {
+  const handleSaveEditedImage = async (dataUrl: string, prompt?: string) => {
     setIsEditorOpen(false);
     try {
+      // If a prompt was provided (e.g. from labeling tool), update the playground prompt
+      if (prompt) {
+        setConfig(prev => ({ ...prev, prompt }));
+      }
+
       // 1. Convert dataUrl to Blob
       const res = await fetch(dataUrl);
       const blob = await res.blob();
@@ -1056,28 +1064,19 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
               {/* 三栏布局 - showHistory 为 true 时启用 */}
               <div className={cn(
-                "relative z-20 w-full h-full",
+                "relative z-20 w-full pt-4 max-w-[92vw] h-full",
                 showHistory
-                  ? "flex flex-row items-stretch"
+                  ? "flex flex-row "
                   : "flex flex-col items-center justify-center"
               )}>
                 {/* 左侧 Project 面板 - showHistory 时作为三栏的一部分 */}
                 {showHistory ? (
-                  <div className="w-[20%] min-w-[200px] max-w-[280px] h-full flex flex-col p-4 overflow-hidden min-h-0">
-                    {showProjectSidebar ? (
-                      <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
-                    ) : (
-                      <div className="py-6 shrink-0">
-                        <button
-                          onClick={() => setShowProjectSidebar(true)}
-                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all"
-                          title="展开项目"
-                        >
-                          <PanelLeftOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Project</span>
-                        </button>
-                      </div>
-                    )}
+                  <div className="w-[15%] min-w-[200px]  h-full flex flex-col pr-6 pt-4  pb-4 overflow-hidden min-h-0">
+                    {showProjectSidebar}
+                    <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
+
+
+
                   </div>
                 ) : null}
 
@@ -1085,86 +1084,139 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 <div className={cn(
                   "flex flex-col items-center relative z-30",
                   showHistory
-                    ? "flex-1 h-full pt-4 overflow-hidden"
+                    ? "flex  w-full h-full pt-4 overflow-hidden"
                     : "max-w-4xl w-full",
                   !showHistory && (isPresetGridOpen ? "mt-0" : "-mt-60")
                 )}>
-                  {/* Input UI */}
-                  <div ref={promptWrapperRef} className={cn(
-                    "w-full",
-                    showHistory && ""
+
+
+
+
+                  <div className={cn(
+                    "flex flex-col w-full items-center relative z-30",
+                    showHistory && "h-full"
                   )}>
-                    <div className="w-full">
-                      {renderInputUI()}
+
+                    {/* History/Describe Trigger - Only show if history is visible (Above Input) */}
+                    {/* {showHistory && !isDescribeMode && !isPresetGridOpen && (
+                      <div className="flex justify-start w-full mb-4 gap-2">
+                        <button
+                          onClick={() => setIsDescribeMode(!isDescribeMode)}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
+                            "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          <span className="text-sm font-medium">Describe</span>
+                        </button>
+                        <button
+                          onClick={() => setShowHistory(false)}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/60 backdrop-blur-md transition-all bg-black/40 text-white"
+                          )}
+                        >
+                          <History className="w-4 h-4" />
+                          <span className="text-sm font-medium">History</span>
+                        </button>
+                        <button
+                          onClick={handleEditUploadedImage}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span className="text-sm font-medium">Edit Image</span>
+                        </button>
+                      </div>
+                    )} */}
+
+                    {/* Input UI */}
+                    <div ref={promptWrapperRef} className={cn(
+                      "w-full ",
+                      showHistory && ""
+                    )}>
+                      <div className="w-full">
+                        {renderInputUI()}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* History/Describe Trigger - Only show if history is NOT visible */}
-                  {!showHistory && !isDescribeMode && !isPresetGridOpen && (
-                    <div className="flex justify-center mt-4 gap-4">
-                      <button
-                        onClick={() => setIsDescribeMode(!isDescribeMode)}
-                        className={cn(
-                          "flex items-center gap-2 px-6 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
-                          isDescribeMode
-                            ? "text-white bg-black/40 border-white/60"
-                            : "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
-                        )}
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        <span className="text-sm font-medium">Describe</span>
-                      </button>
-                      <button
-                        onClick={() => setShowHistory(true)}
-                        className={cn(
-                          "flex items-center gap-2 px-6 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                        )}
-                      >
-                        <History className="w-4 h-4" />
-                        <span className="text-sm font-medium">History</span>
-                      </button>
-                    </div>
-                  )}
+                    {/* History/Describe Trigger - Only show if history is NOT visible (Below Input) */}
+                    {!showHistory && !isDescribeMode && !isPresetGridOpen && (
+                      <div className="flex justify-center mt-4 gap-4">
+                        <button
+                          onClick={() => setIsDescribeMode(!isDescribeMode)}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
+                            isDescribeMode
+                              ? "text-white bg-black/40 border-white/60"
+                              : "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          <span className="text-sm font-medium">Describe</span>
+                        </button>
+                        <button
+                          onClick={() => setShowHistory(true)}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <History className="w-4 h-4" />
+                          <span className="text-sm font-medium">History</span>
+                        </button>
+                        <button
+                          onClick={handleEditUploadedImage}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span className="text-sm font-medium">Edit Image</span>
+                        </button>
+                      </div>
+                    )}
 
-                  {!isDescribeMode && isPresetGridOpen && (
-                    <PresetGridOverlay
-                      onOpenManager={() => setIsPresetManagerOpen(true)}
-                      onSelectPreset={handlePresetSelect}
-                    />
-                  )}
-
-                  {/* 历史记录区域 */}
-                  {showHistory && (
-                    <div className="mt-6 w-full relative flex-1 overflow-hidden z-30">
-                      <HistoryList
-                        variant="sidebar"
-                        history={filteredHistory}
-                        onRegenerate={(res) => {
-                          if (res.config) {
-                            applyModel(res.config.model, {
-                              ...res.config,
-                              loras: res.config.loras || [],
-                              presetName: res.config.presetName,
-                            });
-                          }
-                          handleRegenerate(res);
-                        }}
-                        onDownload={handleDownload}
-                        onImageClick={openImageModal}
-                        onBatchUse={handleBatchUse}
-                        layoutMode={historyLayoutMode}
-                        onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
-                        onClose={() => setShowHistory(false)}
+                    {!isDescribeMode && isPresetGridOpen && (
+                      <PresetGridOverlay
+                        onOpenManager={() => setIsPresetManagerOpen(true)}
+                        onSelectPreset={handlePresetSelect}
                       />
-                    </div>
-                  )}
+                    )}
+
+                    {/* 历史记录区域 */}
+                    {showHistory && (
+                      <div className="mt-4 mb-4 w-full relative flex-1 overflow-hidden z-30">
+                        <HistoryList
+                          variant="sidebar"
+                          history={filteredHistory}
+                          onRegenerate={(res) => {
+                            if (res.config) {
+                              applyModel(res.config.model, {
+                                ...res.config,
+                                loras: res.config.loras || [],
+                                presetName: res.config.presetName,
+                              });
+                            }
+                            handleRegenerate(res);
+                          }}
+                          onDownload={handleDownload}
+                          onImageClick={openImageModal}
+                          onBatchUse={handleBatchUse}
+                          layoutMode={historyLayoutMode}
+                          onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
+                          onClose={() => setShowHistory(false)}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* 右侧 Gallery 面板 - showHistory 时作为三栏的一部分 */}
-                {showHistory ? (
+                {/* {showHistory ? (
                   <div className={cn(
                     "h-full flex flex-col p-4 transition-all duration-300",
-                    showGallery ? "w-[20%] min-w-[280px] max-w-[380px]" : "w-auto"
+                    showGallery ? "w-[30%] min-w-[280px] max-w-[380px]" : "w-auto"
                   )}>
                     {showGallery ? (
                       <div className="h-full flex flex-col">
@@ -1270,7 +1322,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       )}
                     </div>
                   </div>
-                )}
+                )} */}
 
               </div>
 

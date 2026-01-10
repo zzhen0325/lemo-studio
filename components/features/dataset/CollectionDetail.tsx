@@ -1800,7 +1800,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center group-hover:scale-110 group-hover:bg-primary/20 transition-all">
                             <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary" />
                         </div>
-                        <span className="mt-4 text-white text-xl font-medium text-muted-foreground group-hover:text-primary transition-colors">Add</span>
+                        <span className="mt-4 text-white text-xl font-medium  group-hover:text-primary transition-colors">Add</span>
                         <p className="mt-2 text-sm text-muted-foreground/70 text-center">Support multiple JPG, PNGfiles</p>
                         <input type="file" multiple accept="image/*,.txt" className="hidden" onChange={handleUpload} />
                     </label>

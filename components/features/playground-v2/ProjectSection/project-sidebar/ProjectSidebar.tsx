@@ -8,6 +8,11 @@ import { Plus, LayoutGrid, Folder, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
+import GradualBlur from "@/components/GradualBlur";
+
+
+
+
 
 interface ProjectSidebarProps {
   onShowAllProjects: () => void;
@@ -19,6 +24,7 @@ interface ProjectItemProps {
   isSelected: boolean;
   style?: React.CSSProperties;
 }
+
 
 const ProjectItem = observer(({ project, isSelected, style }: ProjectItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -167,13 +173,36 @@ const ProjectList = observer(() => {
 
 // ========== ProjectSidebar (Main Export) ==========
 export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarProps) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className="flex flex-col h-full w-full min-h-0">
-      <div className="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex flex-col h-full  w-full min-h-0">
+      <div className="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col min-h-0  relative overflow-hidden">
+
+        <GradualBlur
+          target="parent"
+          position="top"
+          height="100px"
+          strength={6}
+          divCount={5}
+          curve="bezier"
+          exponential={true}
+          zIndex={10}
+          opacity={1}
+          borderRadius="1.5rem"
+          animate={{
+            type: 'scroll',
+            targetRef: scrollRef,
+            startOffset: 0,
+            endOffset: 80
+          }}
+        />
+
+
         <div className="p-4 flex flex-col gap-4 flex-1 min-h-0">
           {/* Header */}
-          <div className="flex items-center px-2 justify-between shrink-0">
-            <span className="text-2xl text-white"
+          <div className="flex items-center px-2 justify-between z-20 shrink-0">
+            <span className="text-2 xl text-white"
               style={{ fontFamily: "'InstrumentSerif', serif" }}>Projects</span>
             <div className="flex gap-1">
               <Button
@@ -198,7 +227,9 @@ export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarPro
           </div>
 
           {/* Scrollable List */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+
+
             <ProjectList />
           </div>
         </div>

@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { projectStore } from "@/lib/store/project-store";
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, LayoutGrid, List, X, FolderPlus, Plus, ChevronDown, GripVertical, Folder } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, LayoutGrid, List, X, FolderPlus, GripVertical, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -14,13 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
 import GradualBlur from "@/components/GradualBlur";
 import { useDraggable } from "@dnd-kit/core";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+
 
 interface HistoryListProps {
   history: Generation[];
@@ -167,8 +161,8 @@ const HistoryList = observer(function HistoryList({
       <GradualBlur
         target="parent"
         position="top"
-        height="80px"
-        strength={10}
+        height="60px"
+        strength={3}
         divCount={5}
         curve="bezier"
         exponential={true}
@@ -183,7 +177,7 @@ const HistoryList = observer(function HistoryList({
         }}
       />
       {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
-      <div className="absolute gap-4 flex top-6 left-8 z-20 ">
+      <div className="absolute  flex top-6 left-6 z-20 ">
         <span className="text-white text-2xl"
           style={{ fontFamily: "'InstrumentSerif', serif" }}
         >History</span>
@@ -720,7 +714,7 @@ function HistoryCard({
               </motion.div>
 
               <motion.div className={cn(
-                "col-span-4 grid gap-4",
+                "col-span-4 grid gap-2",
                 isWide ? "grid-cols-2" : "grid-cols-4"
               )}>
                 {resultsToDisplay.map((res, idx) => {

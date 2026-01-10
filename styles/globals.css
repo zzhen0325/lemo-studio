@@ -229,7 +229,7 @@
 
 /* Global Sonner Toast Glassmorphism Override */
 [data-sonner-toast].glass-toast {
-  background: rgba(0, 0, 0, 0.2) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(5px) !important;
   border: 1.5px solid rgba(255, 255, 255, 0.2) !important;

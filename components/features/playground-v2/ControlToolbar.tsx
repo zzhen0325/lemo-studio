@@ -161,7 +161,7 @@ export default function ControlToolbar({
     onSelectorExpandedChange?.(false);
   };
 
-  const Inputbutton2 = "h-10 w-auto text-white/70 font-normal rounded-2xl bg-black/30  hover:bg-black/50 hover:text-primary  hover:border-primary  transition-colors duration-200";
+  const Inputbutton2 = "h-10 w-auto text-white/90 rounded-2xl bg-black/40  hover:bg-white/5 hover:border-white/10 hover:border hover:text-primary    transition-colors duration-200";
   const triggerLabel = (() => {
     if (selectValue === 'seed3') return 'Seed 3';
     if (selectValue === 'seed4') return 'Seed 4';
@@ -196,7 +196,7 @@ export default function ControlToolbar({
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[240px] p-4 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
+      <DropdownMenuContent className="w-[240px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
         <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('nano_banana')}
@@ -264,28 +264,28 @@ export default function ControlToolbar({
               <div className="flex items-center gap-2">
                 <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
                   LoRA
-                   {selectedLoras && selectedLoras.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {selectedLoras.slice(0, 5).map((lora) => (
-                      <div key={lora.model_name} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/20" title={lora.model_name}>
-                        {lora.preview_url ? (
-                          <Image
-                            src={lora.preview_url}
-                            alt={lora.model_name}
-                            fill
-                            sizes="24px"
-                            className="object-cover"
-                            quality={20}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-white/10" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  {selectedLoras && selectedLoras.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {selectedLoras.slice(0, 5).map((lora) => (
+                        <div key={lora.model_name} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/20" title={lora.model_name}>
+                          {lora.preview_url ? (
+                            <Image
+                              src={lora.preview_url}
+                              alt={lora.model_name}
+                              fill
+                              sizes="24px"
+                              className="object-cover"
+                              quality={20}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-white/10" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </Button>
-               
+
               </div>
             )}
           </div>
@@ -298,7 +298,7 @@ export default function ControlToolbar({
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[320px] p-6 bg-black/90 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
+            <DropdownMenuContent className="w-[320px] p-6 bg-black/60 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
               <div className="space-y-4">
                 {(selectedModel === 'Nano banana' || selectedModel === 'Seed 4.2') && (
                   <div className="space-y-4">
@@ -418,15 +418,15 @@ export default function ControlToolbar({
             <Button
               onClick={onGenerate}
               className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center gap-2 border-[2px] border-transparent transition-all duration-300 hover:animate-border-rotate"
-              // style={{
-              //   backgroundImage: `
-              //     linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
-              //     linear-gradient(primary, black),
-              //    conic-gradient(from var(--angle), #229563ff 0deg, #b0eed6ff 17%, #89d8acff 35%, #569466ff 51%, #87d690ff 68%, #a7d8b4ff 84%) 
-              //   `,
-              //   backgroundClip: 'padding-box, padding-box, border-box',
-              //   backgroundOrigin: 'border-box',
-              // }}
+            // style={{
+            //   backgroundImage: `
+            //     linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
+            //     linear-gradient(primary, black),
+            //    conic-gradient(from var(--angle), #229563ff 0deg, #b0eed6ff 17%, #89d8acff 35%, #569466ff 51%, #87d690ff 68%, #a7d8b4ff 84%) 
+            //   `,
+            //   backgroundClip: 'padding-box, padding-box, border-box',
+            //   backgroundOrigin: 'border-box',
+            // }}
             >
               {isGenerating ? (
                 <>
