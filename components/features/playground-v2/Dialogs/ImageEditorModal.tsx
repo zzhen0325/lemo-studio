@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import * as fabric from 'fabric';
 import {
     Undo2,
     Redo2,
@@ -20,7 +19,8 @@ import {
     LucideIcon,
     Trash2,
     ImagePlus,
-    MessageSquarePlus
+    MessageSquarePlus,
+    Upload
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -31,26 +31,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { useImageEditor } from '@/hooks/features/PlaygroundV2/useImageEditor';
+
+import { useImageEditor, EDITOR_COLORS, EditorColor } from '@/hooks/features/PlaygroundV2/useImageEditor';
 import { cn } from '@/lib/utils';
 
 interface ImageEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     imageUrl: string;
-    onSave: (editedImageUrl: string, prompt?: string) => void;
+    onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[]) => void;
 }
-
-const COLORS = [
-    '#40cf8f', // Theme Emerald / Primary
-    '#ffffff',
-    '#000000',
-    '#ef4444', // Red
-    '#3b82f6', // Blue
-    '#eab308', // Yellow
-    '#a855f7', // Purple
-    '#f97316'  // Orange
-];
 
 export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: ImageEditorModalProps) {
     const [showProperties, setShowProperties] = useState(true);
@@ -71,15 +61,81 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
         addImage,
         confirmAnnotation,
         cancelAnnotation,
-        fabricCanvasRef,
+        addReferenceImage,
+        removeReferenceImage,
+        getAnnotationsInfo,
     } = useImageEditor(imageUrl);
 
     const [annotationText, setAnnotationText] = useState("");
     const annotInputRef = useRef<HTMLInputElement>(null);
     const canvasContainerRef = useRef<HTMLDivElement>(null);
 
+    // 渲染带有徽章的标注文本（用于输入框预览）
+    const renderAnnotTextWithBadges = useCallback((text: string) => {
+        if (!text) return null;
+        const parts = text.split(/(\[Image \d+\])/g);
+        return parts.map((part, i) => {
+            const match = part.match(/^\[(Image \d+)\]$/);
+            if (match) {
+                const label = match[1];
+                return (
+                    <span key={i} className="inline-flex items-center h-[18px] px-1 bg-primary/20 border border-primary/30 rounded text-[9px] text-primary font-bold mx-0.5 align-middle leading-none">
+                        {label}
+                    </span>
+                );
+            }
+            return <span key={i}>{part}</span>;
+        });
+    }, []);
+
+    // 在光标位置插入参考图标记
+    const insertRefImageTag = useCallback((label: string) => {
+        const input = annotInputRef.current;
+        if (!input) {
+            // 如果输入框没焦点，直接加在最后
+            setAnnotationText(prev => prev + ` [${label}]`);
+            return;
+        }
+
+        const start = input.selectionStart || 0;
+        const end = input.selectionEnd || 0;
+        const text = input.value;
+        const newText = text.substring(0, start) + `[${label}]` + text.substring(end);
+
+        setAnnotationText(newText);
+
+        // 延迟恢复焦点并移动光标到标记之后
+        setTimeout(() => {
+            input.focus();
+            const newPos = start + label.length + 2;
+            input.setSelectionRange(newPos, newPos);
+        }, 0);
+    }, []);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const refImageInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
+
+    // 处理参考图上传 - 上传后自动在光标处插入标记
+    const handleRefImageUpload = useCallback((files: FileList | null) => {
+        if (!files || files.length === 0) return;
+
+        Array.from(files).forEach((file, index) => {
+            if (!file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target?.result as string;
+                if (dataUrl) {
+                    addReferenceImage(dataUrl);
+                    // 生成新标签并插入
+                    const newLabel = `Image ${editorState.referenceImages.length + index + 1}`;
+                    insertRefImageTag(newLabel);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }, [addReferenceImage, editorState.referenceImages.length, insertRefImageTag]);
 
     // 处理文件上传
     const handleFileUpload = useCallback((files: FileList | null) => {
@@ -98,6 +154,17 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
             reader.readAsDataURL(file);
         });
     }, [addImage]);
+
+    // 同步编辑状态的文字
+    useEffect(() => {
+        if (editorState.pendingAnnotation) {
+            setAnnotationText(editorState.pendingAnnotation.existingText || "");
+            // 自动聚焦
+            setTimeout(() => annotInputRef.current?.focus(), 100);
+        } else {
+            setAnnotationText("");
+        }
+    }, [editorState.pendingAnnotation]);
 
     // 拖放事件处理
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -142,30 +209,25 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
     const handleSave = () => {
         const dataUrl = exportImage();
         if (dataUrl) {
-            const canvas = fabricCanvasRef.current;
+            // 获取标注信息
+            const annotations = getAnnotationsInfo();
+            const referenceImages = editorState.referenceImages;
+
             let finalPrompt = "";
 
-            if (canvas) {
-                const objects = canvas.getObjects();
-                const hasAnnotations = objects.some((obj) =>
-                    (obj.type === 'rect' && (obj as fabric.Rect).stroke === '#ef4444' && (obj as fabric.Rect).strokeDashArray) ||
-                    (obj.type === 'i-text' && (obj as fabric.IText).fill === '#ef4444')
-                );
+            if (annotations.length > 0) {
+                // 构建详细的提示词，包含颜色标注信息
+                const annotationDescriptions = annotations.map(ann => {
+                    return `${ann.colorName} annotation: ${ann.text}`;
+                });
 
-                if (hasAnnotations) {
-                    const labels = objects
-                        .filter((obj) => obj.type === 'i-text' && (obj as fabric.IText).fill === '#ef4444')
-                        .map((obj) => (obj as fabric.IText).text)
-                        .join(", ");
-
-                    finalPrompt = "根据图中标注修改图片，并移除标注";
-                    if (labels) {
-                        finalPrompt += `。标注内容：${labels}`;
-                    }
-                }
+                finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注。\n标注说明：\n${annotationDescriptions.join('\n')}`;
             }
 
-            onSave(dataUrl, finalPrompt || undefined);
+            // 提取参考图的 dataUrl 列表
+            const refImageUrls = referenceImages.map(img => img.dataUrl);
+
+            onSave(dataUrl, finalPrompt || undefined, refImageUrls.length > 0 ? refImageUrls : undefined);
         }
     };
 
@@ -173,7 +235,12 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
     useEffect(() => {
         if (editorState.pendingAnnotation && annotInputRef.current) {
             annotInputRef.current.focus();
-            setAnnotationText("");
+            // 编辑模式：填充已有的标注信息
+            if (editorState.pendingAnnotation.existingText) {
+                setAnnotationText(editorState.pendingAnnotation.existingText);
+            } else {
+                setAnnotationText("");
+            }
         }
     }, [editorState.pendingAnnotation]);
 
@@ -391,6 +458,49 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                 className="w-full h-full flex items-center justify-center relative"
                                 ref={canvasContainerRef}
                             >
+                                {/* 参考图展示区域 - 始终渲染容器避免 DOM 插入冲突 */}
+                                <div
+                                    className="absolute top-4 left-4 z-[100] flex flex-col gap-2"
+                                    style={{ display: editorState.referenceImages.length > 0 ? 'flex' : 'none' }}
+                                >
+                                    <div className="text-white/40 text-[10px] uppercase font-mono tracking-wider mb-1">
+                                        Reference Images
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 max-w-[240px]">
+                                        {editorState.referenceImages.map((img) => (
+                                            <div
+                                                key={img.id}
+                                                className="relative group cursor-pointer"
+                                                onClick={() => insertRefImageTag(img.label)}
+                                                title={`点击插入光标位置: [${img.label}]`}
+                                            >
+                                                <div className="w-16 h-16 rounded-lg overflow-hidden border border-white/20 bg-black/40 group-hover:border-primary/50 transition-colors">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src={img.dataUrl}
+                                                        alt={img.label}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[9px] text-white/80 whitespace-nowrap group-hover:text-primary transition-colors">
+                                                    {img.label}
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        removeReferenceImage(img.id);
+                                                    }}
+                                                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                >
+                                                    <X className="w-2.5 h-2.5 text-white" />
+                                                </button>
+                                                <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors rounded-lg flex items-center justify-center">
+                                                    <MessageSquarePlus className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                                 <canvas ref={canvasRef} className="max-w-full max-h-full transition-all duration-300 shadow-2xl" />
 
                                 {/* Annotation Input Overlay */}
@@ -430,34 +540,76 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                         })()}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <Input
-                                            ref={annotInputRef}
-                                            value={annotationText}
-                                            onChange={(e) => setAnnotationText(e.target.value)}
-                                            placeholder="输入修改说明..."
-                                            className="h-8 bg-white/5 border-white/10 text-white text-xs"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') confirmAnnotation(annotationText);
-                                                if (e.key === 'Escape') cancelAnnotation();
-                                            }}
+                                        {/* 输入框区域 - 包含视觉徽章映射 */}
+                                        <div className="relative flex items-center gap-2 h-9 px-3 bg-white/5 border border-white/10 rounded-lg focus-within:border-primary/50 transition-colors overflow-hidden">
+                                            <div className="relative flex-1 h-full flex items-center">
+                                                {/* 视觉层：解析并展示 [Image X] 为 Badge */}
+                                                <div className="absolute inset-0 flex items-center text-xs font-sans text-white/90 whitespace-pre pointer-events-none overflow-hidden pl-0">
+                                                    {renderAnnotTextWithBadges(annotationText)}
+                                                </div>
+                                                <Input
+                                                    ref={annotInputRef}
+                                                    value={annotationText}
+                                                    onChange={(e) => setAnnotationText(e.target.value)}
+                                                    placeholder={annotationText ? "" : "说明..."}
+                                                    className="absolute inset-0 w-full h-full bg-transparent border-none text-xs font-sans focus-visible:ring-0 focus-visible:ring-offset-0 px-0 z-10 selection:bg-primary/20 caret-white"
+                                                    style={{
+                                                        color: 'transparent',
+                                                        textShadow: 'none'
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            confirmAnnotation(annotationText);
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <button
+                                                onClick={() => refImageInputRef.current?.click()}
+                                                className="relative z-20 flex items-center gap-1 h-6 px-2 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] text-white/60 hover:text-white transition-colors shrink-0"
+                                                title="上传并插入参考图"
+                                            >
+                                                <Upload className="w-3 h-3 text-primary" />
+                                                <span>Ref</span>
+                                            </button>
+                                        </div>
+
+                                        {/* 隐藏的文件上传 input */}
+                                        <input
+                                            ref={refImageInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            className="hidden"
+                                            onChange={(e) => handleRefImageUpload(e.target.files)}
                                         />
-                                        <div className="flex justify-end gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 px-2 text-[10px] text-white/50 hover:text-white"
-                                                onClick={cancelAnnotation}
-                                            >
-                                                取消
-                                            </Button>
-                                            <Button
-                                                variant="act"
-                                                size="sm"
-                                                className="h-7 px-3 text-[10px]"
-                                                onClick={() => confirmAnnotation(annotationText)}
-                                            >
-                                                应用标注
-                                            </Button>
+
+                                        {/* 底部操作区 */}
+                                        <div className="flex items-center justify-between gap-3 pt-1 border-t border-white/5 mt-1">
+                                            <div className="text-[9px] text-white/30 hidden sm:block">
+                                                按 Enter 确认
+                                            </div>
+                                            <div className="flex items-center gap-2 ml-auto">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-6 px-2 rounded-md text-[10px] text-white/40 hover:text-white hover:bg-white/10"
+                                                    onClick={() => cancelAnnotation()}
+                                                >
+                                                    取消
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="act"
+                                                    className="h-6 px-2 rounded-md text-[10px] gap-1"
+                                                    onClick={() => confirmAnnotation(annotationText)}
+                                                >
+                                                    <Check className="w-3 h-3" />
+                                                    确认
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -479,17 +631,18 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                             <Palette className="w-3 h-3" /> Color
                                         </div>
                                         <div className="grid grid-cols-4 gap-2">
-                                            {COLORS.map(color => (
+                                            {EDITOR_COLORS.map(({ hex, name }) => (
                                                 <button
-                                                    key={color}
+                                                    key={hex}
                                                     className={cn(
                                                         "w-9 h-9 rounded-full border-2 transition-all hover:scale-110",
-                                                        editorState.brushColor === color
+                                                        editorState.brushColor === hex
                                                             ? "border-white ring-2 ring-white/20"
                                                             : "border-transparent hover:border-white/30"
                                                     )}
-                                                    style={{ backgroundColor: color }}
-                                                    onClick={() => updateBrushColor(color)}
+                                                    style={{ backgroundColor: hex }}
+                                                    onClick={() => updateBrushColor(hex as EditorColor)}
+                                                    title={name}
                                                 />
                                             ))}
                                         </div>

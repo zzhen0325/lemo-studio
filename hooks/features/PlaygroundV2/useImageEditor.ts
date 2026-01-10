@@ -3,8 +3,44 @@ import * as fabric from 'fabric';
 
 export type EditorTool = 'select' | 'brush' | 'text' | 'rect' | 'circle' | 'arrow' | 'eraser' | 'annotate';
 
+// 统一颜色配置 - 画笔和标注框共用
+export const EDITOR_COLORS = [
+    { hex: '#40cf8f', name: 'Emerald' },
+    { hex: '#ffffff', name: 'White' },
+    { hex: '#000000', name: 'Black' },
+    { hex: '#ef4444', name: 'Red' },
+    { hex: '#3b82f6', name: 'Blue' },
+    { hex: '#eab308', name: 'Yellow' },
+    { hex: '#a855f7', name: 'Purple' },
+    { hex: '#f97316', name: 'Orange' },
+] as const;
+
+export type EditorColor = typeof EDITOR_COLORS[number]['hex'];
+
+// 参考图数据结构
+export interface ReferenceImage {
+    id: string;
+    dataUrl: string;
+    label: string; // "Image 1", "Image 2", etc.
+}
+
+// 标注信息 - 用于生成 prompt
+export interface AnnotationInfo {
+    colorName: string;
+    text: string;
+    referenceImageLabel?: string; // 关联的参考图标签
+}
+
+// 导出结果
+export interface ExportResult {
+    imageDataUrl: string;
+    annotations: AnnotationInfo[];
+    referenceImages: ReferenceImage[];
+}
+
 export interface AnnotationData {
     rect: fabric.Rect;
+    color: EditorColor;
     bounds: {
         left: number;
         top: number;
@@ -13,10 +49,14 @@ export interface AnnotationData {
         width: number;
         height: number;
     };
+    // 编辑模式下的已有标注信息
+    existingLabel?: fabric.IText;
+    existingText?: string;
+    existingRefImageLabel?: string;
 }
 
 export interface EditorState {
-    brushColor: string;
+    brushColor: EditorColor;
     brushWidth: number;
     fontSize: number;
     activeTool: EditorTool;
@@ -24,6 +64,7 @@ export interface EditorState {
     canRedo: boolean;
     zoom: number;
     pendingAnnotation: AnnotationData | null;
+    referenceImages: ReferenceImage[];
 }
 
 export const useImageEditor = (imageUrl: string) => {
@@ -40,11 +81,15 @@ export const useImageEditor = (imageUrl: string) => {
         canRedo: false,
         zoom: 1,
         pendingAnnotation: null,
+        referenceImages: [],
     });
 
     // 使用 ref 保存 editorState，避免事件回调依赖 state 导致重新创建
     const editorStateRef = useRef(editorState);
     editorStateRef.current = editorState;
+
+    // 标注计数器，用于生成“标注一、标注二”等名称
+    const annotationCountRef = useRef(0);
 
     const historyRef = useRef<string[]>([]);
     const historyIndexRef = useRef<number>(-1);
@@ -93,6 +138,88 @@ export const useImageEditor = (imageUrl: string) => {
         opt.e.stopPropagation();
 
         setEditorState(prev => ({ ...prev, zoom }));
+    }, []);
+
+    const setTool = useCallback((tool: EditorTool) => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        setEditorState(prev => ({ ...prev, activeTool: tool }));
+
+        canvas.isDrawingMode = tool === 'brush';
+        // select 和 annotate 工具都允许选择对象
+        canvas.selection = tool === 'select' || tool === 'annotate';
+
+        if (tool === 'brush') {
+            const brush = new fabric.PencilBrush(canvas);
+            brush.color = editorStateRef.current.brushColor;
+            brush.width = editorStateRef.current.brushWidth;
+            canvas.freeDrawingBrush = brush;
+        }
+
+        // 设置对象可选性：select 和 annotate 工具都允许选中标注对象
+        const allowSelect = tool === 'select' || tool === 'annotate';
+        const bgImage = canvas.getObjects()[0]; // 背景图
+
+        canvas.forEachObject(obj => {
+            // 排除背景图
+            if (obj === bgImage) return;
+
+            // 检查是否是名称标签本身（通过检查特征：不可选、有背景色、没有 annotationMeta）
+            const isNameLabel = obj instanceof fabric.IText &&
+                obj.selectable === false &&
+                obj.backgroundColor !== undefined &&
+                !(obj as fabric.IText & { annotationMeta?: unknown }).annotationMeta;
+
+            if (isNameLabel) return; // 名称标签始终不可选
+
+            // 对于其他对象（包括标注框、形状、文字、标注文本），根据工具类型设置可选性
+            obj.selectable = allowSelect;
+            obj.evented = allowSelect;
+        });
+
+        canvas.renderAll();
+    }, []);
+
+    // 触发标注编辑模式
+    const triggerAnnotationEdit = useCallback((target: any) => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        // 识别标注矩形框或标注文本
+        const rect = (target.parentRect || (target.nameLabel ? target : null)) as fabric.Rect;
+        if (!rect) return;
+
+        const textLabel = (rect as any).textLabel as fabric.IText & { annotationMeta?: AnnotationInfo };
+        if (!textLabel) return;
+
+        // 计算边界
+        const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
+        const zoom = canvas.getZoom();
+        const rectWidth = (rect.width || 0) * (rect.scaleX || 1);
+        const rectHeight = (rect.height || 0) * (rect.scaleY || 1);
+
+        const screenLeft = (rect.left || 0) * zoom + vpt[4];
+        const screenTop = (rect.top || 0) * zoom + vpt[5];
+
+        setEditorState(prev => ({
+            ...prev,
+            pendingAnnotation: {
+                rect,
+                color: (rect.stroke as string) as EditorColor,
+                bounds: {
+                    left: screenLeft,
+                    top: screenTop,
+                    right: screenLeft + rectWidth * zoom,
+                    bottom: screenTop + rectHeight * zoom,
+                    width: rectWidth * zoom,
+                    height: rectHeight * zoom
+                },
+                existingLabel: textLabel,
+                existingText: textLabel.annotationMeta?.text || "",
+                existingRefImageLabel: textLabel.annotationMeta?.referenceImageLabel
+            }
+        }));
     }, []);
 
     const onMouseDown = useCallback((opt: fabric.TPointerEventInfo) => {
@@ -146,13 +273,64 @@ export const useImageEditor = (imageUrl: string) => {
 
         if (!['rect', 'circle', 'arrow', 'annotate'].includes(state.activeTool)) return;
 
+        // 如果点击到了现有对象（包括其控制锚点），则不进行新图形的绘制
+        if (opt.target && opt.target !== imageObj) {
+            return;
+        }
+
+        // === 标注工具：先检查是否点击了已有的标注 ===
+        if (state.activeTool === 'annotate') {
+            // 查找点击位置的对象
+            const clickedObjects = canvas.getObjects().filter(obj => {
+                if (obj === imageObj) return false; // 排除背景图
+                const objBounds = obj.getBoundingRect();
+                return (
+                    pointer.x >= objBounds.left &&
+                    pointer.x <= objBounds.left + objBounds.width &&
+                    pointer.y >= objBounds.top &&
+                    pointer.y <= objBounds.top + objBounds.height
+                );
+            });
+
+            // 查找标注文本（带 annotationMeta 的 IText）
+            const annotationLabel = clickedObjects.find(obj =>
+                obj instanceof fabric.IText &&
+                (obj as fabric.IText & { annotationMeta?: unknown }).annotationMeta
+            ) as (fabric.IText & { annotationMeta?: { colorName: string; text: string; referenceImageLabel?: string } }) | undefined;
+
+            // 或者查找虚线标注框
+            const annotationRect = clickedObjects.find(obj =>
+                obj instanceof fabric.Rect &&
+                obj.strokeDashArray &&
+                obj.strokeDashArray.length > 0
+            ) as fabric.Rect | undefined;
+
+            // 查找名称标签
+            const nameLabel = clickedObjects.find(obj =>
+                obj instanceof fabric.IText &&
+                !(obj as fabric.IText & { annotationMeta?: unknown }).annotationMeta &&
+                obj.selectable === false
+            ) as fabric.IText | undefined;
+
+            if (annotationLabel || annotationRect || nameLabel) {
+                // 选中标注对象，而不是立即进入编辑模式
+                // 用户可以移动/调整大小，双击文字可编辑
+                const targetObject = annotationRect || annotationLabel;
+                if (targetObject) {
+                    canvas.setActiveObject(targetObject);
+                    canvas.renderAll();
+                }
+                return; // 不创建新标注
+            }
+        }
+
         isDrawingRef.current = true;
         startPointRef.current = { x: pointer.x, y: pointer.y };
 
         const common = {
             left: pointer.x,
             top: pointer.y,
-            fill: 'transparent',
+            fill: 'rgba(255, 255, 255, 0.0001)', // 近乎透明但可点击
             stroke: state.brushColor,
             strokeWidth: state.brushWidth,
             selectable: false,
@@ -176,16 +354,17 @@ export const useImageEditor = (imageUrl: string) => {
                 fill: 'transparent',
             });
         } else if (state.activeTool === 'annotate') {
-            // 标注工具：红色虚线框
+            // 标注工具：使用当前颜色的虚线框
             activeObjectRef.current = new fabric.Rect({
                 left: pointer.x,
                 top: pointer.y,
                 width: 0,
                 height: 0,
-                fill: 'rgba(239, 68, 68, 0.1)',
-                stroke: '#ef4444',
-                strokeWidth: 2,
-                strokeDashArray: [5, 5],
+                fill: `${state.brushColor}15`, // 15% 透明度
+                stroke: state.brushColor,
+                strokeWidth: 3, // 稍微加粗
+                strokeDashArray: [10, 5], // 优化虚线比例
+
                 selectable: false,
                 evented: false,
             });
@@ -281,6 +460,19 @@ export const useImageEditor = (imageUrl: string) => {
             // 标注工具：设置待确认状态，不立即保存
             if (state.activeTool === 'annotate') {
                 const rect = activeObjectRef.current as fabric.Rect;
+                const rectWidth = (rect.width || 0) * (rect.scaleX || 1);
+                const rectHeight = (rect.height || 0) * (rect.scaleY || 1);
+
+                // 最小尺寸检查：太小的框视为单击，不创建标注
+                const MIN_SIZE = 10;
+                if (rectWidth < MIN_SIZE || rectHeight < MIN_SIZE) {
+                    canvas.remove(rect);
+                    canvas.renderAll();
+                    activeObjectRef.current = null;
+                    startPointRef.current = null;
+                    return;
+                }
+
                 // 计算标注框在屏幕上的位置（用于定位输入框）
                 const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
                 const zoom = canvas.getZoom();
@@ -289,13 +481,14 @@ export const useImageEditor = (imageUrl: string) => {
 
                 const screenLeft = rectLeft * zoom + vpt[4];
                 const screenTop = rectTop * zoom + vpt[5];
-                const screenWidth = (rect.width || 0) * (rect.scaleX || 1) * zoom;
-                const screenHeight = (rect.height || 0) * (rect.scaleY || 1) * zoom;
+                const screenWidth = rectWidth * zoom;
+                const screenHeight = rectHeight * zoom;
 
                 setEditorState(prev => ({
                     ...prev,
                     pendingAnnotation: {
                         rect: rect,
+                        color: prev.brushColor,
                         bounds: {
                             left: screenLeft,
                             top: screenTop,
@@ -316,12 +509,20 @@ export const useImageEditor = (imageUrl: string) => {
                 selectable: true,
                 evented: true
             });
+            canvas.setActiveObject(activeObjectRef.current);
             saveHistory();
+            // 使用 setTimeout 避免在事件回调中直接切换工具导致的状态同步问题
+            setTimeout(() => {
+                const currentState = editorStateRef.current;
+                if (currentState.activeTool !== 'select') {
+                    setTool('select');
+                }
+            }, 0);
         }
 
         activeObjectRef.current = null;
         startPointRef.current = null;
-    }, [saveHistory]);
+    }, [saveHistory, setTool]);
 
     // 使用 ref 保存事件回调最新引用，避免闭包问题
     const callbackRefs = useRef({
@@ -354,6 +555,16 @@ export const useImageEditor = (imageUrl: string) => {
             backgroundColor: '#0F0F15',
             enableRetinaScaling: true,
         });
+
+        // 全局自定义控制点样式，增加清晰度
+        fabric.Object.prototype.transparentCorners = false;
+        fabric.Object.prototype.cornerColor = '#40cf8f';
+        fabric.Object.prototype.cornerStrokeColor = '#ffffff';
+        fabric.Object.prototype.cornerSize = 10;
+        fabric.Object.prototype.cornerStyle = 'circle';
+        fabric.Object.prototype.borderColor = '#40cf8f';
+        fabric.Object.prototype.borderDashArray = [3, 3];
+
         fabricCanvasRef.current = canvas;
 
         fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' }).then((img) => {
@@ -408,6 +619,80 @@ export const useImageEditor = (imageUrl: string) => {
         canvas.on('object:added', () => callbackRefs.current.saveHistory());
         canvas.on('object:modified', () => callbackRefs.current.saveHistory());
 
+        // 选中标注触发编辑
+        canvas.on('selection:created', (opt) => {
+            const state = editorStateRef.current;
+            if ((state.activeTool === 'select' || state.activeTool === 'annotate') && opt.selected?.length === 1) {
+                const target = opt.selected[0];
+                if ((target as any).parentRect || (target as any).nameLabel) {
+                    triggerAnnotationEdit(target);
+                }
+            }
+        });
+
+        canvas.on('selection:updated', (opt) => {
+            const state = editorStateRef.current;
+            if ((state.activeTool === 'select' || state.activeTool === 'annotate') && opt.selected?.length === 1) {
+                const target = opt.selected[0];
+                if ((target as any).parentRect || (target as any).nameLabel) {
+                    triggerAnnotationEdit(target);
+                }
+            }
+        });
+
+        // 联动移动处理
+        canvas.on('object:moving', (opt) => {
+            const obj = opt.target as any;
+            if (!obj) return;
+
+            // 如果是标注框移动，联动其标签
+            if (obj.nameLabel || obj.textLabel) {
+                const rect = obj as fabric.Rect;
+                const rectLeft = rect.left || 0;
+                const rectTop = rect.top || 0;
+                const rectHeight = (rect.height || 0) * (rect.scaleY || 1);
+
+                if (obj.nameLabel) {
+                    obj.nameLabel.set({
+                        left: rectLeft,
+                        top: rectTop - 18
+                    });
+                }
+                if (obj.textLabel) {
+                    obj.textLabel.set({
+                        left: rectLeft + 5,
+                        top: rectTop + rectHeight + 5
+                    });
+                }
+            }
+
+            // 如果是文本标签移动，更新其相对于父框的关系（可选，暂时只做单向联动）
+        });
+
+        // 联动缩放处理
+        canvas.on('object:scaling', (opt) => {
+            const obj = opt.target as any;
+            if (obj && (obj.nameLabel || obj.textLabel)) {
+                const rect = obj as fabric.Rect;
+                const rectLeft = rect.left || 0;
+                const rectTop = rect.top || 0;
+                const rectHeight = (rect.height || 0) * (rect.scaleY || 1);
+
+                if (obj.nameLabel) {
+                    obj.nameLabel.set({
+                        left: rectLeft,
+                        top: rectTop - 18
+                    });
+                }
+                if (obj.textLabel) {
+                    obj.textLabel.set({
+                        left: rectLeft + 5,
+                        top: rectTop + rectHeight + 5
+                    });
+                }
+            }
+        });
+
         // 处理窗口缩放
         const handleResize = () => {
             if (!container || !fabricCanvasRef.current) return;
@@ -456,32 +741,7 @@ export const useImageEditor = (imageUrl: string) => {
         });
     }, []);
 
-    const setTool = useCallback((tool: EditorTool) => {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
 
-        setEditorState(prev => ({ ...prev, activeTool: tool }));
-
-        canvas.isDrawingMode = tool === 'brush';
-        canvas.selection = tool === 'select';
-
-        if (tool === 'brush') {
-            const brush = new fabric.PencilBrush(canvas);
-            brush.color = editorState.brushColor;
-            brush.width = editorState.brushWidth;
-            canvas.freeDrawingBrush = brush;
-        }
-
-        // 当处于形状绘制模式时，也不允许选中已有对象
-
-        canvas.forEachObject(obj => {
-            if (obj.get('selectable') !== false) {
-                obj.selectable = tool === 'select';
-            }
-        });
-
-        canvas.renderAll();
-    }, [editorState.brushColor, editorState.brushWidth]);
 
     const addText = useCallback(() => {
         const canvas = fabricCanvasRef.current;
@@ -495,6 +755,7 @@ export const useImageEditor = (imageUrl: string) => {
             fill: editorState.brushColor,
             originX: 'center',
             originY: 'center',
+            editable: false,
         });
         canvas.add(text);
         canvas.setActiveObject(text);
@@ -610,7 +871,7 @@ export const useImageEditor = (imageUrl: string) => {
         return dataUrl;
     }, [imageObj]);
 
-    const updateBrushColor = (color: string) => {
+    const updateBrushColor = (color: EditorColor) => {
         setEditorState(prev => ({ ...prev, brushColor: color }));
         if (fabricCanvasRef.current?.freeDrawingBrush) {
             fabricCanvasRef.current.freeDrawingBrush.color = color;
@@ -634,10 +895,33 @@ export const useImageEditor = (imageUrl: string) => {
 
         // 不删除背景图片（第一个添加的对象）
         const bgImage = canvas.getObjects()[0];
+
+        // 收集所有需要删除的对象（包括联动对象）
+        const objectsToRemove = new Set<fabric.Object>();
+
         activeObjects.forEach(obj => {
-            if (obj !== bgImage) {
-                canvas.remove(obj);
+            if (obj === bgImage) return;
+
+            objectsToRemove.add(obj);
+
+            // 处理标注组联动
+            const objWithRefs = obj as any;
+
+            // 如果选中了主矩形框，添加其关联的标签
+            if (objWithRefs.nameLabel) objectsToRemove.add(objWithRefs.nameLabel);
+            if (objWithRefs.textLabel) objectsToRemove.add(objWithRefs.textLabel);
+
+            // 如果选中了标签，添加其主矩形框及其它标签
+            if (objWithRefs.parentRect) {
+                const rect = objWithRefs.parentRect;
+                objectsToRemove.add(rect);
+                if (rect.nameLabel) objectsToRemove.add(rect.nameLabel);
+                if (rect.textLabel) objectsToRemove.add(rect.textLabel);
             }
+        });
+
+        objectsToRemove.forEach(obj => {
+            canvas.remove(obj);
         });
 
         canvas.discardActiveObject();
@@ -676,8 +960,8 @@ export const useImageEditor = (imageUrl: string) => {
         });
     }, [saveHistory, setTool]);
 
-    // 确认标注：添加文本标签
-    const confirmAnnotation = useCallback((text: string) => {
+    // 确认标注：添加或更新文本标签
+    const confirmAnnotation = useCallback((text: string, referenceImageLabel?: string) => {
         const canvas = fabricCanvasRef.current;
         const annotation = editorState.pendingAnnotation;
         if (!canvas || !annotation) return;
@@ -686,20 +970,76 @@ export const useImageEditor = (imageUrl: string) => {
         const rectLeft = rect.left || 0;
         const rectTop = rect.top || 0;
         const rectHeight = (rect.height || 0) * (rect.scaleY || 1);
+        const annotationColor = annotation.color;
 
-        // 在框内添加文本
-        if (text.trim()) {
-            const label = new fabric.IText(text, {
+        // 获取颜色名称
+        const colorInfo = EDITOR_COLORS.find(c => c.hex === annotationColor);
+        const colorName = colorInfo?.name || 'Red';
+
+        // 如果是编辑模式，删除旧的标注文本和名称标签
+        if (annotation.existingLabel) {
+            canvas.remove(annotation.existingLabel);
+        }
+        // 删除旧的名称标签（如果有）
+        if ((rect as fabric.Rect & { nameLabel?: fabric.IText }).nameLabel) {
+            canvas.remove((rect as fabric.Rect & { nameLabel?: fabric.IText }).nameLabel!);
+        }
+
+        // 生成标注名称（新建模式时增加计数器）
+        let annotationName: string;
+        if (!annotation.existingLabel && !annotation.existingText) {
+            annotationCountRef.current++;
+            annotationName = `标注${annotationCountRef.current}`;
+        } else {
+            // 编辑模式保留原有名称
+            annotationName = (rect as fabric.Rect & { annotationName?: string }).annotationName || `标注${annotationCountRef.current}`;
+        }
+        // 存储名称到 rect 上
+        (rect as fabric.Rect & { annotationName?: string }).annotationName = annotationName;
+
+        // 在矩形框左上角添加名称标签
+        const nameLabel = new fabric.IText(annotationName, {
+            left: rectLeft,
+            top: rectTop - 18,
+            fontFamily: 'sans-serif',
+            fontSize: 12,
+            fill: '#ffffff',
+            backgroundColor: annotationColor,
+            padding: 2,
+            selectable: false,
+            evented: false,
+        });
+        canvas.add(nameLabel);
+        // 关联名称标签到 rect
+        (rect as fabric.Rect & { nameLabel?: fabric.IText }).nameLabel = nameLabel;
+
+        // 构建标注文本：包含颜色信息和可选的参考图引用
+        let labelText = text.trim();
+        if (referenceImageLabel) {
+            labelText = labelText ? `${labelText} (${referenceImageLabel})` : referenceImageLabel;
+        }
+
+        // 在框下方添加文本标签
+        if (labelText) {
+            const label = new fabric.IText(labelText, {
                 left: rectLeft + 5,
                 top: rectTop + rectHeight + 5,
                 fontFamily: 'sans-serif',
                 fontSize: 14,
-                fill: '#ef4444',
+                fill: annotationColor,
                 backgroundColor: 'rgba(0, 0, 0, 0.7)',
                 padding: 4,
                 selectable: true,
                 evented: true,
+                editable: false,
             });
+            // 存储标注元数据用于导出
+            (label as fabric.IText & { annotationMeta?: { colorName: string; text: string; referenceImageLabel?: string; annotationName?: string } }).annotationMeta = {
+                colorName,
+                text: text.trim(),
+                referenceImageLabel,
+                annotationName,
+            };
             canvas.add(label);
         }
 
@@ -709,26 +1049,48 @@ export const useImageEditor = (imageUrl: string) => {
             evented: true,
         });
 
+        // 建立双向引用，以便联动移动
+        // 使用 type-safe 的方式扩展属性（虽然 Fabric v6 属性扩展稍显复杂，这里先用 type cast 解决）
+        const rectObj = rect as fabric.Rect & { nameLabel?: fabric.Object; textLabel?: fabric.Object };
+        rectObj.nameLabel = nameLabel;
+        (nameLabel as any).parentRect = rect;
+
+        const labels = canvas.getObjects();
+        const lastLabel = labels[labels.length - 1];
+        if (labelText && lastLabel && lastLabel !== rect && lastLabel !== nameLabel) {
+            rectObj.textLabel = lastLabel;
+            (lastLabel as any).parentRect = rect;
+        }
+
+        canvas.setActiveObject(rect);
         canvas.renderAll();
         callbackRefs.current.saveHistory();
 
         // 确保在确认或取消标注后，如果工具还是 annotate，依然能看到剪裁效果
         canvas.renderAll();
 
-        // 清除待确认状态
+        // 清除待确认状态，并自动轮换到下一个颜色
+        const currentColorIndex = EDITOR_COLORS.findIndex(c => c.hex === annotationColor);
+        const nextColorIndex = (currentColorIndex + 1) % EDITOR_COLORS.length;
+        const nextColor = EDITOR_COLORS[nextColorIndex].hex;
+
         setEditorState(prev => ({
             ...prev,
             pendingAnnotation: null,
+            brushColor: nextColor,
         }));
     }, [editorState.pendingAnnotation]);
 
-    // 取消标注
+    // 取消标注（新建模式删除矩形框，编辑模式保留）
     const cancelAnnotation = useCallback(() => {
         const canvas = fabricCanvasRef.current;
         const annotation = editorState.pendingAnnotation;
         if (!canvas || !annotation) return;
 
-        canvas.remove(annotation.rect);
+        // 只有新建模式（没有 existingLabel）才删除矩形框
+        if (!annotation.existingLabel && !annotation.existingText) {
+            canvas.remove(annotation.rect);
+        }
         canvas.renderAll();
 
         setEditorState(prev => ({
@@ -736,6 +1098,55 @@ export const useImageEditor = (imageUrl: string) => {
             pendingAnnotation: null,
         }));
     }, [editorState.pendingAnnotation]);
+
+    // 添加参考图
+    const addReferenceImage = useCallback((dataUrl: string) => {
+        setEditorState(prev => {
+            const newIndex = prev.referenceImages.length + 1;
+            const newRef: ReferenceImage = {
+                id: `ref-${Date.now()}-${newIndex}`,
+                dataUrl,
+                label: `Image ${newIndex}`,
+            };
+            return {
+                ...prev,
+                referenceImages: [...prev.referenceImages, newRef],
+            };
+        });
+    }, []);
+
+    // 删除参考图
+    const removeReferenceImage = useCallback((id: string) => {
+        setEditorState(prev => {
+            const filtered = prev.referenceImages.filter(img => img.id !== id);
+            // 重新编号
+            const renumbered = filtered.map((img, idx) => ({
+                ...img,
+                label: `Image ${idx + 1}`,
+            }));
+            return {
+                ...prev,
+                referenceImages: renumbered,
+            };
+        });
+    }, []);
+
+    // 获取所有标注信息（用于生成 prompt）
+    const getAnnotationsInfo = useCallback((): AnnotationInfo[] => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return [];
+
+        const annotations: AnnotationInfo[] = [];
+        canvas.getObjects().forEach(obj => {
+            if (obj.type === 'i-text') {
+                const textObj = obj as fabric.IText & { annotationMeta?: { colorName: string; text: string; referenceImageLabel?: string } };
+                if (textObj.annotationMeta) {
+                    annotations.push(textObj.annotationMeta);
+                }
+            }
+        });
+        return annotations;
+    }, []);
 
     return {
         canvasRef,
@@ -754,6 +1165,9 @@ export const useImageEditor = (imageUrl: string) => {
         deleteSelected,
         confirmAnnotation,
         cancelAnnotation,
+        addReferenceImage,
+        removeReferenceImage,
+        getAnnotationsInfo,
         fabricCanvasRef,
     };
 };

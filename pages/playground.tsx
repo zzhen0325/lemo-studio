@@ -693,7 +693,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
   };
 
-  const handleSaveEditedImage = async (dataUrl: string, prompt?: string) => {
+  const handleSaveEditedImage = async (dataUrl: string, prompt?: string, referenceImageUrls?: string[]) => {
     setIsEditorOpen(false);
     try {
       // If a prompt was provided (e.g. from labeling tool), update the playground prompt
@@ -701,26 +701,62 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         setConfig(prev => ({ ...prev, prompt }));
       }
 
-      // 1. Convert dataUrl to Blob
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const file = new File([blob], `edited-${Date.now()}.png`, { type: 'image/png' });
+      // 准备所有要添加的图片
+      const imagesToAdd: UploadedImage[] = [];
 
-      // 2. Upload to server to get a path (consistent with standard upload flow)
-      const form = new FormData();
-      form.append('file', file);
-      const uploadResp = await fetch('/api/upload', { method: 'POST', body: form });
-      const uploadJson = await uploadResp.json();
-      const path = uploadResp.ok && uploadJson?.path ? String(uploadJson.path) : undefined;
+      // 1. 先添加标注图（主图）
+      const mainRes = await fetch(dataUrl);
+      const mainBlob = await mainRes.blob();
+      const mainFile = new File([mainBlob], `annotated-${Date.now()}.png`, { type: 'image/png' });
 
-      // 3. Add to playground state
-      const base64Data = dataUrl.split(',')[1];
-      setUploadedImages(prev => [
-        ...prev,
-        { file, base64: base64Data, previewUrl: dataUrl, path }
-      ]);
+      // Upload main image
+      const mainForm = new FormData();
+      mainForm.append('file', mainFile);
+      const mainUploadResp = await fetch('/api/upload', { method: 'POST', body: mainForm });
+      const mainUploadJson = await mainUploadResp.json();
+      const mainPath = mainUploadResp.ok && mainUploadJson?.path ? String(mainUploadJson.path) : undefined;
 
-      toast({ title: "Image Saved", description: "The edited image has been added to your uploads." });
+      const mainBase64 = dataUrl.split(',')[1];
+      imagesToAdd.push({
+        file: mainFile,
+        base64: mainBase64,
+        previewUrl: dataUrl,
+        path: mainPath
+      });
+
+      // 2. 然后添加参考图（按 Image 1, Image 2, ... 顺序）
+      if (referenceImageUrls && referenceImageUrls.length > 0) {
+        for (let i = 0; i < referenceImageUrls.length; i++) {
+          const refDataUrl = referenceImageUrls[i];
+          const refRes = await fetch(refDataUrl);
+          const refBlob = await refRes.blob();
+          const refFile = new File([refBlob], `reference-${i + 1}-${Date.now()}.png`, { type: 'image/png' });
+
+          // Upload reference image
+          const refForm = new FormData();
+          refForm.append('file', refFile);
+          const refUploadResp = await fetch('/api/upload', { method: 'POST', body: refForm });
+          const refUploadJson = await refUploadResp.json();
+          const refPath = refUploadResp.ok && refUploadJson?.path ? String(refUploadJson.path) : undefined;
+
+          const refBase64 = refDataUrl.split(',')[1];
+          imagesToAdd.push({
+            file: refFile,
+            base64: refBase64,
+            previewUrl: refDataUrl,
+            path: refPath
+          });
+        }
+      }
+
+      // 3. 添加所有图片到 playground state（按顺序：标注图, 参考图1, 参考图2...）
+      setUploadedImages(prev => [...prev, ...imagesToAdd]);
+
+      const refCount = referenceImageUrls?.length || 0;
+      const message = refCount > 0
+        ? `已添加标注图和 ${refCount} 张参考图到输入框`
+        : "标注图已添加到输入框";
+      toast({ title: "图片已保存", description: message });
     } catch (error) {
       console.error("Failed to save edited image:", error);
       toast({ title: "Error", description: "Failed to save edited image", variant: "destructive" });
