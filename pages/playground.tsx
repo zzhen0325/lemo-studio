@@ -32,7 +32,7 @@ import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { X, Plus, Sparkles, History, Loader2, Image as ImageIcon, Edit2 } from "lucide-react";
+import { X, Plus, Sparkles, History, Loader2, Image as ImageIcon, Edit2, Brush } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
@@ -411,9 +411,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     for (let i = 0; i < effectiveBatchSize; i++) {
       singleGenerate(configOverride, startTime);
 
-      // Delay 0.3s before triggering the next submission
+      // 队列延迟
       if (i < effectiveBatchSize - 1) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
     }
   };
@@ -472,12 +472,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
   const removeImage = (index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); };
   const handleEditUploadedImage = () => {
-    if (uploadedImages.length > 0) {
-      setEditingImageUrl(uploadedImages[0].previewUrl);
-      setIsEditorOpen(true);
-    } else {
-      toast({ title: "No image", description: "Please upload an image first." });
-    }
+    setEditingImageUrl(uploadedImages[0]?.previewUrl || "");
+    setIsEditorOpen(true);
   };
 
 
@@ -867,15 +863,41 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 whileTap={{ scale: 0.95 }}
                 transition={{ type: "tween", duration: 0.05 }}
                 style={{
+                  zIndex: (uploadedImages.length > 0 ? 0 : 10),
+                  position: 'relative'
+                }}
+                className={cn(
+                  "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
+                )}
+                title="Upload Image"
+              >
+                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              </motion.button>
+
+
+
+              {/* <motion.button
+                onClick={handleEditUploadedImage}
+                initial={false}
+                animate={{
+                  rotate: -2,
+                  marginLeft: (isStackHovered || uploadedImages.length === 0) ? 8 : -36,
+                  scale: 1
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "tween", duration: 0.05 }}
+                style={{
                   zIndex: 0,
                   position: 'relative'
                 }}
                 className={cn(
                   "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
                 )}
+                title="Open Image Editor"
               >
-                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              </motion.button>
+                <Brush className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              </motion.button> */}
             </div>
 
 
@@ -899,7 +921,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               <Button
                 variant="default"
                 size="sm"
-                className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:text-white hover:drop-shadow-[0_0_px_rgba(255,255,255,0.8)] text-white/70 rounded-2xl "
+                className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-white/70 rounded-2xl "
                 disabled={isOptimizing}
                 onClick={() => {
                   if (!isOptimizing) {
@@ -1162,7 +1184,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           )}
                         >
                           <Edit2 className="w-4 h-4" />
-                          <span className="text-sm font-medium">Edit Image</span>
+                          <span className="text-sm font-medium">
+                            {uploadedImages.length > 0 ? "Edit Image" : "Image Editor"}
+                          </span>
                         </button>
                       </div>
                     )} */}
@@ -1208,7 +1232,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           )}
                         >
                           <Edit2 className="w-4 h-4" />
-                          <span className="text-sm font-medium">Edit Image</span>
+                          <span className="text-sm font-medium">
+                            Canvas
+                          </span>
                         </button>
                       </div>
                     )}
@@ -1382,12 +1408,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 onEdit={handleEditImage}
               />
 
-              <ImageEditorModal
-                isOpen={isEditorOpen}
-                imageUrl={editingImageUrl}
-                onClose={() => setIsEditorOpen(false)}
-                onSave={handleSaveEditedImage}
-              />
+              {isEditorOpen && (
+                <ImageEditorModal
+                  isOpen={isEditorOpen}
+                  imageUrl={editingImageUrl}
+                  onClose={() => setIsEditorOpen(false)}
+                  onSave={handleSaveEditedImage}
+                />
+              )}
             </div>
 
             <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />

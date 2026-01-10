@@ -226,6 +226,9 @@ export default function ControlToolbar({
           Seed 4.2
         </DropdownMenuItem>
 
+
+        {/* workflow模型 */}
+        {/* 
         {BASE_MODEL_LIST.map((model) => (
           <DropdownMenuItem
             key={model.name}
@@ -235,7 +238,7 @@ export default function ControlToolbar({
             <span className={`w-2 h-2 rounded-full ${selectedModel === 'Workflow' && selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
             <span className="truncate">{model.name}</span>
           </DropdownMenuItem>
-        ))}
+        ))} */}
       </DropdownMenuContent>
     </DropdownMenu>
   );

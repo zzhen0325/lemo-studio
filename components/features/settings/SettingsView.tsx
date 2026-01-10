@@ -86,10 +86,10 @@ export function SettingsView() {
     return (
         <div className="flex h-full pt-20 w-full overflow-hidden  text-zinc-100"
             style={{
-                background: "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 75%, #D8C6B8 100%)",
+                background: "linear-gradient(180deg,  #131718 0%, #1079BB 150%)",
             }}>
             {/* Sidebar */}
-            <aside className="w-72 border-r border-white/5 flex flex-col bg-black/40">
+            <aside className="w-72  flex flex-col bg-black/0">
                 <div className="p-6 pb-4">
                     <h2 className="text-sm font-bold text-white/90 uppercase tracking-widest flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -128,7 +128,7 @@ export function SettingsView() {
             </aside>
 
             {/* Content Area */}
-            <main className="flex-1 h-full overflow-hidden flex flex-col">
+            <main className="flex-1 h-full overflow-hidden px-10 flex flex-col">
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <AnimatePresence mode="wait">
                         <motion.div
@@ -157,7 +157,7 @@ export function SettingsView() {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <Card className="bg-zinc-900/30 border-white/5 hover:bg-zinc-900/50 transition-colors">
+                                                <Card className="bg-black/40 border-white/10 hover:bg-black/5 transition-colors">
                                                     <CardHeader className="pb-3">
                                                         <CardTitle className="text-sm font-medium text-white">Google Gemini</CardTitle>
                                                         <CardDescription className="text-xs text-zinc-500">Required for advanced vision capabilities</CardDescription>
@@ -173,7 +173,7 @@ export function SettingsView() {
                                                     </CardContent>
                                                 </Card>
 
-                                                <Card className="bg-zinc-900/30 border-white/5 hover:bg-zinc-900/50 transition-colors">
+                                                <Card className="bg-black/40 border-white/5 hover:bg-black/5 transition-colors">
                                                     <CardHeader className="pb-3">
                                                         <CardTitle className="text-sm font-medium text-white">DeepSeek</CardTitle>
                                                         <CardDescription className="text-xs text-zinc-500">Required for reasoning tasks</CardDescription>
@@ -189,7 +189,7 @@ export function SettingsView() {
                                                     </CardContent>
                                                 </Card>
 
-                                                <Card className="bg-zinc-900/30 border-white/5 hover:bg-zinc-900/50 transition-colors md:col-span-2">
+                                                <Card className="bg-black/40 border-white/5 hover:bg-black/5 transition-colors md:col-span-2">
                                                     <CardHeader className="pb-3">
                                                         <CardTitle className="text-sm font-medium text-white">Doubao / Volcengine</CardTitle>
                                                         <CardDescription className="text-xs text-zinc-500">Configure Volcengine credentials for translation and specialized models</CardDescription>
@@ -228,7 +228,7 @@ export function SettingsView() {
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-4">
-                                                <Card className="bg-zinc-900/30 border-white/5">
+                                                <Card className="bg-black/40 border-white/5">
                                                     <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                                         <div className="space-y-3">
                                                             <Label className="text-xs text-zinc-400 font-medium flex items-center gap-2">

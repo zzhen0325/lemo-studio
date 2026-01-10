@@ -64,6 +64,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
         addReferenceImage,
         removeReferenceImage,
         getAnnotationsInfo,
+        updateCanvasBackground,
+        updateCanvasSize,
     } = useImageEditor(imageUrl);
 
     const [annotationText, setAnnotationText] = useState("");
@@ -674,10 +676,76 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                     exit={{ x: 200, opacity: 0 }}
                                     className="w-64 border-l border-white/10 bg-black/60 backdrop-blur-2xl p-4 flex flex-col gap-6 shrink-0 overflow-y-auto"
                                 >
+                                    {/* Canvas Settings */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
+                                            <Square className="w-3 h-3" /> Canvas Settings
+                                        </div>
+
+                                        {/* Aspect Ratio Shortcuts */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { label: '1:1', w: 1024, h: 1024 },
+                                                { label: '4:3', w: 1024, h: 768 },
+                                                { label: '16:9', w: 1280, h: 720 },
+                                                { label: '9:16', w: 720, h: 1280 }
+                                            ].map((ratio) => (
+                                                <Button
+                                                    key={ratio.label}
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className={cn(
+                                                        "h-8 text-[10px] bg-white/5 border border-white/5 hover:bg-white/10",
+                                                        editorState.canvasWidth === ratio.w && editorState.canvasHeight === ratio.h && "border-primary/50 text-primary bg-primary/5"
+                                                    )}
+                                                    onClick={() => updateCanvasSize(ratio.w, ratio.h)}
+                                                >
+                                                    {ratio.label} ({ratio.w}x{ratio.h})
+                                                </Button>
+                                            ))}
+                                        </div>
+
+                                        {/* Canvas Background */}
+                                        <div className="space-y-2">
+                                            <div className="text-white/40 text-[10px]">Background Color</div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { color: '#ffffff', label: 'White' },
+                                                    { color: '#000000', label: 'Black' },
+                                                    { color: '#f8f9fa', label: 'Light' },
+                                                    { color: '#1a1a20', label: 'Dark' },
+                                                    { color: 'transparent', label: 'None' },
+                                                ].map((item) => (
+                                                    <button
+                                                        key={item.color}
+                                                        onClick={() => updateCanvasBackground(item.color)}
+                                                        className={cn(
+                                                            "w-6 h-6 rounded-md border border-white/10 transition-transform active:scale-95",
+                                                            editorState.backgroundColor === item.color ? "ring-2 ring-primary ring-offset-2 ring-offset-black" : "hover:border-white/30"
+                                                        )}
+                                                        style={{ backgroundColor: item.color === 'transparent' ? 'transparent' : item.color }}
+                                                        title={item.label}
+                                                    >
+                                                        {item.color === 'transparent' && (
+                                                            <div className="w-full h-full bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAACFJREFUGFdjZEADJgY0QCIsDAszMCADmBCIAAnAyMAEpAAZpAILuY7fXAAAAABJRU5ErkJggg==')] rounded-md" />
+                                                        )}
+                                                    </button>
+                                                ))}
+                                                {/* Custom Color Input Placeholder */}
+                                                <input
+                                                    type="color"
+                                                    className="w-6 h-6 rounded-md border border-white/10 bg-transparent cursor-pointer"
+                                                    value={editorState.backgroundColor}
+                                                    onChange={(e) => updateCanvasBackground(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Color Picker */}
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
-                                            <Palette className="w-3 h-3" /> Color
+                                            <Palette className="w-3 h-3" /> Tool Color
                                         </div>
                                         <div className="grid grid-cols-4 gap-2">
                                             {EDITOR_COLORS.map(({ hex, name }) => (
@@ -722,6 +790,9 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                         <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
                                             <Layers className="w-3 h-3" /> History
                                         </div>
+                                        <p className="text-white/40 text-[10px] font-mono opacity-60">
+                                            {editorState.canvasWidth} x {editorState.canvasHeight} px
+                                        </p>
                                         <p className="text-white/40 text-xs leading-relaxed">
                                             Use Ctrl+Z / Ctrl+Y to undo/redo changes.
                                         </p>
@@ -732,7 +803,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                     </div>
                 </div>
             </motion.div>
-        </AnimatePresence>
+        </AnimatePresence >
     );
 }
 
