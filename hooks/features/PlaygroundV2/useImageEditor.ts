@@ -5,7 +5,14 @@ export type EditorTool = 'select' | 'brush' | 'text' | 'rect' | 'circle' | 'arro
 
 export interface AnnotationData {
     rect: fabric.Rect;
-    position: { x: number; y: number };
+    bounds: {
+        left: number;
+        top: number;
+        right: number;
+        bottom: number;
+        width: number;
+        height: number;
+    };
 }
 
 export interface EditorState {
@@ -105,9 +112,40 @@ export const useImageEditor = (imageUrl: string) => {
             return;
         }
 
+        const pointer = canvas.getScenePoint(opt.e);
+
+        // 限制在图片范围内开始绘制
+        if (imageObj) {
+            const scaleX = imageObj.scaleX || 1;
+            const scaleY = imageObj.scaleY || 1;
+            const w = (imageObj.width || 0) * scaleX;
+            const h = (imageObj.height || 0) * scaleY;
+            const rectLeft = (imageObj.left || 0) - w / 2;
+            const rectTop = (imageObj.top || 0) - h / 2;
+
+            const isInBounds = (
+                pointer.x >= rectLeft &&
+                pointer.x <= rectLeft + w &&
+                pointer.y >= rectTop &&
+                pointer.y <= rectTop + h
+            );
+
+            if (!isInBounds) {
+                // 如果是画笔模式，暂时关闭以便不产生笔触点
+                if (state.activeTool === 'brush') {
+                    canvas.isDrawingMode = false;
+                    setTimeout(() => {
+                        if (editorStateRef.current.activeTool === 'brush') {
+                            canvas.isDrawingMode = true;
+                        }
+                    }, 50);
+                }
+                return;
+            }
+        }
+
         if (!['rect', 'circle', 'arrow', 'annotate'].includes(state.activeTool)) return;
 
-        const pointer = canvas.getScenePoint(opt.e);
         isDrawingRef.current = true;
         startPointRef.current = { x: pointer.x, y: pointer.y };
 
@@ -157,7 +195,7 @@ export const useImageEditor = (imageUrl: string) => {
             canvas.add(activeObjectRef.current);
             canvas.renderAll();
         }
-    }, []);
+    }, [imageObj]);
 
     const onMouseMove = useCallback((opt: fabric.TPointerEventInfo) => {
         const canvas = fabricCanvasRef.current;
@@ -248,20 +286,28 @@ export const useImageEditor = (imageUrl: string) => {
                 const zoom = canvas.getZoom();
                 const rectLeft = rect.left || 0;
                 const rectTop = rect.top || 0;
-                const rectHeight = (rect.height || 0) * (rect.scaleY || 1);
 
-                const screenX = rectLeft * zoom + vpt[4];
-                const screenY = (rectTop + rectHeight) * zoom + vpt[5] + 10; // 在框下方
+                const screenLeft = rectLeft * zoom + vpt[4];
+                const screenTop = rectTop * zoom + vpt[5];
+                const screenWidth = (rect.width || 0) * (rect.scaleX || 1) * zoom;
+                const screenHeight = (rect.height || 0) * (rect.scaleY || 1) * zoom;
 
                 setEditorState(prev => ({
                     ...prev,
                     pendingAnnotation: {
                         rect: rect,
-                        position: { x: screenX, y: screenY }
+                        bounds: {
+                            left: screenLeft,
+                            top: screenTop,
+                            right: screenLeft + screenWidth,
+                            bottom: screenTop + screenHeight,
+                            width: screenWidth,
+                            height: screenHeight
+                        }
                     }
                 }));
 
-                activeObjectRef.current = null;
+                // activeObjectRef.current = null; // 移除此行，因为标注框需要保留在画布上等待确认
                 startPointRef.current = null;
                 return;
             }
@@ -333,6 +379,19 @@ export const useImageEditor = (imageUrl: string) => {
             canvas.add(img);
             canvas.sendObjectToBack(img);
             setImageObj(img);
+
+            // 设置全画布剪裁路径，限制绘图在这个范围内
+            const clipRect = new fabric.Rect({
+                left: width / 2,
+                top: height / 2,
+                width: imgWidth * initialZoom,
+                height: imgHeight * initialZoom,
+                originX: 'center',
+                originY: 'center',
+                absolutePositioned: true,
+            });
+            canvas.clipPath = clipRect;
+
             canvas.renderAll();
 
             setEditorState(prev => ({ ...prev, zoom: 1 })); // 这里的 1 指的是 canvas 当前状态
@@ -426,8 +485,8 @@ export const useImageEditor = (imageUrl: string) => {
 
     const addText = useCallback(() => {
         const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
-        const center = canvas.getVpCenter();
+        if (!canvas || !imageObj) return;
+        const center = { x: imageObj.left, y: imageObj.top };
         const text = new fabric.IText('Double click', {
             left: center.x,
             top: center.y,
@@ -440,13 +499,13 @@ export const useImageEditor = (imageUrl: string) => {
         canvas.add(text);
         canvas.setActiveObject(text);
         setTool('select');
-    }, [editorState.brushColor, editorState.fontSize, setTool]);
+    }, [editorState.brushColor, editorState.fontSize, setTool, imageObj]);
 
     const addShape = useCallback((type: 'rect' | 'circle' | 'arrow') => {
         const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
+        if (!canvas || !imageObj) return;
         let shape: fabric.Object;
-        const center = canvas.getVpCenter();
+        const center = { x: imageObj.left, y: imageObj.top };
         const common = {
             left: center.x,
             top: center.y,
@@ -473,7 +532,7 @@ export const useImageEditor = (imageUrl: string) => {
         canvas.setActiveObject(shape);
         setTool('select');
         canvas.renderAll();
-    }, [editorState.brushColor, editorState.brushWidth, setTool]);
+    }, [editorState.brushColor, editorState.brushWidth, setTool, imageObj]);
 
     const rotateCanvas = useCallback((degrees: number) => {
         const canvas = fabricCanvasRef.current;
@@ -520,18 +579,28 @@ export const useImageEditor = (imageUrl: string) => {
     const exportImage = useCallback((): string | null => {
         if (!fabricCanvasRef.current || !imageObj) return null;
 
-        // 为了高质量导出，我们需要创建一个临时 canvas 以原图尺寸导出
         const canvas = fabricCanvasRef.current;
         const originalZoom = canvas.getZoom();
-        const originalVP = canvas.viewportTransform?.slice();
+        const originalVP = canvas.viewportTransform ? [...canvas.viewportTransform] : null;
 
-        // 临时恢复到 1:1 且居中
+        // 临时恢复 1:1 用于计算精确位置
         canvas.setZoom(1);
         canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
 
+        // 计算图片在 zoom=1 情况下的实际像素位置
+        const scale = imageObj.scaleX || 1;
+        const w = imageObj.width * scale;
+        const h = imageObj.height * scale;
+        const l = imageObj.left - w / 2;
+        const t = imageObj.top - h / 2;
+
         const dataUrl = canvas.toDataURL({
-            multiplier: 1 / (imageObj.scaleX || 1), // 还原比例
             format: 'png',
+            left: l,
+            top: t,
+            width: w,
+            height: h,
+            multiplier: 1 / scale,
         });
 
         // 恢复状态
@@ -641,14 +710,17 @@ export const useImageEditor = (imageUrl: string) => {
         });
 
         canvas.renderAll();
-        saveHistory();
+        callbackRefs.current.saveHistory();
+
+        // 确保在确认或取消标注后，如果工具还是 annotate，依然能看到剪裁效果
+        canvas.renderAll();
 
         // 清除待确认状态
         setEditorState(prev => ({
             ...prev,
             pendingAnnotation: null,
         }));
-    }, [editorState.pendingAnnotation, saveHistory]);
+    }, [editorState.pendingAnnotation]);
 
     // 取消标注
     const cancelAnnotation = useCallback(() => {

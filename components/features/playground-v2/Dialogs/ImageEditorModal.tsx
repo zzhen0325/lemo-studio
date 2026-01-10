@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as fabric from 'fabric';
 import {
     Undo2,
     Redo2,
@@ -75,6 +76,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
 
     const [annotationText, setAnnotationText] = useState("");
     const annotInputRef = useRef<HTMLInputElement>(null);
+    const canvasContainerRef = useRef<HTMLDivElement>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -146,18 +148,14 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
             if (canvas) {
                 const objects = canvas.getObjects();
                 const hasAnnotations = objects.some((obj) =>
-                    // @ts-expect-error - fabric types issue in this file
-                    (obj.type === 'rect' && obj.stroke === '#ef4444' && obj.strokeDashArray) ||
-                    // @ts-expect-error - fabric types issue in this file
-                    (obj.type === 'i-text' && obj.fill === '#ef4444')
+                    (obj.type === 'rect' && (obj as fabric.Rect).stroke === '#ef4444' && (obj as fabric.Rect).strokeDashArray) ||
+                    (obj.type === 'i-text' && (obj as fabric.IText).fill === '#ef4444')
                 );
 
                 if (hasAnnotations) {
                     const labels = objects
-                        // @ts-expect-error - fabric types issue in this file
-                        .filter((obj) => obj.type === 'i-text' && obj.fill === '#ef4444')
-                        // @ts-expect-error - fabric types issue in this file
-                        .map((obj) => obj.text)
+                        .filter((obj) => obj.type === 'i-text' && (obj as fabric.IText).fill === '#ef4444')
+                        .map((obj) => (obj as fabric.IText).text)
                         .join(", ");
 
                     finalPrompt = "根据图中标注修改图片，并移除标注";
@@ -389,18 +387,47 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                                     </div>
                                 </div>
                             )}
-                            <div className="w-full h-full flex items-center justify-center relative">
+                            <div
+                                className="w-full h-full flex items-center justify-center relative"
+                                ref={canvasContainerRef}
+                            >
                                 <canvas ref={canvasRef} className="max-w-full max-h-full transition-all duration-300 shadow-2xl" />
 
                                 {/* Annotation Input Overlay */}
                                 {editorState.pendingAnnotation && (
                                     <div
                                         className="absolute z-[120] flex flex-col gap-2 p-2 bg-black/80 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl min-w-[200px]"
-                                        style={{
-                                            left: editorState.pendingAnnotation.position.x,
-                                            top: editorState.pendingAnnotation.position.y,
-                                            transform: 'translate(-50%, 0)'
-                                        }}
+                                        style={(() => {
+                                            const bounds = editorState.pendingAnnotation.bounds;
+                                            const container = canvasContainerRef.current;
+                                            if (!container) return { left: bounds.left, top: bounds.bottom + 10, transform: 'translate(-50%, 0)' };
+
+                                            const containerRect = container.getBoundingClientRect();
+                                            const inputHeight = 85;
+                                            const inputWidth = 200;
+                                            const padding = 10;
+
+                                            let top = bounds.bottom + padding;
+
+                                            // 如果下方空间不足，尝试放上方
+                                            if (top + inputHeight > containerRect.height) {
+                                                top = bounds.top - inputHeight - padding;
+                                            }
+
+                                            // 确保 top 不会超出顶部边界
+                                            top = Math.max(padding, Math.min(top, containerRect.height - inputHeight - padding));
+
+                                            // 水平居中并限制边界
+                                            let left = bounds.left + bounds.width / 2;
+                                            left = Math.max(inputWidth / 2 + padding, Math.min(left, containerRect.width - inputWidth / 2 - padding));
+
+                                            return {
+                                                left: left,
+                                                top: top,
+                                                transform: 'translate(-50%, 0)',
+                                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                                            };
+                                        })()}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <Input
