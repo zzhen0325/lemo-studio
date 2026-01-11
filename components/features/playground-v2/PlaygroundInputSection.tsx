@@ -327,19 +327,25 @@ export function PlaygroundInputSection({
                             const currentSize = (config.resolution as '1K' | '2K' | '4K') || '1K';
                             const resolution = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
                             if (resolution) {
-                                setConfig(prev => ({ ...prev, width: resolution.w, height: resolution.h }));
+                                setConfig(prev => ({
+                                    ...prev,
+                                    width: resolution.w,
+                                    height: resolution.h,
+                                    aspectRatio: ar as any
+                                }));
                             }
                         }}
                         currentImageSize={(config.resolution as '1K' | '2K' | '4K') || '1K'}
                         onImageSizeChange={(size: string) => {
-                            const ar = getCurrentAspectRatio();
+                            const ar = config.aspectRatio || getCurrentAspectRatio();
                             const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
                             if (resolution) {
                                 setConfig({
                                     ...config,
                                     width: resolution.w,
                                     height: resolution.h,
-                                    resolution: size as Resolution
+                                    resolution: size as Resolution,
+                                    aspectRatio: ar as any
                                 });
                             }
                         }}

@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
 import GradualBlur from "@/components/GradualBlur";
+import PixelCard from "@/components/PixelCard";
 import { useDraggable } from "@dnd-kit/core";
 import {
   DropdownMenu,
@@ -177,7 +178,7 @@ const HistoryList = observer(function HistoryList({
         height="60px"
         strength={3}
         divCount={5}
-        curve="bezier"
+        curve="ease-in-out"
         exponential={true}
         zIndex={10}
         opacity={1}
@@ -189,6 +190,10 @@ const HistoryList = observer(function HistoryList({
           endOffset: 80
         }}
       />
+      
+
+
+
       {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
       <div className="absolute  flex top-6 left-6 z-20 ">
         <span className="text-white text-2xl"
@@ -442,13 +447,22 @@ const HistoryList = observer(function HistoryList({
       {/* Floating Action Bar */}
       <AnimatePresence>
         {isSelectionMode && selectedIds.size > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-60 left-1/2 -translate-x-1/2 z-30 w-fit"
-          >
-            <div className="flex items-center gap-3 px-4 py-2 bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl">
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-x-0 bottom-0 z-20 pointer-events-none"
+            >
+             
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="absolute bottom-60 left-1/2 -translate-x-1/2 z-30 w-fit"
+            >
+              <div className="flex items-center gap-3 px-4 py-2 bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl">
               <span className="text-md text-white/80 px-2">
                 {selectedIds.size} selected
               </span>
@@ -464,6 +478,7 @@ const HistoryList = observer(function HistoryList({
               </Button>
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -617,7 +632,7 @@ function HistoryCard({
           >
             <motion.div className="relative h-full bg-transparent grid grid-cols-5 gap-4 items-stretch content-start">
               <motion.div
-                className="relative w-full h-full overflow-hidden rounded-xl border border-white/10 bg-black/5 p-4 flex flex-col justify-start"
+                className="relative w-full h-full overflow-hidden rounded-2xl border border-white/10 bg-black/10 backdrop-blur-md p-4 flex flex-col justify-start"
               >
                 <div className="flex items-center justify-between text-[10px] text-white/20 uppercase font-medium mb-3">
                   <div className="flex items-center gap-1.5">
@@ -685,7 +700,7 @@ function HistoryCard({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 rounded-sm border-white/10 bg-black/5 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
+                    className="h-8 rounded-sm border-white/10 bg-black/10 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
                     onClick={(e) => {
                       e.stopPropagation();
                       onRegenerate(result);
@@ -695,7 +710,7 @@ function HistoryCard({
                   </Button>
                   <Button
                     size="sm"
-                    className="h-8 rounded-sm border-white/10 bg-black/5 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
+                    className="h-8 rounded-sm border-white/10 bg-black/10 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (config) {
@@ -738,32 +753,60 @@ function HistoryCard({
                       className="relative w-full overflow-hidden rounded-xl group/img border border-white/5 bg-white/5"
                       style={{ aspectRatio: effectiveAspectRatio }}
                     >
-                      {res.status === 'pending' ? (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Loader2 className="w-6 h-6 animate-spin text-white/10" />
-                        </div>
-                      ) : img ? (
-                        <Image
-                          src={img}
-                          alt="Generated image"
-                          fill
-                          sizes="(max-width: 1536px) 50vw, 800px"
-                          className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isSelectionMode) {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              onImageClick(res, rect);
-                            } else {
-                              onToggleSelect?.();
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white/5">
-                          <ImageIcon className="w-8 h-8" />
-                        </div>
-                      )}
+                      <AnimatePresence>
+                        {res.status === 'pending' ? (
+                          <motion.div
+                            key="loading"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ exit: { delay: 0.5, duration: 0.3 } }}
+                            className="absolute inset-0 z-0"
+                          >
+                            <PixelCard colors="#E6FFD1" speed={200} className="!w-full !h-full !aspect-auto !border-none !bg-transparent">
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <Loader2 className="w-6 h-6 animate-spin text-white/10" />
+                              </div>
+                            </PixelCard>
+                          </motion.div>
+                        ) : img ? (
+                          <motion.div
+                            key="image"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.5 }}
+                            className="relative z-10 w-full h-full"
+                          >
+                            <Image
+                              src={img}
+                              alt="Generated image"
+                              fill
+                              sizes="(max-width: 1536px) 50vw, 800px"
+                              className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isSelectionMode) {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  onImageClick(res, rect);
+                                } else {
+                                  onToggleSelect?.();
+                                }
+                              }}
+                            />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="empty"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="w-full h-full flex items-center justify-center text-white/5"
+                          >
+                            <ImageIcon className="w-8 h-8" />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                       {res.status !== 'pending' && img && !isSelectionMode && (
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-300 opacity-0 group-hover/img:opacity-100 group-hover/img:translate-y-0 translate-y-4" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
@@ -865,35 +908,63 @@ function HistoryCard({
         transition={{ duration: 0.3 }}
         className={cn("relative z-0 w-full", layoutMode === 'grid' ? "h-full" : "h-auto")}
       >
-        {result.status === 'pending' ? (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-black/20">
-            <Loader2 className="w-8 h-8 animate-spin text-white/20" />
-          </div>
-        ) : mainImage ? (
-          <Image
-            src={mainImage}
-            alt="Generated image"
-            width={result.config?.width || 1024}
-            height={result.config?.height || 1024}
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-            quality={95}
-            className={cn(
-              "w-full cursor-pointer scale-100 group-hover:scale-105 transition-transform duration-500",
-              layoutMode === 'grid' ? "h-full object-cover" : "h-auto"
-            )}
-            onClick={(e) => {
-              if (isSelectionMode) {
-                e.stopPropagation();
-                onToggleSelect?.();
-              } else {
-                const rect = e.currentTarget.getBoundingClientRect();
-                onImageClick(result, rect);
-              }
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-black/20 flex items-center justify-center" />
-        )}
+        <AnimatePresence>
+          {result.status === 'pending' ? (
+            <motion.div
+              key="pending"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ exit: { delay: 0.5, duration: 0.3 } }}
+              className="absolute inset-0 z-0"
+            >
+              <PixelCard colors="#E6FFD1" speed={200} className="!w-full !h-full !aspect-auto !border-none !bg-transparent">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <Loader2 className="w-8 h-8 animate-spin text-white/20" />
+                </div>
+              </PixelCard>
+            </motion.div>
+          ) : mainImage ? (
+            <motion.div
+              key="image"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="relative z-10 w-full h-full"
+            >
+              <Image
+                src={mainImage}
+                alt="Generated image"
+                width={result.config?.width || 1024}
+                height={result.config?.height || 1024}
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                quality={95}
+                className={cn(
+                  "w-full cursor-pointer scale-100 group-hover:scale-105 transition-transform duration-500",
+                  layoutMode === 'grid' ? "h-full object-cover" : "h-auto"
+                )}
+                onClick={(e) => {
+                  if (isSelectionMode) {
+                    e.stopPropagation();
+                    onToggleSelect?.();
+                  } else {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onImageClick(result, rect);
+                  }
+                }}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="w-full h-full bg-black/20 flex items-center justify-center"
+            />
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {!isSelectionMode && (

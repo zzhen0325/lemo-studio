@@ -56,7 +56,7 @@ export function useGenerationService() {
         }
     };
 
-    const handleGenerate = async (configOverride?: GenerationConfig, fixedCreatedAt?: string) => {
+    const handleGenerate = async (configOverride?: GenerationConfig, fixedCreatedAt?: string, isBackground?: boolean) => {
         const generationTime = fixedCreatedAt || new Date().toISOString();
         const freshConfig = usePlaygroundStore.getState().config;
         const currentLoras = usePlaygroundStore.getState().selectedLoras;
@@ -91,6 +91,13 @@ export function useGenerationService() {
         // Use standard state update for history
         setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
 
+        if (isBackground) return taskId;
+
+        return executeGeneration(taskId, finalConfig, generationTime, sourceImageUrl);
+    };
+
+    const executeGeneration = async (taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+        const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         try {
             if (isMockMode) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -333,6 +340,7 @@ export function useGenerationService() {
 
     return {
         handleGenerate,
+        executeGeneration,
         isGenerating: isAIProcessing || isWorkflowProcessing
     };
 }

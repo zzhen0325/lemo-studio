@@ -255,6 +255,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
                 height: 768,
                 model: 'Nano banana',
                 resolution: '1K',
+                aspectRatio: '16:9',
                 lora: ''
             },
             uploadedImages: [],

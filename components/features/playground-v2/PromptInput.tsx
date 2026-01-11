@@ -120,7 +120,7 @@ export default function PromptInput({
       />
       {isOptimizing && (
         <div className="pointer-events-none absolute inset-0 p-2 pl-4 pr-10 text-sm leading-relaxed tracking-wide whitespace-pre-wrap break-words">
-          <ShinyText text={localPrompt} color="#ffffff" direction="left" shineColor="#c3e2ddff" speed={2} />
+          <ShinyText text={localPrompt} color="#ffffff9b" direction="left" shineColor="#c7ff9fff" speed={2} />
         </div>
       )}
     </div>

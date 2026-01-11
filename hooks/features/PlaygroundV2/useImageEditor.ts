@@ -436,11 +436,11 @@ export const useImageEditor = (imageUrl: string) => {
                     try {
                         const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
                         const iw = img.width || 1, ih = img.height || 1;
-                        const fitZ = Math.min(w / (iw + 80), h / (ih + 80)) * 0.75; // 确保大图也不撑满
+                        const fitZ = Math.min(w / iw, h / ih) * 0.9; // 移除额外边距计算，让图片尽可能大
 
-                        // 图片模式：精准根据图片尺寸创建背景矩形，并留出一些 Padding 边距
+                        // 图片模式：精准根据图片尺寸创建背景矩形
                         const bgRect = new fabric.Rect({
-                            left: w / 2, top: h / 2, width: iw + 40, height: ih + 40, // 增加 40px 的 Padding
+                            left: w / 2, top: h / 2, width: iw, height: ih, // 移除 40px Padding
                             originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
                             selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
                             name: 'canvas-background',
@@ -461,7 +461,7 @@ export const useImageEditor = (imageUrl: string) => {
                         setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: 1 }));
 
                         canvas!.clipPath = new fabric.Rect({
-                            left: w / 2, top: h / 2, width: (iw + 40) * fitZ, height: (ih + 40) * fitZ,
+                            left: w / 2, top: h / 2, width: iw * fitZ, height: ih * fitZ,
                             originX: 'center', originY: 'center', absolutePositioned: true
                         });
                     } catch (err) {
@@ -469,7 +469,7 @@ export const useImageEditor = (imageUrl: string) => {
                     }
                 } else {
                     // 无图模式：创建默认背景矩形
-                    const initialZoom = Math.min(w / initialW, h / initialH) * 0.75;
+                    const initialZoom = Math.min(w / initialW, h / initialH) * 0.9;
                     const bgRect = new fabric.Rect({
                         left: w / 2, top: h / 2, width: initialW, height: initialH,
                         originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
@@ -707,7 +707,7 @@ export const useImageEditor = (imageUrl: string) => {
 
     const updateCanvasSize = useCallback((w: number, h: number) => {
         const c = fabricCanvasRef.current; if (!c || !canvasBackgroundRef.current) return;
-        const cw = c.width || 800, ch = c.height || 600, z = Math.min(cw / (w + 40), ch / (h + 40)) * 0.75;
+        const cw = c.width || 800, ch = c.height || 600, z = Math.min(cw / w, ch / h) * 0.9;
         canvasBackgroundRef.current.set({ width: w, height: h, scaleX: z, scaleY: z });
         if (imageObj) imageObj.set({ scaleX: (w / imageObj.width) * z, scaleY: (h / imageObj.height) * z });
         c.clipPath = new fabric.Rect({ left: cw / 2, top: ch / 2, width: w * z, height: h * z, originX: 'center', originY: 'center', absolutePositioned: true });

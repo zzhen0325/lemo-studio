@@ -35,6 +35,7 @@ interface PresetManagerDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     workflows: IViewComfy[];
+    currentConfig?: GenerationConfig;
 }
 
 const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', 'Seed 4.2', '3D Lemo seed3'];
@@ -108,7 +109,7 @@ const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
     );
 };
 
-export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows }) => {
+export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows, currentConfig }) => {
     const presets = usePlaygroundStore(s => s.presets);
     const presetCategories = usePlaygroundStore(s => s.presetCategories);
     const renameCategory = usePlaygroundStore(s => s.renameCategory);
@@ -136,7 +137,8 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         model: 'Nano banana',
         width: 1024,
         height: 1024,
-        resolution: '1K'
+        resolution: '1K',
+        aspectRatio: '1:1'
     };
 
     // Unified Preset state
@@ -179,7 +181,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
             name: '',
             coverUrl: '',
             category: categoryToUse,
-            config: DEFAULT_CONFIG
+            config: currentConfig || DEFAULT_CONFIG
         });
         setCoverFile(null);
         setPreviewUrl('');
@@ -270,7 +272,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={onOpenChange} >
             <DialogContent className="max-w-6xl h-[800px] flex flex-col p-0 gap-0 bg-zinc-950/95 backdrop-blur-2xl border-white/5 text-white overflow-hidden rounded-3xl z-50">
                 {/* Top: Categories Navigation */}
                 <div className="flex flex-col border-b border-white/5 bg-black/40 backdrop-blur-xl shrink-0">
@@ -548,6 +550,26 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <SelectItem value="1K">1K (Standard)</SelectItem>
                                                                 <SelectItem value="2K">2K (High Def)</SelectItem>
                                                                 <SelectItem value="4K">4K (Ultra High)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm">Aspect Ratio</Label>
+                                                        <Select
+                                                            value={formData.config?.aspectRatio || '1:1'}
+                                                            onValueChange={(val: string) => setFormData({
+                                                                ...formData,
+                                                                config: { ...(formData.config || DEFAULT_CONFIG), aspectRatio: val as any }
+                                                            })}
+                                                        >
+                                                            <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                <SelectValue placeholder="Select ratio" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                {['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'].map(ratio => (
+                                                                    <SelectItem key={ratio} value={ratio}>{ratio}</SelectItem>
+                                                                ))}
                                                             </SelectContent>
                                                         </Select>
                                                     </div>

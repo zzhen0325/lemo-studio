@@ -177,7 +177,7 @@ export const ProjectSidebar = observer(({ onShowAllProjects }: ProjectSidebarPro
 
   return (
     <div className="flex flex-col h-full  w-full min-h-0">
-      <div className="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col min-h-0  relative overflow-hidden">
+      <div className="bg-black/10 border border-white/10 rounded-3xl flex-1 flex flex-col min-h-0  relative overflow-hidden">
 
         <GradualBlur
           target="parent"

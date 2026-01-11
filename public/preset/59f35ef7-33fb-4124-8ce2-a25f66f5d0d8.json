@@ -6,9 +6,10 @@
     "model": "Seed 4.2",
     "width": 1024,
     "height": 1024,
-    "resolution": "2K"
+    "resolution": "2K",
+    "aspectRatio": "3:4"
   },
   "id": "59f35ef7-33fb-4124-8ce2-a25f66f5d0d8",
-  "createdAt": "2026-01-11T08:35:03.228Z",
+  "createdAt": "2026-01-11T13:43:35.305Z",
   "category": "lemo"
 }

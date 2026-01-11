@@ -393,7 +393,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingImageUrl, setEditingImageUrl] = useState<string>("");
 
-  const { handleGenerate: singleGenerate, isGenerating } = useGenerationService();
+  const { handleGenerate: singleGenerate, executeGeneration, isGenerating } = useGenerationService();
   const { callVision } = useAIService();
 
   // Wrapper for batch generation
@@ -407,14 +407,32 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
     const effectiveBatchSize = configOverride ? 1 : batchSize;
 
-    // Launch generation tasks with a 0.3s staggered start (do not wait for completion)
+    // Launch generation tasks
+    // Frontend logic: call singleGenerate for each task immediately to show loading cards
+    // Backend logic: singleGenerate handles the sequential submission or we use a custom delay here for the API call only
     for (let i = 0; i < effectiveBatchSize; i++) {
-      singleGenerate(configOverride, startTime);
+      // Create history item immediately to show all cards at once
+      const currentConfig = usePlaygroundStore.getState().config;
+      const currentLoras = usePlaygroundStore.getState().selectedLoras;
+      const finalConfig = {
+        ...(configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
+          ? configOverride
+          : currentConfig),
+        loras: currentLoras
+      };
+      const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
+      const firstImage = currentUploadedImages[0];
+      const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
 
-      // 队列延迟
-      if (i < effectiveBatchSize - 1) {
-        await new Promise(resolve => setTimeout(resolve, 600));
-      }
+      // 1. Immediately create and show the pending card
+      singleGenerate(configOverride, startTime, true).then((taskId) => {
+        // 2. Schedule the actual backend execution with a staggered delay
+        if (taskId) {
+          setTimeout(() => {
+            executeGeneration(taskId, finalConfig, startTime, sourceImageUrl);
+          }, i * 800);
+        }
+      });
     }
   };
   const { optimizePrompt, isOptimizing } = usePromptOptimization(); // 使用settings中的配置
@@ -512,14 +530,21 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       if (workflow) {
         setSelectedWorkflowConfig(workflow);
         setSelectedModel('Workflow');
+        
+        // 比例和尺寸处理
+        const resSize = effectiveConfig.resolution || '1K';
+        const arName = effectiveConfig.aspectRatio || '1:1';
+        const dims = AR_MAP[arName]?.[resSize] || { w: effectiveConfig.width || 1024, h: effectiveConfig.height || 1024 };
+
         // Apply fixed config from preset
         setConfig({
           ...config,
           prompt: effectiveConfig.prompt || '',
-          width: effectiveConfig.width || 1024,
-          height: effectiveConfig.height || 1024,
+          width: dims.w,
+          height: dims.h,
           model: effectiveConfig.model || 'Workflow',
-          resolution: effectiveConfig.resolution || '1K'
+          resolution: resSize,
+          aspectRatio: arName as any
         });
         // Then apply remaining defaults from workflow (loras, etc)
         applyWorkflowDefaults(workflow);
@@ -527,11 +552,19 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } else {
       // Regular preset
       const modelToSet = effectiveConfig.model || 'Nano banana';
+      const resSize = effectiveConfig.resolution || '1K';
+      const arName = effectiveConfig.aspectRatio || '1:1';
+      const dims = AR_MAP[arName]?.[resSize] || { w: effectiveConfig.width || 1024, h: effectiveConfig.height || 1024 };
+
       setConfig({
         ...effectiveConfig,
         presetName: presetName,
         loras: effectiveConfig.loras || [],
-        model: modelToSet
+        model: modelToSet,
+        width: dims.w,
+        height: dims.h,
+        resolution: resSize,
+        aspectRatio: arName as any
       });
       setSelectedWorkflowConfig(undefined);
       if (modelToSet !== config.model) {
@@ -968,22 +1001,28 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             aspectRatioPresets={aspectRatioPresets}
             currentAspectRatio={getCurrentAspectRatio()}
             onAspectRatioChange={(ar: string) => {
-              const size = (config.model === 'Nano banana') ? (config.resolution || '1K') : '1K';
+              const size = (config.model === 'Nano banana' || config.model === 'Seed 4.2') ? (config.resolution || '1K') : '1K';
               const resolution = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
               if (resolution) {
-                setConfig(prev => ({ ...prev, width: resolution.w, height: resolution.h }));
+                setConfig(prev => ({
+                  ...prev,
+                  width: resolution.w,
+                  height: resolution.h,
+                  aspectRatio: ar as any
+                }));
               }
             }}
             currentImageSize={(config.resolution as '1K' | '2K' | '4K') || '1K'}
             onImageSizeChange={(size: string) => {
-              const ar = getCurrentAspectRatio();
+              const ar = config.aspectRatio || getCurrentAspectRatio();
               const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
               if (resolution) {
                 setConfig({
                   ...config,
                   width: resolution.w,
                   height: resolution.h,
-                  resolution: size as Resolution
+                  resolution: size as Resolution,
+                  aspectRatio: ar as any
                 });
               }
             }}
@@ -1110,7 +1149,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               <PlaygroundBackground />
 
               {/* 全局底部渐进模糊 - 仅在预设面板展开且历史记录隐藏时显示 */}
-              {isPresetGridOpen && !showHistory && (
+              {isPresetGridOpen && showHistory && (
                 <GradualBlur
                   position="bottom"
                   height="8rem"
@@ -1120,17 +1159,31 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   className="pointer-events-none z-30"
                 />
               )}
+              
+
 
               {/* 三栏布局 - showHistory 为 true 时启用 */}
               <div className={cn(
-                "relative z-20 w-full pt-4 max-w-[92vw] h-full",
+                "relative z-20 w-[92vw] pt-4  h-full",
                 showHistory
-                  ? "flex flex-row "
+                  ? "flex flex-row  "
                   : "flex flex-col items-center justify-center"
               )}>
+                <GradualBlur
+                target="parent"
+                position="bottom"
+                height="40px"
+                strength={3}
+                divCount={5}
+                curve="bezier"
+                exponential={true}
+                zIndex={40}
+                opacity={1}
+              />
+
                 {/* 左侧 Project 面板 - showHistory 时作为三栏的一部分 */}
                 {showHistory ? (
-                  <div className="w-[15%] min-w-[200px]  h-full flex flex-col pr-6 pt-4  pb-4 overflow-hidden min-h-0">
+                  <div className="w-[15%] min-w-[200px]  h-full flex flex-col z-50 pr-6 pt-4  pb-4 overflow-hidden min-h-0">
                     {showProjectSidebar}
                     <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
 
@@ -1147,6 +1200,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     : "max-w-4xl w-full",
                   !showHistory && (isPresetGridOpen ? "mt-0" : "-mt-60")
                 )}>
+                 
 
 
 
@@ -1391,7 +1445,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             </div>
             {!isPresetGridOpen && !isPresetManagerOpen && !showHistory && (
-              <div className=" absolute bottom-0 w-full  overflow-visible">
+              <div className=" absolute bottom-0 w-full  overflow-visible z-50">
                 <StylesMarquee />
               </div>
 
@@ -1426,6 +1480,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               open={isPresetManagerOpen}
               onOpenChange={setIsPresetManagerOpen}
               workflows={workflows}
+              currentConfig={config}
             />
           </main>
         </div>
