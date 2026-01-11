@@ -1,5 +1,5 @@
 {
-  "name": "Lemo SEED4",
+  "name": "3D Lemo Seed4",
   "coverUrl": "/preset/59f35ef7-33fb-4124-8ce2-a25f66f5d0d8.png",
   "config": {
     "prompt": "lemo，",
@@ -9,5 +9,6 @@
     "resolution": "2K"
   },
   "id": "59f35ef7-33fb-4124-8ce2-a25f66f5d0d8",
-  "createdAt": "2026-01-09T09:17:35.114Z"
+  "createdAt": "2026-01-11T08:35:03.228Z",
+  "category": "lemo"
 }

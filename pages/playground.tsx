@@ -1007,6 +1007,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             selectedPresetName={selectedPresetName}
             onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
             isPresetGridOpen={isPresetGridOpen}
+            onClearPreset={() => setSelectedPresetName(undefined)}
           />
 
         </div>

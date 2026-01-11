@@ -42,7 +42,7 @@ export const REGISTRY: RegistryItem[] = [
             apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY
         }
     },
-  
+
     {
         id: 'seed4_lemo1230',
         providerType: 'bytedance-afr',
@@ -68,6 +68,15 @@ export const REGISTRY: RegistryItem[] = [
         defaultConfig: {
             providerId: 'bytedance',
             modelId: 'lemo_2dillustator'
+        }
+    },
+    {
+        id: 'lemoseedt2i',
+        providerType: 'bytedance-afr',
+        task: ['image'],
+        defaultConfig: {
+            providerId: 'bytedance',
+            modelId: 'lemoseedt2i'
         }
     }
 ];

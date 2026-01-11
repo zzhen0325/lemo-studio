@@ -81,13 +81,19 @@ interface PlaygroundState {
     deleteStyle: (id: string) => void;
     addImageToStyle: (styleId: string, imagePath: string) => void;
 
+    // Categories
+    presetCategories: string[];
+    initCategories: () => void;
+    saveCategories: (categories: string[]) => Promise<void>;
+    renameCategory: (oldName: string, newName: string) => Promise<void>;
+
     // Global Preview State
     previewImageUrl: string | null;
     previewLayoutId: string | null;
     setPreviewImage: (url: string | null, layoutId?: string | null) => void;
 }
 
-export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
+export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     config: {
         prompt: '',
         width: 1376,
@@ -190,8 +196,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
                 uiModel = 'Workflow';
             }
 
-            let newConfig = configData ? { ...state.config, ...configData, model: finalModel } : { ...state.config, model: finalModel };
-            
+            const newConfig = configData ? { ...state.config, ...configData, model: finalModel } : { ...state.config, model: finalModel };
+
             // Default to 2K for Seed 4.2
             if (finalModel === 'Seed 4.2' && !newConfig.resolution) {
                 newConfig.resolution = '2K';
@@ -356,8 +362,50 @@ export const usePlaygroundStore = create<PlaygroundState>()((set) => ({
             }
 
             set({ presets: allPresets });
+            // Initialize categories as well
+            get().initCategories();
         } catch (e) {
             console.error("Error fetching presets and workflows:", e);
+        }
+    },
+
+    presetCategories: ['General', 'Portrait', 'Landscape', 'Anime', '3D', 'Architecture', 'Character', 'Workflow', 'Other'],
+    initCategories: async () => {
+        try {
+            const res = await fetch('/api/presets/categories');
+            if (res.ok) {
+                const data = await res.json();
+                set({ presetCategories: data });
+            }
+        } catch (e) {
+            console.error("Failed to init categories", e);
+        }
+    },
+    saveCategories: async (categories: string[]) => {
+        try {
+            const res = await fetch('/api/presets/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(categories)
+            });
+            if (res.ok) {
+                set({ presetCategories: categories });
+            }
+        } catch (e) {
+            console.error("Failed to save categories", e);
+        }
+    },
+    renameCategory: async (oldName: string, newName: string) => {
+        const state = get();
+        const newCategories = state.presetCategories.map(c => c === oldName ? newName : c);
+
+        // 1. Update category names in list
+        await state.saveCategories(newCategories);
+
+        // 2. Bulk update all affected presets
+        const affectedPresets = state.presets.filter(p => p.category === oldName);
+        for (const preset of affectedPresets) {
+            await state.updatePreset({ ...preset, category: newName });
         }
     },
 

@@ -76,7 +76,7 @@
   {
     "id": "provider-bytedance",
     "name": "Bytedance AFR (内部)",
-    "providerType": "bytedance-afr",
+    "providerType": "",
     "apiKey": "",
     "baseURL": "",
     "models": [
@@ -100,10 +100,17 @@
         "task": [
           "image"
         ]
+      },
+      {
+        "modelId": "lemoseedt2i",
+        "displayName": "Seed 4",
+        "task": [
+          "image"
+        ]
       }
     ],
     "isEnabled": true,
     "createdAt": "2026-01-11T00:00:00.000Z",
-    "updatedAt": "2026-01-11T00:00:00.000Z"
+    "updatedAt": "2026-01-11T06:38:04.903Z"
   }
 ]

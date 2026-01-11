@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,10 +7,29 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Preset, GenerationConfig } from '../types';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
-import { Plus, Trash2, Save, X, Image as ImageIcon } from 'lucide-react';
-import Image from 'next/image';
-
+import { Plus, Trash2, Save, X, Image as ImageIcon, LayoutTemplate, GripVertical } from 'lucide-react';
+import NextImage from 'next/image';
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    horizontalListSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface PresetManagerDialogProps {
     open: boolean;
@@ -20,20 +39,97 @@ interface PresetManagerDialogProps {
 
 const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', 'Seed 4.2', '3D Lemo seed3'];
 
-const BASE_MODEL_LIST = [
-    { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
-    { name: 'flux1-dev-fp8.safetensors', cover: '/basemodels/flux1-dev-fp8.safetensors.jpg' },
-    { name: 'Zimage', cover: '/basemodels/Zimage.jpg' },
-    { name: 'qwen', cover: '/basemodels/qwen.jpg' },
-];
+// Sortable Category Item Component
+interface SortableCategoryItemProps {
+    id: string;
+    cat: string;
+    isActive: boolean;
+    isRenaming: boolean;
+    renamingValue: string;
+    onSelect: () => void;
+    onDoubleClick: () => void;
+    onDelete: (e: React.MouseEvent) => void;
+    onRenameChange: (value: string) => void;
+    onRenameSubmit: () => void;
+    onRenameCancel: () => void;
+}
+
+const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
+    id, cat, isActive, isRenaming, renamingValue,
+    onSelect, onDoubleClick, onDelete, onRenameChange, onRenameSubmit, onRenameCancel
+}) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    if (isRenaming) {
+        return (
+            <div ref={setNodeRef} style={style} className="shrink-0">
+                <Input
+                    autoFocus
+                    value={renamingValue}
+                    onChange={(e) => onRenameChange(e.target.value)}
+                    onBlur={onRenameSubmit}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') onRenameSubmit();
+                        if (e.key === 'Escape') onRenameCancel();
+                    }}
+                    className="h-7 px-2 bg-white/10 border-emerald-500/50 min-w-[80px] text-xs"
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div ref={setNodeRef} style={style} className="relative group/cat shrink-0 flex items-center">
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 text-white/20 hover:text-white/50">
+                <GripVertical className="w-3 h-3" />
+            </div>
+            <button
+                onClick={onSelect}
+                onDoubleClick={onDoubleClick}
+                className={cn(
+                    "px-2 py-1.5 rounded-lg text-xs font-medium transition-all pr-6 relative",
+                    isActive
+                        ? "bg-white/20 text-white"
+                        : "text-white/40 hover:text-white hover:bg-white/10"
+                )}
+            >
+                {cat}
+                <X
+                    className="w-3 h-3 absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/cat:opacity-40 hover:!opacity-100 hover:text-red-400 transition-all cursor-pointer"
+                    onClick={onDelete}
+                />
+            </button>
+        </div>
+    );
+};
 
 export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows }) => {
     const presets = usePlaygroundStore(s => s.presets);
+    const presetCategories = usePlaygroundStore(s => s.presetCategories);
+    const renameCategory = usePlaygroundStore(s => s.renameCategory);
+    const saveCategories = usePlaygroundStore(s => s.saveCategories);
     const addPreset = usePlaygroundStore(s => s.addPreset);
     const removePreset = usePlaygroundStore(s => s.removePreset);
     const updatePreset = usePlaygroundStore(s => s.updatePreset);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
+    const [activeManagerCategory, setActiveManagerCategory] = useState('All');
+
+    // Category editing state
+    const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
+    const [renamingValue, setRenamingValue] = useState('');
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryValue, setNewCategoryValue] = useState('');
+
+    const filteredPresets = presets.filter(p => {
+        const matchesCategory = activeManagerCategory === 'All' || (p.category || 'General') === activeManagerCategory;
+        return matchesCategory;
+    });
 
     const DEFAULT_CONFIG: GenerationConfig = {
         prompt: '',
@@ -47,15 +143,19 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     const [formData, setFormData] = useState<Partial<Preset>>({
         name: '',
         coverUrl: '',
+        category: 'General',
         config: DEFAULT_CONFIG
     });
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string>('');
 
     const resetForm = () => {
+        // Use current category if not "All", otherwise default to "General"
+        const categoryToUse = activeManagerCategory !== 'All' ? activeManagerCategory : 'General';
         setFormData({
             name: '',
             coverUrl: '',
+            category: categoryToUse,
             config: DEFAULT_CONFIG
         });
         setCoverFile(null);
@@ -73,7 +173,17 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     };
 
     const handleCreate = () => {
-        resetForm();
+        // Use current category if not "All", otherwise default to "General"
+        const categoryToUse = activeManagerCategory !== 'All' ? activeManagerCategory : 'General';
+        setFormData({
+            name: '',
+            coverUrl: '',
+            category: categoryToUse,
+            config: DEFAULT_CONFIG
+        });
+        setCoverFile(null);
+        setPreviewUrl('');
+        setEditingId(null);
         setIsCreating(true);
     };
 
@@ -110,215 +220,400 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         }
     };
 
+    // --- Category CRUD Handlers ---
+    const handleCategoryRenameSubmit = () => {
+        if (renamingValue && renamingCategory && renamingValue !== renamingCategory) {
+            renameCategory(renamingCategory, renamingValue);
+            if (activeManagerCategory === renamingCategory) setActiveManagerCategory(renamingValue);
+        }
+        setRenamingCategory(null);
+        setRenamingValue('');
+    };
+
+    const handleAddCategorySubmit = () => {
+        const trimmed = newCategoryValue.trim();
+        if (trimmed && !presetCategories.includes(trimmed)) {
+            saveCategories([...presetCategories, trimmed]);
+        }
+        setIsAddingCategory(false);
+        setNewCategoryValue('');
+    };
+
+    const handleDeleteCategory = (cat: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (confirm(`Delete category "${cat}"? Presets in this category will be moved to "General".`)) {
+            const newCats = presetCategories.filter(c => c !== cat);
+            saveCategories(newCats);
+            if (activeManagerCategory === cat) setActiveManagerCategory('All');
+            presets.filter(p => p.category === cat).forEach(p => {
+                updatePreset({ ...p, category: 'General' });
+            });
+        }
+    };
+
+    // Drag and drop sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id) {
+            const oldIndex = presetCategories.indexOf(active.id as string);
+            const newIndex = presetCategories.indexOf(over.id as string);
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newOrder = arrayMove(presetCategories, oldIndex, newIndex);
+                saveCategories(newOrder);
+            }
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl h-[600px] flex flex-row p-0 gap-0 bg-zinc-900 border-zinc-800 text-white overflow-hidden rounded-2xl">
-
-                {/* Left: Preset List */}
-                <div className="w-1/3 border-r border-white/10 flex flex-col bg-black/20">
-                    <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                        <h3 className="font-medium">My Presets</h3>
-                        <Button size="sm" variant="outline" className="h-8 bg-white/5 border-white/10 hover:bg-white/10" onClick={handleCreate}>
-                            <Plus className="w-4 h-4 mr-1" /> New
-                        </Button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                        {presets.map(preset => (
-                            <div
-                                key={preset.id}
-                                className={`p-3 rounded-xl cursor-pointer flex items-center gap-3 transition-colors ${editingId === preset.id ? 'bg-white/10 border-emerald-500/50 border' : 'hover:bg-white/5 border border-transparent'}`}
-                                onClick={() => handleEdit(preset)}
-                            >
-                                <div className="w-10 h-10 rounded-lg bg-zinc-800 relative overflow-hidden flex-shrink-0">
-                                    {preset.coverUrl ? (
-                                        <Image src={preset.coverUrl} alt={preset.name} fill className="object-cover" />
-                                    ) : (
-                                        <ImageIcon className="w-4 h-4 m-auto text-white/20" />
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-medium truncate">{preset.name}</h4>
-                                    <p className="text-xs text-white/40 truncate">
-                                        {preset.config?.model}
-                                    </p>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-white/20 hover:text-red-400 hover:bg-white/5"
-                                    onClick={(e) => handleDelete(preset.id, e)}
-                                >
-                                    <Trash2 className="w-3 h-3" />
-                                </Button>
+            <DialogContent className="max-w-6xl h-[800px] flex flex-col p-0 gap-0 bg-zinc-950/95 backdrop-blur-2xl border-white/5 text-white overflow-hidden rounded-3xl z-50">
+                {/* Top: Categories Navigation */}
+                <div className="flex flex-col border-b border-white/5 bg-black/40 backdrop-blur-xl shrink-0">
+                    <div className="px-6 py-4 flex items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/20">
+                                <LayoutTemplate className="w-4 h-4 text-emerald-400" />
                             </div>
-                        ))}
+                            <h3 className="text-xl font-bold tracking-tight bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent">Preset Manager</h3>
+                        </div>
+                    </div>
 
-                        {presets.length === 0 && (
-                            <div className="text-center py-10 text-white/20 text-sm">
-                                No presets found. Create one!
+                    <ScrollArea className="w-full">
+                        <div className="flex gap-1 px-6 pb-4 pt-1 items-center">
+                            {/* Fixed "All" tab */}
+                            <button
+                                onClick={() => setActiveManagerCategory('All')}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0",
+                                    activeManagerCategory === 'All'
+                                        ? "bg-white/20 text-white"
+                                        : "text-white/40 hover:text-white hover:bg-white/10"
+                                )}
+                            >
+                                All
+                            </button>
+
+                            <div className="w-px h-4 bg-white/10 mx-1" />
+
+                            {/* Sortable categories */}
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <SortableContext items={presetCategories} strategy={horizontalListSortingStrategy}>
+                                    {presetCategories.map(cat => (
+                                        <SortableCategoryItem
+                                            key={cat}
+                                            id={cat}
+                                            cat={cat}
+                                            isActive={activeManagerCategory === cat}
+                                            isRenaming={renamingCategory === cat}
+                                            renamingValue={renamingValue}
+                                            onSelect={() => setActiveManagerCategory(cat)}
+                                            onDoubleClick={() => {
+                                                setRenamingCategory(cat);
+                                                setRenamingValue(cat);
+                                            }}
+                                            onDelete={(e) => handleDeleteCategory(cat, e)}
+                                            onRenameChange={setRenamingValue}
+                                            onRenameSubmit={handleCategoryRenameSubmit}
+                                            onRenameCancel={() => { setRenamingCategory(null); setRenamingValue(''); }}
+                                        />
+                                    ))}
+                                </SortableContext>
+                            </DndContext>
+
+                            {isAddingCategory ? (
+                                <Input
+                                    autoFocus
+                                    value={newCategoryValue}
+                                    onChange={(e) => setNewCategoryValue(e.target.value)}
+                                    onBlur={handleAddCategorySubmit}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleAddCategorySubmit();
+                                        if (e.key === 'Escape') { setIsAddingCategory(false); setNewCategoryValue(''); }
+                                    }}
+                                    className="h-7 px-2 bg-white/10 border-emerald-500/50 min-w-[80px] text-xs shrink-0"
+                                    placeholder="New..."
+                                />
+                            ) : (
+                                <button
+                                    onClick={() => setIsAddingCategory(true)}
+                                    className="px-2 py-1.5 rounded-lg text-xs font-medium text-white/30 hover:text-white hover:bg-white/10 shrink-0 border border-dashed border-white/10"
+                                >
+                                    <Plus className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+
+                {/* Bottom: Sidebar + Content */}
+                <div className="flex-1 flex flex-row overflow-hidden">
+                    {/* Left: Preset List */}
+                    <div className="w-[380px] border-r border-white/10 flex flex-col bg-black/40">
+                        <div className="p-4 border-b border-white/5">
+                            <p className="text-xs text-white/40">
+                                {activeManagerCategory === 'All' ? 'All Presets' : `Category: ${activeManagerCategory}`}
+                                <span className="ml-2 text-white/20">({filteredPresets.length})</span>
+                            </p>
+                        </div>
+
+                        <ScrollArea className="flex-1 px-3 pb-4">
+                            <div className="space-y-2">
+                                {filteredPresets.map(preset => (
+                                    <div
+                                        key={preset.id}
+                                        className={cn(
+                                            "group p-3 rounded-2xl cursor-pointer flex items-center gap-3 transition-all border",
+                                            editingId === preset.id
+                                                ? 'bg-emerald-500/10 border-emerald-500/50'
+                                                : 'hover:bg-white/5 border-transparent'
+                                        )}
+                                        onClick={() => handleEdit(preset)}
+                                    >
+                                        <div className="w-12 h-12 rounded-xl bg-white/5 relative overflow-hidden flex-shrink-0 border border-white/10">
+                                            {preset.coverUrl ? (
+                                                <NextImage src={preset.coverUrl} alt={preset.name} fill className="object-cover" />
+                                            ) : (
+                                                <ImageIcon className="w-5 h-5 m-auto text-white/20" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-sm font-semibold truncate text-white/90">{preset.name}</h4>
+                                                {preset.category && (
+                                                    <Badge variant="outline" className="h-4 px-1 text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                                        {preset.category}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-[11px] text-white/40 truncate mt-0.5">
+                                                {preset.config?.model}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                            onClick={(e) => handleDelete(preset.id, e)}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+
+                                {filteredPresets.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center py-20 text-white/20 space-y-2">
+                                        <LayoutTemplate className="w-8 h-8 opacity-20" />
+                                        <p className="text-sm">No presets in this category</p>
+                                        <Button variant="outline" size="sm" className="mt-2 text-xs bg-white/5 border-white/10" onClick={handleCreate}>
+                                            <Plus className="w-3 h-3 mr-1" /> Add Preset
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    </div>
+
+                    {/* Right: Edit Form */}
+                    <div className="flex-1 flex flex-col bg-zinc-900/50">
+                        {(editingId || isCreating) ? (
+                            <>
+                                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5 backdrop-blur-sm">
+                                    <DialogTitle className="text-base font-bold">
+                                        {editingId ? 'Edit Preset' : 'Create New Preset'}
+                                    </DialogTitle>
+                                    <Button size="sm" variant="ghost" onClick={resetForm} className="h-8 w-8 p-0 hover:bg-white/10 rounded-lg">
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+
+                                <div className="flex-1 p-8 space-y-8 overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 gap-x-6 gap-y-6">
+                                            <div className="space-y-2.5 col-span-2">
+                                                <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Preset Details</Label>
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm">Name</Label>
+                                                    <Input
+                                                        value={formData.name}
+                                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                        className="bg-white/5 border-white/10 focus-visible:ring-emerald-500/50 h-10 rounded-xl"
+                                                        placeholder="Enter preset name..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4 col-span-2">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm">Category</Label>
+                                                        <Select
+                                                            value={formData.category || 'General'}
+                                                            onValueChange={(val) => setFormData({ ...formData, category: val })}
+                                                        >
+                                                            <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                <SelectValue placeholder="Select category" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                {presetCategories.map(cat => (
+                                                                    <SelectItem key={cat} value={cat} className="hover:bg-emerald-500/20 focus:bg-emerald-500/20">{cat}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm">Base Model</Label>
+                                                        <Select
+                                                            value={formData.config?.model}
+                                                            onValueChange={(val) => setFormData({
+                                                                ...formData,
+                                                                config: { ...(formData.config || DEFAULT_CONFIG), model: val }
+                                                            })}
+                                                        >
+                                                            <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                <SelectValue placeholder="Select model" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                <SelectItem value="Nano banana">Nano banana</SelectItem>
+                                                                <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
+                                                                <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
+                                                                <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
+                                                                <SelectItem value="Workflow">Workflow</SelectItem>
+
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2 col-span-2 border-t border-white/5 pt-6 mt-2">
+                                                <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Visual Branding</Label>
+                                                <div className="flex gap-6 items-center mt-2">
+                                                    <div className="flex-1 space-y-4">
+                                                        <div className="space-y-2 text-sm">
+                                                            <Label>Upload Cover</Label>
+                                                            <Input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={handleFileChange}
+                                                                className="bg-white/5 border-white/10 file:bg-white/10 file:text-white file:border-0 file:rounded-lg file:px-3 file:py-1 file:mr-4 hover:file:bg-white/20 h-10 cursor-pointer rounded-xl"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label className="text-sm">Or use Image URL</Label>
+                                                            <Input
+                                                                value={formData.coverUrl}
+                                                                onChange={(e) => {
+                                                                    setFormData({ ...formData, coverUrl: e.target.value });
+                                                                    setPreviewUrl(e.target.value);
+                                                                }}
+                                                                className="bg-white/5 border-white/10 text-xs h-10 rounded-xl"
+                                                                placeholder="Paste image URL here..."
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-32 h-32 rounded-2xl overflow-hidden relative border border-white/10 bg-white/5 flex-shrink-0 shadow-2xl">
+                                                        {previewUrl ? (
+                                                            <NextImage src={previewUrl} alt="Preview" fill className="object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center">
+                                                                <ImageIcon className="w-8 h-8 text-white/10" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2 col-span-2 border-t border-white/5 pt-6">
+                                                <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Generation Config</Label>
+                                                <div className="grid grid-cols-2 gap-4 mt-2">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm">Target Resolution</Label>
+                                                        <Select
+                                                            value={formData.config?.resolution || '1K'}
+                                                            onValueChange={(val: '1K' | '2K' | '4K') => setFormData({
+                                                                ...formData,
+                                                                config: { ...(formData.config || DEFAULT_CONFIG), resolution: val }
+                                                            })}
+                                                        >
+                                                            <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                <SelectValue placeholder="Select size" />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                <SelectItem value="1K">1K (Standard)</SelectItem>
+                                                                <SelectItem value="2K">2K (High Def)</SelectItem>
+                                                                <SelectItem value="4K">4K (Ultra High)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+
+                                                    {!NATIVE_MODELS.includes(formData.config?.model || '') && (
+                                                        <div className="space-y-2">
+                                                            <Label className="text-sm">Linked Workflow</Label>
+                                                            <Select
+                                                                value={formData.config?.workflowName || 'default'}
+                                                                onValueChange={(val) => setFormData({
+                                                                    ...formData,
+                                                                    config: { ...(formData.config || DEFAULT_CONFIG), workflowName: val === 'default' ? undefined : val }
+                                                                })}
+                                                            >
+                                                                <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                    <SelectValue placeholder="Select workflow" />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                    <SelectItem value="default">System Default</SelectItem>
+                                                                    {workflows.map(workflow => (
+                                                                        <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>
+                                                                            {workflow.viewComfyJSON.title}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2 col-span-2">
+                                                <Label className="text-sm">Base Prompt</Label>
+                                                <Textarea
+                                                    value={formData.config?.prompt}
+                                                    onChange={(e) => setFormData({
+                                                        ...formData,
+                                                        config: { ...(formData.config || DEFAULT_CONFIG), prompt: e.target.value }
+                                                    })}
+                                                    className="bg-white/5 border-white/10 focus-visible:ring-emerald-500/50 min-h-[140px] rounded-2xl p-4 resize-none leading-relaxed"
+                                                    placeholder="Craft the magic here..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 border-t border-white/10 flex justify-end gap-3 bg-white/5 backdrop-blur-sm">
+                                    <Button variant="ghost" onClick={resetForm} className="rounded-xl px-6 hover:bg-white/10">Cancel</Button>
+                                    <Button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl px-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                                        <Save className="w-4 h-4 mr-2" />
+                                        Save Preset
+                                    </Button>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-white/30">
+                                <p className="mb-4">Select a preset to edit or create a new one</p>
+                                <Button variant="outline" className="bg-white/5 border-white/10" onClick={handleCreate}>
+                                    Create New Preset
+                                </Button>
                             </div>
                         )}
                     </div>
+
                 </div>
-
-                {/* Right: Edit Form */}
-                <div className="flex-1 flex flex-col bg-zinc-900/50">
-                    {(editingId || isCreating) ? (
-                        <>
-                            <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
-                                <DialogTitle>{editingId ? 'Edit Preset' : 'Create New Preset'}</DialogTitle>
-                                <DialogDescription className="hidden">Edit your preset details</DialogDescription>
-                                <Button size="sm" variant="ghost" onClick={resetForm}>
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            </div>
-
-                            <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2 col-span-2">
-                                        <Label>Preset Name</Label>
-                                        <Input
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="bg-black/20 border-white/10 focus-visible:ring-emerald-500/50"
-                                            placeholder="e.g. Dreamy Landscape"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2 col-span-2">
-                                        <Label>Cover Image</Label>
-                                        <div className="flex gap-4 items-start">
-                                            <div className="flex-1">
-                                                <Input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleFileChange}
-                                                    className="bg-black/20 border-white/10 file:bg-white/10 file:text-white file:border-0 file:rounded-md file:px-2 file:py-1 file:mr-4 hover:file:bg-white/20"
-                                                />
-                                                <p className="text-xs text-white/40 mt-1">Upload an image or paste a URL below</p>
-                                                <Input
-                                                    value={formData.coverUrl}
-                                                    onChange={(e) => {
-                                                        setFormData({ ...formData, coverUrl: e.target.value });
-                                                        setPreviewUrl(e.target.value);
-                                                    }}
-                                                    className="bg-black/20 border-white/10 mt-2 text-xs"
-                                                    placeholder="Or enter image URL..."
-                                                />
-                                            </div>
-                                            {(previewUrl) && (
-                                                <div className="w-24 h-24 rounded-lg overflow-hidden relative border border-white/10 bg-black/40 flex-shrink-0">
-                                                    <Image src={previewUrl} alt="Preview" fill className="object-cover" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label>Base Model</Label>
-                                        <Select
-                                            value={formData.config?.model}
-                                            onValueChange={(val) => setFormData({
-                                                ...formData,
-                                                config: { ...(formData.config || DEFAULT_CONFIG), model: val }
-                                            })}
-                                        >
-                                            <SelectTrigger className="bg-black/20 border-white/10">
-                                                <SelectValue placeholder="Select model" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Nano banana">Nano banana</SelectItem>
-                                                <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
-                                                <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
-                                                <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
-                                                <SelectItem value="Workflow">Workflow</SelectItem>
-                                                {BASE_MODEL_LIST.map(model => (
-                                                    <SelectItem key={model.name} value={model.name}>
-                                                        {model.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label>Image Size</Label>
-                                        <Select
-                                            value={formData.config?.resolution || '1K'}
-                                            onValueChange={(val: '1K' | '2K' | '4K') => setFormData({
-                                                ...formData,
-                                                config: { ...(formData.config || DEFAULT_CONFIG), resolution: val }
-                                            })}
-                                        >
-                                            <SelectTrigger className="bg-black/20 border-white/10">
-                                                <SelectValue placeholder="Select size" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="1K">1K</SelectItem>
-                                                <SelectItem value="2K">2K</SelectItem>
-                                                <SelectItem value="4K">4K</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {!NATIVE_MODELS.includes(formData.config?.model || '') && (
-                                        <div className="space-y-2">
-                                            <Label>Workflow</Label>
-                                            <Select
-                                                value={formData.config?.workflowName || 'default'}
-                                                onValueChange={(val) => setFormData({
-                                                    ...formData,
-                                                    config: { ...(formData.config || DEFAULT_CONFIG), workflowName: val === 'default' ? undefined : val }
-                                                })}
-                                            >
-                                                <SelectTrigger className="bg-black/20 border-white/10">
-                                                    <SelectValue placeholder="Select workflow (optional)" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="default">Default Workflow</SelectItem>
-                                                    {workflows.map(workflow => (
-                                                        <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>
-                                                            {workflow.viewComfyJSON.title}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-2 col-span-2">
-                                        <Label>Prompt (User Input)</Label>
-                                        <Textarea
-                                            value={formData.config?.prompt}
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                config: { ...(formData.config || DEFAULT_CONFIG), prompt: e.target.value }
-                                            })}
-                                            className="bg-black/20 border-white/10 focus-visible:ring-emerald-500/50 min-h-[120px]"
-                                            placeholder="Enter the prompt text..."
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-4 border-t border-white/10 flex justify-end gap-2 bg-black/20">
-                                <Button variant="ghost" onClick={resetForm}>Cancel</Button>
-                                <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700">
-                                    <Save className="w-4 h-4 mr-2" />
-                                    Save Preset
-                                </Button>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-white/30">
-                            <p className="mb-4">Select a preset to edit or create a new one</p>
-                            <Button variant="outline" className="bg-white/5 border-white/10" onClick={handleCreate}>
-                                Create New Preset
-                            </Button>
-                        </div>
-                    )}
-                </div>
-
             </DialogContent>
         </Dialog>
     );

@@ -150,6 +150,7 @@ export function useGenerationService() {
         if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";
         if (selectedModel === "Seed 4.0") modelId = "seed4_lemo1230";
         if (selectedModel === "Seed 4.2") modelId = "seed4_2_lemo";
+        if (selectedModel === "Seed 4") modelId = "lemoseedt2i";
 
         const unified = toUnifiedConfigFromLegacy(currentConfig);
 

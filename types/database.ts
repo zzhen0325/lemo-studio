@@ -54,6 +54,7 @@ export interface Preset {
   name: string;
   coverUrl: string;
   config: GenerationConfig;
+  category?: string;
   projectId?: string;
   createdAt: string;
 }

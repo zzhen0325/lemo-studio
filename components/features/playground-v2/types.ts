@@ -18,7 +18,6 @@ export interface PresetExtended extends Omit<Preset, 'coverUrl'> {
   title?: string;
 }
 
-export const PRESET_CATEGORIES = ['General', 'Portrait', 'Landscape', 'Anime', '3D', 'Architecture', 'Character', 'Workflow', 'Other'];
 
 export interface StyleStack {
   id: string;

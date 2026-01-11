@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LayoutTemplate, Settings } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { PresetExtended, PRESET_CATEGORIES } from './types';
+import { PresetExtended } from './types';
 
 interface PresetGridOverlayProps {
     onOpenManager: () => void;
@@ -13,10 +13,10 @@ interface PresetGridOverlayProps {
     externalPresets?: PresetExtended[];
 }
 
-const CATEGORIES = ["All", ...PRESET_CATEGORIES];
-
 export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenManager, onSelectPreset, externalPresets }) => {
     const storePresets = usePlaygroundStore(s => s.presets);
+    const presetCategories = usePlaygroundStore(s => s.presetCategories);
+    const CATEGORIES = ["All", ...presetCategories];
     const presets = (externalPresets || storePresets) as PresetExtended[];
     const [activeCategory, setActiveCategory] = useState("All");
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -64,7 +64,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
             </div>
 
             {/* Preset Grid */}
-            <div className="bg-transparent mt-2 w-full ">
+            <div className="bg-transparent  w-full ">
                 {filteredPresets.length === 0 ? (
                     <div className="flex flex-col items-center  py-12 text-white/30 space-y-3">
                         <LayoutTemplate className="w-10 h-10 opacity-50" />
@@ -76,7 +76,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
                 ) : (
                     <div
                         ref={scrollRef}
-                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[500px] overflow-y-auto p-1 "
+                        className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-[500px] overflow-y-auto p-1 "
                     >
                         {filteredPresets.map(preset => {
                             const cover = preset.coverUrl || preset.cover;
@@ -85,10 +85,10 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
                             return (
                                 <button
                                     key={preset.id}
-                                    className="group relative flex flex-col items-start overflow-hidden bg-black/5 hover:bg-black/20 transition-colors rounded-3xl p-3 w-full border border-white/20"
+                                    className="group relative flex flex-col items-start overflow-hidden bg-black/20 hover:bg-black/20 transition-colors rounded-2xl p-1 w-full h-30 "
                                     onClick={() => onSelectPreset(preset)}
                                 >
-                                    <div className="relative w-full aspect-[1/1] rounded-2xl bg-white/10  overflow-hidden">
+                                    <div className="relative w-full  aspect-[1/1] rounded-xl bg-white/10  overflow-hidden">
                                         {cover ? (
                                             <Image
                                                 src={cover}
@@ -97,13 +97,13 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({ onOpenMana
                                                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-white/20">
+                                            <div className="w-full h-full flex items-center bg-white/5 justify-center text-white/20">
                                                 <LayoutTemplate className="w-6 h-6" />
                                             </div>
                                         )}
                                     </div>
-                                    <div className="w-full flex pt-2 justify-center">
-                                        <h3 className="text-xs font-medium text-white line-clamp-1">{name}</h3>
+                                    <div className="w-full flex pt-2  pb-1 px-4 justify-center">
+                                        <h3 className="text-xs  text-white line-clamp-1">{name}</h3>
                                     </div>
                                 </button>
                             );

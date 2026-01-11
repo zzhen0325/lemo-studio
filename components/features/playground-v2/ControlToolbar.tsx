@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,15 @@ import {
 import { GenerationConfig } from '@/components/features/playground-v2/types';
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
+
+// 统一的模型配置：消除重复映射
+const MODEL_CONFIG: Record<string, { displayName: string; modelKey: string }> = {
+  'seed3': { displayName: 'Seed 3', modelKey: '3D Lemo seed3' },
+  'seed4': { displayName: 'Seed 4.0', modelKey: 'Seed 4.0' },
+  'seed4_2': { displayName: 'Seed 4.2', modelKey: 'Seed 4.2' },
+  'lemoseedt2i': { displayName: 'Seed 4', modelKey: 'Seed 4' },
+  'nano_banana': { displayName: 'Nano banana', modelKey: 'Nano banana' },
+};
 
 
 
@@ -55,6 +64,7 @@ interface ControlToolbarProps {
   onTogglePresetGrid?: () => void;
   batchSize?: number;
   onBatchSizeChange?: (size: number) => void;
+  onClearPreset?: () => void;
 }
 
 
@@ -90,6 +100,7 @@ export default function ControlToolbar({
   onTogglePresetGrid,
   batchSize = 1,
   onBatchSizeChange,
+  onClearPreset,
 
 }: ControlToolbarProps) {
 
@@ -97,57 +108,34 @@ export default function ControlToolbar({
   const [selectValue, setSelectValue] = useState<string | undefined>(undefined);
   const [activeTab] = useState<'model' | 'preset'>('model');
 
-
-  // 初始化与回填：根据外部选中模型/工作流，映射到 Select 的 value
+  // 初始化与回填：根据外部 selectedModel 映射到内部 selectValue
   React.useEffect(() => {
-    let v: string | undefined;
-    if (selectedModel === '3D Lemo seed3') v = 'seed3';
-    else if (selectedModel === 'Seed 4.0') v = 'seed4';
-    else if (selectedModel === 'Seed 4.2') v = 'seed4_2';
-    else if (selectedModel === 'Nano banana') v = 'nano_banana';
-    else if (selectedModel === 'Workflow' && selectedWorkflowName) {
+    // 反向查找：根据 modelKey 找到对应的 selectValue
+    const entry = Object.entries(MODEL_CONFIG).find(([, cfg]) => cfg.modelKey === selectedModel);
+    if (entry) {
+      setSelectValue(entry[0]);
+    } else if (selectedModel === 'Workflow' && selectedWorkflowName) {
       const wf = (Array.isArray(workflows) ? workflows : []).find(
         (w) => w.viewComfyJSON.title === selectedWorkflowName
       );
-      if (wf) v = `wf:${String(wf.viewComfyJSON.id)}`;
+      if (wf) setSelectValue(`wf:${String(wf.viewComfyJSON.id)}`);
+    } else {
+      setSelectValue(undefined);
     }
-    setSelectValue(v);
   }, [selectedModel, selectedWorkflowName, workflows]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (isSelectorExpanded && containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        onSelectorExpandedChange?.(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isSelectorExpanded, onSelectorExpandedChange]);
-
   const handleUnifiedSelectChange = (val: string) => {
     setSelectValue(val);
-    if (val === 'seed3') {
-      onModelChange('3D Lemo seed3');
-      onConfigChange?.({ model: '3D Lemo seed3' });
-    }
-    else if (val === 'seed4') {
-      onModelChange('Seed 4.0');
-      onConfigChange?.({ model: 'Seed 4.0' });
-    }
-    else if (val === 'seed4_2') {
-      onModelChange('Seed 4.2');
-      onConfigChange?.({ model: 'Seed 4.2' });
-    }
-    else if (val === 'nano_banana') {
-      onModelChange('Nano banana');
-      onConfigChange?.({ model: 'Nano banana' });
-    }
-    else if (val.startsWith('wf:')) {
+    onClearPreset?.(); // 切换模型时清除预设选择
+
+    // 使用统一配置处理模型切换
+    const cfg = MODEL_CONFIG[val];
+    if (cfg) {
+      onModelChange(cfg.modelKey);
+      onConfigChange?.({ model: cfg.modelKey });
+    } else if (val.startsWith('wf:')) {
       const id = val.slice(3);
       const wf = (Array.isArray(workflows) ? workflows : []).find(
         (w) => String(w.viewComfyJSON.id) === id
@@ -158,15 +146,15 @@ export default function ControlToolbar({
         onWorkflowSelect?.(wf);
       }
     }
-    onSelectorExpandedChange?.(false);
   };
 
-  const Inputbutton2 = "h-10 w-auto text-white/90 rounded-2xl bg-black/40  hover:bg-white/5 hover:border-white/10 hover:border hover:text-primary    transition-colors duration-200";
+  const Inputbutton2 = "h-8 px-3 text-white rounded-xl bg-white/5 border border-white/10  hover:bg-white/5 hover:border-white/10 hover:border hover:text-primary    transition-colors duration-200";
+
+  // 使用统一配置获取显示标签
   const triggerLabel = (() => {
-    if (selectValue === 'seed3') return 'Seed 3';
-    if (selectValue === 'seed4') return 'Seed 4';
-    if (selectValue === 'seed4_2') return 'Seed 4.2';
-    if (selectValue === 'nano_banana') return 'Nano banana';
+    if (selectValue && MODEL_CONFIG[selectValue]) {
+      return MODEL_CONFIG[selectValue].displayName;
+    }
     if (selectedModel === 'Workflow') return selectedBaseModelName || 'Base Model';
     return 'Model';
   })();
@@ -196,7 +184,7 @@ export default function ControlToolbar({
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[240px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
+      <DropdownMenuContent className="w-[240px]  bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
         <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('nano_banana')}
@@ -225,10 +213,16 @@ export default function ControlToolbar({
           <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4_2' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 4.2
         </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
+          onClick={() => handleUnifiedSelectChange('lemoseedt2i')}
+        >
+          <span className={`w-2 h-2 rounded-full ${selectValue === 'lemoseedt2i' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+          Seed 4 (LemoSeed T2I)
+        </DropdownMenuItem>
 
 
         {/* workflow模型 */}
-        {/* 
         {BASE_MODEL_LIST.map((model) => (
           <DropdownMenuItem
             key={model.name}
@@ -238,7 +232,7 @@ export default function ControlToolbar({
             <span className={`w-2 h-2 rounded-full ${selectedModel === 'Workflow' && selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
             <span className="truncate">{model.name}</span>
           </DropdownMenuItem>
-        ))} */}
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -250,7 +244,7 @@ export default function ControlToolbar({
 
       <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
         <div className="flex justify-start items-center gap-2">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <Button
               className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
               onClick={onTogglePresetGrid}
@@ -268,7 +262,7 @@ export default function ControlToolbar({
                 <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
                   LoRA
                   {selectedLoras && selectedLoras.length > 0 && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       {selectedLoras.slice(0, 5).map((lora) => (
                         <div key={lora.model_name} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/20" title={lora.model_name}>
                           {lora.preview_url ? (
@@ -301,7 +295,7 @@ export default function ControlToolbar({
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[320px] p-6 bg-black/60 border-white/10 backdrop-blur-xl rounded-3xl" align="start">
+            <DropdownMenuContent className="w-[320px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
                 {(selectedModel === 'Nano banana' || selectedModel === 'Seed 4.2') && (
                   <div className="space-y-4">

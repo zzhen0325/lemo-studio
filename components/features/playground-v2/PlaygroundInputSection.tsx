@@ -323,8 +323,9 @@ export function PlaygroundInputSection({
                         aspectRatioPresets={aspectRatioPresets}
                         currentAspectRatio={getCurrentAspectRatio()}
                         onAspectRatioChange={(ar: string) => {
-                            const size = (config.model === 'Nano banana') ? (config.resolution || '1K') : '1K';
-                            const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
+                            // Keep the current resolution setting when changing aspect ratio
+                            const currentSize = (config.resolution as '1K' | '2K' | '4K') || '1K';
+                            const resolution = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
                             if (resolution) {
                                 setConfig(prev => ({ ...prev, width: resolution.w, height: resolution.h }));
                             }
