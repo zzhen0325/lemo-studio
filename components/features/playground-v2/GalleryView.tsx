@@ -447,7 +447,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
 
 
                 {/* Floating Actions - consistent with HistoryList */}
-                <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1  bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+                <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1  bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <div>
@@ -513,7 +513,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                             }
                         }}
                     />
-                    <TooltipButton
+                    {/* <TooltipButton
                         icon={<Box className="w-4 h-4" />}
                         label="Use Model"
                         tooltipContent="Use Model"
@@ -525,14 +525,14 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                                 toast({ title: "Model Selected", description: `已切换模型为: ${item.config.model}` });
                             }
                         }}
-                    />
+                    /> */}
                     <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
                     <TooltipButton
                         icon={<RefreshCw className="w-4 h-4" />}
-                        label="Remix"
-                        tooltipContent="Recreate"
+                        label="Rerun"
+                        tooltipContent="Rerun"
                         tooltipSide="top"
-                        className="w-8 h-8 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
                             remix({
                                 ...item,

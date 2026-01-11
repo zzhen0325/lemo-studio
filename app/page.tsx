@@ -115,8 +115,8 @@ export default function Page() {
     return (
         <TabContext.Provider value={{ currentTab, setCurrentTab: handleTabChange, deployWindow, setDeployWindow }}>
             <div className={cn(
-                "flex flex-col h-screen w-screen overflow-hidden text-neutral-200 selection:bg-indigo-500/30 relative transition-all duration-700",
-                hasGenerated ? "bg-black" : "bg-black"
+                "flex flex-col h-screen w-screen overflow-hidden  text-neutral-200 selection:bg-indigo-500/30 relative transition-all duration-500",
+                hasGenerated ? "bg-black " : "bg-black"
             )}>
                 <NewSidebar currentTab={currentTab} onTabChange={handleTabChange} />
 

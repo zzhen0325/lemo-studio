@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { projectStore } from "@/lib/store/project-store";
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, LayoutGrid, List, X, FolderPlus, GripVertical, Folder } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, LayoutGrid, List, X, FolderPlus, GripVertical, Folder, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -14,6 +14,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
 import GradualBlur from "@/components/GradualBlur";
 import { useDraggable } from "@dnd-kit/core";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from "@/components/ui/dropdown-menu";
 
 
 interface HistoryListProps {
@@ -547,7 +555,7 @@ function HistoryCard({
   onToggleSelect?: () => void;
 }) {
   const [isHover, setIsHover] = React.useState(false);
-  const { applyPrompt, applyModel, applyImage } = usePlaygroundStore();
+  const { applyPrompt, applyModel, applyImage, styles, addImageToStyle } = usePlaygroundStore();
   const { toast } = useToast();
   const mainImage = result.outputUrl;
 
@@ -757,12 +765,65 @@ function HistoryCard({
                         </div>
                       )}
                       {res.status !== 'pending' && img && !isSelectionMode && (
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-300 opacity-0 group-hover/img:opacity-100 group-hover/img:translate-y-0 translate-y-4" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <div>
+                                <TooltipButton
+                                  icon={<Layers className="w-4 h-4" />}
+                                  label="Add to Style"
+                                  tooltipContent="添加到风格"
+                                  tooltipSide="top"
+                                  className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                                />
+                              </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[160px]">
+                              <DropdownMenuLabel className="text-white/40 text-[10px] uppercase tracking-wider px-2 py-1">选择风格堆叠</DropdownMenuLabel>
+                              <DropdownMenuSeparator className="bg-white/5" />
+                              {styles.length > 0 ? (
+                                styles.map(style => (
+                                  <DropdownMenuItem
+                                    key={style.id}
+                                    className="text-white hover:bg-white/10 rounded-xl cursor-pointer"
+                                    onClick={() => {
+                                      if (img) {
+                                        addImageToStyle(style.id, img);
+                                        toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
+                                      }
+                                    }}
+                                  >
+                                    {style.name}
+                                  </DropdownMenuItem>
+                                ))
+                              ) : (
+                                <DropdownMenuItem disabled className="text-white/20 text-xs">
+                                  暂无可用风格
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+
                           <TooltipButton
-                            icon={<Download className="w-3.5 h-3.5" />}
+                            icon={<ImageIcon className="w-4 h-4" />}
+                            label="Use Image"
+                            tooltipContent="Use Image"
+                            tooltipSide="top"
+                            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={() => {
+                              applyImage(img);
+                              toast({ title: "Image Applied", description: "图片已应用为参考图" });
+                            }}
+                          />
+
+                          <TooltipButton
+                            icon={<Download className="w-4 h-4" />}
                             label="Download"
                             tooltipContent="Download"
-                            className="w-7 h-7 bg-black/60 rounded-lg"
+                            tooltipSide="top"
+                            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                             onClick={(e) => {
                               e.stopPropagation();
                               onDownload(img);
