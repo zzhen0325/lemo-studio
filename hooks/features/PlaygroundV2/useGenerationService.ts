@@ -158,8 +158,10 @@ export function useGenerationService() {
         if (selectedModel === "Seed 4.0") modelId = "seed4_lemo1230";
         if (selectedModel === "Seed 4.2") modelId = "seed4_2_lemo";
         if (selectedModel === "Seed 4") modelId = "lemoseedt2i";
+        if (selectedModel === "coze_seed4") modelId = "coze_seed4";
 
         const unified = toUnifiedConfigFromLegacy(currentConfig);
+        console.log(`[useGenerationService] selectedModel: ${selectedModel}, mapping to modelId: ${modelId}`);
 
         // Validation for Seed 4.2 dimensions
         if (modelId === "seed4_2_lemo") {
@@ -173,6 +175,8 @@ export function useGenerationService() {
             }
         }
 
+        const isCoze = modelId === "coze_seed4";
+
         const res = await callImage({
             model: modelId,
             prompt: unified.prompt,
@@ -181,11 +185,51 @@ export function useGenerationService() {
             batchSize: 1, // Single task per call now
             image: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
             options: {
-                seed: Math.floor(Math.random() * 2147483647)
+                seed: Math.floor(Math.random() * 2147483647),
+                stream: isCoze
             }
-        });
+        }, isCoze ? async (chunk) => {
+            if (chunk.text) {
+                setGenerationHistory((prev: Generation[]) => prev.map(item =>
+                    item.id === taskId
+                        ? { ...item, llmResponse: (item.llmResponse || "") + chunk.text }
+                        : item
+                ));
+            }
+            if (chunk.images && chunk.images.length > 0) {
+                try {
+                    const savedPath = await saveImageToOutputs(
+                        chunk.images[0],
+                        {
+                            config: {
+                                prompt: unified.prompt,
+                                width: Number(unified.width),
+                                height: Number(unified.height),
+                                model: unified.model || selectedModel,
+                                loras: usePlaygroundStore.getState().selectedLoras,
+                                workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                            },
+                            createdAt: generationTime,
+                            sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
+                        }
+                    );
+                    setGenerationHistory((prev: Generation[]) => prev.map(item =>
+                        item.id === taskId
+                            ? { ...item, outputUrl: savedPath, status: 'completed' }
+                            : item
+                    ));
+                } catch (err) {
+                    console.error("Failed to save streamed image:", err);
+                }
+            }
+        } : undefined);
 
-        if (res?.images && res.images.length > 0) {
+        if (isCoze) {
+            const finalItem = usePlaygroundStore.getState().generationHistory.find(h => h.id === taskId);
+            if (finalItem) {
+                saveHistoryToBackend(finalItem);
+            }
+        } else if (res?.images && res.images.length > 0) {
             const dataUrl = res.images[0];
             const savedPath = await saveImageToOutputs(
                 dataUrl,

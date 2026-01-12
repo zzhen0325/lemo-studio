@@ -172,7 +172,14 @@ const HistoryList = observer(function HistoryList({
     <div
       className=" rounded-3xl h-full flex flex-col relative overflow-hidden"
     >
-      <GradualBlur
+     
+
+
+
+
+      {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
+      <div className="flex items-center justify-between px-6 pt-4 pb-2 z-20 shrink-0">
+           <GradualBlur
         target="parent"
         position="top"
         height="60px"
@@ -190,120 +197,110 @@ const HistoryList = observer(function HistoryList({
           endOffset: 80
         }}
       />
-
-
-
-
-      {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
-      <div className="absolute  flex top-6 left-6 z-20 ">
-        <span className="text-white text-2xl"
-          style={{ fontFamily: "'InstrumentSerif', serif" }}
-        >History</span>
-
-
-      </div>
-
-      <div className="absolute top-6 right-8 z-20 flex items-center gap-3">
-        <div className="flex items-center p-1 gap-2 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
-          <div className='flex gap-2'>
-            <button
-              onClick={() => {
-                setIsSelectionMode(!isSelectionMode);
-                if (isSelectionMode) clearSelection(); // Clear selection on exit
-              }}
-              className={cn(
-                " px-2 rounded-md flex items-center gap-2 transition-all",
-                isSelectionMode
-                  ? "bg-white/10 text-primary"
-                  : "text-white/40 hover:text-white hover:bg-white/5"
-              )}
-              title="Select Mode"
-            >
-
-              <Folder className="w-3.5 h-3.5" />
-              <span className='text-sm'>Manager</span>
-            </button>
-            <AnimatePresence>
-              {isSelectionMode && (
-                <motion.div
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  className="flex items-center gap-1"
-                >
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-sm  text-white/60 hover:text-white hover:bg-white/10"
-                    onClick={handleSelectAll}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-sm text-white/60 hover:text-white hover:bg-white/10"
-                    onClick={handleDeselectAll}
-                  >
-                    Cancel
-                  </Button>
-
-
-
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-
-
-
-          </div>
-          <div className="w-[1px] h-3.5 bg-white/10 mx-1" />
-          <button
-            onClick={() => onLayoutModeChange?.('grid')}
-            className={cn(
-              "p-1.5 rounded-md transition-all",
-              layoutMode === 'grid'
-                ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white hover:bg-white/5"
-            )}
-            title="Grid View"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onLayoutModeChange?.('list')}
-            className={cn(
-              "p-1.5 rounded-md transition-all",
-              layoutMode === 'list'
-                ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white hover:bg-white/5"
-            )}
-            title="List View"
-          >
-            <List className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex z-20">
+          <span className="text-white text-2xl"
+            style={{ fontFamily: "'InstrumentSerif', serif" }}
+          >History</span>
         </div>
 
-        <button
-          onClick={onClose}
-          className="flex items-center h-9 w-9  justify-center rounded-full border border-white/10 bg-black/40 backdrop-blur-md text-white/40 hover:bg-white/10 hover:text-white transition-all"
-        >
-          <X className="w-4 h-4 hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]" />
-        </button>
+        <div className="flex items-center gap-3 z-20">
+          <div className="flex items-center p-1 gap-2 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
+            <div className='flex gap-2'>
+              <button
+                onClick={() => {
+                  setIsSelectionMode(!isSelectionMode);
+                  if (isSelectionMode) clearSelection(); // Clear selection on exit
+                }}
+                className={cn(
+                  " px-2 rounded-md flex items-center gap-2 transition-all",
+                  isSelectionMode
+                    ? "bg-white/10 text-primary"
+                    : "text-white/40 hover:text-white hover:bg-white/5"
+                )}
+                title="Select Mode"
+              >
+
+                <Folder className="w-3.5 h-3.5" />
+                <span className='text-sm'>Manager</span>
+              </button>
+              <AnimatePresence>
+                {isSelectionMode && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center gap-1"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-sm  text-white/60 hover:text-white hover:bg-white/10"
+                      onClick={handleSelectAll}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-sm text-white/60 hover:text-white hover:bg-white/10"
+                      onClick={handleDeselectAll}
+                    >
+                      Cancel
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <div className="w-[1px] h-3.5 bg-white/10 mx-1" />
+            <button
+              onClick={() => onLayoutModeChange?.('grid')}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                layoutMode === 'grid'
+                  ? "bg-white/10 text-white"
+                  : "text-white/40 hover:text-white hover:bg-white/5"
+              )}
+              title="Grid View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => onLayoutModeChange?.('list')}
+              className={cn(
+                "p-1.5 rounded-md transition-all",
+                layoutMode === 'list'
+                  ? "bg-white/10 text-white"
+                  : "text-white/40 hover:text-white hover:bg-white/5"
+              )}
+              title="List View"
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="flex items-center h-9 w-9  justify-center rounded-full border border-white/10 bg-black/40 backdrop-blur-md text-white/40 hover:bg-white/10 hover:text-white transition-all"
+          >
+            <X className="w-4 h-4 hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]" />
+          </button>
+        </div>
+        
       </div>
+      
 
       <div
         ref={scrollRef}
         className={cn(
-          "flex-1 overflow-y-auto custom-scrollbar px-4 ",
-          variant === 'default' ? "mt-2" : "mt-4"
+          "flex-1 overflow-y-auto custom-scrollbar z-30 px-4 ",
+          variant === 'default' ? "mt-0" : "mt-2"
         )}
       >
+      
         <div className={cn(
           layoutMode === 'list'
-            ? "flex flex-col gap-8 w-full mt-14 mx-auto"
-            : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 space-y-2 mt-14 w-full mx-auto",
+            ? "flex flex-col gap-8 w-full mt-4 mx-auto"
+            : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 space-y-2 mt-4 w-full mx-auto",
           variant === 'default' ? "max-w-[1500px]" : "max-w-full"
         )}>
           {layoutMode === 'grid' ? (
@@ -619,6 +616,16 @@ function HistoryCard({
             ))}
             <span className="opacity-20">/</span>
             <span>{timeStr}</span>
+
+            {result.status === 'pending' && (
+              <>
+                <span className="opacity-20">/</span>
+                <span className="text-primary animate-pulse font-medium">
+                  {result.progress ? `${Math.round(result.progress)}%` : 'Generating...'}
+                  {result.progressStage ? ` - ${result.progressStage}` : ''}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -670,6 +677,14 @@ function HistoryCard({
                   >
                     {prompt}
                   </p>
+
+                  {/* {result.llmResponse && (
+                    <div className="mt-2 p-2 rounded bg-white/5 border border-white/5">
+                      <p className="text-[11px] text-white/50 leading-relaxed font-mono whitespace-pre-wrap">
+                        {result.llmResponse}
+                      </p>
+                    </div>
+                  )} */}
 
                   {result.sourceImageUrl && (
                     <div className="mt-3 group/ref relative w-fit">
@@ -763,9 +778,9 @@ function HistoryCard({
                             transition={{ exit: { delay: 0.5, duration: 0.3 } }}
                             className="absolute inset-0 z-0"
                           >
-                            <PixelCard colors="#E6FFD1" speed={200} className="!w-full !h-full !aspect-auto !border-none !bg-transparent">
+                            <PixelCard colors="#e6ffd135" speed={50} className="!w-full !h-full !aspect-auto !border-none !bg-transparent">
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <Loader2 className="w-6 h-6 animate-spin text-white/10" />
+
                               </div>
                             </PixelCard>
                           </motion.div>
@@ -778,22 +793,34 @@ function HistoryCard({
                             transition={{ duration: 0.5 }}
                             className="relative z-10 w-full h-full"
                           >
-                            <Image
-                              src={img}
-                              alt="Generated image"
-                              fill
-                              sizes="(max-width: 1536px) 50vw, 800px"
-                              className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isSelectionMode) {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  onImageClick(res, rect);
-                                } else {
-                                  onToggleSelect?.();
-                                }
-                              }}
-                            />
+                            {(() => {
+                              const isValidSrc = img && (
+                                img.startsWith('/') ||
+                                img.startsWith('http://') ||
+                                img.startsWith('https://')
+                              ) && img.length > 8; // Ensure it's more than just "https://"
+
+                              if (!isValidSrc) return <div className="absolute inset-0 bg-white/5" />;
+
+                              return (
+                                <Image
+                                  src={img}
+                                  alt="Generated image"
+                                  fill
+                                  sizes="(max-width: 1536px) 50vw, 800px"
+                                  className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isSelectionMode) {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      onImageClick(res, rect);
+                                    } else {
+                                      onToggleSelect?.();
+                                    }
+                                  }}
+                                />
+                              );
+                            })()}
                           </motion.div>
                         ) : (
                           <motion.div
@@ -918,7 +945,7 @@ function HistoryCard({
               transition={{ exit: { delay: 0.5, duration: 0.3 } }}
               className="absolute inset-0 z-0"
             >
-              <PixelCard colors="#E6FFD1" speed={200} className="!w-full !h-full !aspect-auto !border-none !bg-transparent">
+              <PixelCard colors="#E6FFD1" speed={200} className="!w-full !h-full !aspect-auto !rounded-none !border-none !bg-transparent">
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <Loader2 className="w-8 h-8 animate-spin text-white/20" />
                 </div>

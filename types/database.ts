@@ -46,6 +46,9 @@ export interface Generation {
   config: GenerationConfig;
   status: 'pending' | 'completed' | 'failed';
   sourceImageUrl?: string;
+  llmResponse?: string;
+  progress?: number;
+  progressStage?: string;
   createdAt: string;
 }
 

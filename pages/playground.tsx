@@ -1164,46 +1164,38 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
               {/* 三栏布局 - showHistory 为 true 时启用 */}
               <div className={cn(
-                "relative z-20 w-[92vw] pt-4  h-full",
+                "relative z-20 w-full pt-4  h-full",
                 showHistory
-                  ? "flex flex-row  "
+                  ? "flex justify-center"
                   : "flex flex-col items-center justify-center"
               )}>
                 <GradualBlur
-                target="parent"
-                position="bottom"
-                height="40px"
-                strength={3}
-                divCount={5}
-                curve="bezier"
-                exponential={true}
-                zIndex={40}
-                opacity={1}
-              />
+                  target="parent"
+                  position="bottom"
+                  height="40px"
+                  strength={3}
+                  divCount={5}
+                  curve="bezier"
+                  exponential={true}
+                  zIndex={40}
+                  opacity={1}
+                />
 
                 {/* 左侧 Project 面板 - showHistory 时作为三栏的一部分 */}
-                {showHistory ? (
-                  <div className="w-[15%] min-w-[200px]  h-full flex flex-col z-50 pr-6 pt-4  pb-4 overflow-hidden min-h-0">
-                    {showProjectSidebar}
+                {showHistory && (
+                  <div className="absolute left-4 top-4 bottom-4 w-[10%]  flex flex-col z-50  overflow-hidden min-h-0">
                     <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
-
-
-
                   </div>
-                ) : null}
+                )}
 
                 {/* 中间内容区 */}
                 <div className={cn(
                   "flex flex-col items-center relative z-30",
                   showHistory
-                    ? "flex  w-full h-full pt-4 overflow-hidden"
-                    : "max-w-4xl w-full",
+                    ? "w-[50vw] h-full pt-4 overflow-hidden"
+                    : "w-[50%]",
                   !showHistory && (isPresetGridOpen ? "mt-0" : "-mt-60")
                 )}>
-                 
-
-
-
 
                   <div className={cn(
                     "flex flex-col w-full items-center relative z-30",
@@ -1457,24 +1449,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
 
-            <div className="top-0 left-0 right-0 pt-24 pointer-events-none">
-              <ImagePreviewModal
-                isOpen={isImageModalOpen}
-                onClose={closeImageModal}
-                result={selectedResult}
-                onEdit={handleEditImage}
-              />
-
-              {isEditorOpen && (
-                <ImageEditorModal
-                  isOpen={isEditorOpen}
-                  imageUrl={editingImageUrl}
-                  onClose={() => setIsEditorOpen(false)}
-                  onSave={handleSaveEditedImage}
-                />
-              )}
-            </div>
-
             <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
             <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.model || selectedModel} onConfirm={(m) => updateConfig({ model: m })} />
             <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />
@@ -1486,6 +1460,22 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             />
           </main>
         </div>
+
+        <ImagePreviewModal
+          isOpen={isImageModalOpen}
+          onClose={closeImageModal}
+          result={selectedResult}
+          onEdit={handleEditImage}
+        />
+
+        {isEditorOpen && (
+          <ImageEditorModal
+            isOpen={isEditorOpen}
+            imageUrl={editingImageUrl}
+            onClose={() => setIsEditorOpen(false)}
+            onSave={handleSaveEditedImage}
+          />
+        )}
 
         <SimpleImagePreview
           imageUrl={previewImageUrl}

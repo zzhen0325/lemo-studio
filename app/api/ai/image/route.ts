@@ -38,6 +38,16 @@ export async function POST(req: NextRequest) {
 
         const result = await (providerInstance as unknown as ImageProvider).generateImage(params);
 
+        if (result.stream) {
+            return new Response(result.stream, {
+                headers: {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                },
+            });
+        }
+
         return NextResponse.json(result);
 
     } catch (error: unknown) {

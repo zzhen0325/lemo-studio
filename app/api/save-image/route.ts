@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const BodySchema = z.object({
   imageBase64: z.string().min(1),
-  ext: z.enum(['png', 'jpg', 'jpeg']).optional().default('png'),
+  ext: z.enum(['png', 'jpg', 'jpeg', 'webp', 'gif']).optional().default('png'),
   subdir: z.enum(['outputs', 'upload']).optional().default('outputs'),
   metadata: z.record(z.any()).optional(),
 });
@@ -26,8 +26,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { imageBase64, ext, subdir } = parsed.data;
-    const { base64 } = extractBase64(imageBase64);
+    const { imageBase64, subdir } = parsed.data;
+    let { ext } = parsed.data;
+
+    let imageBuffer: Buffer;
+    if (imageBase64.startsWith('http')) {
+      // Download remote image
+      const imgResp = await fetch(imageBase64);
+      if (!imgResp.ok) throw new Error(`Failed to download image from ${imageBase64}`);
+      const contentType = imgResp.headers.get('content-type');
+      if (contentType) {
+        if (contentType.includes('jpeg')) ext = 'jpg';
+        else if (contentType.includes('png')) ext = 'png';
+        else if (contentType.includes('webp')) ext = 'webp';
+        else if (contentType.includes('gif')) ext = 'gif';
+      }
+      const arrayBuffer = await imgResp.arrayBuffer();
+      imageBuffer = Buffer.from(arrayBuffer);
+    } else {
+      const { base64, mime } = extractBase64(imageBase64);
+      if (mime) {
+        if (mime.includes('jpeg')) ext = 'jpg';
+        else if (mime.includes('png')) ext = 'png';
+        else if (mime.includes('webp')) ext = 'webp';
+      }
+      imageBuffer = Buffer.from(base64, 'base64');
+    }
 
     const publicDir = path.join(process.cwd(), 'public');
     const targetDir = path.join(publicDir, subdir);
@@ -38,7 +62,7 @@ export async function POST(request: Request) {
     const filename = `img_${stamp}_${rand}.${ext}`;
     const filePath = path.join(targetDir, filename);
 
-    await fs.writeFile(filePath, Buffer.from(base64, 'base64'));
+    await fs.writeFile(filePath, imageBuffer);
 
     if (parsed.data.metadata) {
       const metadataPath = path.join(targetDir, `${filename.split('.')[0]}.json`);

@@ -47,6 +47,7 @@ export interface ImageGenerationInput {
 export interface ImageResult {
     images: string[]; // List of base64 or URLs
     metadata?: Record<string, unknown>;
+    stream?: ReadableStream<Uint8Array>; // For image generation with text progress or logs
 }
 
 export interface TextResult {

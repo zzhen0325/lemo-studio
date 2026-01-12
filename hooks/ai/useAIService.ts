@@ -97,10 +97,13 @@ export function useAIService() {
         }
     };
 
-    const callImage = async (params: ClientImageParams) => {
+    const callImage = async (
+        params: ClientImageParams,
+        onStream?: (chunk: { text?: string; images?: string[] }) => void
+    ) => {
         setIsLoading(true);
         try {
-            const result = await clientGenerateImage(params);
+            const result = await clientGenerateImage(params, onStream);
             return result;
         } catch (error: unknown) {
             const msg = error instanceof Error ? error.message : String(error);

@@ -659,6 +659,27 @@
           "defaultValue": 1
         },
         "orderIndex": 5
+      },
+      {
+        "id": "pg_map_1768219900387",
+        "type": "text",
+        "label": "",
+        "properties": {
+          "defaultValue": "A lively \"Cute Pet Gathering\" poster set against a blue sky with white clouds and a green grassy. At the center are three adorable pets: a smiling golden retriever with warm golden fur and a happily lolling tongue stands behind; on the left front is a ragdoll cat with sparkling blue eyes, pink blush on its cheeks, and soft, fluffy white fur; on the right is a tabby cat with neat gray stripes, playfully winking one eye and wearing a yellow star decoration on its head. Large black title \"Cute Pet Gathering\" sits at the top, accompanied by a yellow bubble text \"Little Cuties Often Meet\"; on the left, white text reads \"Lots of Pet Supplies Waiting for You\", and next to a pink paw print on the right, it says \"Make a Paw Friend\". ",
+          "paramName": "prompt",
+          "placeholder": "Mapped to Prompt"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "125",
+            "inputs",
+            "text"
+          ],
+          "parameterKey": "text",
+          "defaultValue": "A lively \"Cute Pet Gathering\" poster set against a blue sky with white clouds and a green grassy. At the center are three adorable pets: a smiling golden retriever with warm golden fur and a happily lolling tongue stands behind; on the left front is a ragdoll cat with sparkling blue eyes, pink blush on its cheeks, and soft, fluffy white fur; on the right is a tabby cat with neat gray stripes, playfully winking one eye and wearing a yellow star decoration on its head. Large black title \"Cute Pet Gathering\" sits at the top, accompanied by a yellow bubble text \"Little Cuties Often Meet\"; on the left, white text reads \"Lots of Pet Supplies Waiting for You\", and next to a pink paw print on the right, it says \"Make a Paw Friend\". "
+        },
+        "orderIndex": 6
       }
     ]
   }

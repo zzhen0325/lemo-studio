@@ -3,7 +3,7 @@ import { ModelConfig } from './types';
 // Define the shape of a registry item
 export interface RegistryItem {
     id: string; // e.g. 'doubao-pro-4k'
-    providerType: 'openai-compatible' | 'google-genai' | 'bytedance-afr';
+    providerType: 'openai-compatible' | 'google-genai' | 'bytedance-afr' | 'coze-image';
     task: ('text' | 'vision' | 'image')[];
     defaultConfig: ModelConfig;
 }
@@ -77,6 +77,17 @@ export const REGISTRY: RegistryItem[] = [
         defaultConfig: {
             providerId: 'bytedance',
             modelId: 'lemoseedt2i'
+        }
+    },
+    {
+        id: 'coze_seed4',
+        providerType: 'coze-image',
+        task: ['image'],
+        defaultConfig: {
+            providerId: 'coze',
+            modelId: '7594371442356256806',
+            apiKey: process.env.COZE_API_TOKEN,
+            baseURL: 'https://bot-open-api.bytedance.net/v3/chat'
         }
     }
 ];

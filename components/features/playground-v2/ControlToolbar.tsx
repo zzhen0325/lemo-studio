@@ -27,6 +27,7 @@ const MODEL_CONFIG: Record<string, { displayName: string; modelKey: string }> = 
   'seed4_2': { displayName: 'Seed 4.2', modelKey: 'Seed 4.2' },
   'lemoseedt2i': { displayName: 'Seed 4', modelKey: 'Seed 4' },
   'nano_banana': { displayName: 'Nano banana', modelKey: 'Nano banana' },
+  'coze_seed4': { displayName: 'Coze Seed 4', modelKey: 'coze_seed4' },
 };
 
 
@@ -135,6 +136,11 @@ export default function ControlToolbar({
     if (cfg) {
       onModelChange(cfg.modelKey);
       onConfigChange?.({ model: cfg.modelKey });
+
+      // Coze Seed 4 默认设置 2K
+      if (val === 'coze_seed4') {
+        onImageSizeChange('2K');
+      }
     } else if (val.startsWith('wf:')) {
       const id = val.slice(3);
       const wf = (Array.isArray(workflows) ? workflows : []).find(
@@ -220,6 +226,13 @@ export default function ControlToolbar({
           <span className={`w-2 h-2 rounded-full ${selectValue === 'lemoseedt2i' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 4 (LemoSeed T2I)
         </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
+          onClick={() => handleUnifiedSelectChange('coze_seed4')}
+        >
+          <span className={`w-2 h-2 rounded-full ${selectValue === 'coze_seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+          Coze Seed 4
+        </DropdownMenuItem>
 
 
         {/* workflow模型 */}
@@ -297,7 +310,7 @@ export default function ControlToolbar({
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[320px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
-                {(selectedModel === 'Nano banana' || selectedModel === 'Seed 4.2') && (
+                {(selectedModel === 'Nano banana' || selectedModel === 'Seed 4.2' || selectedModel === 'coze_seed4') && (
                   <div className="space-y-4">
                     <div className="text-xs text-white/70">Resolution</div>
                     <div className="flex gap-2">

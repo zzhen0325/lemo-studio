@@ -9,6 +9,8 @@ import {
     ImageResult,
     ModelConfig
 } from './types';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { generateNonce, generateSign, generateTimestamp, getProxyAgent } from './utils';
 
 export class OpenAICompatibleProvider implements TextProvider {
@@ -456,5 +458,387 @@ export class BytedanceAfrProvider implements ImageProvider {
         });
 
         return { images, metadata: data as Record<string, unknown> };
+    }
+}
+
+/**
+ * Coze Chat API Provider (for image generation bot)
+ */
+export class CozeImageProvider implements ImageProvider {
+    private config: ModelConfig;
+
+    constructor(config: ModelConfig) {
+        this.config = config;
+    }
+
+    async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
+        const { prompt, width, height, batchSize, image, images, options } = params;
+        const isStream = options?.stream ?? false;
+
+        const w = width || 1024;
+        const h = height || 1024;
+        const ar = this.getAspectRatio(w, h);
+
+        // Construct parameters
+        const parameters: Record<string, unknown> = {
+            width: w,
+            height: h,
+            aspect_ratio: ar,
+            batch_size: batchSize || 1,
+        };
+
+        // Handle reference images if provided
+        if (image || (images && images.length > 0)) {
+            parameters.reference_images = images || [image!];
+        }
+        // coze参数
+        const contentArray: Array<{ type: string; text?: string; file_url?: string; file_id?: string }> = [
+            {
+                type: "text",
+                text: `Prompt: ${prompt}\n\n[Parameters]\nwidth: ${w}\nheight: ${h}\naspect_ratio: ${ar}`
+            }
+        ];
+
+        // If there are reference images, upload them and add file_id to content
+        const refImages = images || (image ? [image] : []);
+        for (const imgUrl of refImages) {
+            try {
+                const fileId = await this.uploadToCoze(imgUrl);
+                contentArray.push({
+                    type: "image",
+                    file_id: fileId
+                });
+            } catch (err) {
+                const truncatedUrl = imgUrl.length > 100 ? `${imgUrl.substring(0, 100)}...` : imgUrl;
+                console.error(`[CozeImageProvider] Failed to upload image ${truncatedUrl}`, err);
+                const errMsg = err instanceof Error ? err.message : String(err);
+                // Truncate error message if it's too long (e.g. contains base64 data)
+                const truncatedErrMsg = errMsg.length > 500 ? `${errMsg.substring(0, 500)}...` : errMsg;
+                throw new Error(`文件上传失败: ${truncatedErrMsg}`);
+            }
+        }
+
+        const body = {
+            bot_id: this.config.modelId,
+            user_id: "lemo_user_" + Math.random().toString(36).substring(7),
+            stream: isStream,
+            additional_messages: [
+                {
+                    role: "user",
+                    content: JSON.stringify(contentArray),
+                    content_type: "object_string",
+                    type: "question"
+                }
+            ],
+            parameters,
+            // Many Coze Bots use custom_variables for these specific settings
+            custom_variables: {
+                width: String(w),
+                height: String(h),
+                aspect_ratio: ar
+            },
+            enable_card: false
+        };
+
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.config.apiKey}`
+        };
+
+        const agent = getProxyAgent();
+        const fetchOptions: RequestInit & { agent?: unknown } = {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+        };
+
+        if (agent) {
+            fetchOptions.agent = agent;
+        }
+
+        const url = `${this.config.baseURL}`;
+        console.log(`[CozeImageProvider] Sending request to: ${url} (stream: ${isStream})`);
+
+        if (!isStream) {
+            const response = await fetch(url, fetchOptions);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Coze API Error: ${response.status} - ${errorText}`);
+            }
+            const data = await response.json();
+            return this.parseFullResponse(data);
+        }
+
+        // Streaming implementation
+        const response = await fetch(url, fetchOptions);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Coze API Error: ${response.status} - ${errorText}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("Coze Response body is not readable");
+
+        const textEncoder = new TextEncoder();
+        const textDecoder = new TextDecoder();
+        const generatedImages: string[] = [];
+        const stream = new ReadableStream({
+            start: async (controller) => {
+                let buffer = "";
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += textDecoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || "";
+
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (!trimmed) continue;
+
+                            if (trimmed.startsWith('event:')) {
+                                // Event type handled if needed
+                            } else if (trimmed.startsWith('data:')) {
+                                const dataStr = trimmed.substring(5).trim();
+                                if (dataStr === '[DONE]') continue;
+
+                                try {
+                                    const data = JSON.parse(dataStr);
+
+                                    // Handle message delta for real-time text
+                                    if (data.event === 'conversation.message.delta' || (data.type === 'answer' && data.content)) {
+                                        const content = data.content || data.message?.content;
+                                        if (content) {
+                                            controller.enqueue(textEncoder.encode(`data: ${JSON.stringify({ text: content })}\n\n`));
+
+                                            // Real-time image extraction (especially for Coze where image might be in answer content)
+                                            const images = this.extractImagesFromContent(content);
+                                            images.forEach((img: string) => {
+                                                if (!generatedImages.includes(img)) {
+                                                    generatedImages.push(img);
+                                                    // Push to stream immediately for better UX
+                                                    controller.enqueue(textEncoder.encode(`data: ${JSON.stringify({ images: [img] })}\n\n`));
+                                                }
+                                            });
+                                        }
+                                    }
+
+                                    // Collect images from various event types
+                                    if (data.event === 'conversation.message.completed' || data.event === 'conversation.chat.completed') {
+                                        const msg = data.message || data.chat;
+                                        if (msg && msg.content) {
+                                            const images = this.extractImagesFromContent(msg.content);
+                                            images.forEach((img: string) => {
+                                                if (!generatedImages.includes(img)) generatedImages.push(img);
+                                            });
+                                        }
+                                    }
+
+                                    // Fallback for some Coze versions where data is the chat object
+                                    if (data.status === 'completed' && data.messages) {
+                                        const res = this.parseFullResponse(data);
+                                        res.images.forEach((img: string) => {
+                                            if (!generatedImages.includes(img)) generatedImages.push(img);
+                                        });
+                                    }
+                                } catch {
+                                    // Skip invalid JSON
+                                }
+                            }
+                        }
+                    }
+
+                    // Send final images as a special SSE event
+                    if (generatedImages.length > 0) {
+                        controller.enqueue(textEncoder.encode(`data: ${JSON.stringify({ images: generatedImages })}\n\n`));
+                    }
+                    controller.close();
+                } catch (error) {
+                    controller.error(error);
+                }
+            }
+        });
+
+        return {
+            images: [], // Images will come via stream
+            stream,
+            metadata: { isStream: true }
+        };
+    }
+
+    private extractImagesFromContent(content: string): string[] {
+        const generatedImages: string[] = [];
+        // Regex to extract URLs, now accounting for potential "image:" prefix
+        // We capture the URL part to easily strip the prefix if it exists
+        const urlRegex = /(?:image:)?(https?:\/\/(?:[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp|bmp)|[st]\.coze\.cn\/t\/[^\s"'<>]+))/gi;
+
+        let match;
+        while ((match = urlRegex.exec(content)) !== null) {
+            const url = match[1];
+            if (!generatedImages.includes(url)) {
+                generatedImages.push(url);
+            }
+        }
+
+        // If content itself is a single URL (optionally with prefix), treat it as image
+        let trimmed = content.trim();
+        if (trimmed.startsWith('image:')) {
+            trimmed = trimmed.substring(6).trim();
+        }
+
+        if (trimmed.startsWith('http') && trimmed.includes('://') && !trimmed.includes(' ') && !generatedImages.includes(trimmed)) {
+            generatedImages.push(trimmed);
+        }
+
+        // Try JSON parse if content looks like JSON
+        if (content.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.image_url) generatedImages.push(parsed.image_url);
+                if (parsed.url) generatedImages.push(parsed.url);
+                if (Array.isArray(parsed.output)) {
+                    parsed.output.forEach((url: string) => generatedImages.push(url));
+                }
+            } catch { /* not json */ }
+        }
+        return generatedImages;
+    }
+
+    private parseFullResponse(data: Record<string, unknown>): ImageResult {
+        const generatedImages: string[] = [];
+        if (data.messages && Array.isArray(data.messages)) {
+            for (const msg of data.messages) {
+                if (msg.role === 'assistant') {
+                    const images = this.extractImagesFromContent(msg.content || "");
+                    images.forEach(img => {
+                        if (!generatedImages.includes(img)) generatedImages.push(img);
+                    });
+                }
+            }
+        }
+
+        if (generatedImages.length === 0 && data.data && Array.isArray(data.data)) {
+            data.data.forEach((item: { url?: string } | string) => {
+                if (typeof item !== 'string' && item.url) generatedImages.push(item.url);
+                else if (typeof item === 'string' && item.startsWith('http')) generatedImages.push(item);
+            });
+        }
+
+        if (generatedImages.length === 0) {
+            throw new Error("No images found in Coze response");
+        }
+
+        return {
+            images: generatedImages,
+            metadata: data
+        };
+    }
+
+    private async uploadToCoze(imageUrl: string): Promise<string> {
+        console.log(`[CozeImageProvider] Uploading file to Coze...`);
+        try {
+            let blob: Blob;
+
+            if (imageUrl.startsWith('data:')) {
+                // 1. Handle Data URL (Base64)
+                console.log(`[CozeImageProvider] Processing image from Data URL (Base64)`);
+                const [header, base64Data] = imageUrl.split(',');
+                const mimeMatch = header.match(/:(.*?);/);
+                const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+                const buffer = Buffer.from(base64Data, 'base64');
+                blob = new Blob([buffer], { type: mime });
+            } else if (imageUrl.startsWith('/')) {
+                // 2. Handle local file paths
+                const truncatedUrl = imageUrl.length > 100 ? `${imageUrl.substring(0, 100)}...` : imageUrl;
+                console.log(`[CozeImageProvider] Processing image from local path: ${truncatedUrl}`);
+                try {
+                    const publicPath = path.join(process.cwd(), 'public', imageUrl);
+                    const buffer = await fs.readFile(publicPath);
+                    const ext = path.extname(publicPath).slice(1) || 'png';
+                    const mime = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+                    blob = new Blob([buffer], { type: mime });
+                } catch (readErr) {
+                    console.error(`[CozeImageProvider] Failed to read local file, falling back to fetch`, readErr);
+                    // Fallback to fetch if local read fails (e.g. running in a restricted env)
+                    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+                    const response = await fetch(`${baseUrl}${imageUrl}`);
+                    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const contentType = response.headers.get('content-type') || 'image/png';
+                    blob = new Blob([arrayBuffer], { type: contentType });
+                }
+            } else if (imageUrl.startsWith('http')) {
+                // 3. Handle external URLs
+                const truncatedUrl = imageUrl.length > 100 ? `${imageUrl.substring(0, 100)}...` : imageUrl;
+                console.log(`[CozeImageProvider] Processing image from external URL: ${truncatedUrl}`);
+                const response = await fetch(imageUrl);
+                if (!response.ok) throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+                const arrayBuffer = await response.arrayBuffer();
+                const contentType = response.headers.get('content-type') || 'image/png';
+                blob = new Blob([arrayBuffer], { type: contentType });
+            } else {
+                // 4. Handle raw Base64 (without data prefix)
+                console.log(`[CozeImageProvider] Processing image from raw Base64 string`);
+                const buffer = Buffer.from(imageUrl, 'base64');
+                // Simple magic bytes check
+                let mime = 'image/png';
+                if (buffer.length > 3) {
+                    if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) mime = 'image/jpeg';
+                    else if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) mime = 'image/png';
+                    else if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) mime = 'image/gif';
+                    else if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) mime = 'image/webp';
+                }
+                blob = new Blob([buffer], { type: mime });
+            }
+
+            // 4. Upload to Coze using FormData (multipart/form-data)
+            let uploadUrl = 'https://api.coze.cn/v1/files/upload';
+            const baseURL = this.config.baseURL || '';
+            if (baseURL.includes('coze.com')) {
+                uploadUrl = 'https://api.coze.com/v1/files/upload';
+            } else if (baseURL.includes('bytedance.net')) {
+                uploadUrl = 'https://bot-open-api.bytedance.net/v1/files/upload';
+            }
+
+            const formData = new FormData();
+            formData.append('file', blob, 'image.png');
+
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.config.apiKey}`,
+                    // Content-Type header is omitted to let fetch set the boundary
+                },
+                body: formData
+            });
+
+            if (!uploadResponse.ok) {
+                const errorText = await uploadResponse.text();
+                throw new Error(`Coze File Upload failed (${uploadResponse.status}): ${errorText}`);
+            }
+
+            const result = await uploadResponse.json();
+            if (result.code !== 0) {
+                throw new Error(`Coze File Upload API error: ${result.msg}`);
+            }
+
+            console.log(`[CozeImageProvider] File uploaded successfully, ID: ${result.data.id}`);
+            return result.data.id;
+        } catch (error) {
+            console.error(`[CozeImageProvider] Error in uploadToCoze:`, error);
+            throw error;
+        }
+    }
+
+    private getAspectRatio(w: number, h: number): string {
+        const ratio = w / h;
+        if (Math.abs(ratio - 1) < 0.1) return "1:1";
+        if (Math.abs(ratio - 1.33) < 0.1) return "4:3";
+        if (Math.abs(ratio - 0.75) < 0.1) return "3:4";
+        if (Math.abs(ratio - 1.77) < 0.1) return "16:9";
+        if (Math.abs(ratio - 0.56) < 0.1) return "9:16";
+        return `${w}:${h}`;
     }
 }

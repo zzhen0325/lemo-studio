@@ -1,5 +1,5 @@
 import { TextProvider, VisionProvider, ImageProvider, ModelConfig } from './types';
-import { OpenAICompatibleProvider, GoogleGenAIProvider, BytedanceAfrProvider, DoubaoVisionProvider } from './providers';
+import { OpenAICompatibleProvider, GoogleGenAIProvider, BytedanceAfrProvider, DoubaoVisionProvider, CozeImageProvider } from './providers';
 import { REGISTRY } from './registry';
 import fs from 'fs';
 import path from 'path';
@@ -135,6 +135,8 @@ export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfi
         return new GoogleGenAIProvider(config);
     } else if (entry.providerType === 'bytedance-afr') {
         return new BytedanceAfrProvider(config);
+    } else if (entry.providerType === 'coze-image') {
+        return new CozeImageProvider(config);
     } else {
         // 检查是否是豆包视觉模型
         if (DOUBAO_VISION_MODELS.some(vm => modelId.includes(vm))) {
