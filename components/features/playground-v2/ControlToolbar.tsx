@@ -414,7 +414,7 @@ export default function ControlToolbar({
           <div className="relative rounded-xl">
             <Button
               onClick={onGenerate}
-              className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center gap-2 border-[2px] border-transparent transition-all duration-300 hover:animate-border-rotate"
+              className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-[#E6FFD1] justify-center   transition-all duration-300 hover:animate-border-rotate"
             // style={{
             //   backgroundImage: `
             //     linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),

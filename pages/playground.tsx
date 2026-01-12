@@ -1294,8 +1294,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       </div>
                     )}
 
-                    {!isDescribeMode && isPresetGridOpen && (
+                    {!isDescribeMode && (
                       <PresetGridOverlay
+                        open={isPresetGridOpen}
+                        onOpenChange={setIsPresetGridOpen}
                         onOpenManager={() => setIsPresetManagerOpen(true)}
                         onSelectPreset={handlePresetSelect}
                       />

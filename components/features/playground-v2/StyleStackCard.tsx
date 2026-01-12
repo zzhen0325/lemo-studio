@@ -75,7 +75,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                         <motion.div
                             key={path}
                             className={cn(
-                                "absolute rounded-2xl overflow-hidden border-1 border-white/20 shadow-2xl bg-neutral-900",
+                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900",
                                 isSmall ? "w-28 h-[140px]" : "w-40 h-[200px]"
                             )}
                             initial={false}

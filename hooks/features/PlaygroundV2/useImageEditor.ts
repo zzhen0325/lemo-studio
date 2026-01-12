@@ -408,13 +408,13 @@ export const useImageEditor = (imageUrl: string) => {
             fabric.Object.prototype.transparentCorners = false;
             fabric.Object.prototype.cornerSize = 4;
             fabric.Object.prototype.cornerStyle = 'circle';
-            fabric.Object.prototype.borderColor = '#ffffff';
+            fabric.Object.prototype.borderColor = '#4AA8FF';
             fabric.Object.prototype.borderScaleFactor = 2;
 
             const renderCircle = (ctx: CanvasRenderingContext2D, left: number, top: number, style: any, obj: fabric.Object) => {
                 const r = (obj.cornerSize || 12) / 2;
                 ctx.save(); ctx.beginPath(); ctx.arc(left, top, r, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
-                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+                ctx.strokeStyle = '#56AEFF'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
             };
 
             // 安全地设置默认控制点样式

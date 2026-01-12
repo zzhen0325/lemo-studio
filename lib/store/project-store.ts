@@ -14,6 +14,10 @@ class ProjectStore {
   currentProjectId: string | null = null;
   isSidebarExpanded: boolean = false;
 
+  // Batch selection state
+  isBatchMode: boolean = false;
+  selectedProjectIds: Set<string> = new Set();
+
   constructor() {
     makeAutoObservable(this);
     this.loadProjects();
@@ -56,7 +60,7 @@ class ProjectStore {
         ...p,
         history: [] // Clear history when saving project list
       }));
-      
+
       await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,12 +92,59 @@ class ProjectStore {
     }
   }
 
+  deleteProject(id: string) {
+    this.projects = this.projects.filter(p => p.id !== id);
+    if (this.currentProjectId === id) {
+      this.currentProjectId = null;
+    }
+    this.selectedProjectIds.delete(id);
+    this.saveProjects();
+  }
+
+  deleteProjects(ids: string[]) {
+    const idsToDelete = new Set(ids);
+    this.projects = this.projects.filter(p => !idsToDelete.has(p.id));
+    if (this.currentProjectId && idsToDelete.has(this.currentProjectId)) {
+      this.currentProjectId = null;
+    }
+    // Clean up selected state
+    ids.forEach(id => this.selectedProjectIds.delete(id));
+    if (this.projects.length === 0) {
+      this.isBatchMode = false;
+    }
+    this.saveProjects();
+  }
+
   selectProject(id: string | null) {
     this.currentProjectId = id;
   }
 
   toggleSidebar(expanded?: boolean) {
     this.isSidebarExpanded = expanded ?? !this.isSidebarExpanded;
+  }
+
+  // Batch operations
+  toggleBatchMode(enabled?: boolean) {
+    this.isBatchMode = enabled ?? !this.isBatchMode;
+    if (!this.isBatchMode) {
+      this.selectedProjectIds.clear();
+    }
+  }
+
+  toggleProjectSelection(id: string) {
+    if (this.selectedProjectIds.has(id)) {
+      this.selectedProjectIds.delete(id);
+    } else {
+      this.selectedProjectIds.add(id);
+    }
+  }
+
+  toggleSelectAll() {
+    if (this.selectedProjectIds.size === this.projects.length) {
+      this.selectedProjectIds.clear();
+    } else {
+      this.projects.forEach(p => this.selectedProjectIds.add(p.id));
+    }
   }
 
   addHistoryToCurrentProject(historyItem: Generation) {
@@ -126,14 +177,14 @@ class ProjectStore {
     const project = this.projects.find(p => p.id === projectId);
     if (project) {
       const updatedGenerations = generations.map(g => ({ ...g, projectId }));
-      
+
       const existingIds = new Set(project.history.map(h => h.id));
       const newItems = updatedGenerations.filter(g => !existingIds.has(g.id));
-      
+
       const combined = [...newItems, ...project.history];
       // Sort by createdAt desc to maintain timeline
       combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
+
       project.history = combined;
 
       if (!project.thumbnailUrl && project.history.length > 0) {

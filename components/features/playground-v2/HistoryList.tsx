@@ -190,7 +190,7 @@ const HistoryList = observer(function HistoryList({
           endOffset: 80
         }}
       />
-      
+
 
 
 
@@ -381,7 +381,7 @@ const HistoryList = observer(function HistoryList({
                     </div>
                   ) : (
                     <div className="flex flex-col gap-6 group/card">
-                      <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight px-1">
+                      <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight ">
                         <div className="flex items-center gap-4">
                           <span>{new Date(group.startAt).toLocaleString()}</span>
                           <span className="opacity-20">/</span>
@@ -454,7 +454,7 @@ const HistoryList = observer(function HistoryList({
               exit={{ opacity: 0 }}
               className="absolute inset-x-0 bottom-0 z-20 pointer-events-none"
             >
-             
+
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -463,21 +463,21 @@ const HistoryList = observer(function HistoryList({
               className="absolute bottom-60 left-1/2 -translate-x-1/2 z-30 w-fit"
             >
               <div className="flex items-center gap-3 px-4 py-2 bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl">
-              <span className="text-md text-white/80 px-2">
-                {selectedIds.size} selected
-              </span>
-              <div className="w-[1px] h-4 bg-white/10" />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 rounded-full hover:bg-white/10 text-white gap-2"
-                onClick={() => setIsAddToProjectOpen(true)}
-              >
-                <FolderPlus className="w-4 h-4" />
-                Add to Project
-              </Button>
-            </div>
-          </motion.div>
+                <span className="text-md text-white/80 px-2">
+                  {selectedIds.size} selected
+                </span>
+                <div className="w-[1px] h-4 bg-white/10" />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 rounded-full hover:bg-white/10 text-white gap-2"
+                  onClick={() => setIsAddToProjectOpen(true)}
+                >
+                  <FolderPlus className="w-4 h-4" />
+                  Add to Project
+                </Button>
+              </div>
+            </motion.div>
           </>
         )}
       </AnimatePresence>
