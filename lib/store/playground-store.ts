@@ -3,6 +3,7 @@ import { GenerationConfig, UploadedImage, Preset, StyleStack } from '@/component
 import { Generation } from '@/types/database';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
+import { userStore } from './user-store';
 
 const BASE_MODELS = new Set([
     'FLUX_fill',
@@ -300,6 +301,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             const url = new URL('/api/history', window.location.origin);
             url.searchParams.set('page', page.toString());
             url.searchParams.set('limit', limit.toString());
+            url.searchParams.set('userId', userStore.currentUser.id);
             if (projectId) url.searchParams.set('projectId', projectId);
 
             const res = await fetch(url.toString());
@@ -319,6 +321,42 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             console.error("Failed to fetch history", error);
         } finally {
             set({ isFetchingHistory: false });
+        }
+    },
+
+    galleryItems: [],
+    galleryPage: 1,
+    hasMoreGallery: true,
+    isFetchingGallery: false,
+    fetchGallery: async (page = 1) => {
+        const state = get();
+        if (state.isFetchingGallery) return;
+
+        set({ isFetchingGallery: true });
+        try {
+            const limit = 20;
+            const url = new URL('/api/history', window.location.origin);
+            url.searchParams.set('page', page.toString());
+            url.searchParams.set('limit', limit.toString());
+            // Intentionally NOT setting userId to get public/all data
+
+            const res = await fetch(url.toString());
+            if (res.ok) {
+                const data = await res.json();
+                if (data.history) {
+                    set((state) => ({
+                        galleryItems: page === 1 
+                            ? data.history 
+                            : [...state.galleryItems, ...data.history],
+                        galleryPage: page,
+                        hasMoreGallery: data.hasMore
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch gallery", error);
+        } finally {
+            set({ isFetchingGallery: false });
         }
     },
 

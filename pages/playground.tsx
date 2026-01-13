@@ -698,7 +698,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
   };
 
-  const handleSaveEditedImage = async (dataUrl: string, prompt?: string, referenceImageUrls?: string[]) => {
+  const handleSaveEditedImage = async (dataUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean) => {
     setIsEditorOpen(false);
     try {
       // If a prompt was provided (e.g. from labeling tool), update the playground prompt
@@ -762,6 +762,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         ? `已添加标注图和 ${refCount} 张参考图到输入框`
         : "标注图已添加到输入框";
       toast({ title: "图片已保存", description: message });
+
+      if (shouldGenerate) {
+        handleGenerate();
+      }
     } catch (error) {
       console.error("Failed to save edited image:", error);
       toast({ title: "Error", description: "Failed to save edited image", variant: "destructive" });
@@ -772,7 +776,57 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
   // Input UI Helper to avoid duplication
-
+  const inputSectionProps = {
+    showHistory,
+    config,
+    uploadedImages,
+    describeImages,
+    isStackHovered,
+    isInputFocused,
+    isOptimizing,
+    isGenerating,
+    isDescribing,
+    isDescribeMode,
+    isDraggingOver,
+    isDraggingOverPanel,
+    isPresetGridOpen,
+    isAspectRatioLocked,
+    isMockMode,
+    isSelectorExpanded,
+    batchSize,
+    selectedModel,
+    selectedAIModel,
+    selectedLoras,
+    selectedPresetName,
+    selectedWorkflowConfig,
+    workflows,
+    fileInputRef,
+    describePanelRef,
+    setConfig,
+    setIsStackHovered,
+    setIsInputFocused,
+    setPreviewImage,
+    removeImage,
+    handleFilesUpload,
+    handleOptimizePrompt,
+    handleGenerate: () => handleGenerate(),
+    handleDescribe,
+    setSelectedAIModel,
+    setSelectedModel,
+    setIsAspectRatioLocked,
+    setSelectedWorkflowConfig,
+    applyWorkflowDefaults,
+    setMockMode,
+    setIsSelectorExpanded,
+    setBatchSize,
+    setIsLoraDialogOpen,
+    setIsPresetGridOpen,
+    onClearPreset: () => setSelectedPresetName(undefined),
+    setIsDescribeMode,
+    setDescribeImages,
+    setIsDraggingOver,
+    setIsDraggingOverPanel,
+  };
 
   return (
     <DndContext
@@ -946,57 +1000,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       showHistory && ""
                     )}>
                       <div className="w-full">
-                        <PlaygroundInputSection
-                          showHistory={showHistory}
-                          config={config}
-                          uploadedImages={uploadedImages}
-                          describeImages={describeImages}
-                          isStackHovered={isStackHovered}
-                          isInputFocused={isInputFocused}
-                          isOptimizing={isOptimizing}
-                          isGenerating={isGenerating}
-                          isDescribing={isDescribing}
-                          isDescribeMode={isDescribeMode}
-                          isDraggingOver={isDraggingOver}
-                          isDraggingOverPanel={isDraggingOverPanel}
-                          isPresetGridOpen={isPresetGridOpen}
-                          isAspectRatioLocked={isAspectRatioLocked}
-                          isMockMode={isMockMode}
-                          isSelectorExpanded={isSelectorExpanded}
-                          batchSize={batchSize}
-                          selectedModel={selectedModel}
-                          selectedAIModel={selectedAIModel}
-                          selectedLoras={selectedLoras}
-                          selectedPresetName={selectedPresetName}
-                          selectedWorkflowConfig={selectedWorkflowConfig}
-                          workflows={workflows}
-                          fileInputRef={fileInputRef}
-                          describePanelRef={describePanelRef}
-                          setConfig={setConfig}
-                          setIsStackHovered={setIsStackHovered}
-                          setIsInputFocused={setIsInputFocused}
-                          setPreviewImage={setPreviewImage}
-                          removeImage={removeImage}
-                          handleFilesUpload={handleFilesUpload}
-                          handleOptimizePrompt={handleOptimizePrompt}
-                          handleGenerate={() => handleGenerate()}
-                          handleDescribe={handleDescribe}
-                          setSelectedAIModel={setSelectedAIModel}
-                          setSelectedModel={setSelectedModel}
-                          setIsAspectRatioLocked={setIsAspectRatioLocked}
-                          setSelectedWorkflowConfig={setSelectedWorkflowConfig}
-                          applyWorkflowDefaults={applyWorkflowDefaults}
-                          setMockMode={setMockMode}
-                          setIsSelectorExpanded={setIsSelectorExpanded}
-                          setBatchSize={setBatchSize}
-                          setIsLoraDialogOpen={setIsLoraDialogOpen}
-                          setIsPresetGridOpen={setIsPresetGridOpen}
-                          onClearPreset={() => setSelectedPresetName(undefined)}
-                          setIsDescribeMode={setIsDescribeMode}
-                          setDescribeImages={setDescribeImages}
-                          setIsDraggingOver={setIsDraggingOver}
-                          setIsDraggingOverPanel={setIsDraggingOverPanel}
-                        />
+                        <PlaygroundInputSection {...inputSectionProps} />
                       </div>
                     </div>
 
@@ -1118,6 +1122,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             onSave={handleSaveEditedImage}
             initialState={editingPresetConfig}
             workflows={workflows}
+            inputSectionProps={inputSectionProps}
           />
         )}
 

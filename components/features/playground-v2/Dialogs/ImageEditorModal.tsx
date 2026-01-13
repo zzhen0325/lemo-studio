@@ -39,17 +39,19 @@ import { cn } from '@/lib/utils';
 import { PresetManagerDialog } from './PresetManagerDialog';
 import { EditPresetConfig } from '../types';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
+import { PlaygroundInputSection, PlaygroundInputSectionProps } from '../PlaygroundInputSection';
 
 interface ImageEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     imageUrl: string;
-    onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[]) => void;
+    onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean) => void;
     initialState?: EditPresetConfig;
     workflows: IViewComfy[];
+    inputSectionProps?: PlaygroundInputSectionProps;
 }
 
-export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows }: ImageEditorModalProps) {
+export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows, inputSectionProps }: ImageEditorModalProps) {
     const [showProperties, setShowProperties] = useState(true);
     const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
     const [currentEditConfig, setCurrentEditConfig] = useState<EditPresetConfig | undefined>(undefined);
@@ -244,7 +246,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, deleteSelected]);
 
-    const handleSave = () => {
+    const handleSave = (e?: React.MouseEvent | boolean) => {
+        const shouldGenerate = typeof e === 'boolean' ? e : false;
         const dataUrl = exportImage();
         if (dataUrl) {
             // 获取标注信息
@@ -265,8 +268,12 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             // 提取参考图的 dataUrl 列表
             const refImageUrls = referenceImages.map(img => img.dataUrl);
 
-            onSave(dataUrl, finalPrompt || undefined, refImageUrls.length > 0 ? refImageUrls : undefined);
+            onSave(dataUrl, finalPrompt || undefined, refImageUrls.length > 0 ? refImageUrls : undefined, shouldGenerate);
         }
+    };
+
+    const handleModalGenerate = () => {
+        handleSave(true);
     };
 
     // Auto-focus input when it appears
@@ -535,8 +542,9 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                         />
 
                         {/* Canvas Area - 核心自适应逻辑已移入 hook，此处仅需占满空间并支持溢出滚动 */}
+                        <div className="flex-1 flex flex-col bg-[#0F0F15] relative overflow-hidden">
                         <div
-                            className="flex-1 bg-[#0F0F15] flex items-center justify-center relative overflow-hidden"
+                            className="flex-1 flex items-center justify-center relative overflow-hidden"
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onDrop={handleDrop}
@@ -735,6 +743,16 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                     </div>
                                 )}
                             </div>
+                        </div>
+                        {inputSectionProps && (
+                            <div className="flex-none z-[130] border-t border-white/10 bg-black/60 backdrop-blur-xl p-4">
+                                <PlaygroundInputSection 
+                                    {...inputSectionProps} 
+                                    hideTitle 
+                                    handleGenerate={handleModalGenerate}
+                                />
+                            </div>
+                        )}
                         </div>
 
                         {/* Right Properties Panel */}

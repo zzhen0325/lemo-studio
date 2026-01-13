@@ -486,7 +486,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                     <SelectValue placeholder="Select category" />
                                                                 </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
                                                                     {presetCategories.map(cat => (
                                                                         <SelectItem key={cat} value={cat} className="hover:bg-emerald-500/20 focus:bg-emerald-500/20">{cat}</SelectItem>
                                                                     ))}
@@ -506,7 +506,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                     <SelectValue placeholder="Select model" />
                                                                 </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
                                                                     <SelectItem value="Nano banana">Nano banana</SelectItem>
                                                                     <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
                                                                     <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
@@ -531,7 +531,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                             <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                 <SelectValue placeholder="Select category" />
                                                             </SelectTrigger>
-                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
                                                                 {presetCategories.map(cat => (
                                                                     <SelectItem key={cat} value={cat} className="hover:bg-emerald-500/20 focus:bg-emerald-500/20">{cat}</SelectItem>
                                                                 ))}
@@ -596,7 +596,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                     <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                         <SelectValue placeholder="Select size" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
                                                                         <SelectItem value="1K">1K (Standard)</SelectItem>
                                                                         <SelectItem value="2K">2K (High Def)</SelectItem>
                                                                         <SelectItem value="4K">4K (Ultra High)</SelectItem>
@@ -616,7 +616,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                     <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                         <SelectValue placeholder="Select ratio" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
                                                                         {['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'].map(ratio => (
                                                                             <SelectItem key={ratio} value={ratio}>{ratio}</SelectItem>
                                                                         ))}
@@ -637,7 +637,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                         <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                             <SelectValue placeholder="Select workflow" />
                                                                         </SelectTrigger>
-                                                                        <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                        <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
                                                                             <SelectItem value="default">System Default</SelectItem>
                                                                             {workflows.map(workflow => (
                                                                                 <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>

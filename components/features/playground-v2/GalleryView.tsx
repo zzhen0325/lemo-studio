@@ -48,8 +48,8 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
     const setActiveView = (view: GalleryTab) => setInternalActiveView(view);
 
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
-    const generationHistory = usePlaygroundStore(s => s.generationHistory);
-    const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
+    const galleryItems = usePlaygroundStore(s => s.galleryItems);
+    const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
@@ -74,24 +74,24 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
 
     // Available Models & Presets
     const availableModels = useMemo(() => {
-        const models = new Set(generationHistory
+        const models = new Set(galleryItems
             .map(item => item.config?.model)
             .filter((m): m is string => !!m)
         );
         return Array.from(models).sort();
-    }, [generationHistory]);
+    }, [galleryItems]);
 
     const availablePresets = useMemo(() => {
-        const presets = new Set(generationHistory
+        const presets = new Set(galleryItems
             .map(item => item.config?.presetName)
             .filter((p): p is string => !!p)
         );
         return Array.from(presets).sort();
-    }, [generationHistory]);
+    }, [galleryItems]);
 
     // Combine local history with active generations from store
     const sortedHistory = React.useMemo(() => {
-        let filtered = generationHistory;
+        let filtered = galleryItems;
 
         // 1. Search Filter
         if (searchQuery.trim() !== "") {
@@ -119,7 +119,7 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
         return [...filtered].sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-    }, [generationHistory, searchQuery, selectedModels, selectedPresets]);
+    }, [galleryItems, searchQuery, selectedModels, selectedPresets]);
 
     const toggleModel = (model: string) => {
         setSelectedModels(prev =>
@@ -140,17 +140,17 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
     const handleRefresh = useCallback(async () => {
         setLoading(true);
         try {
-            await fetchHistory();
+            await fetchGallery();
         } finally {
             setLoading(false);
         }
-    }, [fetchHistory]);
+    }, [fetchGallery]);
 
     useEffect(() => {
-        if (generationHistory.length === 0) {
+        if (galleryItems.length === 0) {
             handleRefresh();
         }
-    }, [generationHistory.length, handleRefresh]);
+    }, [galleryItems.length, handleRefresh]);
 
     const handleDownload = (e: React.MouseEvent, imageUrl: string, filename: string) => {
         e.stopPropagation();

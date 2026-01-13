@@ -2,6 +2,7 @@
 
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { projectStore } from "@/lib/store/project-store";
+import { userStore } from "@/lib/store/user-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
 import { GenerationConfig } from "@/components/features/playground-v2/types";
@@ -79,7 +80,7 @@ export function useGenerationService() {
 
         const loadingGen: Generation = {
             id: taskId,
-            userId: 'anonymous',
+            userId: userStore.currentUser?.id || 'anonymous',
             projectId: projectStore.currentProjectId || 'default',
             outputUrl: "",
             config: unifiedCfg,
@@ -104,7 +105,7 @@ export function useGenerationService() {
                 const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
                 const result: Generation = {
                     id: taskId,
-                    userId: 'anonymous',
+                    userId: userStore.currentUser?.id || 'anonymous',
                     projectId: projectStore.currentProjectId || 'default',
                     outputUrl: mockImageUrl,
                     config: {
@@ -249,7 +250,7 @@ export function useGenerationService() {
             );
             const gen: Generation = {
                 id: taskId,
-                userId: 'anonymous',
+                userId: userStore.currentUser?.id || 'anonymous',
                 projectId: projectStore.currentProjectId || 'default',
                 outputUrl: savedPath,
                 config: unified,
@@ -359,7 +360,7 @@ export function useGenerationService() {
                     );
                     const gen: Generation = {
                         id: taskId,
-                        userId: 'anonymous',
+                        userId: userStore.currentUser?.id || 'anonymous',
                         projectId: projectStore.currentProjectId || 'default',
                         outputUrl: savedPath,
                         config: {

@@ -74,10 +74,12 @@ export interface PlaygroundInputSectionProps {
     setDescribeImages: React.Dispatch<React.SetStateAction<UploadedImage[]>>;
     setIsDraggingOver: (val: boolean) => void;
     setIsDraggingOverPanel: (val: boolean) => void;
+    hideTitle?: boolean;
 }
 
 export function PlaygroundInputSection({
     showHistory,
+    hideTitle,
     config,
     uploadedImages,
     describeImages,
@@ -157,7 +159,7 @@ export function PlaygroundInputSection({
         <div className={cn(
             "flex flex-col items-center w-full pointer-events-auto"
         )}>
-            {!showHistory && (
+            {!showHistory && !hideTitle && (
                 <div style={{ fontFamily: "'InstrumentSerif', serif" }}>
                     <SplitText
                         text="✨Turn any idea into a stunning image"

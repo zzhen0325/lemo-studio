@@ -161,6 +161,7 @@ export async function GET(request: Request) {
         const page = parseInt(searchParams.get('page') || '1');
         const limit = parseInt(searchParams.get('limit') || '20');
         const projectId = searchParams.get('projectId');
+        const userId = searchParams.get('userId');
 
         // 1. 优先读取统一的历史记录文件 (快)
         let history = await readHistory();
@@ -178,7 +179,12 @@ export async function GET(request: Request) {
             history = history.filter(h => h.projectId === projectId);
         }
 
-        // 4. 分页处理
+        // 4. 按用户过滤
+        if (userId) {
+            history = history.filter(h => h.userId === userId || (!h.userId && userId === 'user-1') || (h.userId === 'anonymous' && userId === 'user-1'));
+        }
+
+        // 5. 分页处理
         const total = history.length;
         const startIndex = (page - 1) * limit;
         const paginatedHistory = history.slice(startIndex, startIndex + limit);
