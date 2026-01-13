@@ -17,7 +17,7 @@ export function PlaygroundBackground() {
       />
       {!showHistory && (
         <ColorBends
-          colors={["#136293"]}
+          colors={["#0f5179ff"]}
           rotation={120}
           opacity={0.1}
           speed={0.2}

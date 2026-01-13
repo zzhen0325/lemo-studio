@@ -155,10 +155,39 @@ async function readHistoryFromDisk() {
     return validItems;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
-        const history = await readHistoryFromDisk();
-        return NextResponse.json({ history });
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '20');
+        const projectId = searchParams.get('projectId');
+
+        // 1. 优先读取统一的历史记录文件 (快)
+        let history = await readHistory();
+        
+        // 2. 如果没有历史记录文件，从磁盘重新构建 (慢)
+        if (!history || history.length === 0) {
+            history = await readHistoryFromDisk();
+            if (history && history.length > 0) {
+                await saveHistory(history);
+            }
+        }
+
+        // 3. 按项目过滤
+        if (projectId && projectId !== 'null' && projectId !== 'undefined') {
+            history = history.filter(h => h.projectId === projectId);
+        }
+
+        // 4. 分页处理
+        const total = history.length;
+        const startIndex = (page - 1) * limit;
+        const paginatedHistory = history.slice(startIndex, startIndex + limit);
+
+        return NextResponse.json({ 
+            history: paginatedHistory,
+            total,
+            hasMore: startIndex + limit < total
+        });
     } catch (error) {
         console.error('Failed to load history:', error);
         return NextResponse.json({ error: 'Failed to load history' }, { status: 500 });

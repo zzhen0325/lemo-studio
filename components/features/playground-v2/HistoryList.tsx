@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
-import { projectStore } from "@/lib/store/project-store";
+import { projectStore } from '@/lib/store/project-store';
+
 
 import Image from "next/image";
 import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, LayoutGrid, List, X, FolderPlus, GripVertical, Folder, Layers } from "lucide-react";
@@ -52,7 +53,7 @@ const HistoryList = observer(function HistoryList({
   onDownload,
   onImageClick,
   variant = 'default',
-  onBatchUse,
+
   layoutMode = 'list',
   onLayoutModeChange,
   onClose,
@@ -60,16 +61,39 @@ const HistoryList = observer(function HistoryList({
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const {
     setPreviewImage,
-    setGenerationHistory,
+   
     isSelectionMode,
     setIsSelectionMode,
     selectedHistoryIds: selectedIds,
     toggleHistorySelection: toggleSelection,
     setHistorySelection,
-    clearHistorySelection: clearSelection
+    clearHistorySelection: clearSelection,
+    historyPage,
+    hasMoreHistory,
+    isFetchingHistory,
+    fetchHistory
   } = usePlaygroundStore();
+  
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreHistory && !isFetchingHistory) {
+          fetchHistory(historyPage + 1, projectStore.currentProjectId);
+        }
+      },
+      { threshold: 0.1, root: scrollRef.current }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMoreHistory, isFetchingHistory, historyPage, fetchHistory]);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
-  const { toast } = useToast();
+
 
   const handleSelectAll = () => {
     const allIds = history.map(item => item.id);
@@ -80,32 +104,9 @@ const HistoryList = observer(function HistoryList({
     clearSelection();
   };
 
-  const handleAddToProject = (projectId: string) => {
-    const selectedItems = history.filter(item => selectedIds.has(item.id));
-    if (selectedItems.length === 0) return;
 
-    // 1. Update project store (handles backend sync for metadata)
-    projectStore.addGenerationsToProject(projectId, selectedItems);
 
-    // 2. Update global playground store for immediate UI feedback
-    setGenerationHistory(prev => prev.map(item =>
-      selectedIds.has(item.id) ? { ...item, projectId } : item
-    ));
 
-    toast({
-      title: "Success",
-      description: `Added ${selectedItems.length} items to project`,
-    });
-
-    // Clear selection and exit mode
-    clearSelection();
-    setIsSelectionMode(false);
-  };
-
-  const handleConfirmAction = () => {
-    setIsSelectionMode(false);
-    clearSelection();
-  };
 
   // Group history by start time (createdAt) and parameters to reflect single-click aggregation
   const groupedHistory = React.useMemo(() => {
@@ -437,6 +438,24 @@ const HistoryList = observer(function HistoryList({
                 </div>
               )
             })
+          )}
+        </div>
+
+        {/* Load More Sentinel & Indicator */}
+        <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
+          {isFetchingHistory ? (
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+              <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
+            </div>
+          ) : hasMoreHistory ? (
+            <div className="h-4" />
+          ) : (
+            <div className="flex flex-col items-center gap-2 opacity-20">
+              <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
+              <span className="text-[10px] text-white font-mono uppercase tracking-widest">End of History</span>
+              <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
+            </div>
           )}
         </div>
       </div>

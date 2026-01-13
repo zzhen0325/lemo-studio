@@ -699,7 +699,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                             <div className="space-y-2">
                                                                 <span className="text-xs text-white/40">Reference Images</span>
                                                                 <div className="flex flex-wrap gap-2">
-                                                                    {(formData.editConfig || currentEditConfig)?.referenceImages.map((img, i) => (
+                                                                    {(formData.editConfig || currentEditConfig)?.referenceImages.map((img) => (
                                                                         <div key={img.id} className="w-12 h-12 rounded-lg border border-white/10 overflow-hidden relative group/img">
                                                                             <NextImage src={img.dataUrl} alt={img.label} fill className="object-cover" />
                                                                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">

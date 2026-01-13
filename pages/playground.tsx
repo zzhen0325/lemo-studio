@@ -120,8 +120,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const mobxProjectId = projectStore.currentProjectId;
 
   useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    fetchHistory(1, mobxProjectId || undefined);
+  }, [fetchHistory, mobxProjectId]);
 
   const filteredHistory = useMemo(() => {
     if (!mobxProjectId) return generationHistory;
@@ -296,8 +296,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       }
     };
     fetchWorkflows();
-    fetchHistory();
-  }, [fetchHistory]);
+  }, []);
 
   useEffect(() => {
     const path = uploadedImages[0]?.path;

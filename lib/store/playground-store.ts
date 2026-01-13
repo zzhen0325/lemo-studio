@@ -64,7 +64,10 @@ interface PlaygroundState {
     // Generation History
     generationHistory: Generation[];
     setGenerationHistory: (history: Generation[] | ((prev: Generation[]) => Generation[])) => void;
-    fetchHistory: () => Promise<void>;
+    fetchHistory: (page?: number, projectId?: string) => Promise<void>;
+    historyPage: number;
+    hasMoreHistory: boolean;
+    isFetchingHistory: boolean;
 
     // Presets
     presets: (Preset & { workflow_id?: string })[];
@@ -272,26 +275,50 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             isSelectorExpanded: false,
             selectedPresetName: undefined,
             isSelectionMode: false,
-            selectedHistoryIds: new Set()
+            selectedHistoryIds: new Set(),
+            historyPage: 1,
+            hasMoreHistory: true,
+            isFetchingHistory: false
         });
     },
 
     generationHistory: [],
+    historyPage: 1,
+    hasMoreHistory: true,
+    isFetchingHistory: false,
     setGenerationHistory: (updater) => set((state) => ({
         generationHistory: typeof updater === 'function' ? updater(state.generationHistory) : updater
     })),
 
-    fetchHistory: async () => {
+    fetchHistory: async (page = 1, projectId) => {
+        const state = get();
+        if (state.isFetchingHistory) return;
+
+        set({ isFetchingHistory: true });
         try {
-            const res = await fetch('/api/history');
+            const limit = 20;
+            const url = new URL('/api/history', window.location.origin);
+            url.searchParams.set('page', page.toString());
+            url.searchParams.set('limit', limit.toString());
+            if (projectId) url.searchParams.set('projectId', projectId);
+
+            const res = await fetch(url.toString());
             if (res.ok) {
                 const data = await res.json();
                 if (data.history) {
-                    set({ generationHistory: data.history as Generation[] });
+                    set((state) => ({
+                        generationHistory: page === 1 
+                            ? data.history 
+                            : [...state.generationHistory, ...data.history],
+                        historyPage: page,
+                        hasMoreHistory: data.hasMore
+                    }));
                 }
             }
         } catch (error) {
             console.error("Failed to fetch history", error);
+        } finally {
+            set({ isFetchingHistory: false });
         }
     },
 
