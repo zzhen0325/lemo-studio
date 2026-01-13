@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
 
+import { AnnotationInfo } from '@/types/database';
+
 export type EditorTool = 'select' | 'brush' | 'text' | 'rect' | 'circle' | 'arrow' | 'eraser' | 'annotate';
 
 // 统一颜色配置 - 画笔和标注框共用
@@ -22,13 +24,6 @@ export interface ReferenceImage {
     id: string;
     dataUrl: string;
     label: string; // "Image 1", "Image 2", etc.
-}
-
-// 标注信息 - 用于生成 prompt
-export interface AnnotationInfo {
-    colorName: string;
-    text: string;
-    referenceImageLabel?: string; // 关联的参考图标签
 }
 
 // 导出结果
@@ -714,9 +709,37 @@ export const useImageEditor = (imageUrl: string) => {
         setEditorState(p => ({ ...p, canvasWidth: w, canvasHeight: h })); c.renderAll(); saveHistory();
     }, [imageObj, saveHistory]);
 
+    const getCanvasState = useCallback(() => {
+        if (!fabricCanvasRef.current) return null;
+        return fabricCanvasRef.current.toJSON();
+    }, []);
+
+    const loadCanvasState = useCallback((json: any) => {
+        if (!fabricCanvasRef.current) return;
+        fabricCanvasRef.current.loadFromJSON(json).then(() => {
+            const obs = fabricCanvasRef.current?.getObjects() || [];
+            canvasBackgroundRef.current = obs.find(o => (o as any).name === 'canvas-background') as fabric.Rect || null;
+            
+            // Attempt to restore imageObj reference
+            // Assuming the main image is the first FabricImage that is not the background (background is Rect)
+            const mainImg = obs.find(o => o instanceof fabric.FabricImage) as fabric.FabricImage | null;
+            if (mainImg) {
+                setImageObj(mainImg);
+            }
+
+            fabricCanvasRef.current?.renderAll();
+            // Update history with the loaded state
+            const jsonStr = JSON.stringify(fabricCanvasRef.current?.toJSON());
+            historyRef.current = [jsonStr];
+            historyIndexRef.current = 0;
+            setEditorState(prev => ({ ...prev, canUndo: false, canRedo: false }));
+        });
+    }, []);
+
     return {
         canvasRef, editorState, setTool, addText, addShape, addImage, undo, redo, rotateCanvas, applyFilter, exportImage,
         updateBrushColor, updateBrushWidth, deleteSelected, confirmAnnotation, cancelAnnotation, addReferenceImage,
-        removeReferenceImage, getAnnotationsInfo, updateCanvasBackground, updateCanvasSize, fabricCanvasRef
+        removeReferenceImage, getAnnotationsInfo, updateCanvasBackground, updateCanvasSize, fabricCanvasRef,
+        getCanvasState, loadCanvasState, setEditorState
     };
 };

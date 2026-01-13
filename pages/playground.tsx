@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useRef, RefObject, useMemo } from "react";
 import { useToast } from "@/hooks/common/use-toast";
-import { Button } from "@/components/ui/button";
 
 import { usePromptOptimization, AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
 
@@ -11,11 +10,8 @@ import { usePromptOptimization, AIModel } from "@/hooks/features/PlaygroundV2/us
 import { useGenerationService } from "@/hooks/features/PlaygroundV2/useGenerationService";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { GoogleApiStatus } from "@/components/features/playground-v2/GoogleApiStatus";
-import PromptInput from "@/components/features/playground-v2/PromptInput";
-import ControlToolbar from "@/components/features/playground-v2/ControlToolbar";
 import SimpleImagePreview from "@/components/features/playground-v2/SimpleImagePreview";
 import HistoryList from "@/components/features/playground-v2/HistoryList";
-import GalleryView from "@/components/features/playground-v2/GalleryView";
 import ImagePreviewModal from "@/components/features/playground-v2/Dialogs/ImagePreviewModal";
 import ImageEditorModal from "@/components/features/playground-v2/Dialogs/ImageEditorModal";
 import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
@@ -25,23 +21,19 @@ import { PresetManagerDialog } from "@/components/features/playground-v2/Dialogs
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
-import type { GenerationConfig, UploadedImage, PresetExtended } from "@/components/features/playground-v2/types";
-import { Resolution } from "@/types/database";
-import { BASE_SYSTEM_INSTRUCTION, VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-v2/types";
+import type { GenerationConfig, UploadedImage, PresetExtended, EditPresetConfig } from "@/components/features/playground-v2/types";
+import { VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-v2/types";
 import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
-import Image from "next/image";
-import { X, Plus, Sparkles, History, Loader2, Image as ImageIcon, Edit2, Brush } from "lucide-react";
-import { motion } from "framer-motion";
+import { History, Image as ImageIcon, Edit2, Sparkles } from "lucide-react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
-import { DescribePanel } from "@/components/features/playground-v2/DescribePanel";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
-import { AR_MAP, getAspectRatioPresets, getAspectRatioByDimensions } from "@/components/features/playground-v2/constants/aspect-ratio";
+import { PlaygroundInputSection } from "@/components/features/playground-v2/PlaygroundInputSection";
+import { AR_MAP } from "@/components/features/playground-v2/constants/aspect-ratio";
 import GradualBlur from "@/components/GradualBlur";
-import SplitText from "@/components/ui/split-text";
 
 import gsap from "gsap";
 import { Flip } from "gsap/all";
@@ -53,6 +45,7 @@ import { AllProjectsView } from "@/components/features/playground-v2/ProjectSect
 import {
   DndContext,
   DragEndEvent,
+  DragStartEvent,
   DragOverlay,
   PointerSensor,
   useSensor,
@@ -147,7 +140,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isDescribeMode, setIsDescribeMode] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
-  const [activeGalleryTab, setActiveGalleryTab] = useState<'gallery' | 'styles'>('gallery');
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [batchSize, setBatchSize] = useState(4); // Default batch size
@@ -155,8 +147,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const {
     showHistory,
     setShowHistory,
-    showGallery,
-    setShowGallery,
     showProjectSidebar,
     setShowProjectSidebar,
     selectedPresetName,
@@ -180,7 +170,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const [activeDragItem, setActiveDragItem] = useState<Generation | null>(null);
 
-  const handleDragStart = (event: any) => {
+  const handleDragStart = (event: DragStartEvent) => {
     if (event.active.data.current?.type === 'history-item') {
       setActiveDragItem(event.active.data.current.generation);
     }
@@ -392,6 +382,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [selectedResult, setSelectedResult] = useState<Generation | undefined>(undefined);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingImageUrl, setEditingImageUrl] = useState<string>("");
+  const [editingPresetConfig, setEditingPresetConfig] = useState<EditPresetConfig | undefined>(undefined);
 
   const { handleGenerate: singleGenerate, executeGeneration, isGenerating } = useGenerationService();
   const { callVision } = useAIService();
@@ -495,34 +486,20 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
 
 
-  // 使用从常量文件导入的宽高比配置
-  const aspectRatioPresets = getAspectRatioPresets();
-  const getCurrentAspectRatio = () => getAspectRatioByDimensions(config.width, config.height);
 
-  const handleWidthChange = (newWidth: number) => {
-    if (isAspectRatioLocked && config.height > 0) {
-      const ratio = config.width / config.height;
-      const newHeight = Math.round(newWidth / ratio);
-      setConfig(prev => ({ ...prev, width: newWidth, height: newHeight }));
-    } else {
-      setConfig(prev => ({ ...prev, width: newWidth }));
-    }
-  };
-
-  const handleHeightChange = (newHeight: number) => {
-    if (isAspectRatioLocked && config.height > 0) {
-      const ratio = config.width / config.height;
-      const newWidth = Math.round(newHeight * ratio);
-      setConfig(prev => ({ ...prev, height: newHeight, width: newWidth }));
-    } else {
-      setConfig(prev => ({ ...prev, height: newHeight }));
-    }
-  };
   const handlePresetSelect = (p: PresetExtended) => {
     const preset = p as PresetExtended;
     const effectiveConfig = (preset.config as GenerationConfig) || (preset as unknown as GenerationConfig);
     const workflowId = (preset as PresetExtended & { workflow_id?: string }).workflow_id || effectiveConfig.workflowName;
     const presetName = (preset as PresetExtended & { title?: string; name?: string }).title || (preset as PresetExtended & { title?: string; name?: string }).name || effectiveConfig.workflowName || 'Preset';
+
+    if (preset.editConfig) {
+      setEditingImageUrl(preset.editConfig.originalImageUrl);
+      setEditingPresetConfig(preset.editConfig);
+      setIsEditorOpen(true);
+    } else {
+      setEditingPresetConfig(undefined);
+    }
 
     // If it's a workflow preset, find and select the workflow first
     if (workflowId) {
@@ -544,7 +521,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           height: dims.h,
           model: effectiveConfig.model || 'Workflow',
           resolution: resSize,
-          aspectRatio: arName as any
+          aspectRatio: arName as GenerationConfig['aspectRatio']
         });
         // Then apply remaining defaults from workflow (loras, etc)
         applyWorkflowDefaults(workflow);
@@ -564,7 +541,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         width: dims.w,
         height: dims.h,
         resolution: resSize,
-        aspectRatio: arName as any
+        aspectRatio: arName as GenerationConfig['aspectRatio']
       });
       setSelectedWorkflowConfig(undefined);
       if (modelToSet !== config.model) {
@@ -796,281 +773,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
   // Input UI Helper to avoid duplication
-  const renderInputUI = () => (
-    <div className={cn(
-      "flex flex-col items-center w-full pointer-events-auto"
-    )}>
-      {!showHistory && (
-        <div style={{ fontFamily: "'InstrumentSerif', serif" }}>
-          <SplitText
-            text="✨Turn any idea into a stunning image"
-            tag="h1"
-            className="text-[2rem] text-white font-medium text-center mb-4 h-auto opacity-100 z-10 whitespace-nowrap"
-            duration={0.5}
-            delay={20}
-            splitType="chars"
-            from={{ opacity: 0, y: 20 }}
-            to={{ opacity: 1, y: 0 }}
-            ease="power3.out"
 
-            rootMargin="-10px"
-            threshold={0.1}
-          />
-        </div>
-      )}
-
-
-      <div
-        className="relative w-full rounded-[10px]"
-      >
-        <div className={
-          cn(
-            "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20 p-2 transition-colors duration-100",
-            showHistory ? "bg-[#13263161]" : "bg-black/40"
-          )}>
-          <div className="flex items-start gap-0 bg-black/20 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden ">
-            <div
-              className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
-              onMouseEnter={() => setIsStackHovered(true)}
-              onMouseLeave={() => setIsStackHovered(false)}
-            >
-              {/* 图片堆栈 */}
-              {uploadedImages.map((image, index) => {
-                const rotations = [-6, 4, -2, 3];
-                return (
-                  <motion.div
-                    key={image.id || index}
-                    initial={false}
-                    animate={{
-                      marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
-                      rotate: isStackHovered ? 0 : rotations[index % rotations.length],
-                      scale: 1
-                    }}
-                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                    style={{
-                      zIndex: (uploadedImages.length - index) + 100,
-                      position: 'relative'
-                    }}
-                  >
-                    <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(image.previewUrl, `stack-img-${image.id || index}`)}>
-                      <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
-                        <Image
-                          src={image.previewUrl}
-                          alt={`Uploaded ${index + 1}`}
-                          width={56}
-                          height={56}
-                          className={cn(
-                            "w-14 h-14 object-cover rounded-2xl bg-black  border border-primary shadow-xl",
-                            image.isUploading && "opacity-50 grayscale blur-[1px]"
-                          )}
-                        />
-                        {image.isUploading && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Loader2 className="w-4 h-4 text-white animate-spin" />
-                          </div>
-                        )}
-                      </motion.div>
-                      {!image.isUploading && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                          className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
-                        >
-                          <X className="w-2 h-2" />
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-
-              {/* 上传按钮 - 作为堆栈的最后一个元素 */}
-              <motion.button
-                onClick={() => fileInputRef.current?.click()}
-                initial={false}
-                animate={{
-                  rotate: 3,
-                  marginLeft: uploadedImages.length > 0 ? (isStackHovered ? 8 : -36) : 0,
-                  scale: 1
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "tween", duration: 0.05 }}
-                style={{
-                  zIndex: (uploadedImages.length > 0 ? 0 : 10),
-                  position: 'relative'
-                }}
-                className={cn(
-                  "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
-                )}
-                title="Upload Image"
-              >
-                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              </motion.button>
-
-
-
-              {/* <motion.button
-                onClick={handleEditUploadedImage}
-                initial={false}
-                animate={{
-                  rotate: -2,
-                  marginLeft: (isStackHovered || uploadedImages.length === 0) ? 8 : -36,
-                  scale: 1
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "tween", duration: 0.05 }}
-                style={{
-                  zIndex: 0,
-                  position: 'relative'
-                }}
-                className={cn(
-                  "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
-                )}
-                title="Open Image Editor"
-              >
-                <Brush className="w-5 h-5 group-hover:scale-110 transition-transform" />
-              </motion.button> */}
-            </div>
-
-
-
-            <div className="flex-1 mt-1  flex items-center gap-2">
-              <div className="flex-1">
-                <PromptInput
-                  prompt={config.prompt}
-                  onPromptChange={(val) => setConfig(prev => ({ ...prev, prompt: val }))}
-                  uploadedImages={uploadedImages}
-                  onRemoveImage={removeImage}
-                  isOptimizing={isOptimizing}
-                  onOptimize={handleOptimizePrompt}
-                  selectedAIModel={selectedAIModel}
-                  onAIModelChange={setSelectedAIModel}
-                  onAddImages={handleFilesUpload}
-                  onFocusChange={setIsInputFocused}
-                  isDraggingOver={isDraggingOver}
-                />
-              </div>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:bg-transparent hover:text-white hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-white/70 rounded-2xl "
-                disabled={isOptimizing}
-                onClick={() => {
-                  if (!isOptimizing) {
-                    handleOptimizePrompt();
-                  }
-                }}
-              >
-                <motion.div
-                  animate={isOptimizing ? {
-                    filter: [
-                      "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))",
-                      "drop-shadow(0 0 10px rgba(255, 255, 255, 0.8))",
-                      "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))"
-                    ]
-                  } : {}}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                  className="flex items-center justify-center"
-                >
-                  <Sparkles className="w-2 h-2  " />
-                </motion.div>
-              </Button>
-            </div>
-
-            {/* 底部模糊遮罩 - 从 PromptInput 移动到此处以覆盖整个输入区范围 */}
-            <div
-              className={cn(
-                "absolute bottom-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-t from-black/95 via-black/50 to-transparent transition-opacity duration-300 rounded-b-3xl z-10",
-                (!isInputFocused && config.prompt?.length > 0) ? "opacity-40" : "opacity-0"
-              )}
-            />
-          </div>
-
-          <ControlToolbar
-            selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
-            config={config}
-            onConfigChange={(newConf) => setConfig(prev => ({ ...prev, ...newConf }))}
-            onWidthChange={handleWidthChange}
-            onHeightChange={handleHeightChange}
-            aspectRatioPresets={aspectRatioPresets}
-            currentAspectRatio={getCurrentAspectRatio()}
-            onAspectRatioChange={(ar: string) => {
-              const size = (config.model === 'Nano banana' || config.model === 'Seed 4.2') ? (config.resolution || '1K') : '1K';
-              const resolution = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
-              if (resolution) {
-                setConfig(prev => ({
-                  ...prev,
-                  width: resolution.w,
-                  height: resolution.h,
-                  aspectRatio: ar as any
-                }));
-              }
-            }}
-            currentImageSize={(config.resolution as '1K' | '2K' | '4K') || '1K'}
-            onImageSizeChange={(size: string) => {
-              const ar = config.aspectRatio || getCurrentAspectRatio();
-              const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
-              if (resolution) {
-                setConfig({
-                  ...config,
-                  width: resolution.w,
-                  height: resolution.h,
-                  resolution: size as Resolution,
-                  aspectRatio: ar as any
-                });
-              }
-            }}
-            isAspectRatioLocked={isAspectRatioLocked}
-            onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
-            onGenerate={() => { handleGenerate(); }}
-            isGenerating={isGenerating}
-            loadingText={selectedModel === "Seed 4.0" ? "Seed 4.0 生成中..." : "生成中..."}
-            selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
-            selectedBaseModelName={config.model}
-            workflows={workflows}
-            onWorkflowSelect={(wf) => { setSelectedWorkflowConfig(wf); applyWorkflowDefaults(wf); }}
-            isMockMode={isMockMode}
-            onMockModeChange={setMockMode}
-            isSelectorExpanded={isSelectorExpanded}
-            onSelectorExpandedChange={setIsSelectorExpanded}
-            batchSize={batchSize}
-            onBatchSizeChange={setBatchSize}
-            onOpenLoraSelector={() => setIsLoraDialogOpen(true)}
-            selectedLoras={selectedLoras}
-            selectedPresetName={selectedPresetName}
-            onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
-            isPresetGridOpen={isPresetGridOpen}
-            onClearPreset={() => setSelectedPresetName(undefined)}
-          />
-
-        </div>
-      </div>
-
-      {isDescribeMode && (
-        <DescribePanel
-          open={isDescribeMode}
-          panelRef={describePanelRef}
-          describeImages={describeImages}
-          isDraggingOverPanel={isDraggingOverPanel}
-          setIsDraggingOverPanel={setIsDraggingOverPanel}
-          setIsDraggingOver={setIsDraggingOver}
-          onUploadClick={() => fileInputRef.current?.click()}
-          onDropFiles={(files) => handleFilesUpload(files, 'describe')}
-          onClose={() => setIsDescribeMode(false)}
-          onRemoveImage={(idx) => setDescribeImages((prev: UploadedImage[]) => prev.filter((_: UploadedImage, i: number) => i !== idx))}
-          isDescribing={isDescribing}
-          isGenerating={isGenerating}
-          onDescribe={handleDescribe}
-        />
-      )}
-    </div>
-  );
 
   return (
     <DndContext
@@ -1192,8 +895,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 <div className={cn(
                   "flex flex-col items-center relative z-30",
                   showHistory
-                    ? "w-[50vw] h-full pt-4 overflow-hidden"
-                    : "w-[50%]",
+                    ? "w-[95%] md:w-[80%] lg:w-[60%] xl:w-[50vw] h-full pt-4 overflow-hidden"
+                    : "w-[90%] md:w-[70%] lg:w-[50%]",
                   !showHistory && (isPresetGridOpen ? "mt-0" : "-mt-60")
                 )}>
 
@@ -1244,7 +947,57 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       showHistory && ""
                     )}>
                       <div className="w-full">
-                        {renderInputUI()}
+                        <PlaygroundInputSection
+                          showHistory={showHistory}
+                          config={config}
+                          uploadedImages={uploadedImages}
+                          describeImages={describeImages}
+                          isStackHovered={isStackHovered}
+                          isInputFocused={isInputFocused}
+                          isOptimizing={isOptimizing}
+                          isGenerating={isGenerating}
+                          isDescribing={isDescribing}
+                          isDescribeMode={isDescribeMode}
+                          isDraggingOver={isDraggingOver}
+                          isDraggingOverPanel={isDraggingOverPanel}
+                          isPresetGridOpen={isPresetGridOpen}
+                          isAspectRatioLocked={isAspectRatioLocked}
+                          isMockMode={isMockMode}
+                          isSelectorExpanded={isSelectorExpanded}
+                          batchSize={batchSize}
+                          selectedModel={selectedModel}
+                          selectedAIModel={selectedAIModel}
+                          selectedLoras={selectedLoras}
+                          selectedPresetName={selectedPresetName}
+                          selectedWorkflowConfig={selectedWorkflowConfig}
+                          workflows={workflows}
+                          fileInputRef={fileInputRef}
+                          describePanelRef={describePanelRef}
+                          setConfig={setConfig}
+                          setIsStackHovered={setIsStackHovered}
+                          setIsInputFocused={setIsInputFocused}
+                          setPreviewImage={setPreviewImage}
+                          removeImage={removeImage}
+                          handleFilesUpload={handleFilesUpload}
+                          handleOptimizePrompt={handleOptimizePrompt}
+                          handleGenerate={() => handleGenerate()}
+                          handleDescribe={handleDescribe}
+                          setSelectedAIModel={setSelectedAIModel}
+                          setSelectedModel={setSelectedModel}
+                          setIsAspectRatioLocked={setIsAspectRatioLocked}
+                          setSelectedWorkflowConfig={setSelectedWorkflowConfig}
+                          applyWorkflowDefaults={applyWorkflowDefaults}
+                          setMockMode={setMockMode}
+                          setIsSelectorExpanded={setIsSelectorExpanded}
+                          setBatchSize={setBatchSize}
+                          setIsLoraDialogOpen={setIsLoraDialogOpen}
+                          setIsPresetGridOpen={setIsPresetGridOpen}
+                          onClearPreset={() => setSelectedPresetName(undefined)}
+                          setIsDescribeMode={setIsDescribeMode}
+                          setDescribeImages={setDescribeImages}
+                          setIsDraggingOver={setIsDraggingOver}
+                          setIsDraggingOverPanel={setIsDraggingOverPanel}
+                        />
                       </div>
                     </div>
 
@@ -1254,10 +1007,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         <button
                           onClick={() => setIsDescribeMode(!isDescribeMode)}
                           className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
+                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-black/10",
                             isDescribeMode
                               ? "text-white bg-black/40 border-white/60"
-                              : "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
+                              : "border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
                           )}
                         >
                           <Sparkles className="w-4 h-4" />
@@ -1266,7 +1019,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         <button
                           onClick={() => setShowHistory(true)}
                           className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
                           )}
                         >
                           <History className="w-4 h-4" />
@@ -1275,7 +1028,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         <button
                           onClick={handleEditUploadedImage}
                           className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
                           )}
                         >
                           <Edit2 className="w-4 h-4" />
@@ -1323,117 +1076,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   </div>
                 </div>
 
-                {/* 右侧 Gallery 面板 - showHistory 时作为三栏的一部分 */}
-                {/* {showHistory ? (
-                  <div className={cn(
-                    "h-full flex flex-col p-4 transition-all duration-300",
-                    showGallery ? "w-[30%] min-w-[280px] max-w-[380px]" : "w-auto"
-                  )}>
-                    {showGallery ? (
-                      <div className="h-full flex flex-col">
-                        <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
-                          <div className="flex items-center justify-between p-4 sticky top-0 z-10">
-                            <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
-                              {(['gallery', 'styles'] as const).map(tab => (
-                                <button
-                                  key={tab}
-                                  onClick={() => setActiveGalleryTab(tab)}
-                                  className={cn(
-                                    "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
-                                    activeGalleryTab === tab
-                                      ? "bg-primary text-black shadow-lg"
-                                      : "text-white/50 hover:text-white hover:bg-white/10"
-                                  )}
-                                >
-                                  {tab === 'gallery' && "全部作品"}
-                                  {tab === 'styles' && "Style"}
-                                </button>
-                              ))}
-                            </div>
-                            <button
-                              onClick={() => setShowGallery(false)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span>收起</span>
-                            </button>
-                          </div>
-                          <div className="flex-1 min-h-0">
-                            <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-6 shrink-0">
-                        <button
-                          onClick={() => setShowGallery(true)}
-                          className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
-                          title="展开画廊"
-                        >
-                          <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Gallery</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="absolute right-6 top-6 bottom-6 z-40 pointer-events-none">
-                    <div className="pointer-events-auto h-full">
-                      {showGallery ? (
-                        <div
-                          key="gallery-panel"
-                          className="w-[380px] h-full py-6 flex flex-col"
-                        >
-                          <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl h-full flex flex-col overflow-hidden shadow-2xl">
-                            <div className="flex items-center justify-between p-4 sticky top-0 z-10">
-                              <div className="flex items-center bg-black/40 backdrop-blur-xl p-1 rounded-full border border-white/10">
-                                {(['gallery', 'styles'] as const).map(tab => (
-                                  <button
-                                    key={tab}
-                                    onClick={() => setActiveGalleryTab(tab)}
-                                    className={cn(
-                                      "px-4 py-1.5 rounded-full text-[10px] font-medium transition-all duration-300",
-                                      activeGalleryTab === tab
-                                        ? "bg-primary text-black shadow-lg"
-                                        : "text-white/50 hover:text-white hover:bg-white/10"
-                                    )}
-                                  >
-                                    {tab === 'gallery' && "全部作品"}
-                                    {tab === 'styles' && "Style"}
-                                  </button>
-                                ))}
-                              </div>
-                              <button
-                                onClick={() => setShowGallery(false)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all text-[10px]"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                                <span>Close</span>
-                              </button>
-                            </div>
-                            <div className="flex-1 min-h-0">
-                              <GalleryView variant="sidebar" activeTab={activeGalleryTab} />
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          key="gallery-open-btn"
-                          className="py-6"
-                        >
-                          <button
-                            onClick={() => setShowGallery(true)}
-                            className="flex items-center gap-2 group px-4 py-2 rounded-full border border-white/10 bg-black/40 text-white/40 hover:bg-white/10 hover:text-white transition-all shadow-lg"
-                            title="展开画廊"
-                          >
-                            <PanelRightOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm font-medium">Gallery</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )} */}
+                
 
               </div>
 
@@ -1474,6 +1117,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             imageUrl={editingImageUrl}
             onClose={() => setIsEditorOpen(false)}
             onSave={handleSaveEditedImage}
+            initialState={editingPresetConfig}
+            workflows={workflows}
           />
         )}
 

@@ -8,6 +8,8 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { PresetExtended } from './types';
 
+import { Badge } from "@/components/ui/badge";
+
 interface PresetGridOverlayProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -113,6 +115,13 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                                 ) : (
                                                     <div className="w-full h-full flex items-center bg-black/5 justify-center text-white/20">
                                                         <LayoutTemplate className="w-6 h-6" />
+                                                    </div>
+                                                )}
+                                                {preset.editConfig && (
+                                                    <div className="absolute top-2 right-2">
+                                                        <Badge className="bg-blue-500 hover:bg-blue-600 text-white text-[9px] px-1.5 py-0 h-4 border-none shadow-lg">
+                                                            Edit
+                                                        </Badge>
                                                     </div>
                                                 )}
                                             </div>

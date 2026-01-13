@@ -41,7 +41,7 @@ export interface PlaygroundInputSectionProps {
     selectedModel: string;
     selectedAIModel: AIModel;
     selectedLoras: SelectedLora[];
-    selectedPresetName: string | null;
+    selectedPresetName: string | undefined;
     selectedWorkflowConfig?: IViewComfy;
     workflows: IViewComfy[];
 
@@ -69,6 +69,7 @@ export interface PlaygroundInputSectionProps {
     setBatchSize: (val: number) => void;
     setIsLoraDialogOpen: (val: boolean) => void;
     setIsPresetGridOpen: (val: boolean) => void;
+    onClearPreset: () => void;
     setIsDescribeMode: (val: boolean) => void;
     setDescribeImages: React.Dispatch<React.SetStateAction<UploadedImage[]>>;
     setIsDraggingOver: (val: boolean) => void;
@@ -120,6 +121,7 @@ export function PlaygroundInputSection({
     setBatchSize,
     setIsLoraDialogOpen,
     setIsPresetGridOpen,
+    onClearPreset,
     setIsDescribeMode,
     setDescribeImages,
     setIsDraggingOver,
@@ -173,12 +175,12 @@ export function PlaygroundInputSection({
                 </div>
             )}
 
-            <div className="relative w-full rounded-[10px]">
+            <div className=" w-full ">
                 <div className={cn(
-                    "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20 p-2 transition-colors duration-100",
-                    showHistory ? "bg-[#13263161]" : "bg-black/40"
+                    "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20  p-2 transition-colors duration-100",
+                    showHistory ? "bg-[linear-gradient(180deg,rgba(0,0,0,0.4)_31.44%,rgba(93, 123, 149, 0.78)_100%)]" : "bg-black/40"
                 )}>
-                    <div className="flex items-start gap-0 bg-black/20 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden">
+                    <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden">
                         <div
                             className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
                             onMouseEnter={() => setIsStackHovered(true)}
@@ -331,7 +333,7 @@ export function PlaygroundInputSection({
                                     ...prev,
                                     width: resolution.w,
                                     height: resolution.h,
-                                    aspectRatio: ar as any
+                                    aspectRatio: ar as GenerationConfig['aspectRatio']
                                 }));
                             }
                         }}
@@ -345,7 +347,7 @@ export function PlaygroundInputSection({
                                     width: resolution.w,
                                     height: resolution.h,
                                     resolution: size as Resolution,
-                                    aspectRatio: ar as any
+                                    aspectRatio: ar as GenerationConfig['aspectRatio']
                                 });
                             }
                         }}
@@ -369,6 +371,7 @@ export function PlaygroundInputSection({
                         selectedPresetName={selectedPresetName ?? undefined}
                         onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
                         isPresetGridOpen={isPresetGridOpen}
+                        onClearPreset={onClearPreset}
                     />
                 </div>
             </div>

@@ -52,14 +52,31 @@ export interface Generation {
   createdAt: string;
 }
 
+export interface AnnotationInfo {
+  colorName: string;
+  text: string;
+  referenceImageLabel?: string;
+}
+
+export interface EditPresetConfig {
+  canvasJson: Record<string, unknown>;
+  referenceImages: { id: string; dataUrl: string; label: string }[];
+  originalImageUrl: string;
+  annotations: AnnotationInfo[];
+  backgroundColor: string;
+  canvasSize: { width: number; height: number };
+}
+
 export interface Preset {
   id: string;
   name: string;
   coverUrl: string;
   config: GenerationConfig;
+  editConfig?: EditPresetConfig;
   category?: string;
   projectId?: string;
   createdAt: string;
+  type?: 'generation' | 'edit';
 }
 
 export interface Style {

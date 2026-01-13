@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Preset, GenerationConfig } from '../types';
+import { Preset, GenerationConfig, EditPresetConfig } from '../types';
+import { AspectRatio } from '@/types/database';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Plus, Trash2, Save, X, Image as ImageIcon, LayoutTemplate, GripVertical } from 'lucide-react';
 import NextImage from 'next/image';
@@ -36,9 +37,19 @@ interface PresetManagerDialogProps {
     onOpenChange: (open: boolean) => void;
     workflows: IViewComfy[];
     currentConfig?: GenerationConfig;
+    currentEditConfig?: EditPresetConfig;
 }
 
 const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', 'Seed 4.2', '3D Lemo seed3'];
+
+const DEFAULT_CONFIG: GenerationConfig = {
+    prompt: '',
+    model: 'Nano banana',
+    width: 1024,
+    height: 1024,
+    resolution: '1K',
+    aspectRatio: '1:1'
+};
 
 // Sortable Category Item Component
 interface SortableCategoryItemProps {
@@ -109,7 +120,7 @@ const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
     );
 };
 
-export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows, currentConfig }) => {
+export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows, currentConfig, currentEditConfig }) => {
     const presets = usePlaygroundStore(s => s.presets);
     const presetCategories = usePlaygroundStore(s => s.presetCategories);
     const renameCategory = usePlaygroundStore(s => s.renameCategory);
@@ -131,15 +142,6 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         const matchesCategory = activeManagerCategory === 'All' || (p.category || 'General') === activeManagerCategory;
         return matchesCategory;
     });
-
-    const DEFAULT_CONFIG: GenerationConfig = {
-        prompt: '',
-        model: 'Nano banana',
-        width: 1024,
-        height: 1024,
-        resolution: '1K',
-        aspectRatio: '1:1'
-    };
 
     // Unified Preset state
     const [formData, setFormData] = useState<Partial<Preset>>({
@@ -174,20 +176,30 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         setCoverFile(null);
     };
 
-    const handleCreate = () => {
+    const handleCreate = React.useCallback(() => {
         // Use current category if not "All", otherwise default to "General"
         const categoryToUse = activeManagerCategory !== 'All' ? activeManagerCategory : 'General';
+        const initialCoverUrl = currentEditConfig?.originalImageUrl || '';
+        
         setFormData({
             name: '',
-            coverUrl: '',
+            coverUrl: initialCoverUrl,
             category: categoryToUse,
-            config: currentConfig || DEFAULT_CONFIG
+            config: currentConfig || DEFAULT_CONFIG,
+            editConfig: currentEditConfig
         });
         setCoverFile(null);
-        setPreviewUrl('');
+        setPreviewUrl(initialCoverUrl);
         setEditingId(null);
         setIsCreating(true);
-    };
+    }, [activeManagerCategory, currentConfig, currentEditConfig]);
+
+    // Auto-open create mode if currentEditConfig is provided
+    React.useEffect(() => {
+        if (open && currentEditConfig) {
+             handleCreate();
+        }
+    }, [open, currentEditConfig, handleCreate]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -197,12 +209,17 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         }
     };
 
+    const isEditPreset = !!(formData.editConfig || currentEditConfig && isCreating);
+
     const handleSave = async () => {
-        if (!formData.name || !formData.config?.prompt) return;
+        const isActuallyEdit = !!formData.editConfig;
+        if (!formData.name) return;
+        if (!isActuallyEdit && !formData.config?.prompt) return;
 
         const presetToSave = {
             ...formData,
-            id: editingId || '',
+            type: isActuallyEdit ? 'edit' : 'generation',
+            id: editingId || `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             createdAt: new Date().toISOString()
         } as Preset;
 
@@ -273,7 +290,10 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange} >
-            <DialogContent className="max-w-6xl h-[800px] flex flex-col p-0 gap-0 bg-zinc-950/95 backdrop-blur-2xl border-white/5 text-white overflow-hidden rounded-3xl z-50">
+            <DialogContent className="max-w-6xl h-[800px] flex flex-col p-0 gap-0 bg-zinc-950/95 backdrop-blur-2xl border-white/5 text-white overflow-hidden rounded-3xl">
+                <DialogDescription className="hidden">
+                    Manage your presets, including creating, editing, and organizing them into categories.
+                </DialogDescription>
                 {/* Top: Categories Navigation */}
                 <div className="flex flex-col border-b border-white/5 bg-black/40 backdrop-blur-xl shrink-0">
                     <div className="px-6 py-4 flex items-center">
@@ -365,9 +385,9 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
                         <ScrollArea className="flex-1 px-3 pb-4">
                             <div className="space-y-2">
-                                {filteredPresets.map(preset => (
+                                {filteredPresets.map((preset, index) => (
                                     <div
-                                        key={preset.id}
+                                        key={`${preset.id}-${index}`}
                                         className={cn(
                                             "group p-3 rounded-2xl cursor-pointer flex items-center gap-3 transition-all border",
                                             editingId === preset.id
@@ -386,6 +406,11 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <h4 className="text-sm font-semibold truncate text-white/90">{preset.name}</h4>
+                                                {preset.editConfig && (
+                                                    <Badge className="h-4 px-1 text-[9px] bg-blue-500/20 text-blue-400 border-blue-500/20">
+                                                        Edit
+                                                    </Badge>
+                                                )}
                                                 {preset.category && (
                                                     <Badge variant="outline" className="h-4 px-1 text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                                                         {preset.category}
@@ -449,8 +474,54 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-4 col-span-2">
-                                                <div className="grid grid-cols-2 gap-4">
+                                            {!isEditPreset && (
+                                                <div className="space-y-4 col-span-2">
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-2">
+                                                            <Label className="text-sm">Category</Label>
+                                                            <Select
+                                                                value={formData.category || 'General'}
+                                                                onValueChange={(val) => setFormData({ ...formData, category: val })}
+                                                            >
+                                                                <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                    <SelectValue placeholder="Select category" />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                    {presetCategories.map(cat => (
+                                                                        <SelectItem key={cat} value={cat} className="hover:bg-emerald-500/20 focus:bg-emerald-500/20">{cat}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <Label className="text-sm">Base Model</Label>
+                                                            <Select
+                                                                value={formData.config?.model}
+                                                                onValueChange={(val) => setFormData({
+                                                                    ...formData,
+                                                                    config: { ...(formData.config || DEFAULT_CONFIG), model: val }
+                                                                })}
+                                                            >
+                                                                <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                    <SelectValue placeholder="Select model" />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                    <SelectItem value="Nano banana">Nano banana</SelectItem>
+                                                                    <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
+                                                                    <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
+                                                                    <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
+                                                                    <SelectItem value="Workflow">Workflow</SelectItem>
+
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {isEditPreset && (
+                                                <div className="space-y-4 col-span-2">
                                                     <div className="space-y-2">
                                                         <Label className="text-sm">Category</Label>
                                                         <Select
@@ -467,31 +538,8 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
-
-                                                    <div className="space-y-2">
-                                                        <Label className="text-sm">Base Model</Label>
-                                                        <Select
-                                                            value={formData.config?.model}
-                                                            onValueChange={(val) => setFormData({
-                                                                ...formData,
-                                                                config: { ...(formData.config || DEFAULT_CONFIG), model: val }
-                                                            })}
-                                                        >
-                                                            <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
-                                                                <SelectValue placeholder="Select model" />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
-                                                                <SelectItem value="Nano banana">Nano banana</SelectItem>
-                                                                <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
-                                                                <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
-                                                                <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
-                                                                <SelectItem value="Workflow">Workflow</SelectItem>
-
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
 
                                             <div className="space-y-2 col-span-2 border-t border-white/5 pt-6 mt-2">
                                                 <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Visual Branding</Label>
@@ -531,88 +579,143 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-2 col-span-2 border-t border-white/5 pt-6">
-                                                <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Generation Config</Label>
-                                                <div className="grid grid-cols-2 gap-4 mt-2">
-                                                    <div className="space-y-2">
-                                                        <Label className="text-sm">Target Resolution</Label>
-                                                        <Select
-                                                            value={formData.config?.resolution || '1K'}
-                                                            onValueChange={(val: '1K' | '2K' | '4K') => setFormData({
-                                                                ...formData,
-                                                                config: { ...(formData.config || DEFAULT_CONFIG), resolution: val }
-                                                            })}
-                                                        >
-                                                            <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
-                                                                <SelectValue placeholder="Select size" />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
-                                                                <SelectItem value="1K">1K (Standard)</SelectItem>
-                                                                <SelectItem value="2K">2K (High Def)</SelectItem>
-                                                                <SelectItem value="4K">4K (Ultra High)</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
+                                            {!isEditPreset && (
+                                                <>
+                                                    <div className="space-y-2 col-span-2 border-t border-white/5 pt-6">
+                                                        <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Generation Config</Label>
+                                                        <div className="grid grid-cols-2 gap-4 mt-2">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-sm">Target Resolution</Label>
+                                                                <Select
+                                                                    value={formData.config?.resolution || '1K'}
+                                                                    onValueChange={(val: '1K' | '2K' | '4K') => setFormData({
+                                                                        ...formData,
+                                                                        config: { ...(formData.config || DEFAULT_CONFIG), resolution: val }
+                                                                    })}
+                                                                >
+                                                                    <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                        <SelectValue placeholder="Select size" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                        <SelectItem value="1K">1K (Standard)</SelectItem>
+                                                                        <SelectItem value="2K">2K (High Def)</SelectItem>
+                                                                        <SelectItem value="4K">4K (Ultra High)</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
 
-                                                    <div className="space-y-2">
-                                                        <Label className="text-sm">Aspect Ratio</Label>
-                                                        <Select
-                                                            value={formData.config?.aspectRatio || '1:1'}
-                                                            onValueChange={(val: string) => setFormData({
-                                                                ...formData,
-                                                                config: { ...(formData.config || DEFAULT_CONFIG), aspectRatio: val as any }
-                                                            })}
-                                                        >
-                                                            <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
-                                                                <SelectValue placeholder="Select ratio" />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
-                                                                {['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'].map(ratio => (
-                                                                    <SelectItem key={ratio} value={ratio}>{ratio}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
+                                                            <div className="space-y-2">
+                                                                <Label className="text-sm">Aspect Ratio</Label>
+                                                                <Select
+                                                                    value={formData.config?.aspectRatio || '1:1'}
+                                                                    onValueChange={(val: string) => setFormData({
+                                                                        ...formData,
+                                                                        config: { ...(formData.config || DEFAULT_CONFIG), aspectRatio: val as AspectRatio }
+                                                                    })}
+                                                                >
+                                                                    <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                        <SelectValue placeholder="Select ratio" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                        {['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'].map(ratio => (
+                                                                            <SelectItem key={ratio} value={ratio}>{ratio}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
 
-                                                    {!NATIVE_MODELS.includes(formData.config?.model || '') && (
-                                                        <div className="space-y-2">
-                                                            <Label className="text-sm">Linked Workflow</Label>
-                                                            <Select
-                                                                value={formData.config?.workflowName || 'default'}
-                                                                onValueChange={(val) => setFormData({
-                                                                    ...formData,
-                                                                    config: { ...(formData.config || DEFAULT_CONFIG), workflowName: val === 'default' ? undefined : val }
-                                                                })}
-                                                            >
-                                                                <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
-                                                                    <SelectValue placeholder="Select workflow" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
-                                                                    <SelectItem value="default">System Default</SelectItem>
-                                                                    {workflows.map(workflow => (
-                                                                        <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>
-                                                                            {workflow.viewComfyJSON.title}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
+                                                            {!NATIVE_MODELS.includes(formData.config?.model || '') && (
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-sm">Linked Workflow</Label>
+                                                                    <Select
+                                                                        value={formData.config?.workflowName || 'default'}
+                                                                        onValueChange={(val) => setFormData({
+                                                                            ...formData,
+                                                                            config: { ...(formData.config || DEFAULT_CONFIG), workflowName: val === 'default' ? undefined : val }
+                                                                        })}
+                                                                    >
+                                                                        <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
+                                                                            <SelectValue placeholder="Select workflow" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl">
+                                                                            <SelectItem value="default">System Default</SelectItem>
+                                                                            {workflows.map(workflow => (
+                                                                                <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>
+                                                                                    {workflow.viewComfyJSON.title}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </div>
+                                                    </div>
 
-                                            <div className="space-y-2 col-span-2">
-                                                <Label className="text-sm">Base Prompt</Label>
-                                                <Textarea
-                                                    value={formData.config?.prompt}
-                                                    onChange={(e) => setFormData({
-                                                        ...formData,
-                                                        config: { ...(formData.config || DEFAULT_CONFIG), prompt: e.target.value }
-                                                    })}
-                                                    className="bg-white/5 border-white/10 focus-visible:ring-emerald-500/50 min-h-[140px] rounded-2xl p-4 resize-none leading-relaxed"
-                                                    placeholder="Craft the magic here..."
-                                                />
-                                            </div>
+                                                    <div className="space-y-2 col-span-2">
+                                                        <Label className="text-sm">Base Prompt</Label>
+                                                        <Textarea
+                                                            value={formData.config?.prompt}
+                                                            onChange={(e) => setFormData({
+                                                                ...formData,
+                                                                config: { ...(formData.config || DEFAULT_CONFIG), prompt: e.target.value }
+                                                            })}
+                                                            className="bg-white/5 border-white/10 focus-visible:ring-emerald-500/50 min-h-[140px] rounded-2xl p-4 resize-none leading-relaxed"
+                                                            placeholder="Craft the magic here..."
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
+
+                                            {isEditPreset && (
+                                                <div className="space-y-4 col-span-2 border-t border-white/5 pt-6">
+                                                    <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Editor State Summary</Label>
+                                                    <div className="grid grid-cols-1 gap-4 mt-2">
+                                                        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-4">
+                                                            <div className="flex gap-4">
+                                                                <div className="space-y-2 flex-1">
+                                                                    <span className="text-xs text-white/40">Original Image</span>
+                                                                    <div className="aspect-video rounded-xl border border-white/10 overflow-hidden relative bg-black/40">
+                                                                        <NextImage 
+                                                                            src={(formData.editConfig || currentEditConfig)?.originalImageUrl || ''} 
+                                                                            alt="Original" 
+                                                                            fill 
+                                                                            className="object-contain" 
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="w-1/3 space-y-4">
+                                                                    <div className="flex justify-between items-center text-sm">
+                                                                        <span className="text-white/40">Annotations</span>
+                                                                        <span className="font-mono text-emerald-400">{(formData.editConfig || currentEditConfig)?.annotations.length || 0} items</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-sm">
+                                                                        <span className="text-white/40">Canvas Size</span>
+                                                                        <span className="font-mono text-white/60">
+                                                                            {(formData.editConfig || currentEditConfig)?.canvasSize.width}x{(formData.editConfig || currentEditConfig)?.canvasSize.height}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <span className="text-xs text-white/40">Reference Images</span>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {(formData.editConfig || currentEditConfig)?.referenceImages.map((img, i) => (
+                                                                        <div key={img.id} className="w-12 h-12 rounded-lg border border-white/10 overflow-hidden relative group/img">
+                                                                            <NextImage src={img.dataUrl} alt={img.label} fill className="object-cover" />
+                                                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                                                                                <span className="text-[8px] text-white truncate px-1">{img.label}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                    {!(formData.editConfig || currentEditConfig)?.referenceImages.length && (
+                                                                        <span className="text-xs text-white/20 italic">No reference images</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

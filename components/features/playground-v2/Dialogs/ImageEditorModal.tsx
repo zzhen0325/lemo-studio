@@ -20,7 +20,8 @@ import {
     Trash2,
     ImagePlus,
     MessageSquarePlus,
-    Upload
+    Upload,
+    Save
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -35,15 +36,23 @@ import {
 import { useImageEditor, EDITOR_COLORS, EditorColor } from '@/hooks/features/PlaygroundV2/useImageEditor';
 import { cn } from '@/lib/utils';
 
+import { PresetManagerDialog } from './PresetManagerDialog';
+import { EditPresetConfig } from '../types';
+import { IViewComfy } from '@/lib/providers/view-comfy-provider';
+
 interface ImageEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     imageUrl: string;
     onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[]) => void;
+    initialState?: EditPresetConfig;
+    workflows: IViewComfy[];
 }
 
-export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: ImageEditorModalProps) {
+export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows }: ImageEditorModalProps) {
     const [showProperties, setShowProperties] = useState(true);
+    const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
+    const [currentEditConfig, setCurrentEditConfig] = useState<EditPresetConfig | undefined>(undefined);
 
     const {
         canvasRef,
@@ -66,6 +75,9 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
         getAnnotationsInfo,
         updateCanvasBackground,
         updateCanvasSize,
+        getCanvasState,
+        loadCanvasState,
+        setEditorState
     } = useImageEditor(imageUrl);
 
     const [annotationText, setAnnotationText] = useState("");
@@ -270,10 +282,59 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
         }
     }, [editorState.pendingAnnotation]);
 
+    const handleSavePreset = () => {
+        const canvasJson = getCanvasState();
+        if (!canvasJson) return;
+
+        // Use the current exported image as a preview cover
+        const currentPreview = exportImage();
+
+        const annotations = getAnnotationsInfo();
+        const referenceImages = editorState.referenceImages;
+
+        const config: EditPresetConfig = {
+            canvasJson,
+            referenceImages,
+            originalImageUrl: imageUrl,
+            annotations,
+            backgroundColor: editorState.backgroundColor,
+            canvasSize: { width: editorState.canvasWidth, height: editorState.canvasHeight }
+        };
+
+        setCurrentEditConfig(config);
+        setIsPresetManagerOpen(true);
+    };
+
+    useEffect(() => {
+        if (isOpen && initialState) {
+            const timer = setTimeout(() => {
+                if (initialState.canvasJson) {
+                    loadCanvasState(initialState.canvasJson);
+                }
+                setEditorState(prev => ({
+                    ...prev,
+                    referenceImages: initialState.referenceImages || [],
+                    backgroundColor: initialState.backgroundColor || '#eeeeee',
+                    canvasWidth: initialState.canvasSize?.width || 1024,
+                    canvasHeight: initialState.canvasSize?.height || 1024,
+                    zoom: 1
+                }));
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, initialState, loadCanvasState, setEditorState]);
+
     if (!isOpen) return null;
 
     return (
-        <AnimatePresence>
+        <>
+            <PresetManagerDialog
+                open={isPresetManagerOpen}
+                onOpenChange={setIsPresetManagerOpen}
+                workflows={workflows}
+                currentEditConfig={currentEditConfig}
+            />
+            <AnimatePresence>
             <motion.div
                 className="fixed inset-0 z-[100] flex flex-col overflow-hidden pointer-events-auto"
                 initial={{ opacity: 0 }}
@@ -331,6 +392,15 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                             >
                                 <X className="w-4 h-4 mr-1.5" />
                                 Cancel
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-3 rounded-full text-white/60 hover:text-white hover:bg-white/10"
+                                onClick={handleSavePreset}
+                            >
+                                <Save className="w-4 h-4 mr-1.5" />
+                                Save as Preset
                             </Button>
                             <Button
                                 variant="act"
@@ -803,7 +873,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave }: 
                     </div>
                 </div>
             </motion.div>
-        </AnimatePresence >
+        </AnimatePresence>
+        </>
     );
 }
 

@@ -1,5 +1,5 @@
-import { Generation, GenerationConfig, Preset } from '@/types/database';
-export type { Generation, GenerationConfig, Preset };
+import { Generation, GenerationConfig, Preset, EditPresetConfig } from '@/types/database';
+export type { Generation, GenerationConfig, Preset, EditPresetConfig };
 export type GenerationResult = Generation;
 
 export interface UploadedImage {
