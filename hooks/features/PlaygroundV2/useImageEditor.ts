@@ -86,6 +86,8 @@ export const useImageEditor = (imageUrl: string) => {
         backgroundColor: '#eeeeee', // 默认白色底，更符合“画纸”直觉
     });
 
+    const [isInitialized, setIsInitialized] = useState(false);
+
     const editorStateRef = useRef(editorState);
     editorStateRef.current = editorState;
 
@@ -132,8 +134,16 @@ export const useImageEditor = (imageUrl: string) => {
                 }
                 isSpacePressedRef.current = true;
                 if (fabricCanvasRef.current) {
-                    fabricCanvasRef.current.defaultCursor = 'grab';
-                    fabricCanvasRef.current.renderAll();
+                    const canvas = fabricCanvasRef.current;
+                    canvas.defaultCursor = 'grab';
+                    canvas.hoverCursor = 'grab';
+                    // 暂时禁用所有对象的事件，防止它们改变光标
+                    canvas.forEachObject(obj => {
+                        (obj as any)._prevEvented = obj.evented;
+                        obj.evented = false;
+                    });
+                    canvas.setCursor('grab');
+                    canvas.renderAll();
                 }
                 // 防止空格键滚动页面
                 e.preventDefault();
@@ -144,8 +154,24 @@ export const useImageEditor = (imageUrl: string) => {
             if (e.code === 'Space') {
                 isSpacePressedRef.current = false;
                 if (fabricCanvasRef.current) {
-                    fabricCanvasRef.current.defaultCursor = 'default';
-                    fabricCanvasRef.current.renderAll();
+                    const canvas = fabricCanvasRef.current;
+                    canvas.defaultCursor = 'default';
+                    canvas.hoverCursor = 'move';
+                    // 恢复对象的事件响应
+                    canvas.forEachObject(obj => {
+                        if ((obj as any)._prevEvented !== undefined) {
+                            obj.evented = (obj as any)._prevEvented;
+                            delete (obj as any)._prevEvented;
+                        } else {
+                            // 默认逻辑
+                            const skip = [imageObj, canvasBackgroundRef.current];
+                            const isBg = skip.includes(obj as any);
+                            const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && obj.backgroundColor !== undefined;
+                            obj.evented = !isBg && !isNameLabel;
+                        }
+                    });
+                    canvas.setCursor('default');
+                    canvas.renderAll();
                 }
             }
         };
@@ -154,6 +180,8 @@ export const useImageEditor = (imageUrl: string) => {
             isSpacePressedRef.current = false;
             if (fabricCanvasRef.current) {
                 fabricCanvasRef.current.defaultCursor = 'default';
+                fabricCanvasRef.current.hoverCursor = 'move';
+                fabricCanvasRef.current.setCursor('default');
                 fabricCanvasRef.current.renderAll();
             }
         };
@@ -274,6 +302,8 @@ export const useImageEditor = (imageUrl: string) => {
             }
 
             canvas.defaultCursor = 'grabbing';
+            canvas.hoverCursor = 'grabbing';
+            canvas.setCursor('grabbing');
             canvas.renderAll();
             evt.preventDefault();
             evt.stopPropagation();
@@ -343,12 +373,20 @@ export const useImageEditor = (imageUrl: string) => {
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
 
+        // 实时强制光标状态，防止 Fabric 内部移动逻辑（如探测到对象）覆盖全局光标
+        if (isPanningRef.current) {
+            canvas.setCursor('grabbing');
+        } else if (isSpacePressedRef.current) {
+            canvas.setCursor('grab');
+        }
+
         if (isPanningRef.current && lastPanPointRef.current) {
             const evt = opt.e as MouseEvent;
             const vpt = canvas.viewportTransform;
             if (vpt) {
                 vpt[4] += evt.clientX - lastPanPointRef.current.x;
                 vpt[5] += evt.clientY - lastPanPointRef.current.y;
+                canvas.setCursor('grabbing');
                 canvas.requestRenderAll();
                 lastPanPointRef.current = { x: evt.clientX, y: evt.clientY };
             }
@@ -405,7 +443,11 @@ export const useImageEditor = (imageUrl: string) => {
                     (canvas as any)._wasDrawingMode = false;
                 }
 
-                canvas.defaultCursor = isSpacePressedRef.current ? 'grab' : 'default';
+                // 恢复光标状态
+                const newCursor = isSpacePressedRef.current ? 'grab' : 'default';
+                canvas.defaultCursor = newCursor;
+                canvas.hoverCursor = isSpacePressedRef.current ? 'grab' : 'move';
+                canvas.setCursor(newCursor);
                 canvas.renderAll();
             }
             return;
@@ -473,6 +515,8 @@ export const useImageEditor = (imageUrl: string) => {
                 height: h,
                 backgroundColor: '#1a1a20',
                 enableRetinaScaling: true,
+                fireMiddleClick: true,
+                stopContextMenu: true,
             });
 
             fabric.Object.prototype.transparentCorners = false;
@@ -506,11 +550,10 @@ export const useImageEditor = (imageUrl: string) => {
                     try {
                         const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
                         const iw = img.width || 1, ih = img.height || 1;
-                        const fitZ = Math.min(w / iw, h / ih) * 0.9; // 移除额外边距计算，让图片尽可能大
+                        const fitZ = Math.min(w / iw, h / ih) * 0.9;
 
-                        // 图片模式：精准根据图片尺寸创建背景矩形
                         const bgRect = new fabric.Rect({
-                            left: w / 2, top: h / 2, width: iw, height: ih, // 移除 40px Padding
+                            left: w / 2, top: h / 2, width: iw, height: ih,
                             originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
                             selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
                             name: 'canvas-background',
@@ -534,29 +577,13 @@ export const useImageEditor = (imageUrl: string) => {
                             left: w / 2, top: h / 2, width: iw * fitZ, height: ih * fitZ,
                             originX: 'center', originY: 'center', absolutePositioned: true
                         });
+                        setIsInitialized(true);
                     } catch (err) {
                         console.error("Failed to load image:", err);
                     }
                 } else {
-                    // 无图模式：创建默认背景矩形
-                    const initialZoom = Math.min(w / initialW, h / initialH) * 0.9;
-                    const bgRect = new fabric.Rect({
-                        left: w / 2, top: h / 2, width: initialW, height: initialH,
-                        originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
-                        selectable: false, evented: false, scaleX: initialZoom, scaleY: initialZoom,
-                        name: 'canvas-background',
-                        shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
-                    });
-
-                    canvas!.add(bgRect);
-                    canvas!.sendObjectToBack(bgRect);
-                    canvasBackgroundRef.current = bgRect;
-
-                    setEditorState(prev => ({ ...prev, canvasWidth: initialW, canvasHeight: initialH, zoom: 1 }));
-                    canvas!.clipPath = new fabric.Rect({
-                        left: w / 2, top: h / 2, width: initialW * initialZoom, height: initialH * initialZoom,
-                        originX: 'center', originY: 'center', absolutePositioned: true
-                    });
+                    // 空白模式，等待手动初始化
+                    setIsInitialized(false);
                 }
 
                 canvas!.requestRenderAll();
@@ -808,13 +835,89 @@ export const useImageEditor = (imageUrl: string) => {
             historyRef.current = [jsonStr];
             historyIndexRef.current = 0;
             setEditorState(prev => ({ ...prev, canUndo: false, canRedo: false }));
+            setIsInitialized(true);
         });
     }, []);
+
+    const initCanvas = useCallback((w: number, h: number) => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        const cw = canvas.width || 800, ch = canvas.height || 600;
+        const initialZoom = Math.min(cw / w, ch / h) * 0.9;
+
+        const bgRect = new fabric.Rect({
+            left: cw / 2, top: ch / 2, width: w, height: h,
+            originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
+            selectable: false, evented: false, scaleX: initialZoom, scaleY: initialZoom,
+            name: 'canvas-background',
+            shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
+        });
+
+        canvas.add(bgRect);
+        canvas.sendObjectToBack(bgRect);
+        canvasBackgroundRef.current = bgRect;
+
+        setEditorState(prev => ({ ...prev, canvasWidth: w, canvasHeight: h, zoom: 1 }));
+        canvas.clipPath = new fabric.Rect({
+            left: cw / 2, top: ch / 2, width: w * initialZoom, height: h * initialZoom,
+            originX: 'center', originY: 'center', absolutePositioned: true
+        });
+
+        canvas.requestRenderAll();
+        setIsInitialized(true);
+        saveHistory();
+    }, [saveHistory]);
+
+    const initCanvasWithImage = useCallback(async (url: string) => {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+
+        const cw = canvas.width || 800, ch = canvas.height || 600;
+
+        try {
+            const img = await fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+            const iw = img.width || 1, ih = img.height || 1;
+            const fitZ = Math.min(cw / iw, ch / ih) * 0.9;
+
+            const bgRect = new fabric.Rect({
+                left: cw / 2, top: ch / 2, width: iw, height: ih,
+                originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
+                selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
+                name: 'canvas-background',
+                shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
+            });
+
+            canvas.add(bgRect);
+            canvas.sendObjectToBack(bgRect);
+            canvasBackgroundRef.current = bgRect;
+
+            img.set({
+                left: cw / 2, top: ch / 2, originX: 'center', originY: 'center',
+                selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ
+            });
+
+            canvas.add(img);
+            setImageObj(img);
+            setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: 1 }));
+
+            canvas.clipPath = new fabric.Rect({
+                left: cw / 2, top: ch / 2, width: iw * fitZ, height: ih * fitZ,
+                originX: 'center', originY: 'center', absolutePositioned: true
+            });
+
+            canvas.requestRenderAll();
+            setIsInitialized(true);
+            saveHistory();
+        } catch (err) {
+            console.error("Failed to load image:", err);
+        }
+    }, [saveHistory]);
 
     return {
         canvasRef, editorState, setTool, addText, addShape, addImage, undo, redo, rotateCanvas, applyFilter, exportImage,
         updateBrushColor, updateBrushWidth, deleteSelected, confirmAnnotation, cancelAnnotation, addReferenceImage,
         removeReferenceImage, getAnnotationsInfo, updateCanvasBackground, updateCanvasSize, fabricCanvasRef,
-        getCanvasState, loadCanvasState, setEditorState
+        getCanvasState, loadCanvasState, setEditorState, isInitialized, initCanvas, initCanvasWithImage
     };
 };

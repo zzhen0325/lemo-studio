@@ -21,11 +21,14 @@ import {
     ImagePlus,
     MessageSquarePlus,
     Upload,
-    Save
+    Save,
+    Plus
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -79,7 +82,10 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         updateCanvasSize,
         getCanvasState,
         loadCanvasState,
-        setEditorState
+        setEditorState,
+        isInitialized,
+        initCanvas,
+        initCanvasWithImage
     } = useImageEditor(imageUrl);
 
     const [annotationText, setAnnotationText] = useState("");
@@ -181,19 +187,23 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     const handleFileUpload = useCallback((files: FileList | null) => {
         if (!files || files.length === 0) return;
 
-        Array.from(files).forEach(file => {
+        Array.from(files).forEach((file, index) => {
             if (!file.type.startsWith('image/')) return;
 
             const reader = new FileReader();
             reader.onload = (e) => {
                 const dataUrl = e.target?.result as string;
                 if (dataUrl) {
-                    addImage(dataUrl);
+                    if (!isInitialized && index === 0) {
+                        initCanvasWithImage(dataUrl);
+                    } else {
+                        addImage(dataUrl);
+                    }
                 }
             };
             reader.readAsDataURL(file);
         });
-    }, [addImage]);
+    }, [addImage, isInitialized, initCanvasWithImage]);
 
     // 同步编辑状态的文字
     useEffect(() => {
@@ -600,7 +610,49 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                         ))}
                                     </div>
                                 </div>
-                                <canvas ref={canvasRef} className="max-w-full max-h-full transition-all duration-300 " />
+                                <canvas ref={canvasRef} className={cn("max-w-full max-h-full transition-all duration-300", !isInitialized && "opacity-0")} />
+
+                                {/* Empty State Overlay */}
+                                {!isInitialized && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center z-50">
+                                        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 p-12 rounded-[40px] flex flex-col items-center gap-8 shadow-2xl">
+                                            <div className="flex flex-col items-center gap-3 text-center">
+                                                <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
+                                                    <ImagePlus className="w-8 h-8 text-primary" />
+                                                </div>
+                                                <h3 className="text-xl font-medium text-white">开始编辑</h3>
+                                                <p className="text-sm text-white/40 max-w-[240px]">
+                                                    上传一张图片开始，或者创建一个空白画框进行自由创作
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="flex flex-col w-full gap-3">
+                                                <Button 
+                                                    variant="act" 
+                                                    className="h-12 w-full rounded-2xl gap-2 text-base font-medium shadow-[0_0_20px_oklch(var(--primary)/0.2)]"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                >
+                                                    <Upload className="w-5 h-5" />
+                                                    上传图片
+                                                </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    className="h-12 w-full rounded-2xl gap-2 text-base font-medium bg-white/5 border border-white/5 hover:bg-white/10 text-white/80"
+                                                    onClick={() => initCanvas(1024, 1024)}
+                                                >
+                                                    <Plus className="w-5 h-5" />
+                                                    新建空白画框
+                                                </Button>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 text-[11px] text-white/20 uppercase font-mono tracking-widest">
+                                                <div className="w-8 h-px bg-white/5" />
+                                                或者直接拖拽图片到此处
+                                                <div className="w-8 h-px bg-white/5" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Annotation Input Overlay */}
                                 {editorState.pendingAnnotation && (
@@ -740,10 +792,12 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                             </div>
                         </div>
                         {inputSectionProps && (
-                            <div className="absolute bottom-20 left-1/2 -translate-x-1/2  w-4xl  shadow-2xl shadow-[0px_10px_30px_0px_rgba(0,0,0,0.10)]  bg-[#5d7b9544] rounded-[30px] ">
+                            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 shadow-2xl shadow-[0px_10px_30px_0px_rgba(0,0,0,0.10)]  bg-[#5d7b9544] rounded-[30px] ">
                                 <PlaygroundInputSection 
                                     {...inputSectionProps} 
+                                    width={inputSectionProps.width || 896}
                                     hideTitle 
+                                    variant="mini"
                                     handleGenerate={handleModalGenerate}
                                 />
                             </div>
@@ -786,6 +840,28 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                                     {ratio.label} ({ratio.w}x{ratio.h})
                                                 </Button>
                                             ))}
+                                        </div>
+
+                                        {/* Manual Size Input */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 space-y-1">
+                                                <Label className="text-[10px] text-white/40">Width</Label>
+                                                <Input 
+                                                    type="number" 
+                                                    value={editorState.canvasWidth}
+                                                    onChange={(e) => updateCanvasSize(parseInt(e.target.value) || 0, editorState.canvasHeight)}
+                                                    className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
+                                                />
+                                            </div>
+                                            <div className="flex-1 space-y-1">
+                                                <Label className="text-[10px] text-white/40">Height</Label>
+                                                <Input 
+                                                    type="number" 
+                                                    value={editorState.canvasHeight}
+                                                    onChange={(e) => updateCanvasSize(editorState.canvasWidth, parseInt(e.target.value) || 0)}
+                                                    className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
+                                                />
+                                            </div>
                                         </div>
 
                                         {/* Canvas Background */}

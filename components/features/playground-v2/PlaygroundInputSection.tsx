@@ -75,6 +75,8 @@ export interface PlaygroundInputSectionProps {
     setIsDraggingOver: (val: boolean) => void;
     setIsDraggingOverPanel: (val: boolean) => void;
     hideTitle?: boolean;
+    variant?: 'default' | 'mini';
+    width?: string | number;
 }
 
 export function PlaygroundInputSection({
@@ -128,6 +130,8 @@ export function PlaygroundInputSection({
     setDescribeImages,
     setIsDraggingOver,
     setIsDraggingOverPanel,
+    variant = 'default',
+    width,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
 
@@ -177,7 +181,10 @@ export function PlaygroundInputSection({
                 </div>
             )}
 
-            <div className=" w-full ">
+            <div 
+                className={cn(!width && "w-full")}
+                style={width ? { width: typeof width === 'number' ? `${width}px` : width } : {}}
+            >
                 <div className={cn(
                     "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20  p-2 transition-colors duration-100",
                     showHistory ? "bg-[linear-gradient(180deg,rgba(0,0,0,0.4)_31.44%,rgba(93, 123, 149, 0.78)_100%)]" : "bg-black/40"
@@ -275,37 +282,40 @@ export function PlaygroundInputSection({
                                     onAddImages={handleFilesUpload}
                                     onFocusChange={setIsInputFocused}
                                     isDraggingOver={isDraggingOver}
+                                    onDraggingOverChange={setIsDraggingOver}
                                 />
                             </div>
-                            <Button
-                                variant="default"
-                                size="sm"
-                                className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:text-white hover:drop-shadow-[0_0_px_rgba(255,255,255,0.8)] text-white/70 rounded-2xl"
-                                disabled={isOptimizing}
-                                onClick={() => {
-                                    if (!isOptimizing) {
-                                        handleOptimizePrompt();
-                                    }
-                                }}
-                            >
-                                <motion.div
-                                    animate={isOptimizing ? {
-                                        filter: [
-                                            "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))",
-                                            "drop-shadow(0 0 10px rgba(255, 255, 255, 0.8))",
-                                            "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))"
-                                        ]
-                                    } : {}}
-                                    transition={{
-                                        duration: 2,
-                                        repeat: Infinity,
-                                        ease: "easeInOut"
+                            {variant !== 'mini' && (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:text-white hover:drop-shadow-[0_0_px_rgba(255,255,255,0.8)] text-white/70 rounded-2xl"
+                                    disabled={isOptimizing}
+                                    onClick={() => {
+                                        if (!isOptimizing) {
+                                            handleOptimizePrompt();
+                                        }
                                     }}
-                                    className="flex items-center justify-center"
                                 >
-                                    <Sparkles className="w-2 h-2" />
-                                </motion.div>
-                            </Button>
+                                    <motion.div
+                                        animate={isOptimizing ? {
+                                            filter: [
+                                                "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))",
+                                                "drop-shadow(0 0 10px rgba(255, 255, 255, 0.8))",
+                                                "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))"
+                                            ]
+                                        } : {}}
+                                        transition={{
+                                            duration: 2,
+                                            repeat: Infinity,
+                                            ease: "easeInOut"
+                                        }}
+                                        className="flex items-center justify-center"
+                                    >
+                                        <Sparkles className="w-2 h-2" />
+                                    </motion.div>
+                                </Button>
+                            )}
                         </div>
 
                         {/* 底部模糊遮罩 */}
@@ -374,11 +384,12 @@ export function PlaygroundInputSection({
                         onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
                         isPresetGridOpen={isPresetGridOpen}
                         onClearPreset={onClearPreset}
+                        variant={variant}
                     />
                 </div>
             </div>
 
-            {isDescribeMode && (
+            {variant !== 'mini' && isDescribeMode && (
                 <DescribePanel
                     open={isDescribeMode}
                     panelRef={describePanelRef}

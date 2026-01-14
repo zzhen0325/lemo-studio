@@ -20,6 +20,7 @@ interface PromptInputProps {
   onTogglePresetGrid?: () => void;
   onFocusChange?: (focused: boolean) => void;
   isDraggingOver?: boolean;
+  onDraggingOverChange?: (isDragging: boolean) => void;
 }
 
 import { useDebounce } from '@/hooks/common/use-debounce';
@@ -30,6 +31,7 @@ export default function PromptInput({
   onAddImages,
   onFocusChange,
   isDraggingOver,
+  onDraggingOverChange,
   isOptimizing,
 }: PromptInputProps) {
   const [localPrompt, setLocalPrompt] = React.useState(prompt);
@@ -79,6 +81,7 @@ export default function PromptInput({
       onDrop={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        onDraggingOverChange?.(false);
         const files = e.dataTransfer.files;
         if (files && files.length > 0) onAddImages(files);
       }}

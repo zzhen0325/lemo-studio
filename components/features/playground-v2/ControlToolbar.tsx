@@ -66,6 +66,7 @@ interface ControlToolbarProps {
   batchSize?: number;
   onBatchSizeChange?: (size: number) => void;
   onClearPreset?: () => void;
+  variant?: 'default' | 'mini';
 }
 
 
@@ -102,7 +103,7 @@ export default function ControlToolbar({
   batchSize = 1,
   onBatchSizeChange,
   onClearPreset,
-
+  variant = 'default',
 }: ControlToolbarProps) {
 
 
@@ -258,14 +259,16 @@ export default function ControlToolbar({
       <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
         <div className="flex justify-start items-center gap-2">
           <div className="flex items-center gap-2">
-            <Button
-              className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
-              onClick={onTogglePresetGrid}
-            >
+            {variant !== 'mini' && (
+              <Button
+                className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
+                onClick={onTogglePresetGrid}
+              >
 
-              {selectedPresetName ? selectedPresetName : 'Presets'}
-              <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
-            </Button>
+                {selectedPresetName ? selectedPresetName : 'Presets'}
+                <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
+              </Button>
+            )}
             <ModelDropdown />
 
 
