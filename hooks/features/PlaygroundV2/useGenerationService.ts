@@ -151,8 +151,12 @@ export function useGenerationService() {
         saveHistoryToBackend(result);
     };
 
-    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string) => {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
+        
+        // Calculate effective source URL preferring path (uploaded URL) over base64
+        const firstImage = currentUploadedImages[0];
+        const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
 
         let modelId = "lemo_2dillustator"; // Default
         if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";
@@ -211,7 +215,7 @@ export function useGenerationService() {
                                 workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
                             },
                             createdAt: generationTime,
-                            sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
+                            sourceImageUrl: effectiveSourceUrl,
                         }
                     );
                     setGenerationHistory((prev: Generation[]) => prev.map(item =>
@@ -245,7 +249,7 @@ export function useGenerationService() {
                         workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
                     },
                     createdAt: generationTime,
-                    sourceImageUrl: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
+                    sourceImageUrl: effectiveSourceUrl,
                 }
             );
             const gen: Generation = {
@@ -255,7 +259,7 @@ export function useGenerationService() {
                 outputUrl: savedPath,
                 config: unified,
                 status: 'completed',
-                sourceImageUrl: sourceImageUrl, // 使用一开始获取的 sourceImageUrl
+                sourceImageUrl: effectiveSourceUrl,
                 createdAt: generationTime,
             };
             updateHistoryAndSave(taskId, gen);
@@ -266,6 +270,11 @@ export function useGenerationService() {
 
     const handleWorkflow = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
+
+        // Calculate effective source URL preferring path (uploaded URL) over base64
+        const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
+        const firstImage = currentUploadedImages[0];
+        const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : sourceImageUrl;
 
         const flattenInputs = (arr: IMultiValueInput[]) => arr.flatMap(g => g.inputs.map(i => ({ key: i.key, value: i.value, valueType: i.valueType, title: i.title })));
         const allInputs = [...flattenInputs(selectedWorkflowConfig.viewComfyJSON.inputs), ...flattenInputs(selectedWorkflowConfig.viewComfyJSON.advancedInputs)];
@@ -355,7 +364,7 @@ export function useGenerationService() {
                                 loras: usePlaygroundStore.getState().selectedLoras,
                             },
                             createdAt: generationTime,
-                            sourceImageUrl: sourceImageUrl,
+                            sourceImageUrl: effectiveSourceUrl,
                         }
                     );
                     const gen: Generation = {
@@ -369,7 +378,7 @@ export function useGenerationService() {
                             workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
                         },
                         status: 'completed',
-                        sourceImageUrl: sourceImageUrl,
+                        sourceImageUrl: effectiveSourceUrl,
                         createdAt: generationTime,
                     };
                     updateHistoryAndSave(taskId, gen);

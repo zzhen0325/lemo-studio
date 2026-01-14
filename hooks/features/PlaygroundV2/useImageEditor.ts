@@ -121,6 +121,52 @@ export const useImageEditor = (imageUrl: string) => {
     const activeObjectRef = useRef<fabric.Object | null>(null);
     const isPanningRef = useRef(false);
     const lastPanPointRef = useRef<{ x: number, y: number } | null>(null);
+    const isSpacePressedRef = useRef(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space' && !isSpacePressedRef.current) {
+                const target = e.target as HTMLElement;
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                    return;
+                }
+                isSpacePressedRef.current = true;
+                if (fabricCanvasRef.current) {
+                    fabricCanvasRef.current.defaultCursor = 'grab';
+                    fabricCanvasRef.current.renderAll();
+                }
+                // 防止空格键滚动页面
+                e.preventDefault();
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.code === 'Space') {
+                isSpacePressedRef.current = false;
+                if (fabricCanvasRef.current) {
+                    fabricCanvasRef.current.defaultCursor = 'default';
+                    fabricCanvasRef.current.renderAll();
+                }
+            }
+        };
+
+        const handleBlur = () => {
+            isSpacePressedRef.current = false;
+            if (fabricCanvasRef.current) {
+                fabricCanvasRef.current.defaultCursor = 'default';
+                fabricCanvasRef.current.renderAll();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        window.addEventListener('blur', handleBlur);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener('blur', handleBlur);
+        };
+    }, []);
 
     const handleMouseWheel = useCallback((opt: fabric.TPointerEventInfo<WheelEvent>) => {
         const delta = opt.e.deltaY;
@@ -211,13 +257,30 @@ export const useImageEditor = (imageUrl: string) => {
         const state = editorStateRef.current;
         if (!canvas) return;
 
-        if (state.activeTool === 'select') {
-            const evt = opt.e as MouseEvent;
-            if (!canvas.getActiveObject()) {
-                isPanningRef.current = true;
-                lastPanPointRef.current = { x: evt.clientX, y: evt.clientY };
-                canvas.selection = false;
+        const evt = opt.e as MouseEvent;
+        // 0: Left, 1: Middle, 2: Right
+        const isMiddleButton = evt.button === 1;
+        const isSpaceAndLeft = evt.button === 0 && isSpacePressedRef.current;
+
+        if (isMiddleButton || isSpaceAndLeft) {
+            isPanningRef.current = true;
+            lastPanPointRef.current = { x: evt.clientX, y: evt.clientY };
+            canvas.selection = false;
+            
+            // 如果处于绘图模式，暂时禁用它
+            if (canvas.isDrawingMode) {
+                (canvas as any)._wasDrawingMode = true;
+                canvas.isDrawingMode = false;
             }
+
+            canvas.defaultCursor = 'grabbing';
+            canvas.renderAll();
+            evt.preventDefault();
+            evt.stopPropagation();
+            return;
+        }
+
+        if (state.activeTool === 'select') {
             return;
         }
 
@@ -332,7 +395,19 @@ export const useImageEditor = (imageUrl: string) => {
         if (isPanningRef.current) {
             isPanningRef.current = false;
             lastPanPointRef.current = null;
-            if (fabricCanvasRef.current) fabricCanvasRef.current.selection = editorStateRef.current.activeTool === 'select';
+            if (fabricCanvasRef.current) {
+                const canvas = fabricCanvasRef.current;
+                canvas.selection = editorStateRef.current.activeTool === 'select' || editorStateRef.current.activeTool === 'annotate';
+                
+                // 恢复绘图模式
+                if ((canvas as any)._wasDrawingMode) {
+                    canvas.isDrawingMode = true;
+                    (canvas as any)._wasDrawingMode = false;
+                }
+
+                canvas.defaultCursor = isSpacePressedRef.current ? 'grab' : 'default';
+                canvas.renderAll();
+            }
             return;
         }
 

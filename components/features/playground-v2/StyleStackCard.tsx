@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 interface StyleStackCardProps {
     style: StyleStack;
     onClick?: () => void;
-    size?: 'sm' | 'md';
+    size?: 'sm' | 'md' | 'grid-lg';
 }
 
 export const StyleStackCard: React.FC<StyleStackCardProps> = ({
@@ -22,6 +22,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
 }) => {
     const { applyPrompt, applyImage } = usePlaygroundStore();
     const isSmall = size === 'sm';
+    const isGridLg = size === 'grid-lg';
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Get up to 3 images for the stack
@@ -32,7 +33,10 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
 
     return (
         <div
-            className="group relative flex flex-col gap-4 p-4 rounded-[2rem] transition-all cursor-pointer"
+            className={cn(
+                "group relative flex flex-col gap-4 p-4 rounded-[2rem] transition-all cursor-pointer",
+                isGridLg && "hover:bg-white/5"
+            )}
             onMouseEnter={() => setIsExpanded(true)}
             onMouseLeave={() => setIsExpanded(false)}
             onClick={onClick}
@@ -68,19 +72,23 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
             {/* Image Stack Container */}
             <div className={cn(
                 "relative w-full flex items-center justify-center perspective-1000",
-                isSmall ? "h-[140px]" : "h-[200px]"
+                isSmall ? "h-[140px]" : "h-[200px]",
+                isGridLg && "h-[220px]"
             )}>
                 {hasImages ? (
                     displayImages.map((path, index) => (
                         <motion.div
                             key={path}
                             className={cn(
-                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900",
-                                isSmall ? "w-28 h-[140px]" : "w-40 h-[200px]"
+                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900 shadow-xl",
+                                isSmall ? "w-28 h-[140px]" : "w-40 h-[200px]",
+                                isGridLg && "w-[180px] h-[220px]"
                             )}
                             initial={false}
                             animate={{
-                                x: isExpanded ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : 160) : (index - (displayImages.length - 1) / 2) * (isSmall ? 30 : 50),
+                                x: isExpanded 
+                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : isGridLg ? 110 : 160) 
+                                    : (index - (displayImages.length - 1) / 2) * (isSmall ? 30 : isGridLg ? 35 : 50),
                                 y: isExpanded ? (isSmall ? -10 : -20) : index * -4,
                                 rotate: isExpanded ? (index - (displayImages.length - 1) / 2) * 10 : (index - (displayImages.length - 1) / 2) * 5,
                                 zIndex: 10 - index,
@@ -92,14 +100,15 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                                 alt={`Style thumb ${index}`}
                                 fill
                                 className="object-cover"
-                                sizes="160px"
+                                sizes="200px"
                             />
                         </motion.div>
                     ))
                 ) : (
                     <div className={cn(
                         "rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 text-white/40 bg-white/5",
-                        isSmall ? "w-28 h-28" : "w-40 h-40"
+                        isSmall ? "w-28 h-28" : "w-40 h-40",
+                        isGridLg && "w-[180px] h-[220px]"
                     )}>
                         <Plus size={isSmall ? 18 : 24} />
                         <span className="text-xs">暂无图片</span>
@@ -114,7 +123,8 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                 <div className="flex flex-col items-center justify-center">
                     <h3 className={cn(
                         "font-semibold text-white truncate w-full text-center",
-                        isSmall ? "text-base" : "text-lg"
+                        isSmall ? "text-base" : "text-lg",
+                        isGridLg && "text-xl mt-2"
                     )}>{style.name}</h3>
                     <p className={cn(
                         "text-white/50 line-clamp-2 w-full text-center",

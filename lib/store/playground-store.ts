@@ -95,6 +95,13 @@ interface PlaygroundState {
     previewImageUrl: string | null;
     previewLayoutId: string | null;
     setPreviewImage: (url: string | null, layoutId?: string | null) => void;
+
+    // Gallery
+    galleryItems: Generation[];
+    galleryPage: number;
+    hasMoreGallery: boolean;
+    isFetchingGallery: boolean;
+    fetchGallery: (page?: number) => Promise<void>;
 }
 
 export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
@@ -301,7 +308,9 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             const url = new URL('/api/history', window.location.origin);
             url.searchParams.set('page', page.toString());
             url.searchParams.set('limit', limit.toString());
-            url.searchParams.set('userId', userStore.currentUser.id);
+            if (userStore.currentUser?.id) {
+                url.searchParams.set('userId', userStore.currentUser.id);
+            }
             if (projectId) url.searchParams.set('projectId', projectId);
 
             const res = await fetch(url.toString());
@@ -334,7 +343,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
         set({ isFetchingGallery: true });
         try {
-            const limit = 20;
+            const limit = 1000;
             const url = new URL('/api/history', window.location.origin);
             url.searchParams.set('page', page.toString());
             url.searchParams.set('limit', limit.toString());

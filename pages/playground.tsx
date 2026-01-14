@@ -1,7 +1,8 @@
 "use client";
 
 
-import { useState, useEffect, useRef, RefObject, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useContext, Suspense } from "react";
+import NextImage from "next/image";
 import { useToast } from "@/hooks/common/use-toast";
 
 import { usePromptOptimization, AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
@@ -26,21 +27,30 @@ import { VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-
 import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
-import { History, Image as ImageIcon, Edit2, Sparkles } from "lucide-react";
+import { History, Image as ImageIcon, Edit2, Sparkles, LayoutGrid, X as CloseIcon, Palette } from "lucide-react";
+import { TooltipButton } from "@/components/ui/tooltip-button";
+import dynamic from "next/dynamic";
+
+const GalleryView = dynamic(() => import("@/components/features/playground-v2/GalleryView"), {
+  loading: () => <div className="flex items-center justify-center h-full text-white">Loading Gallery...</div>,
+  ssr: false
+});
+import { StyleStacksView } from '@/components/features/playground-v2/StyleStacksView';
 import { usePlaygroundStore } from "@/lib/store/playground-store";
-import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
+import { TabContext } from "@/components/layout/sidebar";
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
 import { PlaygroundInputSection } from "@/components/features/playground-v2/PlaygroundInputSection";
 import { AR_MAP } from "@/components/features/playground-v2/constants/aspect-ratio";
 import GradualBlur from "@/components/GradualBlur";
+import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
+import { v4 as uuidv4 } from 'uuid';
 
 import gsap from "gsap";
 import { Flip } from "gsap/all";
 import { useGSAP } from "@gsap/react";
 import { observer } from "mobx-react-lite";
 import { projectStore } from "@/lib/store/project-store";
-import { ProjectSidebar } from "@/components/features/playground-v2/ProjectSection/project-sidebar/ProjectSidebar";
 import { AllProjectsView } from "@/components/features/playground-v2/ProjectSection/project-sidebar/AllProjectsView";
 import {
   DndContext,
@@ -60,21 +70,18 @@ export interface PlaygroundV2PageProps {
   onEditMapping?: (workflow: IViewComfy) => void;
   onGenerate?: () => void;
   onHistoryChange?: (history: Generation[]) => void;
-  backgroundRefs?: {
-    cloud: RefObject<HTMLDivElement | null>;
-    tree: RefObject<HTMLDivElement | null>;
-    dog: RefObject<HTMLDivElement | null>;
-    man: RefObject<HTMLDivElement | null>;
-    front: RefObject<HTMLDivElement | null>;
-    bg: RefObject<HTMLDivElement | null>;
-  };
+
 }
+
+type ViewMode = 'home' | 'dock';
+type DockTab = 'history' | 'gallery' | 'describe' | 'style';
 
 export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   onEditMapping,
 }: PlaygroundV2PageProps) {
 
   const { toast } = useToast();
+  const tabContext = useContext(TabContext);
   const config = usePlaygroundStore(s => s.config);
   const updateConfig = usePlaygroundStore(s => s.updateConfig);
   const uploadedImages = usePlaygroundStore(s => s.uploadedImages);
@@ -92,6 +99,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
   const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
   const applyModel = usePlaygroundStore(s => s.applyModel);
+  const addStyle = usePlaygroundStore(s => s.addStyle);
 
   const setConfig = (val: GenerationConfig | ((prev: GenerationConfig) => GenerationConfig)) => {
     const currentConfig = usePlaygroundStore.getState().config;
@@ -137,12 +145,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isPresetGridOpen, setIsPresetGridOpen] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
-  const [isDescribeMode, setIsDescribeMode] = useState(false);
+  // const [isDescribeMode, setIsDescribeMode] = useState(false); // Refactored to viewMode
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
   const [isInputFocused, setIsInputFocused] = useState(false);
+  // const [isGalleryOpen, setIsGalleryOpen] = useState(false); // Refactored to viewMode
   const [batchSize, setBatchSize] = useState(4); // Default batch size
+
+  // New View Mode State
+  const [viewMode, setViewMode] = useState<ViewMode>('home');
+  const [activeTab, setActiveTab] = useState<DockTab>('history');
 
   const {
     showHistory,
@@ -216,12 +229,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     projectStore.toggleSidebar(showProjectSidebar);
   }, [showProjectSidebar]);
 
-  // 进入历史记录时自动展开项目侧边栏
+  // Sync showHistory with viewMode for side effects (like project sidebar)
   useEffect(() => {
-    if (showHistory) {
-      setShowProjectSidebar(true);
+    if (viewMode === 'dock') {
+      if (!showHistory) setShowHistory(true);
+    } else {
+      if (showHistory) setShowHistory(false);
     }
-  }, [showHistory, setShowProjectSidebar]);
+  }, [viewMode, setShowHistory, showHistory]);
 
   // Sync workflow config when workflowName changes (e.g., during backfilling/remix)
   useEffect(() => {
@@ -233,26 +248,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
   }, [config.workflowName, selectedModel, workflows, selectedWorkflowConfig, setSelectedWorkflowConfig]);
 
-  // Handle click outside to close Describe panel
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        isDescribeMode &&
-        describePanelRef.current &&
-        !describePanelRef.current.contains(event.target as Node)
-      ) {
-        setIsDescribeMode(false);
-      }
-    };
-
-    if (isDescribeMode) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDescribeMode]);
+  // Removed click outside listener for Describe panel as it is now a persistent tab in Dock Mode.
 
   const promptWrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -388,8 +384,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   // Wrapper for batch generation
   const handleGenerate = async (configOverride?: GenerationConfig) => {
-    // Auto-expand history panel
-    setShowHistory(true);
+    // Switch to Dock Mode and History Tab
+    setViewMode('dock');
+    setActiveTab('history');
+    setShowHistory(true); // Explicitly set for immediate effect
 
     // Create a unified timestamp for the entire batch to ensure grouping
     const startTime = new Date().toISOString();
@@ -476,9 +474,48 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files; if (!files) return;
     // 默认通过 input 上传的归为参考图，除非有特殊逻辑
-    await handleFilesUpload(files, isDescribeMode ? 'describe' : 'reference');
+    await handleFilesUpload(files, activeTab === 'describe' ? 'describe' : 'reference');
   };
   const removeImage = (index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); };
+
+  const handleStyleUpload = async (files: File[] | FileList) => {
+    const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (uploads.length === 0) return;
+
+    toast({ title: "正在上传图片", description: `正在为新风格处理 ${uploads.length} 张图片...` });
+
+    try {
+      const uploadPromises = uploads.map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!resp.ok) throw new Error('Upload failed');
+        const data = await resp.json();
+        return data.path;
+      });
+
+      const imagePaths = await Promise.all(uploadPromises);
+
+      const newStyle = {
+        id: uuidv4(),
+        name: `新风格 ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        prompt: '',
+        imagePaths,
+        updatedAt: new Date().toISOString()
+      };
+
+      addStyle(newStyle);
+      toast({ title: "风格创建成功", description: `已成功创建新风格并包含 ${uploads.length} 张图片` });
+    } catch (error) {
+      console.error("Failed to upload images for new style", error);
+      toast({
+        title: "创建失败",
+        description: "上传图片过程中出现错误，请重试",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleEditUploadedImage = () => {
     setEditingImageUrl(uploadedImages[0]?.previewUrl || "");
     setIsEditorOpen(true);
@@ -506,7 +543,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       if (workflow) {
         setSelectedWorkflowConfig(workflow);
         setSelectedModel('Workflow');
-        
+
         // 比例和尺寸处理
         const resSize = effectiveConfig.resolution || '1K';
         const arName = effectiveConfig.aspectRatio || '1:1';
@@ -564,6 +601,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     setIsDescribing(true);
     setHasGenerated(true); // Trigger split layout immediately like generate
+    setViewMode('dock');
+    setActiveTab('history');
     setShowHistory(true); // Auto-expand history panel
 
     const startTime = new Date().toISOString();
@@ -659,8 +698,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
   };
 
-  // Removed executeBackgroundGeneration and the old handleGenerate functions.
-  // The new handleGenerate from useGenerationService will be used.
 
   const handleRegenerate = async (result: Generation) => {
     const fullConfig: GenerationConfig = {
@@ -678,9 +715,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const openImageModal = (result: Generation) => {
     setSelectedResult(result);
     setIsImageModalOpen(true);
-    // Ensure dashboard mode is active if we're viewing a specific result
-    if (!showHistory) {
-      setShowHistory(true);
+    // Ensure dock mode is active if we're viewing a specific result
+    if (viewMode !== 'dock') {
+      setViewMode('dock');
+      setActiveTab('history');
     }
   };
 
@@ -777,7 +815,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   // Input UI Helper to avoid duplication
   const inputSectionProps = {
-    showHistory,
+    showHistory: viewMode === 'dock', // Map dock mode to showHistory for layout adaptation
     config,
     uploadedImages,
     describeImages,
@@ -786,7 +824,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     isOptimizing,
     isGenerating,
     isDescribing,
-    isDescribeMode,
+    isDescribeMode: activeTab === 'describe', // Map describe tab to isDescribeMode
     isDraggingOver,
     isDraggingOverPanel,
     isPresetGridOpen,
@@ -822,7 +860,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsLoraDialogOpen,
     setIsPresetGridOpen,
     onClearPreset: () => setSelectedPresetName(undefined),
-    setIsDescribeMode,
+    setIsDescribeMode: (val: boolean) => {
+       if (val) {
+         setViewMode('dock');
+         setActiveTab('describe');
+       } else {
+         // If attempting to close describe mode, maybe go to history?
+         // Or stay in dock mode but change tab?
+         // For now, if val is false, switch to history if we were in describe
+         if (activeTab === 'describe') setActiveTab('history');
+       }
+    },
     setDescribeImages,
     setIsDraggingOver,
     setIsDraggingOverPanel,
@@ -840,9 +888,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           e.preventDefault();
           e.stopPropagation();
           setIsDraggingOver(true);
-          // 自动展开 Describe 面板
-          if (!isDescribeMode) {
-            setIsDescribeMode(true);
+          // 只有在非 Style Tab 下才自动切换到 Describe Tab
+          if (activeTab !== 'describe' && activeTab !== 'style') {
+            setViewMode('dock');
+            setActiveTab('describe');
           }
         }}
         onDragOver={(e) => {
@@ -857,10 +906,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           if (e.relatedTarget === null || (e.relatedTarget as Node).nodeName === 'HTML') {
             setIsDraggingOver(false);
             setIsDraggingOverPanel(false);
-            // 如果退出且没有图片，自动收起
-            if (describeImages.length === 0) {
-              setIsDescribeMode(false);
-            }
+            // 如果退出且没有图片，自动收起 (Optional: Switch back to history?)
+            // For persistent dock, we might want to stay in Describe
           }
         }}
         onDrop={(e) => {
@@ -874,17 +921,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             const dropY = e.clientY;
             const windowHeight = window.innerHeight;
 
-            // 如果是在 Describe 面板区域附近（或当前面板已展开），上传到 Describe
-            if (isDescribeMode || dropY < windowHeight * 0.4) {
+            // 如果是在 Style Tab 下，执行风格上传逻辑
+            if (activeTab === 'style') {
+              handleStyleUpload(files);
+            } else if (activeTab === 'describe' || dropY < windowHeight * 0.4) {
+              // 如果是在 Describe 面板区域附近（或当前面板已展开），上传到 Describe
               handleFilesUpload(files, 'describe');
             } else {
               toast({ title: "已添加参考图", description: "图片已上传至当前生成配置中" });
               handleFilesUpload(files, 'reference');
-            }
-          } else {
-            // 如果松手时没有文件，则收起面板（如果是误操作）
-            if (describeImages.length === 0) {
-              setIsDescribeMode(false);
             }
           }
         }}
@@ -905,7 +950,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               <PlaygroundBackground />
 
               {/* 全局底部渐进模糊 - 仅在预设面板展开且历史记录隐藏时显示 */}
-              {isPresetGridOpen && showHistory && (
+              {isPresetGridOpen && viewMode === 'dock' && (
                 <GradualBlur
                   position="bottom"
                   height="8rem"
@@ -915,134 +960,181 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   className="pointer-events-none z-30"
                 />
               )}
-              
 
 
-              {/* 三栏布局 - showHistory 为 true 时启用 */}
+
+              {/* 三栏布局 - Dock Mode 为 true 时启用 */}
               <div className={cn(
-                "relative z-20 w-full pt-4  h-full",
-                showHistory
+                "relative z-20 w-full  h-full",
+                viewMode === 'dock'
                   ? "flex justify-center"
                   : "flex flex-col items-center justify-center"
               )}>
-                <GradualBlur
-                  target="parent"
-                  position="bottom"
-                  height="40px"
-                  strength={3}
-                  divCount={5}
-                  curve="bezier"
-                  exponential={true}
-                  zIndex={40}
-                  opacity={1}
-                />
 
-                {/* 左侧 Project 面板 - showHistory 时作为三栏的一部分 */}
-                {showHistory && (
-                  <div className="absolute left-4 top-4 bottom-4 w-[10%]  flex flex-col z-50  overflow-hidden min-h-0">
-                    <ProjectSidebar onShowAllProjects={() => setShowAllProjects(true)} />
+                {/* Dock Sidebar - Persistent in Dock Mode */}
+                {viewMode === 'dock' && (
+                  <div className="absolute left-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-[60]  bg-black/0  transition-all duration-300">
+                    {/* 抽取统一的样式逻辑 */}
+                    {(() => {
+                      const getButtonStyle = (isActive: boolean) => cn(
+                        "w-10 h-10 rounded-2xl transition-all duration-200",
+                        isActive
+                          ? "bg-primary/20 text-white border border-white/40 hover:bg-primary/30 hover:border-white/60 hover:scale-105"
+                          : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:scale-110"
+                      );
+
+                      return (
+                        <>
+                          <div className="flex flex-col items-center gap-1">
+                            <TooltipButton
+                              icon={<Sparkles className="w-5 h-5" />}
+                              label="Describe"
+                              tooltipContent="Describe image"
+                              tooltipSide="right"
+                              className={getButtonStyle(activeTab === 'describe')}
+                              onClick={() => setActiveTab('describe')}
+
+                            />
+                            <span className="text-[10px]">Describe</span>
+
+
+                          </div>
+
+
+                          <div className="flex flex-col items-center gap-1">
+
+                            <TooltipButton
+                              icon={<Edit2 className="w-5 h-5" />}
+                              label="Edit Image"
+                              tooltipContent={uploadedImages.length > 0 ? "Edit Image" : "Image Editor"}
+                              tooltipSide="right"
+                              className={getButtonStyle(false)}
+                              onClick={handleEditUploadedImage}
+                            />
+                            <span className="text-[10px]">Edit</span>
+                          </div>
+
+                          <div className="flex flex-col items-center gap-1">
+
+                            <TooltipButton
+                              icon={<History className="w-5 h-5" />}
+                              label="History"
+                              tooltipContent="History"
+                              tooltipSide="right"
+                              className={getButtonStyle(activeTab === 'history')}
+                              onClick={() => setActiveTab('history')}
+                            />
+                            <span className="text-[10px]">History</span>
+
+                          </div>
+
+                          <div className="flex flex-col items-center gap-1">
+                            <TooltipButton
+                              icon={<ImageIcon className="w-5 h-5" />}
+                              label="Gallery"
+                              tooltipContent="Gallery"
+                              tooltipSide="right"
+                              className={getButtonStyle(activeTab === 'gallery')}
+                              onClick={() => setActiveTab('gallery')}
+                            />
+                            <span className="text-[10px]">Gallery</span>
+                          </div>
+
+                          <div className="flex flex-col items-center gap-1">
+                            <TooltipButton
+                              icon={<Palette className="w-5 h-5" />}
+                              label="Styles"
+                              tooltipContent="Styles"
+                              tooltipSide="right"
+                              className={getButtonStyle(activeTab === 'style')}
+                              onClick={() => setActiveTab('style')}
+                            />
+                            <span className="text-[10px]">Style</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 
+
                 {/* 中间内容区 */}
                 <div className={cn(
-                  "flex flex-col items-center relative z-30",
-                  showHistory
-                    ? "w-[95%] md:w-[80%] lg:w-[60%] xl:w-[50vw] h-full pt-4 overflow-hidden"
-                    : "w-[90%] md:w-[70%] lg:w-[50%]",
-                  !showHistory && (isPresetGridOpen ? "mt-0" : "-mt-60")
+                  "flex flex-col items-center relative z-30 w-full px-4 md:px-6",
+                  (activeTab === 'gallery' || activeTab === 'style')
+                    ? "hidden"
+                    : viewMode === 'dock'
+                      ? "max-w-full sm:max-w-[600px] md:max-w-[800px] lg:max-w-[1000px] xl:max-w-[1200px] 2xl:max-w-[1400px] h-full pt-4 overflow-hidden"
+                      : "max-w-full sm:max-w-[540px] md:max-w-[720px] lg:max-w-[800px] xl:max-w-[900px] 2xl:max-w-[1000px]",
+                  (viewMode === 'home') && (isPresetGridOpen ? "mt-0" : "-mt-60")
                 )}>
 
                   <div className={cn(
                     "flex flex-col w-full items-center relative z-30",
-                    showHistory && "h-full"
+                    (viewMode === 'dock') && "h-full"
                   )}>
 
-                    {/* History/Describe Trigger - Only show if history is visible (Above Input) */}
-                    {/* {showHistory && !isDescribeMode && !isPresetGridOpen && (
-                      <div className="flex justify-start w-full mb-4 gap-2">
-                        <button
-                          onClick={() => setIsDescribeMode(!isDescribeMode)}
-                          className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-white/5",
-                            "border-white/20 text-white/60 hover:bg-white/10 hover:text-white"
-                          )}
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          <span className="text-sm font-medium">Describe</span>
-                        </button>
-                        <button
-                          onClick={() => setShowHistory(false)}
-                          className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/60 backdrop-blur-md transition-all bg-black/40 text-white"
-                          )}
-                        >
-                          <History className="w-4 h-4" />
-                          <span className="text-sm font-medium">History</span>
-                        </button>
-                        <button
-                          onClick={handleEditUploadedImage}
-                          className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                          )}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          <span className="text-sm font-medium">
-                            {uploadedImages.length > 0 ? "Edit Image" : "Image Editor"}
-                          </span>
-                        </button>
-                      </div>
-                    )} */}
 
-                    {/* Input UI */}
-                    <div ref={promptWrapperRef} className={cn(
-                      "w-full ",
-                      showHistory && ""
-                    )}>
-                      <div className="w-full">
-                        <PlaygroundInputSection {...inputSectionProps} />
-                      </div>
-                    </div>
-
-                    {/* History/Describe Trigger - Only show if history is NOT visible (Below Input) */}
-                    {!showHistory && !isDescribeMode && !isPresetGridOpen && (
-                      <div className="flex justify-center mt-4 gap-4">
-                        <button
-                          onClick={() => setIsDescribeMode(!isDescribeMode)}
-                          className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-black/10",
-                            isDescribeMode
-                              ? "text-white bg-black/40 border-white/60"
-                              : "border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
-                          )}
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          <span className="text-sm font-medium">Describe</span>
-                        </button>
-                        <button
-                          onClick={() => setShowHistory(true)}
-                          className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
-                          )}
-                        >
-                          <History className="w-4 h-4" />
-                          <span className="text-sm font-medium">History</span>
-                        </button>
-                        <button
-                          onClick={handleEditUploadedImage}
-                          className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
-                          )}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          <span className="text-sm font-medium">
-                            Canvas
-                          </span>
-                        </button>
+                    {/* Input UI - Always present but layout changes based on viewMode */}
+                    {activeTab !== 'gallery' && activeTab !== 'style' && (
+                      <div ref={promptWrapperRef} className={cn(
+                        "w-full ",
+                        viewMode === 'dock' && ""
+                      )}>
+                        <div className="w-full">
+                          <PlaygroundInputSection {...inputSectionProps} />
+                        </div>
                       </div>
                     )}
 
-                    {!isDescribeMode && (
+                    {/* Capsule Triggers - Only visible in Home Mode */}
+                    {viewMode === 'home' && !isPresetGridOpen && (
+                      <div className="flex justify-center mt-4 gap-4">
+                        <button
+                          onClick={() => { setViewMode('dock'); setActiveTab('describe'); }}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-black/10",
+                            "border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          <span className="text-sm font-medium">Describe</span>
+                        </button>
+                        <button
+                          onClick={handleEditUploadedImage}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span className="text-sm font-medium">
+                            Edit
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => { setViewMode('dock'); setActiveTab('history'); }}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <History className="w-4 h-4" />
+                          <span className="text-sm font-medium">History</span>
+                        </button>
+                        <button
+                          onClick={() => { setViewMode('dock'); setActiveTab('gallery'); }}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
+                            "bg-black/10 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <LayoutGrid className="w-4 h-4" />
+                          <span className="text-sm font-medium">Gallery</span>
+                        </button>
+
+                      </div>
+                    )}
+
+                    {!isPresetGridOpen && (activeTab === 'history') && (
                       <PresetGridOverlay
                         open={isPresetGridOpen}
                         onOpenChange={setIsPresetGridOpen}
@@ -1051,9 +1143,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       />
                     )}
 
-                    {/* 历史记录区域 */}
-                    {showHistory && (
-                      <div className="mt-4 mb-4 w-full relative flex-1 overflow-hidden z-30">
+                    {/* History List - Visible in History Tab */}
+                    {viewMode === 'dock' && activeTab === 'history' && (
+                      <div className="mt-2  w-full relative flex-1 overflow-hidden z-30">
                         <HistoryList
                           variant="sidebar"
                           history={filteredHistory}
@@ -1068,27 +1160,49 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                             handleRegenerate(res);
                           }}
                           onDownload={handleDownload}
+                          onEdit={handleEditImage}
                           onImageClick={openImageModal}
                           onBatchUse={handleBatchUse}
                           layoutMode={historyLayoutMode}
                           onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
-                          onClose={() => setShowHistory(false)}
+                          onClose={() => setViewMode('home')}
                         />
                       </div>
                     )}
+                    
                   </div>
                 </div>
 
-                
+                {/* Gallery View - Now a sibling to History List, full width if needed */}
+                {viewMode === 'dock' && activeTab === 'gallery' && (
+                  <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-28">
+                    <div className="h-full w-full  overflow-hidden relative">
+                      <Suspense fallback={<div className="flex w-[90%] items-center justify-center h-full text-white">Loading Gallery...</div>}>
+                        <GalleryView />
+                      </Suspense>
+                    </div>
+                  </div>
+                )}
+
+                {/* Style View */}
+                {viewMode === 'dock' && activeTab === 'style' && (
+                  <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-32">
+                    <div className="h-full w-full  overflow-hidden relative">
+                      <Suspense fallback={<div className="flex  w-[90%] items-center justify-center h-full text-white">Loading Styles...</div>}>
+                         <StyleStacksView isDragging={isDraggingOver} />
+                      </Suspense>
+                    </div>
+                  </div>
+                )}
 
               </div>
 
             </div>
-            {!isPresetGridOpen && !isPresetManagerOpen && !showHistory && (
-              <div className=" absolute bottom-0 w-full  overflow-visible z-50">
+
+            {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && (
+              <div className="absolute bottom-0 w-full overflow-visible z-50">
                 <StylesMarquee />
               </div>
-
             )}
 
             <GoogleApiStatus className="fixed bottom-4 right-4 z-[60]" />
@@ -1114,17 +1228,19 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           onEdit={handleEditImage}
         />
 
-        {isEditorOpen && (
-          <ImageEditorModal
-            isOpen={isEditorOpen}
-            imageUrl={editingImageUrl}
-            onClose={() => setIsEditorOpen(false)}
-            onSave={handleSaveEditedImage}
-            initialState={editingPresetConfig}
-            workflows={workflows}
-            inputSectionProps={inputSectionProps}
-          />
-        )}
+        {
+          isEditorOpen && (
+            <ImageEditorModal
+              isOpen={isEditorOpen}
+              imageUrl={editingImageUrl}
+              onClose={() => setIsEditorOpen(false)}
+              onSave={handleSaveEditedImage}
+              initialState={editingPresetConfig}
+              workflows={workflows}
+              inputSectionProps={inputSectionProps}
+            />
+          )
+        }
 
         <SimpleImagePreview
           imageUrl={previewImageUrl}
@@ -1149,9 +1265,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               className="flex items-center w-[200px] gap-3 p-3 bg-black/70 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl pointer-events-none"
             >
               {activeDragItem.outputUrl ? (
-                <img
+                <NextImage
                   src={activeDragItem.outputUrl}
                   alt="dragging"
+                  width={40}
+                  height={40}
                   className="w-10 h-10 object-cover rounded-lg border border-white/10"
                 />
               ) : (
@@ -1170,8 +1288,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             </div>
           ) : null}
         </DragOverlay>
-      </div>
-    </DndContext>
+      </div >
+    </DndContext >
   );
 });
 

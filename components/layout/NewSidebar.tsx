@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-    History,
     Palette,
     Layers,
     Settings,
@@ -35,7 +34,6 @@ interface NewSidebarProps {
 
 const navItems = [
     { label: "Playground", value: TabValue.Playground, icon: Palette },
-    { label: "Explore", value: TabValue.Gallery, icon: History },
     { label: "Tools", value: TabValue.Tools, icon: Wand2 },
     { label: "Dataset", value: TabValue.DatasetManager, icon: Layers },
     { label: "Settings", value: TabValue.Settings, icon: Settings },
@@ -47,10 +45,10 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
 
     return (
         <header
-            className="fixed top-0 left-0 right-0 h-14 z-50 flex items-center justify-between px-8 select-none"
+            className="fixed top-2 px-14 left-0 right-0 h-14 z-50 flex items-center justify-between px-8 select-none"
         >
             <div
-                className="flex items-center cursor-pointer absolute top-4 left-6  hover:opacity-80 transition-opacity"
+                className="flex items-center cursor-pointer absolute top-4 hover:opacity-80 transition-opacity"
                 onClick={() => {
                     onTabChange(TabValue.Playground);
                 }}
@@ -154,9 +152,7 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                     </Button>
                 )}
 
-                <div className="text-white/20 text-[10px] tracking-tight">
-                    v0.2.1
-                </div>
+                
             </div>
 
             <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />

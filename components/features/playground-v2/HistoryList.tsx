@@ -4,7 +4,7 @@ import { projectStore } from '@/lib/store/project-store';
 
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, LayoutGrid, List, X, FolderPlus, GripVertical, Folder, Layers } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, FolderPlus, GripVertical, Layers, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
-import GradualBlur from "@/components/GradualBlur";
 import PixelCard from "@/components/PixelCard";
 import { useDraggable } from "@dnd-kit/core";
 import {
@@ -30,6 +29,7 @@ interface HistoryListProps {
   history: Generation[];
   onRegenerate: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
+  onEdit?: (result: Generation) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   isGenerating?: boolean;
   variant?: 'default' | 'sidebar';
@@ -51,12 +51,11 @@ const HistoryList = observer(function HistoryList({
   history,
   onRegenerate,
   onDownload,
+  onEdit,
   onImageClick,
   variant = 'default',
 
   layoutMode = 'list',
-  onLayoutModeChange,
-  onClose,
 }: HistoryListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const {
@@ -80,7 +79,7 @@ const HistoryList = observer(function HistoryList({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMoreHistory && !isFetchingHistory) {
-          fetchHistory(historyPage + 1, projectStore.currentProjectId);
+          fetchHistory(historyPage + 1, projectStore.currentProjectId || undefined);
         }
       },
       { threshold: 0.1, root: scrollRef.current }
@@ -93,19 +92,6 @@ const HistoryList = observer(function HistoryList({
     return () => observer.disconnect();
   }, [hasMoreHistory, isFetchingHistory, historyPage, fetchHistory]);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
-
-
-  const handleSelectAll = () => {
-    const allIds = history.map(item => item.id);
-    setHistorySelection(allIds);
-  };
-
-  const handleDeselectAll = () => {
-    clearSelection();
-  };
-
-
-
 
 
   // Group history by start time (createdAt) and parameters to reflect single-click aggregation
@@ -179,7 +165,7 @@ const HistoryList = observer(function HistoryList({
 
 
       {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
-      <div className="flex items-center justify-between px-6 pt-4 pb-2 z-20 shrink-0">
+      {/* <div className="flex items-center justify-between px-6 pt-4 pb-2 z-20 shrink-0">
            <GradualBlur
         target="parent"
         position="top"
@@ -287,13 +273,13 @@ const HistoryList = observer(function HistoryList({
           </button>
         </div>
         
-      </div>
+      </div> */}
       
 
       <div
         ref={scrollRef}
         className={cn(
-          "flex-1 overflow-y-auto custom-scrollbar z-30 px-4 ",
+          "flex-1 overflow-y-auto  z-30  ",
           variant === 'default' ? "mt-0" : "mt-2"
         )}
       >
@@ -302,7 +288,7 @@ const HistoryList = observer(function HistoryList({
           layoutMode === 'list'
             ? "flex flex-col gap-8 w-full mt-4 mx-auto"
             : "columns-1 sm:columns-2 md:columns-2 lg:columns-3 xl:columns-4 space-y-2 mt-4 w-full mx-auto",
-          variant === 'default' ? "max-w-[1500px]" : "max-w-full"
+          variant === 'default' ? "max-w-[1600px]" : "max-w-full"
         )}>
           {layoutMode === 'grid' ? (
             history.map((result, idx) => {
@@ -323,6 +309,7 @@ const HistoryList = observer(function HistoryList({
                       result={result}
                       onRegenerate={onRegenerate}
                       onDownload={onDownload}
+                      onEdit={onEdit}
                       onImageClick={onImageClick}
                       onRefImageClick={(url, id) => {
                         setPreviewImage(url, id);
@@ -366,6 +353,7 @@ const HistoryList = observer(function HistoryList({
                           allResults={group.items}
                           onRegenerate={onRegenerate}
                           onDownload={onDownload}
+                          onEdit={onEdit}
                           onImageClick={onImageClick}
                           onRefImageClick={(url, id) => {
                             setPreviewImage(url, id);
@@ -387,7 +375,7 @@ const HistoryList = observer(function HistoryList({
                         </div>
                       </div>
 
-                      <div className="relative bg-transparent grid grid-cols-[1.5fr_4fr] gap-2 items-stretch content-start">
+                      <div className="relative bg-transparent grid grid-cols-[minmax(0,1.8fr)_minmax(0,4fr)] gap-2 items-stretch content-start">
                         <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
                           {group.sourceImage ? (
                             <motion.div
@@ -478,7 +466,7 @@ const HistoryList = observer(function HistoryList({
               exit={{ opacity: 0, y: 20 }}
               className="absolute bottom-60 left-1/2 -translate-x-1/2 z-30 w-fit"
             >
-              <div className="flex items-center gap-3 px-4 py-2 bg-black/20 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl">
+              <div className="flex items-center gap-3 px-4 py-2 bg-black/20 backdrop-blur-xl  rounded-3xl shadow-2xl">
                 <span className="text-md text-white/80 px-2">
                   {selectedIds.size} selected
                 </span>
@@ -567,6 +555,7 @@ function HistoryCard({
   allResults,
   onRegenerate,
   onDownload,
+  onEdit,
   onImageClick,
   onRefImageClick,
   layoutMode = 'list',
@@ -578,6 +567,7 @@ function HistoryCard({
   allResults?: Generation[];
   onRegenerate: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
+  onEdit?: (result: Generation) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onRefImageClick: (url: string, id: string) => void;
   layoutMode?: 'grid' | 'list';
@@ -656,7 +646,7 @@ function HistoryCard({
             exit={{ opacity: 0, y: -20 }}
             className="space-y-2"
           >
-            <motion.div className="relative h-full bg-transparent grid grid-cols-5 gap-4 items-stretch content-start">
+            <motion.div className="relative h-full bg-transparent grid grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))] gap-4 items-stretch content-start">
               <motion.div
                 className="relative w-full h-full overflow-hidden rounded-2xl border border-white/10 bg-black/10 backdrop-blur-md p-4 flex flex-col justify-start"
               >
@@ -697,13 +687,7 @@ function HistoryCard({
                     {prompt}
                   </p>
 
-                  {/* {result.llmResponse && (
-                    <div className="mt-2 p-2 rounded bg-white/5 border border-white/5">
-                      <p className="text-[11px] text-white/50 leading-relaxed font-mono whitespace-pre-wrap">
-                        {result.llmResponse}
-                      </p>
-                    </div>
-                  )} */}
+                
 
                   {result.sourceImageUrl && (
                     <div className="mt-3 group/ref relative w-fit">
@@ -908,6 +892,18 @@ function HistoryCard({
                           />
 
                           <TooltipButton
+                            icon={<Pencil className="w-4 h-4" />}
+                            label="Edit"
+                            tooltipContent="Edit"
+                            tooltipSide="top"
+                            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEdit?.(res);
+                            }}
+                          />
+
+                          <TooltipButton
                             icon={<Download className="w-4 h-4" />}
                             label="Download"
                             tooltipContent="Download"
@@ -1047,6 +1043,14 @@ function HistoryCard({
             })}
           />
           <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+          <TooltipButton
+            icon={<Pencil className="w-4 h-4" />}
+            label="Edit"
+            tooltipContent="Edit"
+            tooltipSide="top"
+            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+            onClick={() => onEdit?.(result)}
+          />
           <TooltipButton
             icon={<RefreshCw className="w-4 h-4" />}
             label="Remix"

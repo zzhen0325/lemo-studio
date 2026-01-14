@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
-import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, Filter, LayoutGrid, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, Filter, LayoutGrid, SlidersHorizontal, Trash2, LucideIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sidebar, SidebarContent, SidebarHeader } from "@/components/ui/sidebar";
 import GradualBlur from "@/components/GradualBlur";
@@ -12,7 +12,6 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
 import { Generation } from '@/types/database';
-import { StyleStacksView } from './StyleStacksView';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -25,27 +24,13 @@ import { Layers } from 'lucide-react';
 
 
 
-export type GalleryTab = 'gallery' | 'styles' | 'prompts';
-
-interface GalleryViewProps {
-    variant?: 'full' | 'sidebar';
-    activeTab?: GalleryTab;
-}
-
-export default function GalleryView({ variant = 'full', activeTab }: GalleryViewProps) {
+export default function GalleryView() {
     const [selectedItem, setSelectedItem] = useState<Generation | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingImageUrl, setEditingImageUrl] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedModels, setSelectedModels] = useState<string[]>([]);
     const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
-
-    // Internal state for standalone usage
-    const [internalActiveView, setInternalActiveView] = useState<GalleryTab>('gallery');
-
-    // Use prop if provided, else internal state
-    const activeView = activeTab || internalActiveView;
-    const setActiveView = (view: GalleryTab) => setInternalActiveView(view);
 
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
@@ -61,16 +46,13 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
     const is2Xl = useMediaQuery("(min-width: 1536px)");
 
     const columnsCount = React.useMemo(() => {
-        if (variant === 'sidebar') {
-            return isSm ? 2 : 1;
-        }
         if (is2Xl) return 6;
         if (isXl) return 5;
         if (isLg) return 4;
         if (isMd) return 3;
         if (isSm) return 2;
         return 1;
-    }, [variant, isSm, isMd, isLg, isXl, is2Xl]);
+    }, [isSm, isMd, isLg, isXl, is2Xl]);
 
     // Available Models & Presets
     const availableModels = useMemo(() => {
@@ -211,7 +193,7 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    const FilterItem = ({ label, isSelected, onClick, icon: Icon }: { label: string, isSelected: boolean, onClick: () => void, icon: React.ComponentType<any> }) => (
+    const FilterItem = ({ label, isSelected, onClick, icon: Icon }: { label: string, isSelected: boolean, onClick: () => void, icon: LucideIcon }) => (
         <div
             onClick={onClick}
             className={cn(
@@ -227,53 +209,50 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
     );
 
     return (
-        <div className={cn(
-            "w-full h-full",
-            variant === 'full' ? "p-12 pt-16 border bg-[#0F0F15]" : ""
-        )}>
-            <div className={cn(
-                "flex flex-col w-full h-full overflow-hidden",
-                variant === 'full' ? "bg-[#0F0F15]/40 rounded-2xl p-4" : "p-0"
-            )}>
-                <div className={cn(
-                    "flex  flex-row z-20 pb-4 bg-transparent",
-                    variant === 'full' ? "" : "px-4 pt-2"
-                )}>
-                      {/* View Switcher Tabs */}
-                    {variant === 'full' && (
-                        <div className="flex items-center gap-2 w-48 h-12 p-1 bg-white/5 border border-white/10 rounded-2xl ">
-                            <button
-                                onClick={() => setActiveView('gallery')}
-                                className={cn(
-                                    "px-2 py-2 w-full rounded-xl text-sm font-medium transition-all",
-                                    activeView === 'gallery' ? "bg-white text-black shadow-lg" : "text-white/40 hover:text-white/60"
-                                )}
-                            >
-                                Gallery
-                            </button>
-                            <button
-                                onClick={() => setActiveView('styles')}
-                                className={cn(
-                                    "px-2 py-2 w-full rounded-xl text-sm font-medium transition-all",
-                                    activeView === 'styles' ? "bg-white text-black " : "text-white/40 hover:text-white/60"
-                                )}
-                            >
-                                Styles
-                            </button>
-                           
-                        </div>
-                    )}
-                    <div className={cn(
-                        "relative group",
-                        variant === 'full' ? "flex-1 h-12 w-full pl-6" : ""
-                    )}>
-                        <Search className=" absolute left-10 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
+        <div className="w-[90%] h-full mt-20 mx-auto  bg-transparent flex flex-col overflow-hidden">
+          
+                <div className="flex flex-row z-20 pb-4 bg-transparent shrink-0">
+                       {/* 搜索框 */}
+                   
+                </div>
+
+                
+                <div className="flex flex-1 overflow-hidden min-h-0">
+                  
+
+                    <div className=" w-full space-y-6 min-w-0 flex flex-col">
+                      
+
+                        {loading && sortedHistory.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+                                <div className="relative">
+                                    <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                                    <div className="absolute inset-0 bg-gray-500/20 blur-xl animate-pulse rounded-full" />
+                                </div>
+                                <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
+                            </div>
+                        ) : sortedHistory.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32">
+                                <div className="p-6 bg-white/5 rounded-full">
+                                    <Search className="w-12 h-12 text-white/20" />
+                                </div>
+                                <div className="text-center space-y-2">
+                                    <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
+                                    <p className="text-white/30">Your generated images will appear here once you start creating.</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col space-y-1 ">
+
+                            
+                             <div className="relative group flex-1 h-12 w-full ">
+                        <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
                         <input
                             type="text"
                             placeholder="Search prompts..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-12 bg-white/10  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
+                            className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
                         />
                         {searchQuery && (
                             <button
@@ -287,13 +266,27 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
 
                    
                     </div>
-                  
+                            <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-3xl">
+                                
+                                <MasonryGrid
+                                    items={sortedHistory}
+                                    columnsCount={columnsCount}
+                                    renderItem={(item) => (
+                                        <GalleryCard
+                                            key={item.id || item.createdAt}
+                                            item={item}
+                                            onClick={() => item.status !== 'pending' && setSelectedItem(item)}
+                                            onDownload={handleDownload}
+                                        />
+                                    )}
+                                />
+                            </div>
 
-                </div>
-                <div className="flex flex-1 overflow-hidden min-h-0">
-                    {/* Sidebar Filters - Only visible in full gallery mode */}
-                    {variant === 'full' && activeView === 'gallery' && (
-                        <div className="w-48 flex-none  pb-2 flex flex-col min-h-0">
+                            </div>
+                        )}
+                    </div>
+                      {/* Sidebar Filters - Only visible in full gallery mode */}
+                        <div className="w-48 flex-none  pb-2 pl-6 flex flex-col min-h-0">
                             <div className="bg-white/5 border border-white/10 rounded-2xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
                                 <GradualBlur
                                     target="parent"
@@ -313,10 +306,10 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                                         endOffset: 80
                                     }}
                                 />
-                                <div className="p-4 flex flex-col gap-4 flex-1 min-h-0">
+                                <div className="p-2 pt-4 flex flex-col gap-4 flex-1 min-h-0">
                                     {/* Header */}
                                     <div className="flex items-center px-2 justify-between z-20 shrink-0">
-                                        <span className="text-2 xl text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Filters</span>
+                                        <span className="text-xl text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Filters</span>
                                         {(selectedModels.length > 0 || selectedPresets.length > 0) && (
                                             <button
                                                 onClick={() => {
@@ -336,7 +329,7 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                                             {/* Models Section */}
                                             {availableModels.length > 0 && (
                                                 <div className="space-y-2">
-                                                    <div className="text-xs font-medium text-white/40 uppercase tracking-wider px-2">Models</div>
+                                                    <div className="text-sm  text-white/40  ">Models</div>
                                                     <div className="space-y-1">
                                                         {availableModels.map(model => (
                                                             <FilterItem
@@ -354,7 +347,7 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                                             {/* Presets Section */}
                                             {availablePresets.length > 0 && (
                                                 <div className="space-y-2">
-                                                    <div className="text-xs font-medium text-white/40 uppercase tracking-wider px-2">Presets</div>
+                                                    <div className="text-sm  text-white/40 ">Presets</div>
                                                     <div className="space-y-1">
                                                         {availablePresets.map(preset => (
                                                             <FilterItem
@@ -373,65 +366,6 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                                 </div>
                             </div>
                         </div>
-                    )}
-
-                    <div className="flex-1 w-full space-y-6 overflow-y-auto min-w-0  pl-6">
-                        {/* <header className="flex flex-col md:flex-row md:items-end justify-between gap-1">
-                        <div className="space-y-2">
-                            <h1 className="text-5xl font-bold tracking-tight text-white/90">Gallery Archive</h1>
-                            <p className="text-white/40 text-lg">Explore your creative journey through generated history.</p>
-                        </div>
-                        <div className="flex items-center gap-4 bg-white/5 border border-white/10 px-6 py-3 rounded-2xl backdrop-blur-xl">
-                            <div className="flex flex-col items-end">
-                                <span className="text-white/60 text-sm font-medium">Total Assets</span>
-                                <span className="text-white text-2xl font-bold tabular-nums">{history.length}</span>
-                            </div>
-                        </div>
-                    </header> */}
-
-                        {loading && sortedHistory.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-                                <div className="relative">
-                                    <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                                    <div className="absolute inset-0 bg-gray-500/20 blur-xl animate-pulse rounded-full" />
-                                </div>
-                                <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
-                            </div>
-                        ) : activeView === 'styles' ? (
-                            <StyleStacksView />
-                        ) : sortedHistory.length === 0 ? (
-                            <div className={cn(
-                                "flex flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1",
-                                variant === 'full' ? "py-32" : "py-12 mx-4"
-                            )}>
-                                <div className="p-6 bg-white/5 rounded-full">
-                                    <Search className="w-12 h-12 text-white/20" />
-                                </div>
-                                <div className="text-center space-y-2">
-                                    <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
-                                    <p className="text-white/30">Your generated images will appear here once you start creating.</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className={cn(
-                                "flex-1 w-full h-full overflow-y-auto custom-scrollbar",
-                                variant === 'full' ? "rounded-2xl " : "px-2 pb-2 rounded-2xl"
-                            )}>
-                                <MasonryGrid
-                                    items={sortedHistory}
-                                    columnsCount={columnsCount}
-                                    renderItem={(item) => (
-                                        <GalleryCard
-                                            key={item.id || item.createdAt}
-                                            item={item}
-                                            onClick={() => item.status !== 'pending' && setSelectedItem(item)}
-                                            onDownload={handleDownload}
-                                        />
-                                    )}
-                                />
-                            </div>
-                        )}
-                    </div>
                 </div>
 
                 <ImagePreviewModal
@@ -446,8 +380,9 @@ export default function GalleryView({ variant = 'full', activeTab }: GalleryView
                     imageUrl={editingImageUrl}
                     onClose={() => setIsEditorOpen(false)}
                     onSave={handleSaveEditedImage}
+                    workflows={[]}
                 />
-            </div >
+            
         </div >
     );
 }

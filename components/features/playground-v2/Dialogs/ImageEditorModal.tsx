@@ -356,12 +356,15 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                     {/* Header */}
                     <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 bg-black/60 backdrop-blur-2xl shrink-0">
                         <div className="flex items-center gap-4">
-                            <h2
-                                className="text-lg text-white"
-                                style={{ fontFamily: "'InstrumentSerif', serif" }}
+                            <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 px-3 rounded-full bg-white/20 text-white/60 hover:text-white hover:bg-white/10"
+                                onClick={onClose}
                             >
-                                Image Editor
-                            </h2>
+                                <X className="w-4 h-4 " />
+                                Exit
+                            </Button>
                             <div className="flex items-center gap-1 ml-2">
                                 <Button
                                     variant="ghost"
@@ -391,15 +394,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-3 rounded-full text-white/60 hover:text-white hover:bg-white/10"
-                                onClick={onClose}
-                            >
-                                <X className="w-4 h-4 mr-1.5" />
-                                Cancel
-                            </Button>
+                           
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -745,7 +740,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                             </div>
                         </div>
                         {inputSectionProps && (
-                            <div className="flex-none z-[130] border-t border-white/10 bg-black/60 backdrop-blur-xl p-4">
+                            <div className="absolute bottom-20 left-1/2 -translate-x-1/2  w-4xl  shadow-2xl shadow-[0px_10px_30px_0px_rgba(0,0,0,0.10)]  bg-[#5d7b9544] rounded-[30px] ">
                                 <PlaygroundInputSection 
                                     {...inputSectionProps} 
                                     hideTitle 

@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect } from 'react';
 import { StyleStackCard } from './StyleStackCard';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 
@@ -27,7 +26,7 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = () => {
 
     return (
         <div
-            className="relative w-full overflow-hidden py-16 select-none pointer-events-auto group/marquee"
+            className="relative w-full overflow-hidden py-[4vw] select-none pointer-events-auto group/marquee [&_h3]:!text-black/80 [&_p]:!text-black/40"
         >
             <style>
                 {`
@@ -38,13 +37,13 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = () => {
                 `}
             </style>
             <div
-                className="flex gap-20 w-max px-8 group-hover/marquee:[animation-play-state:paused]"
+                className="flex gap-10 w-max  group-hover/marquee:[animation-play-state:paused]"
                 style={{
                     animation: `marquee ${styles.length * 10}s linear infinite`
                 }}
             >
                 {duplicatedStyles.map((style, idx) => (
-                    <div key={`${style.id}-${idx}`} className="w-[200px] shrink-0">
+                    <div key={`${style.id}-${idx}`} className="w-[14vw]  text-black shrink-0">
                         <StyleStackCard
                             style={style}
                             size="sm"
