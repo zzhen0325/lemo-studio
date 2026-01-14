@@ -39,7 +39,38 @@ async function readHistory() {
 // Atomic write helper with backup
 async function saveHistory(history: Generation[]) {
     const tmpFile = `${HISTORY_FILE}.tmp`;
-    const content = JSON.stringify(history, null, 2);
+    
+    // 1. Sanitize history to prevent RangeError: Invalid string length
+    // Keep only the last 1000 items in the global index to keep it manageable
+    const MAX_HISTORY_ITEMS = 1000;
+    const itemsToSave = history.slice(0, MAX_HISTORY_ITEMS);
+
+    const sanitizedHistory = itemsToSave.map(item => {
+        const newItem = { ...item };
+        
+        // Remove extremely large fields in the global history index
+        if (newItem.sourceImageUrl && newItem.sourceImageUrl.length > 5000) {
+            if (newItem.sourceImageUrl.startsWith('data:')) {
+                newItem.sourceImageUrl = "(large base64 data truncated)";
+            }
+        }
+
+        // Deep sanitize config if needed
+        if (newItem.config) {
+            const config = newItem.config as any;
+            if (config.sourceImageUrl && config.sourceImageUrl.length > 5000) {
+                if (config.sourceImageUrl.startsWith('data:')) {
+                    config.sourceImageUrl = "(large base64 data truncated)";
+                }
+            }
+        }
+
+        return newItem;
+    });
+
+    // 2. Use compact JSON for the global index if it's still large
+    // Indentation (null, 2) can triple the size of the file
+    const content = JSON.stringify(sanitizedHistory);
 
     try {
         // 1. 先写入临时文件
@@ -342,6 +373,17 @@ export async function POST(request: Request) {
         const item = body as Generation;
         if (!item || (!item.outputUrl && !item.id)) {
             return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
+        }
+
+        // Sanitize incoming item to prevent bloat
+        if (item.sourceImageUrl && item.sourceImageUrl.length > 5000 && item.sourceImageUrl.startsWith('data:')) {
+            item.sourceImageUrl = "(large base64 data truncated)";
+        }
+        if (item.config) {
+            const config = item.config as any;
+            if (config.sourceImageUrl && config.sourceImageUrl.length > 5000 && config.sourceImageUrl.startsWith('data:')) {
+                config.sourceImageUrl = "(large base64 data truncated)";
+            }
         }
 
         await ensureOutputsDir();

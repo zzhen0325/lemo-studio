@@ -287,9 +287,9 @@ export function PlaygroundInputSection({
                             </div>
                             {variant !== 'mini' && (
                                 <Button
-                                    variant="default"
+                                    variant="light"
                                     size="sm"
-                                    className="h-4 w-4 absolute right-4 top-4 bg-transparent hover:text-white hover:drop-shadow-[0_0_px_rgba(255,255,255,0.8)] text-white/70 rounded-2xl"
+                                    className="h-4 w-4 absolute right-4 top-4 rounded-2xl disabled:opacity-100"
                                     disabled={isOptimizing}
                                     onClick={() => {
                                         if (!isOptimizing) {
@@ -300,13 +300,13 @@ export function PlaygroundInputSection({
                                     <motion.div
                                         animate={isOptimizing ? {
                                             filter: [
-                                                "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))",
-                                                "drop-shadow(0 0 10px rgba(255, 255, 255, 0.8))",
-                                                "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))"
+                                                "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))",
+                                                "drop-shadow(0 0 14px rgba(202, 255, 196, 1))",
+                                                "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))"
                                             ]
                                         } : {}}
                                         transition={{
-                                            duration: 2,
+                                            duration: 1,
                                             repeat: Infinity,
                                             ease: "easeInOut"
                                         }}

@@ -418,7 +418,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         if (taskId) {
           setTimeout(() => {
             executeGeneration(taskId, finalConfig, startTime, sourceImageUrl);
-          }, i * 800);
+          }, i * 1100);
         }
       });
     }
@@ -814,7 +814,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
   // Input UI Helper to avoid duplication
-  const inputSectionProps = {
+  const inputSectionProps = useMemo(() => ({
     showHistory: viewMode === 'dock', // Map dock mode to showHistory for layout adaptation
     config,
     uploadedImages,
@@ -874,7 +874,20 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setDescribeImages,
     setIsDraggingOver,
     setIsDraggingOverPanel,
-  };
+  }), [
+    viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused, 
+    isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver, 
+    isDraggingOverPanel, isPresetGridOpen, isAspectRatioLocked, isMockMode, 
+    isSelectorExpanded, batchSize, selectedModel, selectedAIModel, selectedLoras, 
+    selectedPresetName, selectedWorkflowConfig, workflows, fileInputRef, 
+    describePanelRef, setConfig, setIsStackHovered, setIsInputFocused, 
+    setPreviewImage, removeImage, handleFilesUpload, handleOptimizePrompt, 
+    handleGenerate, handleDescribe, setSelectedAIModel, setSelectedModel, 
+    setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults, 
+    setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen, 
+    setIsPresetGridOpen, setSelectedPresetName, setDescribeImages, setIsDraggingOver, 
+    setIsDraggingOverPanel
+  ]);
 
   return (
     <DndContext
@@ -1049,7 +1062,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                               className={getButtonStyle(activeTab === 'style')}
                               onClick={() => setActiveTab('style')}
                             />
-                            <span className="text-[10px]">Style</span>
+                            <span className="text-[10px]">Moodboards</span>
                           </div>
                         </>
                       );
@@ -1127,9 +1140,22 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                             "bg-black/10 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
                           )}
                         >
-                          <LayoutGrid className="w-4 h-4" />
+                          <ImageIcon className="w-4 h-4" />
                           <span className="text-sm font-medium">Gallery</span>
                         </button>
+
+                           <button
+                          onClick={() => { setViewMode('dock'); setActiveTab('style'); }}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
+                            "bg-black/10 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Palette className="w-4 h-4" />
+                          <span className="text-sm font-medium">Moodboards</span>
+                        </button>
+
+
 
                       </div>
                     )}

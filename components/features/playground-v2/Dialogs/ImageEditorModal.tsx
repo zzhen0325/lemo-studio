@@ -256,6 +256,50 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, deleteSelected]);
 
+    // 实时同步标注信息到下方 Prompt 输入框
+    useEffect(() => {
+        if (!inputSectionProps?.setConfig) return;
+
+        const annotations = getAnnotationsInfo();
+        const pendingText = annotationText.trim();
+        const pendingAnnotation = editorState.pendingAnnotation;
+        
+        // 过滤掉正在编辑的那个标注（如果有的话），避免重复
+        const filteredAnnotations = annotations.filter(ann => {
+            if (pendingAnnotation?.existingLabel) {
+                // @ts-expect-error - annotationMeta is a custom property added to the label
+                return pendingAnnotation.existingLabel.annotationMeta !== ann;
+            }
+            return true;
+        });
+
+        const descriptions = filteredAnnotations.map(ann => `${ann.colorName} annotation: ${ann.text}`);
+        
+        // 如果有正在编辑的标注且有文字内容，也加入实时同步
+        if (pendingText && pendingAnnotation) {
+            const colorName = EDITOR_COLORS.find(c => c.hex === pendingAnnotation.color)?.name || 'Red';
+            descriptions.push(`${colorName} annotation: ${pendingText}`);
+        }
+
+        if (descriptions.length > 0) {
+            const finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注。\n标注说明：\n${descriptions.join('\n')}`;
+            
+            // 避免在没有变化时频繁触发更新
+            if (inputSectionProps.config.prompt !== finalPrompt) {
+                inputSectionProps.setConfig(prev => ({
+                    ...prev,
+                    prompt: finalPrompt
+                }));
+            }
+        } else if (inputSectionProps.config.prompt && inputSectionProps.config.prompt.startsWith('根据图中的彩色标注修改图片')) {
+            // 如果所有标注都被清空了，且当前的 prompt 是由标注生成的，则清空它
+            inputSectionProps.setConfig(prev => ({
+                ...prev,
+                prompt: ''
+            }));
+        }
+    }, [editorState, annotationText, getAnnotationsInfo, inputSectionProps]);
+
     const handleSave = (e?: React.MouseEvent | boolean) => {
         const shouldGenerate = typeof e === 'boolean' ? e : false;
         const dataUrl = exportImage();
@@ -505,24 +549,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
 
                             <div className="w-8 h-px bg-white/10 my-1" />
 
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="p-2 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors">
-                                        <SlidersHorizontal className="w-5 h-5" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    side="right"
-                                    className="bg-black/90 backdrop-blur-xl border-white/10 text-white p-2 min-w-[140px] rounded-xl z-[110]"
-                                >
-                                    <DropdownMenuItem onClick={() => applyFilter('grayscale')} className="rounded-lg focus:bg-white/10">Grayscale</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => applyFilter('sepia')} className="rounded-lg focus:bg-white/10">Sepia</DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => applyFilter('invert')} className="rounded-lg focus:bg-white/10">Invert</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <div className="w-8 h-px bg-white/10 my-1" />
-
                             <ToolButton
                                 icon={ImagePlus}
                                 onClick={() => fileInputRef.current?.click()}
@@ -614,8 +640,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
 
                                 {/* Empty State Overlay */}
                                 {!isInitialized && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center z-50">
-                                        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 p-12 rounded-[40px] flex flex-col items-center gap-8 shadow-2xl">
+                                    <div className="absolute inset-0 -mt-20 flex flex-col items-center justify-center z-50">
+                                        <div className="bg-black/0   p-12 rounded-[40px] flex flex-col items-center gap-8 ">
                                             <div className="flex flex-col items-center gap-3 text-center">
                                                 <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
                                                     <ImagePlus className="w-8 h-8 text-primary" />
