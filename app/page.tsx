@@ -74,6 +74,7 @@ export default function Page() {
         if (tab === TabValue.Playground) {
             setHasGenerated(false);
             usePlaygroundStore.getState().setShowHistory(false);
+            usePlaygroundStore.getState().setViewMode('home');
         }
 
         setCurrentTab(tab);

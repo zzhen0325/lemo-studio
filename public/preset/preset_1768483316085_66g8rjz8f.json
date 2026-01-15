@@ -1,0 +1,16 @@
+{
+  "name": "3D lemo",
+  "coverUrl": "/preset/preset_1768483316085_66g8rjz8f.png",
+  "category": "lemo",
+  "config": {
+    "prompt": "a yellow lemo,",
+    "width": 1376,
+    "height": 768,
+    "model": "Seed 4.2",
+    "resolution": "2K",
+    "lora": ""
+  },
+  "type": "generation",
+  "id": "preset_1768483316085_66g8rjz8f",
+  "createdAt": "2026-01-15T13:21:56.085Z"
+}

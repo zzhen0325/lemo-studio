@@ -161,7 +161,8 @@ export function PlaygroundInputSection({
 
     return (
         <div className={cn(
-            "flex flex-col items-center w-full pointer-events-auto"
+            "flex flex-col items-center w-full pointer-events-auto",
+            showHistory && isDescribeMode && "h-full"
         )}>
             {!showHistory && !hideTitle && (
                 <div style={{ fontFamily: "'InstrumentSerif', serif" }}>
@@ -390,21 +391,23 @@ export function PlaygroundInputSection({
             </div>
 
             {variant !== 'mini' && isDescribeMode && (
-                <DescribePanel
-                    open={isDescribeMode}
-                    panelRef={describePanelRef}
-                    describeImages={describeImages}
-                    isDraggingOverPanel={isDraggingOverPanel}
-                    setIsDraggingOverPanel={setIsDraggingOverPanel}
-                    setIsDraggingOver={setIsDraggingOver}
-                    onUploadClick={() => fileInputRef.current?.click()}
-                    onDropFiles={(files) => handleFilesUpload(files, 'describe')}
-                    onClose={() => setIsDescribeMode(false)}
-                    onRemoveImage={(idx) => setDescribeImages(prev => prev.filter((_, i) => i !== idx))}
-                    isDescribing={isDescribing}
-                    isGenerating={isGenerating}
-                    onDescribe={handleDescribe}
-                />
+                <div className={cn("w-full", showHistory && "flex-1 min-h-0")}>
+                    <DescribePanel
+                        open={isDescribeMode}
+                        panelRef={describePanelRef}
+                        describeImages={describeImages}
+                        isDraggingOverPanel={isDraggingOverPanel}
+                        setIsDraggingOverPanel={setIsDraggingOverPanel}
+                        setIsDraggingOver={setIsDraggingOver}
+                        onUploadClick={() => fileInputRef.current?.click()}
+                        onDropFiles={(files) => handleFilesUpload(files, 'describe')}
+                        onClose={() => setIsDescribeMode(false)}
+                        onRemoveImage={(idx) => setDescribeImages(prev => prev.filter((_, i) => i !== idx))}
+                        isDescribing={isDescribing}
+                        isGenerating={isGenerating}
+                        onDescribe={handleDescribe}
+                    />
+                </div>
             )}
         </div>
     );

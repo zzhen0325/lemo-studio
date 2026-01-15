@@ -13,7 +13,14 @@ function getDatabaseUrl(): string {
 
 function getPool(): Pool {
   if (!pool) {
-    pool = new Pool({ connectionString: getDatabaseUrl() });
+    const connectionString = getDatabaseUrl();
+    try {
+      const url = new URL(connectionString);
+      console.log(`[DB] Connecting to host: ${url.hostname}, user: ${url.username}, database: ${url.pathname.slice(1)}`);
+    } catch (e) {
+      console.error('[DB] Invalid DATABASE_URL format');
+    }
+    pool = new Pool({ connectionString });
   }
   return pool;
 }
@@ -72,8 +79,8 @@ export async function insertGeneration(gen: Generation): Promise<string> {
       gen.userId ?? null,
       gen.projectId ?? null,
       gen.outputUrl,
-      gen.config,
-      gen.status,
+      gen.config || {},
+      gen.status || 'completed',
       gen.sourceImageUrl ?? null,
       createdAt,
     ],

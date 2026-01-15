@@ -151,12 +151,12 @@ export function useGenerationService() {
         saveHistoryToBackend(result);
     };
 
-    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string) => {
+    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
         
         // Calculate effective source URL preferring path (uploaded URL) over base64
         const firstImage = currentUploadedImages[0];
-        const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
+        const effectiveSourceUrl = sourceImageUrl || (firstImage ? (firstImage.path || firstImage.previewUrl) : undefined);
 
         let modelId = "lemo_2dillustator"; // Default
         if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";
@@ -206,6 +206,7 @@ export function useGenerationService() {
                     const savedPath = await saveImageToOutputs(
                         chunk.images[0],
                         {
+                            projectId: projectStore.currentProjectId || 'default',
                             config: {
                                 prompt: unified.prompt,
                                 width: Number(unified.width),
@@ -359,6 +360,7 @@ export function useGenerationService() {
                     const savedPath = await saveImageToOutputs(
                         dataUrl,
                         {
+                            projectId: projectStore.currentProjectId || 'default',
                             config: {
                                 ...unified,
                                 loras: usePlaygroundStore.getState().selectedLoras,

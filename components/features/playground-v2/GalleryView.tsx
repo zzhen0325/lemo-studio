@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, Filter, LayoutGrid, SlidersHorizontal, Trash2, LucideIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sidebar, SidebarContent, SidebarHeader } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import GradualBlur from "@/components/GradualBlur";
 import ImagePreviewModal from './Dialogs/ImagePreviewModal';
 import ImageEditorModal from './Dialogs/ImageEditorModal';
@@ -35,6 +36,7 @@ export default function GalleryView() {
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
     const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
+    const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
@@ -220,68 +222,84 @@ export default function GalleryView() {
                 <div className="flex flex-1 overflow-hidden min-h-0">
                   
 
-                    <div className=" w-full space-y-6 min-w-0 flex flex-col">
+                    <div className=" w-full space-y-6 min-w-0 flex flex-col flex-1">
                       
 
-                        {loading && sortedHistory.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-                                <div className="relative">
-                                    <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                                    <div className="absolute inset-0 bg-gray-500/20 blur-xl animate-pulse rounded-full" />
-                                </div>
-                                <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
-                            </div>
-                        ) : sortedHistory.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32">
-                                <div className="p-6 bg-white/5 rounded-full">
-                                    <Search className="w-12 h-12 text-white/20" />
-                                </div>
-                                <div className="text-center space-y-2">
-                                    <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
-                                    <p className="text-white/30">Your generated images will appear here once you start creating.</p>
+                        {(loading || isFetchingGallery) && galleryItems.length === 0 ? (
+                            <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-3xl">
+                                <div className="flex gap-4 w-full">
+                                    {Array.from({ length: columnsCount }).map((_, i) => (
+                                        <div key={i} className="flex flex-col gap-4 flex-1">
+                                            {Array.from({ length: 3 }).map((_, j) => (
+                                                <div 
+                                                    key={j} 
+                                                    className="relative bg-white/5 rounded-2xl border border-white/10 overflow-hidden"
+                                                    style={{ 
+                                                        aspectRatio: j % 2 === 0 ? '3/4' : '1/1',
+                                                        opacity: 1 - (j * 0.2)
+                                                    }}
+                                                >
+                                                    <Skeleton className="w-full h-full" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col space-y-1 ">
-
-                            
-                             <div className="relative group flex-1 h-12 w-full ">
-                        <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Search prompts..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery("")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        )}
-
-
-                   
-                    </div>
-                            <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-3xl">
-                                
-                                <MasonryGrid
-                                    items={sortedHistory}
-                                    columnsCount={columnsCount}
-                                    renderItem={(item) => (
-                                        <GalleryCard
-                                            key={item.id || item.createdAt}
-                                            item={item}
-                                            onClick={() => item.status !== 'pending' && setSelectedItem(item)}
-                                            onDownload={handleDownload}
-                                        />
+                            <div className="flex flex-col flex-1 min-h-0 space-y-4">
+                                <div className="relative group h-12 w-full shrink-0">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-white/60 transition-colors" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search prompts..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery("")}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
                                     )}
-                                />
-                            </div>
+                                </div>
 
+                                {sortedHistory.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32 flex-1">
+                                        <div className="p-6 bg-white/5 rounded-full">
+                                            <Search className="w-12 h-12 text-white/20" />
+                                        </div>
+                                        <div className="text-center space-y-2">
+                                            <p className="text-white/60 text-xl font-medium">
+                                                {galleryItems.length === 0 ? "No masterpieces found yet" : "No results match your search"}
+                                            </p>
+                                            <p className="text-white/30">
+                                                {galleryItems.length === 0 
+                                                    ? "Your generated images will appear here once you start creating."
+                                                    : "Try adjusting your search query or filters."
+                                                }
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-3xl">
+                                        <MasonryGrid
+                                            items={sortedHistory}
+                                            columnsCount={columnsCount}
+                                            renderItem={(item) => (
+                                                <GalleryCard
+                                                    key={item.id || item.createdAt}
+                                                    item={item}
+                                                    onClick={() => item.status !== 'pending' && setSelectedItem(item)}
+                                                    onDownload={handleDownload}
+                                                />
+                                            )}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -485,40 +503,58 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
     return (
         <div
             ref={ref}
-            className="group relative bg-black border border-black overflow-hidden  hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
+            className="group relative bg-black border border-black overflow-hidden hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
             onClick={onClick}
             onMouseEnter={() => setIsHover(true)}
             onMouseLeave={() => setIsHover(false)}
         >
             {/* Image Container */}
-            <div className="relative w-full  flex items-center justify-center bg-white/5">
+            <div className="relative w-full flex items-center justify-center bg-white/5 overflow-hidden">
                 {item.status === 'pending' ? (
-                    <div className="w-full flex flex-col items-center justify-center p-8 space-y-3">
-                        <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <div className="w-full flex flex-col items-center justify-center p-8 space-y-3 min-h-[200px]">
+                        <div className="relative">
+                            <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                            <div className="absolute inset-0 bg-primary/10 blur-xl animate-pulse rounded-full" />
+                        </div>
                         <span className="text-[10px] text-white/30 font-medium uppercase tracking-widest animate-pulse">Generating</span>
                     </div>
-                ) : !isInView ? (
-                    <div style={{
-                        paddingBottom: `${((item.config?.height || 1024) / (item.config?.width || 1024)) * 100}%`,
-                        width: '100%'
-                    }} />
                 ) : (
-                    <Image
-                        src={item.outputUrl || ""}
-                        alt="Generated masterwork"
-                        width={item.config?.width || 1024}
-                        height={item.config?.height || 1024}
-                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw"
-                        quality={75}
-                        placeholder="blur"
-                        blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-                        className={cn(
-                            "w-full h-auto object-cover transition-all duration-700 group-hover:scale-105",
-                            isLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl"
-                        )}
-                        onLoad={() => setIsLoaded(true)}
-                    />
+                    <>
+                        {/* Skeleton Loader */}
+                        <div 
+                            className={cn(
+                                "absolute inset-0 z-10 transition-opacity duration-1000 ease-in-out",
+                                isLoaded ? "opacity-0 pointer-events-none" : "opacity-100"
+                            )}
+                        >
+                            <Skeleton className="w-full h-full rounded-none bg-white/10" />
+                        </div>
 
+                        {!isInView ? (
+                            <div style={{
+                                paddingBottom: `${((item.config?.height || 1024) / (item.config?.width || 1024)) * 100}%`,
+                                width: '100%'
+                            }} />
+                        ) : (
+                            <Image
+                                src={item.outputUrl || ""}
+                                alt="Generated masterwork"
+                                width={item.config?.width || 1024}
+                                height={item.config?.height || 1024}
+                                sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw"
+                                quality={75}
+                                className={cn(
+                                    "w-full h-auto object-cover transition-all duration-1000 ease-out group-hover:scale-105",
+                                    isLoaded ? "opacity-100 blur-0 translate-y-0" : "opacity-0 blur-md translate-y-4"
+                                )}
+                                onLoad={() => {
+                                    // Add a slight random delay to make it feel "one by one" if multiple load at once
+                                    const delay = Math.random() * 200;
+                                    setTimeout(() => setIsLoaded(true), delay);
+                                }}
+                            />
+                        )}
+                    </>
                 )}
                 {/* 
                 <ProgressiveBlur

@@ -800,10 +800,14 @@ function HistoryCard({
                               const isValidSrc = img && (
                                 img.startsWith('/') ||
                                 img.startsWith('http://') ||
-                                img.startsWith('https://')
-                              ) && img.length > 8; // Ensure it's more than just "https://"
+                                img.startsWith('https://') ||
+                                img.startsWith('data:')
+                              ) && img.length > 5;
 
-                              if (!isValidSrc) return <div className="absolute inset-0 bg-white/5" />;
+                              if (!isValidSrc) {
+                                console.warn('[HistoryList] Invalid image src:', img);
+                                return <div className="absolute inset-0 bg-white/5 flex items-center justify-center"><ImageIcon className="w-6 h-6 text-white/10" /></div>;
+                              }
 
                               return (
                                 <Image
@@ -812,6 +816,7 @@ function HistoryCard({
                                   fill
                                   sizes="(max-width: 1536px) 50vw, 800px"
                                   className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                                  unoptimized={img.includes('byteintl.net') || img.startsWith('data:')}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (!isSelectionMode) {
@@ -982,6 +987,7 @@ function HistoryCard({
                 height={result.config?.height || 1024}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                 quality={95}
+                unoptimized={mainImage.includes('byteintl.net') || mainImage.startsWith('data:')}
                 className={cn(
                   "w-full cursor-pointer scale-100 group-hover:scale-105 transition-transform duration-500",
                   layoutMode === 'grid' ? "h-full object-cover" : "h-auto"

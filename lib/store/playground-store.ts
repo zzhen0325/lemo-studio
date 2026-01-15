@@ -25,6 +25,9 @@ interface PlaygroundState {
     showProjectSidebar: boolean;
     selectedPresetName: string | undefined;
 
+    viewMode: 'home' | 'dock';
+    activeTab: 'history' | 'gallery' | 'describe' | 'style';
+
     // Selection Mode
     isSelectionMode: boolean;
     selectedHistoryIds: Set<string>;
@@ -45,7 +48,8 @@ interface PlaygroundState {
     setShowGallery: (val: boolean) => void;
     setShowProjectSidebar: (val: boolean) => void;
     setSelectedPresetName: (name: string | undefined) => void;
-    setActiveTab: (tab: string) => void;
+    setViewMode: (mode: 'home' | 'dock') => void;
+    setActiveTab: (tab: 'history' | 'gallery' | 'describe' | 'style') => void;
 
     // UI States
     isAspectRatioLocked: boolean;
@@ -142,6 +146,11 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     selectedPresetName: undefined,
     setSelectedPresetName: (name) => set({ selectedPresetName: name }),
 
+    viewMode: 'home',
+    setViewMode: (mode) => set({ viewMode: mode }),
+    activeTab: 'history',
+    setActiveTab: (tab) => set({ activeTab: tab }),
+
     previewImageUrl: null,
     previewLayoutId: null,
     setPreviewImage: (url, layoutId = null) => set({
@@ -167,9 +176,6 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     setShowHistory: (val) => set({ showHistory: val }),
     setShowGallery: (val) => set({ showGallery: val }),
     setShowProjectSidebar: (val) => set({ showProjectSidebar: val }),
-    setActiveTab: () => {
-        // Placeholder
-    },
 
     applyPrompt: (prompt) => {
         set((state) => ({ config: { ...state.config, prompt } }));

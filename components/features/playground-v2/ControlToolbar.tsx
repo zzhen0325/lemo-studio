@@ -191,7 +191,7 @@ export default function ControlToolbar({
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[240px]  bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+      <DropdownMenuContent className="w-40 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
         <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('nano_banana')}
@@ -199,45 +199,46 @@ export default function ControlToolbar({
           <span className={`w-2 h-2 rounded-full ${selectValue === 'nano_banana' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Nano banana
         </DropdownMenuItem>
-        <DropdownMenuItem
+        {/* <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('seed3')}
         >
           <span className={`w-2 h-2 rounded-full ${selectValue === 'seed3' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 3
-        </DropdownMenuItem>
-        <DropdownMenuItem
+        </DropdownMenuItem> */}
+        {/* <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('seed4')}
         >
           <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 4
-        </DropdownMenuItem>
-        <DropdownMenuItem
+        </DropdownMenuItem> */}
+        {/* <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('seed4_2')}
         >
           <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4_2' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 4.2
-        </DropdownMenuItem>
-        <DropdownMenuItem
+        </DropdownMenuItem> */}
+        {/* <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('lemoseedt2i')}
         >
           <span className={`w-2 h-2 rounded-full ${selectValue === 'lemoseedt2i' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
           Seed 4 (LemoSeed T2I)
-        </DropdownMenuItem>
+        </DropdownMenuItem> */}
         <DropdownMenuItem
           className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
           onClick={() => handleUnifiedSelectChange('coze_seed4')}
         >
           <span className={`w-2 h-2 rounded-full ${selectValue === 'coze_seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-          Coze Seed 4
+          Seedream 4.0
         </DropdownMenuItem>
 
 
         {/* workflow模型 */}
-        {BASE_MODEL_LIST.map((model) => (
+
+        {/* {BASE_MODEL_LIST.map((model) => (
           <DropdownMenuItem
             key={model.name}
             className="text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 py-2"
@@ -246,7 +247,7 @@ export default function ControlToolbar({
             <span className={`w-2 h-2 rounded-full ${selectedModel === 'Workflow' && selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
             <span className="truncate">{model.name}</span>
           </DropdownMenuItem>
-        ))}
+        ))} */}
       </DropdownMenuContent>
     </DropdownMenu>
   );

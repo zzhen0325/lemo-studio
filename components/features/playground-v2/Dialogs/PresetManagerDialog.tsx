@@ -40,7 +40,18 @@ interface PresetManagerDialogProps {
     currentEditConfig?: EditPresetConfig;
 }
 
-const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', 'Seed 4.2', '3D Lemo seed3'];
+const NATIVE_MODELS = [
+    'Nano banana', 
+    'Seed 4.0', 
+    'Seed 4.2', 
+    'Seed 4', 
+    '3D Lemo seed3', 
+    'coze_seed4',
+    'FLUX_fill',
+    'flux1-dev-fp8.safetensors',
+    'Zimage',
+    'qwen'
+];
 
 const DEFAULT_CONFIG: GenerationConfig = {
     prompt: '',
@@ -510,9 +521,14 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                     <SelectItem value="Nano banana">Nano banana</SelectItem>
                                                                     <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
                                                                     <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
+                                                                    <SelectItem value="Seed 4">Seed 4</SelectItem>
                                                                     <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
+                                                                    <SelectItem value="coze_seed4">Seedream 4.0</SelectItem>
+                                                                    <SelectItem value="FLUX_fill">FLUX_fill</SelectItem>
+                                                                    <SelectItem value="flux1-dev-fp8.safetensors">flux1-dev-fp8.safetensors</SelectItem>
+                                                                    <SelectItem value="Zimage">Zimage</SelectItem>
+                                                                    <SelectItem value="qwen">qwen</SelectItem>
                                                                     <SelectItem value="Workflow">Workflow</SelectItem>
-
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
@@ -634,17 +650,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                             config: { ...(formData.config || DEFAULT_CONFIG), workflowName: val === 'default' ? undefined : val }
                                                                         })}
                                                                     >
-                                                                        <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
-                                                                            <SelectValue placeholder="Select workflow" />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
-                                                                            <SelectItem value="default">System Default</SelectItem>
-                                                                            {workflows.map(workflow => (
-                                                                                <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>
-                                                                                    {workflow.viewComfyJSON.title}
-                                                                                </SelectItem>
-                                                                            ))}
-                                                                        </SelectContent>
+                                                                       
                                                                     </Select>
                                                                 </div>
                                                             )}

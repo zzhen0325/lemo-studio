@@ -38,6 +38,7 @@ const GalleryView = dynamic(() => import("@/components/features/playground-v2/Ga
 import { StyleStacksView } from '@/components/features/playground-v2/StyleStacksView';
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { TabContext } from "@/components/layout/sidebar";
+import { useMediaQuery } from "@/hooks/common/use-media-query";
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
 import { PlaygroundInputSection } from "@/components/features/playground-v2/PlaygroundInputSection";
@@ -153,9 +154,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   // const [isGalleryOpen, setIsGalleryOpen] = useState(false); // Refactored to viewMode
   const [batchSize, setBatchSize] = useState(4); // Default batch size
 
-  // New View Mode State
-  const [viewMode, setViewMode] = useState<ViewMode>('home');
-  const [activeTab, setActiveTab] = useState<DockTab>('history');
+  // New View Mode State (Refactored to store)
+  const viewMode = usePlaygroundStore(s => s.viewMode);
+  const setViewMode = usePlaygroundStore(s => s.setViewMode);
+  const activeTab = usePlaygroundStore(s => s.activeTab);
+  const setActiveTab = usePlaygroundStore(s => s.setActiveTab);
+
+  const isWideScreen = useMediaQuery("(min-width: 1440px)");
 
   const {
     showHistory,
@@ -418,7 +423,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         if (taskId) {
           setTimeout(() => {
             executeGeneration(taskId, finalConfig, startTime, sourceImageUrl);
-          }, i * 1100);
+          }, i * 1300);
         }
       });
     }
@@ -963,7 +968,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               <PlaygroundBackground />
 
               {/* 全局底部渐进模糊 - 仅在预设面板展开且历史记录隐藏时显示 */}
-              {isPresetGridOpen && viewMode === 'dock' && (
+              {/* {isPresetGridOpen && viewMode === 'dock' && (
                 <GradualBlur
                   position="bottom"
                   height="8rem"
@@ -972,7 +977,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   duration="0.4s"
                   className="pointer-events-none z-30"
                 />
-              )}
+              )} */}
 
 
 
@@ -986,7 +991,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
                 {/* Dock Sidebar - Persistent in Dock Mode */}
                 {viewMode === 'dock' && (
-                  <div className="absolute left-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-[60]  bg-black/0  transition-all duration-300">
+                  <div className={cn(
+                    "absolute z-[60] transition-all duration-300 flex items-center",
+                    isWideScreen 
+                      ? "left-10 top-1/2 -translate-y-1/2 flex-col gap-4 bg-black/0" 
+                      : "top-4 left-1/2 -translate-x-1/2 flex-row gap-6 bg-black/40 backdrop-blur-2xl p-3 px-6 rounded-3xl border border-white/10 shadow-2xl"
+                  )}>
                     {/* 抽取统一的样式逻辑 */}
                     {(() => {
                       const getButtonStyle = (isActive: boolean) => cn(
@@ -996,14 +1006,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:scale-110"
                       );
 
+                      const tooltipSide = isWideScreen ? "right" : "bottom";
+
                       return (
                         <>
-                          <div className="flex flex-col items-center gap-1">
+                          <div className={cn("flex flex-col items-center gap-1", !isWideScreen && "flex-row gap-2")}>
                             <TooltipButton
                               icon={<Sparkles className="w-5 h-5" />}
                               label="Describe"
                               tooltipContent="Describe image"
-                              tooltipSide="right"
+                              tooltipSide={tooltipSide}
                               className={getButtonStyle(activeTab === 'describe')}
                               onClick={() => setActiveTab('describe')}
 
@@ -1014,26 +1026,26 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           </div>
 
 
-                          <div className="flex flex-col items-center gap-1">
+                          <div className={cn("flex flex-col items-center gap-1", !isWideScreen && "flex-row gap-2")}>
 
                             <TooltipButton
                               icon={<Edit2 className="w-5 h-5" />}
                               label="Edit Image"
                               tooltipContent={uploadedImages.length > 0 ? "Edit Image" : "Image Editor"}
-                              tooltipSide="right"
+                              tooltipSide={tooltipSide}
                               className={getButtonStyle(false)}
                               onClick={handleEditUploadedImage}
                             />
                             <span className="text-[10px]">Edit</span>
                           </div>
 
-                          <div className="flex flex-col items-center gap-1">
+                          <div className={cn("flex flex-col items-center gap-1", !isWideScreen && "flex-row gap-2")}>
 
                             <TooltipButton
                               icon={<History className="w-5 h-5" />}
                               label="History"
                               tooltipContent="History"
-                              tooltipSide="right"
+                              tooltipSide={tooltipSide}
                               className={getButtonStyle(activeTab === 'history')}
                               onClick={() => setActiveTab('history')}
                             />
@@ -1041,24 +1053,24 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
                           </div>
 
-                          <div className="flex flex-col items-center gap-1">
+                          <div className={cn("flex flex-col items-center gap-1", !isWideScreen && "flex-row gap-2")}>
                             <TooltipButton
                               icon={<ImageIcon className="w-5 h-5" />}
                               label="Gallery"
                               tooltipContent="Gallery"
-                              tooltipSide="right"
+                              tooltipSide={tooltipSide}
                               className={getButtonStyle(activeTab === 'gallery')}
                               onClick={() => setActiveTab('gallery')}
                             />
                             <span className="text-[10px]">Gallery</span>
                           </div>
 
-                          <div className="flex flex-col items-center gap-1">
+                          <div className={cn("flex flex-col items-center gap-1", !isWideScreen && "flex-row gap-2")}>
                             <TooltipButton
                               icon={<Palette className="w-5 h-5" />}
                               label="Styles"
                               tooltipContent="Styles"
-                              tooltipSide="right"
+                              tooltipSide={tooltipSide}
                               className={getButtonStyle(activeTab === 'style')}
                               onClick={() => setActiveTab('style')}
                             />
@@ -1077,7 +1089,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   (activeTab === 'gallery' || activeTab === 'style')
                     ? "hidden"
                     : viewMode === 'dock'
-                      ? "max-w-full sm:max-w-[600px] md:max-w-[800px] lg:max-w-[1000px] xl:max-w-[1200px] 2xl:max-w-[1400px] h-full pt-4 overflow-hidden"
+                      ? cn("max-w-full sm:max-w-[600px] md:max-w-[800px] lg:max-w-[1000px] xl:max-w-[1200px] 2xl:max-w-[1400px] h-full overflow-hidden", isWideScreen ? "pt-4" : "pt-24")
                       : "max-w-full sm:max-w-[540px] md:max-w-[720px] lg:max-w-[800px] xl:max-w-[900px] 2xl:max-w-[1000px]",
                   (viewMode === 'home') && (isPresetGridOpen ? "mt-0" : "-mt-60")
                 )}>
@@ -1092,9 +1104,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     {activeTab !== 'gallery' && activeTab !== 'style' && (
                       <div ref={promptWrapperRef} className={cn(
                         "w-full ",
-                        viewMode === 'dock' && ""
+                        viewMode === 'dock' && activeTab === 'describe' && "h-full flex flex-col"
                       )}>
-                        <div className="w-full">
+                        <div className={cn("w-full", viewMode === 'dock' && activeTab === 'describe' && "flex-1 flex flex-col")}>
                           <PlaygroundInputSection {...inputSectionProps} />
                         </div>
                       </div>
@@ -1154,19 +1166,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           <Palette className="w-4 h-4" />
                           <span className="text-sm font-medium">Moodboards</span>
                         </button>
-
-
-
                       </div>
-                    )}
-
-                    {!isPresetGridOpen && (activeTab === 'history') && (
-                      <PresetGridOverlay
-                        open={isPresetGridOpen}
-                        onOpenChange={setIsPresetGridOpen}
-                        onOpenManager={() => setIsPresetManagerOpen(true)}
-                        onSelectPreset={handlePresetSelect}
-                      />
                     )}
 
                     {/* History List - Visible in History Tab */}
@@ -1201,7 +1201,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
                 {/* Gallery View - Now a sibling to History List, full width if needed */}
                 {viewMode === 'dock' && activeTab === 'gallery' && (
-                  <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-28">
+                  <div className={cn(
+                    "w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300",
+                    isWideScreen ? "pl-20 md:pl-28 lg:pl-28" : "pt-24"
+                  )}>
                     <div className="h-full w-full  overflow-hidden relative">
                       <Suspense fallback={<div className="flex w-[90%] items-center justify-center h-full text-white">Loading Gallery...</div>}>
                         <GalleryView />
@@ -1212,7 +1215,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
                 {/* Style View */}
                 {viewMode === 'dock' && activeTab === 'style' && (
-                  <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-32">
+                  <div className={cn(
+                    "w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300",
+                    isWideScreen ? "pl-20 md:pl-28 lg:pl-32" : "pt-24"
+                  )}>
                     <div className="h-full w-full  overflow-hidden relative">
                       <Suspense fallback={<div className="flex  w-[90%] items-center justify-center h-full text-white">Loading Styles...</div>}>
                          <StyleStacksView isDragging={isDraggingOver} />
@@ -1235,6 +1241,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
 
+            <PresetGridOverlay
+              open={isPresetGridOpen}
+              onOpenChange={setIsPresetGridOpen}
+              onOpenManager={() => setIsPresetManagerOpen(true)}
+              onSelectPreset={handlePresetSelect}
+            />
             <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
             <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.model || selectedModel} onConfirm={(m) => updateConfig({ model: m })} />
             <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />

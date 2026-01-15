@@ -9,3 +9,81 @@
 [2026-01-15 16:03:51] [INFO] Upload SUCCESS (code=0).
 [2026-01-15 16:03:51] [INFO] CDN URL: sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png
 [2026-01-15 16:03:51] [SUCCESS] cdnUrl=sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png
+[2026-01-15 16:25:20] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:25:20] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:25:20] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:25:20] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:25:20] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+curl: (28) Failed to connect to ife-cdn.byteintl.net port 443 after 75550 ms: Couldn't connect to server
+[2026-01-15 16:26:36] [INFO] HTTP status: 000
+[2026-01-15 16:26:36] [INFO] Raw response body: 
+[2026-01-15 16:26:36] [ERROR] curl failed with exit code 28; 可能为网络访问受限/证书/代理问题
+[2026-01-15 16:26:36] [ERROR] Classification: NETWORK_RESTRICTED
+[2026-01-15 16:27:33] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:27:33] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:27:33] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:27:33] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:27:33] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+curl: (28) Failed to connect to ife-cdn.byteintl.net port 443 after 75284 ms: Couldn't connect to server
+[2026-01-15 16:28:48] [INFO] HTTP status: 000
+[2026-01-15 16:28:48] [INFO] Raw response body: 
+[2026-01-15 16:28:48] [ERROR] curl failed with exit code 28; 可能为网络访问受限/证书/代理问题
+[2026-01-15 16:28:48] [ERROR] Classification: NETWORK_RESTRICTED
+[2026-01-15 16:35:13] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:35:13] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:35:13] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:35:13] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:35:13] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+curl: (28) Failed to connect to ife-cdn.byteintl.net port 443 after 75205 ms: Couldn't connect to server
+[2026-01-15 16:36:28] [INFO] HTTP status: 000
+[2026-01-15 16:36:28] [INFO] Raw response body: 
+[2026-01-15 16:36:28] [ERROR] curl failed with exit code 28; 可能为网络访问受限/证书/代理问题
+[2026-01-15 16:36:28] [ERROR] Classification: NETWORK_RESTRICTED
+[2026-01-15 16:36:33] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:36:33] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:36:33] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:36:33] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:36:33] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+curl: (28) Failed to connect to ife-cdn.byteintl.net port 443 after 75300 ms: Couldn't connect to server
+[2026-01-15 16:40:15] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:40:15] [INFO] CDN_UPLOAD_ENDPOINT=https://ife-cdn.byteintl.net/cdn/upload
+[2026-01-15 16:40:15] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:40:15] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:40:15] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+curl: (28) Failed to connect to ife-cdn.byteintl.net port 443 after 75209 ms: Couldn't connect to server
+[2026-01-15 16:41:31] [INFO] HTTP status: 000
+[2026-01-15 16:41:31] [INFO] Raw response body: 
+[2026-01-15 16:41:31] [ERROR] curl failed with exit code 28; 可能为网络访问受限/证书/代理问题
+[2026-01-15 16:41:31] [ERROR] Classification: NETWORK_RESTRICTED
+[2026-01-15 16:42:05] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:42:05] [INFO] CDN_UPLOAD_ENDPOINT=https://ife-cdn.byteintl.net/cdn/upload
+[2026-01-15 16:42:05] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:42:05] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:42:05] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+[2026-01-15 16:42:47] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:42:47] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:42:47] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:42:47] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:42:47] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+curl: (28) Failed to connect to ife-cdn.byteintl.net port 443 after 75324 ms: Couldn't connect to server
+[2026-01-15 16:44:03] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:44:03] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:44:03] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:44:03] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:44:03] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+curl: (28) Failed to connect to ife-cdn.byteintl.net port 443 after 75564 ms: Couldn't connect to server
+[2026-01-15 16:45:19] [INFO] HTTP status: 000
+[2026-01-15 16:45:19] [INFO] Raw response body: 
+[2026-01-15 16:45:19] [ERROR] curl failed with exit code 28; 可能为网络访问受限/证书/代理问题
+[2026-01-15 16:45:19] [ERROR] Classification: NETWORK_RESTRICTED
+[2026-01-15 16:47:43] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:47:43] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:47:43] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:47:43] [INFO] Using test file: /Users/bytedance/Desktop/seeseezz/Lemon-AI-studio-supabase/public/images/logos/logo.png
+[2026-01-15 16:47:43] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+[2026-01-15 16:47:44] [INFO] HTTP status: 200
+[2026-01-15 16:47:44] [INFO] Raw response body: {"code":0,"domain":"sf16-sg.tiktokcdn.com","path":"/obj","tosKey":"/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png","headers":{"access-control-allow-origin":"*","cache-control":"max-age=2592000","date":"Thu, 15 Jan 2026 08:47:44 GMT","etag":"\"2a475bfd117176bba01e4f1f42a5619c\"","server":"TosServer","x-tos-hash-crc64ecma":"11842302516558396408","x-tos-md5":"2a475bfd117176bba01e4f1f42a5619c","x-tos-request-id":"fbfdec68a9b0b62a6968a9b0-fdbdgdc53g22gf2cgg17","x-tos-response-time":"Thu, 15 Jan 2026 08:47:44 GMT","content-length":"0","connection":"close"},"cdnUrl":"sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png"}
+[2026-01-15 16:47:44] [INFO] Parsed code: 0 message: <empty>
+[2026-01-15 16:47:44] [INFO] Upload SUCCESS (code=0).
+[2026-01-15 16:47:44] [INFO] CDN URL: sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png
+[2026-01-15 16:47:44] [SUCCESS] cdnUrl=sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png

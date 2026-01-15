@@ -101,6 +101,17 @@ export async function uploadToCDN(
   if (data.cdnUrl && data.cdnUrl.length > 0) {
     // 有些返回不带协议，这里统一补全
     if (data.cdnUrl.startsWith('http://') || data.cdnUrl.startsWith('https://')) {
+      // 检查返回的 URL 是否包含重复的域名（针对 tiktokcdn 这种特殊情况）
+      const urlStr = data.cdnUrl;
+      try {
+        const urlObj = new URL(urlStr);
+        // 如果 path 以同样的 host 开头，可能是后端返回逻辑重复了
+        if (urlObj.pathname.startsWith(`/${urlObj.host}`)) {
+          return `${urlObj.origin}${urlObj.pathname.slice(urlObj.host.length + 1)}`;
+        }
+      } catch (e) {
+        // Not a valid URL, return as is
+      }
       return data.cdnUrl;
     }
     if (data.domain && data.path !== undefined) {

@@ -361,9 +361,11 @@ export async function POST(request: Request) {
 
         // 云端写入路径：写入 Supabase，而非本地文件
         if (!isUseLocalStorage()) {
+            console.log('[History API] Using cloud storage (Supabase)');
             // Handle batch update in cloud mode
             if (body.action === 'batch-update' && Array.isArray(body.items)) {
                 const items = body.items as Generation[];
+                console.log(`[History API] Batch updating ${items.length} items`);
 
                 for (const raw of items) {
                     const item: Generation = { ...raw };
@@ -391,7 +393,11 @@ export async function POST(request: Request) {
                         createdAt: item.createdAt || new Date().toISOString(),
                     };
 
-                    await insertGeneration(record);
+                    try {
+                        await insertGeneration(record);
+                    } catch (err) {
+                        console.error(`[History API] Failed to batch insert generation ${record.id}:`, err);
+                    }
                 }
 
                 return NextResponse.json({ success: true });
@@ -399,6 +405,7 @@ export async function POST(request: Request) {
 
             const item = body as Generation;
             if (!item || (!item.outputUrl && !item.id)) {
+                console.error('[History API] Invalid item received:', JSON.stringify(item).slice(0, 200));
                 return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
             }
 
@@ -425,7 +432,15 @@ export async function POST(request: Request) {
                 createdAt: item.createdAt || new Date().toISOString(),
             };
 
-            await insertGeneration(record);
+            try {
+                console.log(`[History API] Inserting generation ${record.id} to DB`);
+                await insertGeneration(record);
+                console.log(`[History API] Successfully inserted generation ${record.id}`);
+            } catch (err) {
+                console.error('[History API] Failed to insert generation to DB:', err);
+                // Return 500 but also the error message for debugging (in development)
+                return NextResponse.json({ error: 'Failed to save to database', details: String(err) }, { status: 500 });
+            }
 
             return NextResponse.json({ success: true });
         }
