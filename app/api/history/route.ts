@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Generation, GenerationConfig } from '@/types/database';
+import { insertGeneration } from '@/lib/db';
 
 const OUTPUTS_DIR = path.join(process.cwd(), 'public', 'outputs');
 const HISTORY_FILE = path.join(OUTPUTS_DIR, 'history.json');
@@ -11,6 +12,10 @@ const OLD_FILE = path.join(OUTPUTS_DIR, 'history.old.json');
 // Unified history item uses Generation DTO
 
 // Helper to ensure outputs directory exists
+function isUseLocalStorage() {
+    return process.env.USE_LOCAL_STORAGE === 'true';
+}
+
 async function ensureOutputsDir() {
     try {
         await fs.access(OUTPUTS_DIR);
@@ -326,6 +331,79 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
+
+        // 云端写入路径：写入 Supabase，而非本地文件
+        if (!isUseLocalStorage()) {
+            // Handle batch update in cloud mode
+            if (body.action === 'batch-update' && Array.isArray(body.items)) {
+                const items = body.items as Generation[];
+
+                for (const raw of items) {
+                    const item: Generation = { ...raw };
+
+                    // Sanitize incoming item to prevent bloat
+                    if (item.sourceImageUrl && item.sourceImageUrl.length > 5000 && item.sourceImageUrl.startsWith('data:')) {
+                        item.sourceImageUrl = "(large base64 data truncated)";
+                    }
+                    if (item.config) {
+                        const config = item.config as any;
+                        if (config.sourceImageUrl && config.sourceImageUrl.length > 5000 && config.sourceImageUrl.startsWith('data:')) {
+                            config.sourceImageUrl = "(large base64 data truncated)";
+                        }
+                    }
+
+                    const outputUrl = item.outputUrl || (item.id ? `/outputs/${item.id}.png` : '');
+                    const record: Generation = {
+                        id: item.id || path.basename(outputUrl, path.extname(outputUrl)),
+                        userId: item.userId || 'anonymous',
+                        projectId: item.projectId || 'default',
+                        outputUrl,
+                        config: item.config,
+                        status: item.status || 'completed',
+                        sourceImageUrl: item.sourceImageUrl,
+                        createdAt: item.createdAt || new Date().toISOString(),
+                    };
+
+                    await insertGeneration(record);
+                }
+
+                return NextResponse.json({ success: true });
+            }
+
+            const item = body as Generation;
+            if (!item || (!item.outputUrl && !item.id)) {
+                return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
+            }
+
+            // Sanitize incoming item to prevent bloat
+            if (item.sourceImageUrl && item.sourceImageUrl.length > 5000 && item.sourceImageUrl.startsWith('data:')) {
+                item.sourceImageUrl = "(large base64 data truncated)";
+            }
+            if (item.config) {
+                const config = item.config as any;
+                if (config.sourceImageUrl && config.sourceImageUrl.length > 5000 && config.sourceImageUrl.startsWith('data:')) {
+                    config.sourceImageUrl = "(large base64 data truncated)";
+                }
+            }
+
+            const outputUrl = item.outputUrl || (item.id ? `/outputs/${item.id}.png` : '');
+            const record: Generation = {
+                id: item.id || path.basename(outputUrl, path.extname(outputUrl)),
+                userId: item.userId || 'anonymous',
+                projectId: item.projectId || 'default',
+                outputUrl,
+                config: item.config,
+                status: item.status || 'completed',
+                sourceImageUrl: item.sourceImageUrl,
+                createdAt: item.createdAt || new Date().toISOString(),
+            };
+
+            await insertGeneration(record);
+
+            return NextResponse.json({ success: true });
+        }
+
+        // 本地写入路径：保持原有逻辑，作为兼容回退
         
         // Handle batch update
         if (body.action === 'batch-update' && Array.isArray(body.items)) {

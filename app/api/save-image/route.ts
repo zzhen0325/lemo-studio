@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { z } from 'zod';
+import { uploadToCDN } from '@/lib/server/cdn-upload';
+import { insertImage } from '@/lib/db';
 
 const BodySchema = z.object({
   imageBase64: z.string().min(1),
@@ -18,6 +20,10 @@ function extractBase64(data: string): { base64: string; mime?: string } {
   return { base64: data };
 }
 
+function isUseLocalStorage() {
+  return process.env.USE_LOCAL_STORAGE === 'true';
+}
+
 export async function POST(request: Request) {
   try {
     const json = await request.json();
@@ -26,7 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { imageBase64, subdir } = parsed.data;
+    const { imageBase64, subdir, metadata } = parsed.data;
     let { ext } = parsed.data;
 
     let imageBuffer: Buffer;
@@ -53,26 +59,53 @@ export async function POST(request: Request) {
       imageBuffer = Buffer.from(base64, 'base64');
     }
 
-    const publicDir = path.join(process.cwd(), 'public');
-    const targetDir = path.join(publicDir, subdir);
-    await fs.mkdir(targetDir, { recursive: true });
-
     const stamp = Date.now();
     const rand = Math.random().toString(36).slice(2, 8);
     const filename = `img_${stamp}_${rand}.${ext}`;
-    const filePath = path.join(targetDir, filename);
 
-    await fs.writeFile(filePath, imageBuffer);
+    if (isUseLocalStorage()) {
+      // 原有本地写入逻辑，作为兼容回退路径
+      const publicDir = path.join(process.cwd(), 'public');
+      const targetDir = path.join(publicDir, subdir);
+      await fs.mkdir(targetDir, { recursive: true });
 
-    if (parsed.data.metadata) {
-      const metadataPath = path.join(targetDir, `${filename.split('.')[0]}.json`);
-      await fs.writeFile(metadataPath, JSON.stringify(parsed.data.metadata, null, 2));
+      const filePath = path.join(targetDir, filename);
+      await fs.writeFile(filePath, imageBuffer);
+
+      if (metadata) {
+        const metadataPath = path.join(targetDir, `${filename.split('.')[0]}.json`);
+        await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+      }
+
+      const pathForClient = `/${subdir}/${filename}`;
+      return NextResponse.json({ path: pathForClient, url: pathForClient });
     }
 
-    const pathForClient = `/${subdir}/${filename}`;
-    return NextResponse.json({ path: pathForClient });
+    // 新路径：上传到 CDN
+    const cdnUrl = await uploadToCDN(imageBuffer, filename);
+
+    // 如果带有 metadata，则写入 images 表，方便后续检索
+    if (metadata) {
+      const createdAt = (metadata as { createdAt?: string | Date }).createdAt;
+      const projectId = (metadata as { projectId?: string }).projectId;
+
+      try {
+        await insertImage({
+          id: filename.split('.')[0],
+          url: cdnUrl,
+          sourceType: subdir,
+          projectId: projectId ?? null,
+          createdAt: createdAt ?? undefined,
+          metadata,
+        });
+      } catch (err) {
+        // 数据库失败不应影响上传结果，打印日志即可
+        console.error('Failed to insert image metadata into database:', err);
+      }
+    }
+
+    return NextResponse.json({ url: cdnUrl, path: cdnUrl });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to save image', details: String(error) }, { status: 500 });
   }
 }
-
