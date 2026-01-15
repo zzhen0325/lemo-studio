@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { datasetEvents, DATASET_SYNC_EVENT } from '@/lib/server/dataset-events';
+import { queryDatasetCollections, queryDatasetItems } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 const DATASET_DIR = path.join(process.cwd(), 'public/dataset');
+
+function isUseLocalStorage() {
+    return process.env.USE_LOCAL_STORAGE === 'true';
+}
 
 // Helper to ensure directory exists
 async function ensureDir(dirPath: string) {
@@ -60,6 +65,34 @@ export async function GET(request: Request) {
     const collectionName = searchParams.get('collection');
 
     try {
+        // 云端读取路径：优先从 Supabase dataset_items 表读取
+        if (!isUseLocalStorage()) {
+            try {
+                if (collectionName) {
+                    const items = await queryDatasetItems(collectionName);
+                    const images = items.map((item) => ({
+                        id: item.id,
+                        filename: item.filename,
+                        url: item.url,
+                        prompt: item.prompt,
+                    }));
+
+                    return NextResponse.json({
+                        images,
+                        systemPrompt: "",
+                        order: [],
+                    });
+                }
+
+                const collections = await queryDatasetCollections();
+                return NextResponse.json({ collections });
+            } catch (error) {
+                console.error('Dataset DB read failed, fallback to local files:', error);
+                // fall through to local branch
+            }
+        }
+
+        // 本地读取路径：保持原有逻辑，作为兼容回退
         await ensureDir(DATASET_DIR);
 
         if (collectionName) {

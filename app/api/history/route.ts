@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Generation, GenerationConfig } from '@/types/database';
-import { insertGeneration } from '@/lib/db';
+import { insertGeneration, queryGenerations } from '@/lib/db';
 
 const OUTPUTS_DIR = path.join(process.cwd(), 'public', 'outputs');
 const HISTORY_FILE = path.join(OUTPUTS_DIR, 'history.json');
@@ -199,6 +199,33 @@ export async function GET(request: Request) {
         const projectId = searchParams.get('projectId');
         const userId = searchParams.get('userId');
 
+        // 云端读取路径：优先从 Supabase generations 表读取
+        if (!isUseLocalStorage()) {
+            try {
+                const normalizedProjectId =
+                    projectId && projectId !== 'null' && projectId !== 'undefined' ? projectId : null;
+
+                const { items, total } = await queryGenerations({
+                    page,
+                    limit,
+                    projectId: normalizedProjectId,
+                    userId: userId ?? null,
+                });
+
+                const hasMore = page * limit < total;
+
+                return NextResponse.json({
+                    history: items,
+                    total,
+                    hasMore,
+                });
+            } catch (err) {
+                console.error('Failed to load history from database, fallback to local files:', err);
+                // fall through to local branch
+            }
+        }
+
+        // 本地读取路径：保持原有逻辑，作为兼容回退
         // 1. 优先读取统一的历史记录文件 (快)
         let history = await readHistory();
         

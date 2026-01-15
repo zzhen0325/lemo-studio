@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import { Preset } from '@/components/features/playground-v2/types';
+import { queryPresets } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to ensure directory exists
 const PRESET_DIR = path.join(process.cwd(), 'public/preset');
+
+function isUseLocalStorage() {
+    return process.env.USE_LOCAL_STORAGE === 'true';
+}
 
 async function ensurePresetDir() {
     try {
@@ -17,6 +22,18 @@ async function ensurePresetDir() {
 
 // GET: List all presets
 export async function GET() {
+    // 云端读取路径：优先从 Supabase presets 表读取
+    if (!isUseLocalStorage()) {
+        try {
+            const presets = await queryPresets();
+            return NextResponse.json(presets);
+        } catch (error) {
+            console.error('Failed to fetch presets from database, fallback to local files:', error);
+            // fall through to local branch
+        }
+    }
+
+    // 本地读取路径：保持原有逻辑，作为兼容回退
     await ensurePresetDir();
     try {
         const files = await fs.readdir(PRESET_DIR);

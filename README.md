@@ -35,7 +35,7 @@ This is a starter template for [Learn Next.js](https://nextjs.org/learn).
 - `USE_LOCAL_STORAGE` （可选，默认 `false`）
   - 说明：控制是否仍使用本地文件系统进行读写，作为兼容/回退模式。
   - 取值：
-    - `true`：继续使用现有本地存储逻辑（写入 `public/outputs`、`public/upload` 等）。
-    - `false` 或未设置：启用新的 **CDN 上传 + Supabase 写入** 路径（读取逻辑将在后续阶段逐步迁移）。
+    - `true`：继续使用现有本地存储逻辑（历史记录 / 预设 / 数据集 等接口读写均基于本地文件系统，例如 `public/outputs`、`public/upload`、`public/dataset`）。
+    - `false` 或未设置：历史记录 / 预设 / 数据集 等接口的读写会优先走 **CDN 上传 + Supabase Postgres**，若数据库查询异常则自动回退到本地读取逻辑。
 
 > 建议在本地开发环境创建 `.env.local` 或 `.env` 文件，并在部署环境（如 Vercel、自建服务器）中通过环境变量面板配置以上字段。
