@@ -1,0 +1,11 @@
+[2026-01-15 16:03:50] [INFO] ===== CDN upload test (curl version) start =====
+[2026-01-15 16:03:50] [INFO] CDN_BASE_URL=https://ife-cdn.byteintl.net
+[2026-01-15 16:03:50] [INFO] CDN_REGION=SG CDN_DIR=ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design CDN_EMAIL=zzhen.0325@bytedance.com
+[2026-01-15 16:03:50] [INFO] Using test file: /workspace/iris_b584dbf9-1186-481c-8330-d5a7c89fc53d/lemo-AI-studio/public/images/logos/logo.png
+[2026-01-15 16:03:50] [INFO] Upload URL: https://ife-cdn.byteintl.net/cdn/upload
+[2026-01-15 16:03:51] [INFO] HTTP status: 200
+[2026-01-15 16:03:51] [INFO] Raw response body: {"code":0,"domain":"sf16-sg.tiktokcdn.com","path":"/obj","tosKey":"/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png","headers":{"access-control-allow-origin":"*","cache-control":"max-age=2592000","date":"Thu, 15 Jan 2026 08:03:51 GMT","etag":"\"2a475bfd117176bba01e4f1f42a5619c\"","server":"TosServer","x-tos-hash-crc64ecma":"11842302516558396408","x-tos-md5":"2a475bfd117176bba01e4f1f42a5619c","x-tos-request-id":"cb48cf689f6751ec69689f67-ad7c713","x-tos-response-time":"Thu, 15 Jan 2026 08:03:51 GMT","content-length":"0","connection":"close"},"cdnUrl":"sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png"}
+[2026-01-15 16:03:51] [INFO] Parsed code: 0 message: <empty>
+[2026-01-15 16:03:51] [INFO] Upload SUCCESS (code=0).
+[2026-01-15 16:03:51] [INFO] CDN URL: sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png
+[2026-01-15 16:03:51] [SUCCESS] cdnUrl=sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/logo.png
