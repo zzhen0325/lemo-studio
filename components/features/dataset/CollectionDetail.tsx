@@ -62,6 +62,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAIService } from "@/hooks/ai/useAIService";
+import { getApiBase } from "@/lib/api-base";
 
 interface SortableImageProps {
     img: DatasetImage;
@@ -238,7 +239,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     const handleSaveOrder = useCallback(async (newImages: DatasetImage[]) => {
         try {
             const order = newImages.map(img => img.filename);
-            await fetch('/api/dataset', {
+            await fetch(`${getApiBase()}/dataset`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -287,7 +288,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
         setIsProcessing(true);
         try {
-            const res = await fetch(`/api/dataset?collection=${encodeURIComponent(collection.name)}&filename=${encodeURIComponent(img.filename)}`, {
+            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(collection.name)}&filename=${encodeURIComponent(img.filename)}`, {
                 method: 'DELETE'
             });
 
@@ -320,7 +321,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 .map(img => img.filename)
                 .join(',');
 
-            const res = await fetch(`/api/dataset?collection=${encodeURIComponent(collection.name)}&filenames=${encodeURIComponent(filenames)}`, {
+            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(collection.name)}&filenames=${encodeURIComponent(filenames)}`, {
                 method: 'DELETE'
             });
 
@@ -387,7 +388,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 promptsMap[img.filename] = img.prompt;
             });
 
-            const res = await fetch('/api/dataset', {
+            const res = await fetch(`${getApiBase()}/dataset`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -566,7 +567,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     const fetchImages = useCallback(async () => {
         try {
             setIsProcessing(true);
-            const res = await fetch(`/api/dataset?collection=${encodeURIComponent(collection.name)}`);
+            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(collection.name)}`);
             if (!res.ok) {
                 let errMsg = "Failed to load collection images.";
                 try {
@@ -610,7 +611,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         fetchImages();
 
         // Real-time synchronization
-        const eventSource = new EventSource('/api/dataset/sync');
+        const eventSource = new EventSource(`${getApiBase()}/dataset/sync`);
         eventSource.onmessage = (event) => {
             if (event.data === 'refresh') {
                 console.log('CollectionDetail: received sync signal');
@@ -639,7 +640,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 formData.append('file', file);
                 formData.append('collection', collection.name);
 
-                const res = await fetch('/api/dataset', {
+                const res = await fetch(`${getApiBase()}/dataset`, {
                     method: 'POST',
                     body: formData
                 });
@@ -696,7 +697,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
             // First save any pending prompt changes
             await handleSaveAllData();
 
-            const res = await fetch('/api/dataset', {
+            const res = await fetch(`${getApiBase()}/dataset`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -771,7 +772,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     updatePayload.systemPrompt = systemPrompt;
                 }
 
-                const res = await fetch('/api/dataset', {
+                const res = await fetch(`${getApiBase()}/dataset`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatePayload)
@@ -914,7 +915,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                         setImages(prev => prev.map(i => i.id === img.id ? { ...i, prompt: newPrompt, isOptimizing: false } : i));
 
                         // 2. 立即持久化到服务器 (逐图保存)
-                        await fetch('/api/dataset', {
+                        await fetch(`${getApiBase()}/dataset`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1020,7 +1021,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         ));
 
         try {
-            const response = await fetch('/api/translate', {
+            const response = await fetch(`${getApiBase()}/translate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1147,7 +1148,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 setImages(prev => prev.map(i => i.id === img.id ? { ...i, isTranslating: true } : i));
 
                 try {
-                    const response = await fetch('/api/translate', {
+                    const response = await fetch(`${getApiBase()}/translate`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1165,7 +1166,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                         handlePromptChange(img.id, newPrompt);
 
                         // 2. 立即持久化到服务器 (逐图保存)
-                        await fetch('/api/dataset', {
+                        await fetch(`${getApiBase()}/dataset`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1228,7 +1229,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
         setIsProcessing(true);
         try {
-            const res = await fetch('/api/dataset', {
+            const res = await fetch(`${getApiBase()}/dataset`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "outDir": "dist",
+    "rootDir": "..",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../*"],
+      "@/components/*": ["../components/*"],
+      "@/lib/*": ["../lib/*"],
+      "@/types/*": ["../types/*"],
+      "@/hooks/*": ["../hooks/*"],
+      "@/styles/*": ["../styles/*"],
+      "@/config/*": ["../config/*"],
+      "@/public/*": ["../public/*"]
+    }
+  },
+  "include": [
+    "./**/*.ts",
+    "../lib/**/*.ts",
+    "../config/**/*.ts",
+    "../types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

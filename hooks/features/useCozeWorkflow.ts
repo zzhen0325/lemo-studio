@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { CozeWorkflowParams, CozeWorkflowResponse, UseCozeWorkflowOptions } from '@/types/coze-workflow';
+import { getApiBase } from '@/lib/api-base';
 
 interface UseCozeWorkflowReturn {
   loading: boolean;
@@ -23,7 +24,8 @@ export function useCozeWorkflow(options?: UseCozeWorkflowOptions): UseCozeWorkfl
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/coze-upload', {
+      const response = await fetch(`${getApiBase()}/coze-upload`, {
+
         method: 'POST',
         body: formData,
       });
@@ -51,7 +53,8 @@ export function useCozeWorkflow(options?: UseCozeWorkflowOptions): UseCozeWorkfl
     for (let attempt = 0; attempt < retryCount; attempt++) {
       try {
         console.log('11111============', params);
-        const response = await fetch('/api/coze-workflow', {
+        const response = await fetch(`${getApiBase()}/coze-workflow`, {
+
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

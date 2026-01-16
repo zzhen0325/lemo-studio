@@ -797,17 +797,23 @@ function HistoryCard({
                             className="relative z-10 w-full h-full"
                           >
                             {(() => {
-                              const isValidSrc = img && (
+                              const isCdnUrl = img && /^[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+\//.test(img);
+                              const isValidSrc = img && img.length > 8 && (
                                 img.startsWith('/') ||
                                 img.startsWith('http://') ||
-                                img.startsWith('https://')
-                              ) && img.length > 8; // Ensure it's more than just "https://"
+                                img.startsWith('https://') ||
+                                img.startsWith('data:image/') ||
+                                isCdnUrl // Support CDN URLs like sf16-sg.tiktokcdn.com/...
+                              );
 
                               if (!isValidSrc) return <div className="absolute inset-0 bg-white/5" />;
 
+                              // Add https:// prefix for CDN URLs without protocol
+                              const imageSrc = isCdnUrl && !img.startsWith('http') ? `https://${img}` : img;
+
                               return (
                                 <Image
-                                  src={img}
+                                  src={imageSrc}
                                   alt="Generated image"
                                   fill
                                   sizes="(max-width: 1536px) 50vw, 800px"

@@ -1,0 +1,292 @@
+import { Database, Prop, Ref, getModelForClass, modelOptions } from '@gulux/gulux/typegoose';
+import type { Resolution, AspectRatio, SizeFrom } from '../../types/database';
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class ImageAsset {
+  @Prop({ required: true })
+  public url!: string;
+
+  @Prop({ required: true })
+  public dir!: string;
+
+  @Prop({ required: true })
+  public fileName!: string;
+
+  @Prop({ required: true })
+  public region!: string;
+
+  @Prop({ enum: ['generation', 'reference', 'dataset', 'upload'], required: true })
+  public type!: 'generation' | 'reference' | 'dataset' | 'upload';
+
+  @Prop()
+  public projectId?: string;
+
+  @Prop()
+  public generationId?: string;
+
+  @Prop({ type: () => Object })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public meta?: Record<string, any>;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class Generation {
+  @Prop({ required: true })
+  public prompt!: string;
+
+  @Prop()
+  public width?: number;
+
+  @Prop()
+  public height?: number;
+
+  @Prop()
+  public model?: string;
+
+  @Prop()
+  public workflowName?: string;
+
+  @Prop()
+  public lora?: string;
+
+  @Prop({ type: () => [Object] })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public loras?: any[];
+
+  @Prop()
+  public seed?: number;
+
+  @Prop()
+  public resolution?: Resolution;
+
+  @Prop()
+  public aspectRatio?: AspectRatio;
+
+  @Prop()
+  public sizeFrom?: SizeFrom;
+
+  @Prop()
+  public presetName?: string;
+
+  @Prop()
+  public status?: 'pending' | 'completed' | 'failed';
+
+  @Prop()
+  public progress?: number;
+
+  @Prop()
+  public progressStage?: string;
+
+  @Prop()
+  public userId?: string;
+
+  @Prop()
+  public projectId?: string;
+
+  @Prop()
+  public llmResponse?: string;
+
+  @Prop({ ref: () => ImageAsset })
+  public outputImageId?: Ref<ImageAsset>;
+
+  @Prop({ ref: () => ImageAsset })
+  public sourceImageId?: Ref<ImageAsset>;
+
+  @Prop()
+  public outputUrl?: string;
+
+  @Prop({ type: () => Object })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public config?: Record<string, any>;
+
+  @Prop()
+  public createdAt?: string;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class Preset {
+  @Prop({ required: true })
+  public name!: string;
+
+  @Prop()
+  public coverUrl?: string;
+
+  @Prop({ type: () => Object })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public config?: Record<string, any>;
+
+  @Prop({ type: () => Object })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public editConfig?: Record<string, any>;
+
+  @Prop()
+  public category?: string;
+
+  @Prop()
+  public projectId?: string;
+
+  @Prop()
+  public type?: 'generation' | 'edit';
+
+  @Prop()
+  public createdAt?: string;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class StyleStack {
+  @Prop({ required: true })
+  public name!: string;
+
+  @Prop({ required: true })
+  public prompt!: string;
+
+  @Prop({ type: () => [String], default: [] })
+  public imagePaths!: string[];
+
+  @Prop({ type: () => [String], default: [] })
+  public previewUrls?: string[];
+
+  @Prop()
+  public createdAt?: Date;
+
+  @Prop()
+  public updatedAt?: Date;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class ToolPreset {
+  @Prop({ required: true })
+  public toolId!: string;
+
+  @Prop({ required: true })
+  public name!: string;
+
+  @Prop({ type: () => Object })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public values?: Record<string, any>;
+
+  @Prop()
+  public thumbnail?: string;
+
+  @Prop()
+  public timestamp?: number;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class DatasetEntry {
+  @Prop({ required: true })
+  public collectionName!: string;
+
+  @Prop({ required: true })
+  public fileName!: string;
+
+  @Prop({ required: true })
+  public url!: string;
+
+  @Prop()
+  public prompt?: string;
+
+  @Prop()
+  public systemPrompt?: string;
+
+  @Prop()
+  public order?: number;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class DatasetCollection {
+  @Prop({ required: true, unique: true })
+  public name!: string;
+
+  @Prop()
+  public systemPrompt?: string;
+
+  @Prop({ type: () => [String], default: [] })
+  public order?: string[];
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class Project {
+  @Prop({ required: true })
+  public name!: string;
+
+  @Prop()
+  public userId?: string;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class User {
+  @Prop({ required: true })
+  public name!: string;
+
+  @Prop()
+  public avatar?: string;
+
+  @Prop()
+  public password?: string;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class ApiProvider {
+  @Prop({ required: true })
+  public id!: string;
+
+  @Prop({ required: true })
+  public name!: string;
+
+  @Prop()
+  public providerType?: string;
+
+  @Prop()
+  public apiKey?: string;
+
+  @Prop()
+  public baseURL?: string;
+
+  @Prop({ type: () => [Object] })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public models?: any[];
+
+  @Prop({ default: true })
+  public isEnabled?: boolean;
+
+  @Prop()
+  public createdAt?: string;
+
+  @Prop()
+  public updatedAt?: string;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class ApiSettings {
+  @Prop({ required: true, default: 'default', unique: true })
+  public key!: string;
+
+  @Prop({ type: () => Object })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public settings?: Record<string, any>;
+}
+
+export const ImageAssetModel = getModelForClass(ImageAsset);
+export const GenerationModel = getModelForClass(Generation);
+export const PresetModel = getModelForClass(Preset);
+export const StyleStackModel = getModelForClass(StyleStack);
+export const ToolPresetModel = getModelForClass(ToolPreset);
+export const DatasetEntryModel = getModelForClass(DatasetEntry);
+export const DatasetCollectionModel = getModelForClass(DatasetCollection);
+export const ProjectModel = getModelForClass(Project);
+export const UserModel = getModelForClass(User);
+export const ApiProviderModel = getModelForClass(ApiProvider);
+export const ApiSettingsModel = getModelForClass(ApiSettings);
+

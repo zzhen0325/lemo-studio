@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { APIProviderConfig, APIConfigSettings, ServiceBinding, ServiceConfig, ServiceType } from '@/lib/api-config/types';
+import { getApiBase } from "@/lib/api-base";
 
 interface APIConfigState {
     // State
@@ -120,7 +121,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
     fetchConfig: async () => {
         set({ isLoading: true, error: null });
         try {
-            const response = await fetch('/api/api-config');
+            const response = await fetch(`${getApiBase()}/api-config`);
             if (!response.ok) throw new Error('Failed to fetch config');
             const data = await response.json();
             const migratedSettings = migrateOldSettings(data.settings || {});
@@ -165,7 +166,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
     addProvider: async (provider) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await fetch('/api/api-config', {
+            const response = await fetch(`${getApiBase()}/api-config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(provider)
@@ -182,7 +183,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
     updateProvider: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await fetch('/api/api-config', {
+            const response = await fetch(`${getApiBase()}/api-config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, ...updates })
@@ -199,7 +200,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
     removeProvider: async (id) => {
         set({ isLoading: true, error: null });
         try {
-            const response = await fetch(`/api/api-config?id=${id}`, {
+            const response = await fetch(`${getApiBase()}/api-config?id=${id}`, {
                 method: 'DELETE'
             });
             if (!response.ok) throw new Error('Failed to delete provider');
@@ -218,7 +219,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
         const newSettings = { ...currentSettings, ...settingsUpdates };
         set({ isLoading: true, error: null });
         try {
-            const response = await fetch('/api/api-config', {
+            const response = await fetch(`${getApiBase()}/api-config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'updateSettings', settings: newSettings })

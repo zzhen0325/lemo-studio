@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Check, Edit } from 'lucide-react';
 import type { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { cn } from '@/lib/utils';
+import { getApiBase } from "@/lib/api-base";
 
 interface WorkflowSelectorDialogProps {
   open: boolean;
@@ -31,7 +32,7 @@ export default function WorkflowSelectorDialog({ open, onOpenChange, onSelect, o
     const fetchWorkflows = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/view-comfy');
+        const res = await fetch(`${getApiBase()}/view-comfy`);
         if (!res.ok) throw new Error('加载工作流失败');
         const data = (await res.json()) as ViewComfyResponse;
         setWorkflows(data.viewComfys || []);

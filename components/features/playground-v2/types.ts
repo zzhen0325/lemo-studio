@@ -1,5 +1,5 @@
-import { Generation, GenerationConfig, Preset, EditPresetConfig } from '@/types/database';
-export type { Generation, GenerationConfig, Preset, EditPresetConfig };
+import { Generation, GenerationConfig, Preset, EditPresetConfig, StyleStack } from '@/types/database';
+export type { Generation, GenerationConfig, Preset, EditPresetConfig, StyleStack };
 export type GenerationResult = Generation;
 
 export interface UploadedImage {
@@ -18,14 +18,6 @@ export interface PresetExtended extends Omit<Preset, 'coverUrl'> {
   title?: string;
 }
 
-
-export interface StyleStack {
-  id: string;
-  name: string;
-  prompt: string;
-  imagePaths: string[]; // 关联的图片路径列表
-  updatedAt: string;
-}
 
 export type SystemInstruction = string;
 

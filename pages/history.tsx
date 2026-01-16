@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Download, Hash } from "lucide-react";
 import Link from 'next/link';
 import Image from 'next/image';
+import { getApiBase } from "@/lib/api-base";
 
 interface HistoryItem {
     id: string;
-    url: string;
-    timestamp: string;
-    metadata: Record<string, unknown> | null;
+    outputUrl: string;
+    createdAt: string;
+    config?: Record<string, unknown> | null;
 }
 
 export default function HistoryPage() {
@@ -23,7 +24,7 @@ export default function HistoryPage() {
 
     const fetchHistory = async () => {
         try {
-            const resp = await fetch('/api/history');
+            const resp = await fetch(`${getApiBase()}/history`);
             const data = await resp.json();
             if (data.history) {
                 setHistory(data.history);
@@ -82,7 +83,7 @@ export default function HistoryPage() {
                     <div className="space-y-12">
                         {Object.entries(
                             history.reduce((acc, item) => {
-                                const date = new Date(item.timestamp);
+                                const date = new Date(item.createdAt);
                                 const key = date.toLocaleString('zh-CN', {
                                     year: 'numeric',
                                     month: '2-digit',
@@ -94,7 +95,7 @@ export default function HistoryPage() {
                                 acc[key].push(item);
                                 return acc;
                             }, {} as Record<string, HistoryItem[]>)
-                        ).sort((a, b) => new Date(b[1][0].timestamp).getTime() - new Date(a[1][0].timestamp).getTime())
+                        ).sort((a, b) => new Date(b[1][0].createdAt).getTime() - new Date(a[1][0].createdAt).getTime())
                             .map(([time, items]) => (
                                 <div key={time}>
                                     <h2 className="text-xl font-medium text-white/50 mb-4 pl-1 border-l-2 border-emerald-500/50">{time}</h2>
@@ -104,7 +105,7 @@ export default function HistoryPage() {
                                                 <CardContent className="p-0">
                                                     <div className="relative aspect-square overflow-hidden">
                                                         <Image
-                                                            src={item.url}
+                                                            src={item.outputUrl}
                                                             alt="Generated image"
                                                             width={400}
                                                             height={400}
@@ -117,7 +118,7 @@ export default function HistoryPage() {
                                                                 variant="secondary"
                                                                 size="sm"
                                                                 className="rounded-full"
-                                                                onClick={() => handleDownload(item.url, item.id)}
+                                                                onClick={() => handleDownload(item.outputUrl, item.id)}
                                                             >
                                                                 <Download className="w-4 h-4 mr-2" /> Download
                                                             </Button>
@@ -129,24 +130,24 @@ export default function HistoryPage() {
                                                             <span className="flex items-center gap-1">
                                                                 <Hash className="w-3 h-3 text-emerald-500" /> {item.id.substring(0, 8)}
                                                             </span>
-                                                            <span>{new Date(item.timestamp).toLocaleTimeString()}</span>
+                                                            <span>{new Date(item.createdAt).toLocaleTimeString()}</span>
                                                         </div>
 
-                                                        {!!item.metadata?.prompt && (
+                                                        {!!item.config?.prompt && (
                                                             <div className="text-sm text-white/80 line-clamp-2 italic font-light">
-                                                                &ldquo;{item.metadata.prompt as string}&rdquo;
+                                                                &ldquo;{item.config.prompt as string}&rdquo;
                                                             </div>
                                                         )}
 
                                                         <div className="flex flex-wrap gap-2 pt-1">
-                                                            {!!item.metadata?.base_model && (
+                                                            {!!item.config?.model && (
                                                                 <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] rounded-full border border-emerald-500/20 uppercase tracking-widest">
-                                                                    {item.metadata.base_model as string}
+                                                                    {item.config.model as string}
                                                                 </span>
                                                             )}
-                                                            {!!item.metadata?.img_width && (
+                                                            {!!item.config?.width && (
                                                                 <span className="px-2 py-0.5 bg-white/5 text-white/50 text-[10px] rounded-full border border-white/5">
-                                                                    {item.metadata.img_width as number}x{item.metadata.image_height as number}
+                                                                    {item.config.width as number}x{item.config.height as number}
                                                                 </span>
                                                             )}
                                                         </div>

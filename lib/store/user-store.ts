@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { getApiBase } from "@/lib/api-base";
 
 export interface User {
     id: string;
@@ -22,7 +23,7 @@ class UserStore {
     async loadUsers() {
         this.isLoading = true;
         try {
-            const res = await fetch('/api/users');
+            const res = await fetch(`${getApiBase()}/users`);
             if (res.ok) {
                 const data = await res.json();
                 runInAction(() => {
@@ -56,7 +57,7 @@ class UserStore {
         this.isLoading = true;
         this.error = null;
         try {
-            const res = await fetch('/api/users', {
+            const res = await fetch(`${getApiBase()}/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'login', username, password })
@@ -96,7 +97,7 @@ class UserStore {
         this.isLoading = true;
         this.error = null;
         try {
-            const res = await fetch('/api/users', {
+            const res = await fetch(`${getApiBase()}/users`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'register', username, password })
@@ -137,7 +138,7 @@ class UserStore {
         
         this.isLoading = true;
         try {
-            const res = await fetch('/api/users', {
+            const res = await fetch(`${getApiBase()}/users`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: this.currentUser.id, ...updates })

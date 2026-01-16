@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
         }
 
         const params: ImageGenerationInput = {
-            prompt,
+            prompt: prompt ?? '',
             width,
             height,
             batchSize,

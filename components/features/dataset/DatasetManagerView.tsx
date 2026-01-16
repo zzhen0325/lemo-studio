@@ -5,6 +5,7 @@ import CollectionList from "./CollectionList";
 import CollectionDetail from "./CollectionDetail";
 import JSZip from "jszip";
 import { useToast } from "@/hooks/common/use-toast";
+import { getApiBase } from "@/lib/api-base";
 
 
 export interface DatasetCollection {
@@ -23,7 +24,7 @@ export default function DatasetManagerView() {
     const fetchCollections = async () => {
         try {
             setIsLoading(true);
-            const res = await fetch('/api/dataset');
+            const res = await fetch(`${getApiBase()}/dataset`);
             if (res.ok) {
                 const data = await res.json();
                 setCollections(data.collections || []);
@@ -39,7 +40,7 @@ export default function DatasetManagerView() {
         try {
             const formData = new FormData();
             formData.append('collection', name);
-            const res = await fetch('/api/dataset', {
+            const res = await fetch(`${getApiBase()}/dataset`, {
                 method: 'POST',
                 body: formData
             });
@@ -58,7 +59,7 @@ export default function DatasetManagerView() {
         if (!window.confirm(`Are you sure you want to delete collection "${name}"?`)) return;
 
         try {
-            const res = await fetch(`/api/dataset?collection=${encodeURIComponent(id)}`, {
+            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(id)}`, {
                 method: 'DELETE'
             });
 
@@ -84,7 +85,7 @@ export default function DatasetManagerView() {
             formData.append('mode', 'duplicate');
             formData.append('newName', newName.trim());
 
-            const res = await fetch('/api/dataset', {
+            const res = await fetch(`${getApiBase()}/dataset`, {
                 method: 'POST',
                 body: formData
             });
@@ -105,7 +106,7 @@ export default function DatasetManagerView() {
     const handleExportCollection = async (id: string, name: string) => {
         try {
             toast({ title: "Preparing export", description: "Fetching collection data..." });
-            const res = await fetch(`/api/dataset?collection=${encodeURIComponent(id)}`);
+            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(id)}`);
             if (res.ok) {
                 const data = await res.json();
                 const images = data.images || [];
@@ -145,7 +146,7 @@ export default function DatasetManagerView() {
         fetchCollections();
 
         // 实时同步逻辑：EventSource 监听
-        const eventSource = new EventSource('/api/dataset/sync');
+        const eventSource = new EventSource(`${getApiBase()}/dataset/sync`);
 
         eventSource.onmessage = (event) => {
             if (event.data === 'refresh') {

@@ -1,3 +1,5 @@
+import { getApiBase } from "@/lib/api-base";
+
 export type ByteArtistConfig = Record<string, unknown>;
 
 export interface ByteArtistParams {
@@ -10,7 +12,7 @@ export type ByteArtistResponse = Record<string, unknown>;
 
 export async function fetchByteArtistImage(params: ByteArtistParams): Promise<ByteArtistResponse> {
   try {
-    const response = await fetch('/api/byte-artist', {
+    const response = await fetch(`${getApiBase()}/byte-artist`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -98,7 +100,7 @@ export async function runComfyWorkflowWithMapping(args: {
   formData.append('viewComfy', JSON.stringify(viewComfy));
   formData.append('viewcomfyEndpoint', args.endpoint ?? '');
 
-  const url = args.endpoint ? '/api/viewcomfy' : '/api/comfy';
+  const url = args.endpoint ? `${getApiBase()}/viewcomfy` : `${getApiBase()}/comfy`;
   const response = await fetch(url, { method: 'POST', body: formData });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

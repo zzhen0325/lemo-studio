@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { getApiBase } from "@/lib/api-base";
 import {
     Tooltip,
     TooltipContent,
@@ -14,7 +15,7 @@ export function GoogleApiStatus({ className }: { className?: string }) {
     const checkStatus = async () => {
         setStatus('checking');
         try {
-            const res = await fetch('/api/check-google-api');
+            const res = await fetch(`${getApiBase()}/check-google-api`);
             const data = await res.json();
             setStatus(data.status);
             setLastCheck(new Date());
