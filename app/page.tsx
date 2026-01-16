@@ -74,6 +74,7 @@ export default function Page() {
         if (tab === TabValue.Playground) {
             setHasGenerated(false);
             usePlaygroundStore.getState().setShowHistory(false);
+            usePlaygroundStore.getState().setViewMode('home');
         }
 
         setCurrentTab(tab);
@@ -141,7 +142,7 @@ export default function Page() {
                         {currentTab === TabValue.Gallery && (
                             <div className="flex flex-col flex-1 h-full overflow-hidden animate-in fade-in duration-500">
                                 <Suspense fallback={<div className="flex items-center justify-center h-full text-white">Loading Gallery...</div>}>
-                                    <GalleryView variant="full" />
+                                    <GalleryView />
                                 </Suspense>
                             </div>
                         )}

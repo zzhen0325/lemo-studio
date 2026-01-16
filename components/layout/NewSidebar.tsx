@@ -27,6 +27,8 @@ import { UserProfileDialog } from "../features/auth/UserProfileDialog";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
+import { usePlaygroundStore } from "@/lib/store/playground-store";
+
 interface NewSidebarProps {
     currentTab: TabValue;
     onTabChange: (tab: TabValue) => void;
@@ -42,6 +44,7 @@ const navItems = [
 export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps) => {
     const [authOpen, setAuthOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const { setViewMode } = usePlaygroundStore();
 
     return (
         <header
@@ -51,6 +54,7 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                 className="flex items-center cursor-pointer absolute top-4 hover:opacity-80 transition-opacity"
                 onClick={() => {
                     onTabChange(TabValue.Playground);
+                    setViewMode('home');
                 }}
             >
                 <span className="text-white font-bold text-lg ">

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Download, Hash } from "lucide-react";
+import { ArrowLeft, Download, Hash } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import Link from 'next/link';
 import Image from 'next/image';
 import { getApiBase } from "@/lib/api-base";
@@ -69,7 +70,7 @@ export default function HistoryPage() {
 
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-[60vh]">
-                        <Loader2 className="w-12 h-12 animate-spin text-emerald-500 mb-4" />
+                        <LoadingSpinner size={48} className="mb-4" />
                         <p className="text-white/50 animate-pulse">Loading archive...</p>
                     </div>
                 ) : history.length === 0 ? (

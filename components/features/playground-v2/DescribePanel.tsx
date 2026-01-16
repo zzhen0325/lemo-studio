@@ -2,14 +2,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { X, Upload, Loader2, Sparkles, Plus } from "lucide-react";
+import { X, Upload, Sparkles, Plus } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { RefObject } from "react";
 import type { UploadedImage } from "@/components/features/playground-v2/types";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 
 export interface DescribePanelProps {
   open: boolean;
-  panelRef: RefObject<HTMLDivElement | null>;
+  panelRef: RefObject<HTMLDivElement>;
   describeImages: UploadedImage[];
   isDraggingOverPanel: boolean;
   setIsDraggingOverPanel: (val: boolean) => void;
@@ -44,10 +45,10 @@ export function DescribePanel({
       {open && (
         <motion.div
           ref={panelRef}
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.98 }}
-          className="flex w-full inset-0 z-20 py-2"
+          initial={{ opacity: 0, scale: 0.98, flexGrow: 0, height: 0 }}
+          animate={{ opacity: 1, scale: 1, flexGrow: 1, height: "auto" }}
+          exit={{ opacity: 0, scale: 0.98, flexGrow: 0, height: 0 }}
+          className="flex w-full z-20 py-2 overflow-hidden"
         >
           <div className="w-full h-full flex flex-col items-center p-2 bg-white/10 border border-white/20 rounded-[30px]">
             <div
@@ -133,7 +134,7 @@ export function DescribePanel({
                           />
                           {img.isUploading && (
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <Loader2 className="w-6 h-6 text-white animate-spin" />
+                              <LoadingSpinner size={24} className="text-white" />
                             </div>
                           )}
                         </motion.div>
@@ -165,7 +166,7 @@ export function DescribePanel({
                   >
                     {isDescribing ? (
                       <div className="flex items-center gap-2">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <LoadingSpinner size={14} />
                         <span className="text-sm">描述中...</span>
                       </div>
                     ) : (

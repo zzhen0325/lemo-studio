@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronUp, Download, Scissors, Wand2, Plus, Loader2, Trash2, Save, Languages, ListOrdered, X, LayoutGrid, List } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Slider } from "@/components/ui/slider";
 import Image from "next/image";
 import { ImageZoom } from "@/components/ui/shadcn-io/image-zoom";
@@ -1316,7 +1317,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                             <div className="flex items-center    ml-4 pl-4 bg-[linear-gradient(to_bottom,#12182d,#1d2446)] p-2 border border-white/20  rounded-lg animate-in fade-in slide-in-from-left-2 duration-100">
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-2 text-xs font-medium text-primary">
-                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        <LoadingSpinner size={12} />
                                         <span>处理中 {progress.current}/{progress.total}</span>
                                     </div>
                                     <div className="w-32 h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -1391,7 +1392,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                             onClick={handleSaveAllData}
                             className="text-primary hover:text-primary hover:bg-white/10 h-10 px-4 rounded-lg"
                         >
-                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            {isProcessing ? <LoadingSpinner size={16} /> : <Save className="h-4 w-4" />}
                             Save All
                         </Button>
                         <Button
@@ -1788,7 +1789,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     {isProcessing && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/20 backdrop-blur-[2px] rounded-2xl">
                             <div className="bg-card p-4 rounded-2xl border border-border flex items-center gap-3 shadow-xl">
-                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                <LoadingSpinner size={20} className="text-primary" />
                                 <span className="text-sm font-medium text-foreground">
                                     {progress ? `Processing... (${progress.current}/${progress.total})` : "Processing..."}
                                 </span>
@@ -1842,7 +1843,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
                                 {img.isOptimizing && (
                                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px]">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                        <LoadingSpinner size={32} className="text-primary" />
                                     </div>
                                 )}
 

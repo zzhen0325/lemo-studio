@@ -5,7 +5,8 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { X, Plus, Sparkles, Loader2 } from "lucide-react";
+import { X, Plus, Sparkles } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 import PromptInput from "@/components/features/playground-v2/PromptInput";
 import ControlToolbar from "@/components/features/playground-v2/ControlToolbar";
@@ -47,7 +48,7 @@ export interface PlaygroundInputSectionProps {
 
     // Refs
     fileInputRef: RefObject<HTMLInputElement | null>;
-    describePanelRef: RefObject<HTMLDivElement | null>;
+    describePanelRef: RefObject<HTMLDivElement>;
 
     // Callbacks
     setConfig: (val: GenerationConfig | ((prev: GenerationConfig) => GenerationConfig)) => void;
@@ -161,7 +162,8 @@ export function PlaygroundInputSection({
 
     return (
         <div className={cn(
-            "flex flex-col items-center w-full pointer-events-auto"
+            "flex flex-col items-center w-full pointer-events-auto",
+            isDescribeMode && showHistory && "h-full"
         )}>
             {!showHistory && !hideTitle && (
                 <div style={{ fontFamily: "'InstrumentSerif', serif" }}>
@@ -182,7 +184,10 @@ export function PlaygroundInputSection({
             )}
 
             <div 
-                className={cn(!width && "w-full")}
+                className={cn(
+                    !width && "w-full",
+                    isDescribeMode && showHistory ? "h-auto" : ""
+                )}
                 style={width ? { width: typeof width === 'number' ? `${width}px` : width } : {}}
             >
                 <div className={cn(
@@ -227,7 +232,7 @@ export function PlaygroundInputSection({
                                                 />
                                                 {image.isUploading && (
                                                     <div className="absolute inset-0 flex items-center justify-center">
-                                                        <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                                        <LoadingSpinner size={16} className="text-white" />
                                                     </div>
                                                 )}
                                             </motion.div>

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
-import PixelCard from "@/components/PixelCard";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useDraggable } from "@dnd-kit/core";
 import {
   DropdownMenu,
@@ -433,7 +433,7 @@ const HistoryList = observer(function HistoryList({
         <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
           {isFetchingHistory ? (
             <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-white/20" />
+              <LoadingSpinner size={24} className="text-white/20" />
               <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
             </div>
           ) : hasMoreHistory ? (
@@ -779,13 +779,9 @@ function HistoryCard({
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ exit: { delay: 0.5, duration: 0.3 } }}
-                            className="absolute inset-0 z-0"
+                            className="absolute inset-0 z-0 flex items-center justify-center bg-white/5"
                           >
-                            <PixelCard colors="#e6ffd135" speed={50} className="!w-full !h-full !aspect-auto !border-none !bg-transparent">
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-
-                              </div>
-                            </PixelCard>
+                            <LoadingSpinner size={48} />
                           </motion.div>
                         ) : img ? (
                           <motion.div
@@ -964,13 +960,9 @@ function HistoryCard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ exit: { delay: 0.5, duration: 0.3 } }}
-              className="absolute inset-0 z-0"
+              className="absolute inset-0 z-0 flex items-center justify-center bg-white/5"
             >
-              <PixelCard colors="#E6FFD1" speed={200} className="!w-full !h-full !aspect-auto !rounded-none !border-none !bg-transparent">
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <Loader2 className="w-8 h-8 animate-spin text-white/20" />
-                </div>
-              </PixelCard>
+              <LoadingSpinner size={48} />
             </motion.div>
           ) : mainImage ? (
             <motion.div
@@ -1122,7 +1114,7 @@ function TextHistoryCard({
       <div className="flex-1 overflow-hidden">
         {result.status === 'pending' ? (
           <div className="w-full h-full flex items-center justify-center">
-            <Loader2 className="w-5 h-5 animate-spin text-white/10" />
+            <LoadingSpinner size={20} className="text-white/10" />
           </div>
         ) : (
           <p

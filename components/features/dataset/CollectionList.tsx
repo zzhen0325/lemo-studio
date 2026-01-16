@@ -3,7 +3,8 @@
 import { DatasetCollection } from "./DatasetManagerView";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Loader2, RefreshCw, Download, Copy, Trash2 } from "lucide-react";
+import { MoreVertical, RefreshCw, Download, Copy, Trash2 } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import Image from "next/image";
 import {
     DropdownMenu,
@@ -38,7 +39,7 @@ export default function CollectionList({
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 animate-spin text-white/50" />
+                <LoadingSpinner size={32} className="text-white/50" />
             </div>
         );
     }

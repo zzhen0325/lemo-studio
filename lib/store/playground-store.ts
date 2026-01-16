@@ -25,6 +25,7 @@ interface PlaygroundState {
     showGallery: boolean;
     showProjectSidebar: boolean;
     selectedPresetName: string | undefined;
+    viewMode: 'home' | 'dock';
 
     // Selection Mode
     isSelectionMode: boolean;
@@ -46,6 +47,7 @@ interface PlaygroundState {
     setShowGallery: (val: boolean) => void;
     setShowProjectSidebar: (val: boolean) => void;
     setSelectedPresetName: (name: string | undefined) => void;
+    setViewMode: (mode: 'home' | 'dock') => void;
     setActiveTab: (tab: string) => void;
 
     // UI States
@@ -141,7 +143,9 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     isSelectorExpanded: false,
     setSelectorExpanded: (expanded) => set({ isSelectorExpanded: expanded }),
     selectedPresetName: undefined,
+    viewMode: 'home',
     setSelectedPresetName: (name) => set({ selectedPresetName: name }),
+    setViewMode: (mode) => set({ viewMode: mode }),
 
     previewImageUrl: null,
     previewLayoutId: null,
@@ -283,6 +287,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             isMockMode: false,
             isSelectorExpanded: false,
             selectedPresetName: undefined,
+            viewMode: 'home',
             isSelectionMode: false,
             selectedHistoryIds: new Set(),
             historyPage: 1,

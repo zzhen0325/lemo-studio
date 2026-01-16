@@ -1,7 +1,7 @@
 "use client";
 
 
-import React, { useState, useEffect, useRef, useMemo, useContext, Suspense } from "react";
+import React, { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import NextImage from "next/image";
 import { useToast } from "@/hooks/common/use-toast";
 
@@ -28,7 +28,7 @@ import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
 import { getApiBase } from "@/lib/api-base";
-import { History, Image as ImageIcon, Edit2, Sparkles, LayoutGrid, X as CloseIcon, Palette } from "lucide-react";
+import { History, Image as ImageIcon, Edit2, Sparkles, Palette } from "lucide-react";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import dynamic from "next/dynamic";
 
@@ -38,12 +38,11 @@ const GalleryView = dynamic(() => import("@/components/features/playground-v2/Ga
 });
 import { StyleStacksView } from '@/components/features/playground-v2/StyleStacksView';
 import { usePlaygroundStore } from "@/lib/store/playground-store";
-import { TabContext } from "@/components/layout/sidebar";
+import { useMediaQuery } from "@/hooks/common/use-media-query";
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
 import { PlaygroundInputSection } from "@/components/features/playground-v2/PlaygroundInputSection";
 import { AR_MAP } from "@/components/features/playground-v2/constants/aspect-ratio";
-import GradualBlur from "@/components/GradualBlur";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -74,7 +73,6 @@ export interface PlaygroundV2PageProps {
 
 }
 
-type ViewMode = 'home' | 'dock';
 type DockTab = 'history' | 'gallery' | 'describe' | 'style';
 
 export const PlaygroundV2Page = observer(function PlaygroundV2Page({
@@ -82,7 +80,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 }: PlaygroundV2PageProps) {
 
   const { toast } = useToast();
-  const tabContext = useContext(TabContext);
+  const isDesktop = useMediaQuery("(min-width: 1440px)");
   const config = usePlaygroundStore(s => s.config);
   const updateConfig = usePlaygroundStore(s => s.updateConfig);
   const uploadedImages = usePlaygroundStore(s => s.uploadedImages);
@@ -151,20 +149,19 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
   const [isInputFocused, setIsInputFocused] = useState(false);
-  // const [isGalleryOpen, setIsGalleryOpen] = useState(false); // Refactored to viewMode
   const [batchSize, setBatchSize] = useState(4); // Default batch size
 
   // New View Mode State
-  const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [activeTab, setActiveTab] = useState<DockTab>('history');
 
   const {
     showHistory,
     setShowHistory,
     showProjectSidebar,
-    setShowProjectSidebar,
     selectedPresetName,
     setSelectedPresetName,
+    viewMode,
+    setViewMode,
     previewImageUrl,
     previewLayoutId,
     setPreviewImage,
@@ -886,8 +883,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     handleGenerate, handleDescribe, setSelectedAIModel, setSelectedModel, 
     setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults, 
     setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen, 
-    setIsPresetGridOpen, setSelectedPresetName, setDescribeImages, setIsDraggingOver, 
-    setIsDraggingOverPanel
+    setIsPresetGridOpen, setDescribeImages, setIsDraggingOver, 
+    setIsDraggingOverPanel, setViewMode, setSelectedPresetName
   ]);
 
   return (
@@ -963,8 +960,101 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             <div className="relative w-full h-full flex flex-col items-center">
               <PlaygroundBackground />
 
+              {/* Dock Sidebar - Persistent in Dock Mode */}
+              {viewMode === 'dock' && (
+                <div className={cn(
+                  "z-[60] transition-all duration-300",
+                  isDesktop
+                    ? "absolute left-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4"
+                    : "relative top-4 flex flex-row justify-center gap-8 mb-6 w-full pt-2"
+                )}>
+                  {/* 抽取统一的样式逻辑 */}
+                  {(() => {
+                    const getButtonStyle = (isActive: boolean) => cn(
+                      "w-10 h-10 rounded-2xl transition-all duration-200",
+                      isActive
+                        ? "bg-primary/20 text-white border border-white/40 hover:bg-primary/30 hover:border-white/60 hover:scale-105"
+                        : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:scale-110"
+                    );
+
+                    const tooltipSide = isDesktop ? "right" : "bottom";
+
+                    return (
+                      <>
+                        <div className="flex flex-col items-center gap-1">
+                          <TooltipButton
+                            icon={<Sparkles className="w-5 h-5" />}
+                            label="Describe"
+                            tooltipContent="Describe image"
+                            tooltipSide={tooltipSide}
+                            className={getButtonStyle(activeTab === 'describe')}
+                            onClick={() => setActiveTab('describe')}
+
+                          />
+                          <span className="text-[10px]">Describe</span>
+
+
+                        </div>
+
+
+                        <div className="flex flex-col items-center gap-1">
+
+                          <TooltipButton
+                            icon={<Edit2 className="w-5 h-5" />}
+                            label="Edit Image"
+                            tooltipContent={uploadedImages.length > 0 ? "Edit Image" : "Image Editor"}
+                            tooltipSide={tooltipSide}
+                            className={getButtonStyle(false)}
+                            onClick={handleEditUploadedImage}
+                          />
+                          <span className="text-[10px]">Edit</span>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1">
+
+                          <TooltipButton
+                            icon={<History className="w-5 h-5" />}
+                            label="History"
+                            tooltipContent="History"
+                            tooltipSide={tooltipSide}
+                            className={getButtonStyle(activeTab === 'history')}
+                            onClick={() => setActiveTab('history')}
+                          />
+                          <span className="text-[10px]">History</span>
+
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1">
+                          <TooltipButton
+                            icon={<ImageIcon className="w-5 h-5" />}
+                            label="Gallery"
+                            tooltipContent="Gallery"
+                            tooltipSide={tooltipSide}
+                            className={getButtonStyle(activeTab === 'gallery')}
+                            onClick={() => setActiveTab('gallery')}
+                          />
+                          <span className="text-[10px]">Gallery</span>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1">
+                          <TooltipButton
+                            icon={<Palette className="w-5 h-5" />}
+                            label="Styles"
+                            tooltipContent="Styles"
+                            tooltipSide={tooltipSide}
+                            className={getButtonStyle(activeTab === 'style')}
+                            onClick={() => setActiveTab('style')}
+                          />
+                          <span className="text-[10px]">Moodboards</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* 全局底部渐进模糊 - 仅在预设面板展开且历史记录隐藏时显示 */}
-              {isPresetGridOpen && viewMode === 'dock' && (
+              {/* {isPresetGridOpen && viewMode === 'dock' && (
                 <GradualBlur
                   position="bottom"
                   height="8rem"
@@ -973,7 +1063,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   duration="0.4s"
                   className="pointer-events-none z-30"
                 />
-              )}
+              )} */}
 
 
 
@@ -984,93 +1074,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   ? "flex justify-center"
                   : "flex flex-col items-center justify-center"
               )}>
-
-                {/* Dock Sidebar - Persistent in Dock Mode */}
-                {viewMode === 'dock' && (
-                  <div className="absolute left-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-[60]  bg-black/0  transition-all duration-300">
-                    {/* 抽取统一的样式逻辑 */}
-                    {(() => {
-                      const getButtonStyle = (isActive: boolean) => cn(
-                        "w-10 h-10 rounded-2xl transition-all duration-200",
-                        isActive
-                          ? "bg-primary/20 text-white border border-white/40 hover:bg-primary/30 hover:border-white/60 hover:scale-105"
-                          : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:scale-110"
-                      );
-
-                      return (
-                        <>
-                          <div className="flex flex-col items-center gap-1">
-                            <TooltipButton
-                              icon={<Sparkles className="w-5 h-5" />}
-                              label="Describe"
-                              tooltipContent="Describe image"
-                              tooltipSide="right"
-                              className={getButtonStyle(activeTab === 'describe')}
-                              onClick={() => setActiveTab('describe')}
-
-                            />
-                            <span className="text-[10px]">Describe</span>
-
-
-                          </div>
-
-
-                          <div className="flex flex-col items-center gap-1">
-
-                            <TooltipButton
-                              icon={<Edit2 className="w-5 h-5" />}
-                              label="Edit Image"
-                              tooltipContent={uploadedImages.length > 0 ? "Edit Image" : "Image Editor"}
-                              tooltipSide="right"
-                              className={getButtonStyle(false)}
-                              onClick={handleEditUploadedImage}
-                            />
-                            <span className="text-[10px]">Edit</span>
-                          </div>
-
-                          <div className="flex flex-col items-center gap-1">
-
-                            <TooltipButton
-                              icon={<History className="w-5 h-5" />}
-                              label="History"
-                              tooltipContent="History"
-                              tooltipSide="right"
-                              className={getButtonStyle(activeTab === 'history')}
-                              onClick={() => setActiveTab('history')}
-                            />
-                            <span className="text-[10px]">History</span>
-
-                          </div>
-
-                          <div className="flex flex-col items-center gap-1">
-                            <TooltipButton
-                              icon={<ImageIcon className="w-5 h-5" />}
-                              label="Gallery"
-                              tooltipContent="Gallery"
-                              tooltipSide="right"
-                              className={getButtonStyle(activeTab === 'gallery')}
-                              onClick={() => setActiveTab('gallery')}
-                            />
-                            <span className="text-[10px]">Gallery</span>
-                          </div>
-
-                          <div className="flex flex-col items-center gap-1">
-                            <TooltipButton
-                              icon={<Palette className="w-5 h-5" />}
-                              label="Styles"
-                              tooltipContent="Styles"
-                              tooltipSide="right"
-                              className={getButtonStyle(activeTab === 'style')}
-                              onClick={() => setActiveTab('style')}
-                            />
-                            <span className="text-[10px]">Moodboards</span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
-
 
                 {/* 中间内容区 */}
                 <div className={cn(
@@ -1092,10 +1095,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     {/* Input UI - Always present but layout changes based on viewMode */}
                     {activeTab !== 'gallery' && activeTab !== 'style' && (
                       <div ref={promptWrapperRef} className={cn(
-                        "w-full ",
-                        viewMode === 'dock' && ""
+                        "w-full transition-all duration-300",
+                        (viewMode === 'dock' && activeTab === 'describe') ? "h-full flex flex-col" : "h-auto"
                       )}>
-                        <div className="w-full">
+                        <div className={cn(
+                          "w-full transition-all duration-300",
+                          (viewMode === 'dock' && activeTab === 'describe') ? "flex-1 min-h-0" : ""
+                        )}>
                           <PlaygroundInputSection {...inputSectionProps} />
                         </div>
                       </div>
