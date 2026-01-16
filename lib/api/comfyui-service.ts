@@ -149,7 +149,7 @@ export class ComfyUIService {
         });
     }
 
-    private async syncImagesFromInputs(inputs: any[]) {
+    private async syncImagesFromInputs(inputs: Array<{ value: unknown }>) {
         if (!inputs || !Array.isArray(inputs)) return;
 
         for (const input of inputs) {
@@ -182,7 +182,8 @@ export class ComfyUIService {
             const fileName = path.basename(imagePath);
 
             const formData = new FormData();
-            const blob = new Blob([fileBuffer], { type: (mime.lookup(fileName) || 'image/png') as string });
+            // Convert Buffer to Uint8Array to avoid SharedArrayBuffer typing issues in BlobPart
+            const blob = new Blob([Uint8Array.from(fileBuffer)], { type: (mime.lookup(fileName) || 'image/png') as string });
             formData.append('file', blob, fileName);
 
             logger.info(`Syncing image to external storage: ${fileName} ...`);

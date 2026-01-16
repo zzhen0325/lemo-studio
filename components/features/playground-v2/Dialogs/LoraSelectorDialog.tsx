@@ -7,6 +7,7 @@ import { Search, ServerCrash, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
+import { getApiBase } from "@/lib/api-base";
 
 interface LoraMeta {
   model_name: string;
@@ -44,7 +45,7 @@ export default function LoraSelectorDialog({ open, onOpenChange, value, onConfir
     const fetchList = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/loras');
+        const res = await fetch(`${getApiBase()}/loras`);
         if (!res.ok) throw new Error('获取模型失败');
         const data = (await res.json()) as LoraMeta[];
         setList(data);

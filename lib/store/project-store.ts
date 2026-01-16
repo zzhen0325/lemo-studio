@@ -1,6 +1,7 @@
 import { makeAutoObservable, reaction } from "mobx";
 import { Generation } from "@/types/database";
 import { userStore } from "./user-store";
+import { getApiBase } from "@/lib/api-base";
 
 export interface Project {
   id: string;
@@ -26,7 +27,7 @@ class ProjectStore {
 
     // Reload projects when user changes
     reaction(
-      () => userStore.currentUser.id,
+      () => userStore.currentUser?.id,
       () => {
         this.loadProjects();
         this.currentProjectId = null;
@@ -50,9 +51,12 @@ class ProjectStore {
   }
 
   async loadProjects() {
+    const currentUser = userStore.currentUser;
+    if (!currentUser) return;
+
     try {
-      const userId = userStore.currentUser.id;
-      const res = await fetch(`/api/projects?userId=${userId}`);
+      const userId = currentUser.id;
+      const res = await fetch(`${getApiBase()}/projects?userId=${userId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.projects) {
@@ -65,8 +69,11 @@ class ProjectStore {
   }
 
   async saveProjects() {
+    const currentUser = userStore.currentUser;
+    if (!currentUser) return;
+
     try {
-      const userId = userStore.currentUser.id;
+      const userId = currentUser.id;
       // Don't save full history in projects.json to keep it small
       // The history is already linked by projectId in the generation metadata
       const projectsToSave = this.projects.map(p => ({
@@ -75,7 +82,7 @@ class ProjectStore {
         history: [] // Clear history when saving project list
       }));
 
-      await fetch(`/api/projects?userId=${userId}`, {
+      await fetch(`${getApiBase()}/projects?userId=${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projects: projectsToSave }),
@@ -86,9 +93,12 @@ class ProjectStore {
   }
 
   addProject(name: string = "Untitled") {
+    const currentUser = userStore.currentUser;
+    if (!currentUser) throw new Error("No current user");
+
     const newProject: Project = {
       id: this.generateId(),
-      userId: userStore.currentUser.id,
+      userId: currentUser.id,
       name: name.slice(0, 20),
       createdAt: Date.now(),
       history: []
@@ -211,7 +221,7 @@ class ProjectStore {
 
       // Sync with backend
       try {
-        await fetch('/api/history', {
+        await fetch(`${getApiBase()}/history`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

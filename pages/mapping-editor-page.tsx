@@ -23,6 +23,7 @@ import { NodeConfigurationDialog } from "@/components/features/mapping-editor/no
 import { MappingList } from "@/components/features/mapping-editor/mapping-list";
 import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
+import { getApiBase } from "@/lib/api-base";
 
 
 interface LocalEditorState {
@@ -53,7 +54,7 @@ export function MappingEditorPage() {
 
   const fetchWorkflows = useCallback(async () => {
     try {
-      const res = await fetch('/api/view-comfy');
+      const res = await fetch(`${getApiBase()}/view-comfy`);
       if (res.ok) {
         const data = await res.json();
         setWorkflows(data.viewComfys || []);
@@ -168,7 +169,7 @@ export function MappingEditorPage() {
         viewComfys: updatedWorkflows
       };
 
-      const res = await fetch('/api/view-comfy', {
+      const res = await fetch(`${getApiBase()}/view-comfy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

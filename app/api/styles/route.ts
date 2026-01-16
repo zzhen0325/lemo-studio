@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import { StyleStack } from '@/components/features/playground-v2/types';
+import { StyleStack } from '@/types/database';
 import { v4 as uuidv4 } from 'uuid';
 
 const STYLE_DIR = path.join(process.cwd(), 'public/styles');

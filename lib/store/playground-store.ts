@@ -4,6 +4,7 @@ import { Generation } from '@/types/database';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
 import { userStore } from './user-store';
+import { getApiBase } from "@/lib/api-base";
 
 const BASE_MODELS = new Set([
     'FLUX_fill',
@@ -305,7 +306,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
         set({ isFetchingHistory: true });
         try {
             const limit = 20;
-            const url = new URL('/api/history', window.location.origin);
+            const url = new URL(`${getApiBase()}/history`);
             url.searchParams.set('page', page.toString());
             url.searchParams.set('limit', limit.toString());
             if (userStore.currentUser?.id) {
@@ -344,7 +345,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
         set({ isFetchingGallery: true });
         try {
             const limit = 1000;
-            const url = new URL('/api/history', window.location.origin);
+            const url = new URL(`${getApiBase()}/history`);
             url.searchParams.set('page', page.toString());
             url.searchParams.set('limit', limit.toString());
             // Intentionally NOT setting userId to get public/all data
@@ -373,8 +374,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     initPresets: async () => {
         try {
             const [presetsRes, workflowsRes] = await Promise.all([
-                fetch('/api/presets'),
-                fetch('/api/view-comfy')
+                fetch(`${getApiBase()}/presets`),
+                fetch(`${getApiBase()}/view-comfy`)
             ]);
 
             let allPresets: Preset[] = [];
@@ -447,7 +448,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     presetCategories: ['General', 'Portrait', 'Landscape', 'Anime', '3D', 'Architecture', 'Character', 'Workflow', 'Other'],
     initCategories: async () => {
         try {
-            const res = await fetch('/api/presets/categories');
+            const res = await fetch(`${getApiBase()}/presets/categories`);
             if (res.ok) {
                 const data = await res.json();
                 set({ presetCategories: data });
@@ -458,7 +459,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     },
     saveCategories: async (categories: string[]) => {
         try {
-            const res = await fetch('/api/presets/categories', {
+            const res = await fetch(`${getApiBase()}/presets/categories`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(categories)
@@ -489,7 +490,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             const formData = new FormData();
             formData.append('json', JSON.stringify(preset));
             if (coverFile) formData.append('cover', coverFile);
-            const res = await fetch('/api/presets', { method: 'POST', body: formData });
+            const res = await fetch(`${getApiBase()}/presets`, { method: 'POST', body: formData });
             if (res.ok) {
                 const savedPreset = await res.json();
                 set((state) => ({ presets: [savedPreset, ...state.presets] }));
@@ -501,7 +502,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
     removePreset: async (id: string) => {
         try {
-            await fetch(`/api/presets?id=${id}`, { method: 'DELETE' });
+            await fetch(`${getApiBase()}/presets?id=${id}`, { method: 'DELETE' });
             set((state) => ({ presets: state.presets.filter(p => p.id !== id) }));
         } catch (e) {
             console.error("Failed to delete preset", e);
@@ -513,7 +514,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             const formData = new FormData();
             formData.append('json', JSON.stringify(preset));
             if (coverFile) formData.append('cover', coverFile);
-            const res = await fetch('/api/presets', { method: 'POST', body: formData });
+            const res = await fetch(`${getApiBase()}/presets`, { method: 'POST', body: formData });
             if (res.ok) {
                 const savedPreset = await res.json();
                 set((state) => ({
@@ -530,7 +531,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
     initStyles: async () => {
         try {
-            const res = await fetch('/api/styles');
+            const res = await fetch(`${getApiBase()}/styles`);
             if (res.ok) {
                 const data = await res.json();
                 set({ styles: data });
@@ -542,7 +543,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
     addStyle: async (style: StyleStack) => {
         try {
-            const res = await fetch('/api/styles', {
+            const res = await fetch(`${getApiBase()}/styles`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(style)
@@ -558,7 +559,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
     updateStyle: async (style: StyleStack) => {
         try {
-            const res = await fetch('/api/styles', {
+            const res = await fetch(`${getApiBase()}/styles`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(style)
@@ -576,7 +577,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
     deleteStyle: async (id: string) => {
         try {
-            await fetch(`/api/styles?id=${id}`, { method: 'DELETE' });
+            await fetch(`${getApiBase()}/styles?id=${id}`, { method: 'DELETE' });
             set((state) => ({ styles: state.styles.filter(s => s.id !== id) }));
         } catch (e) {
             console.error("Failed to delete style", e);
@@ -594,7 +595,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
                 updatedAt: new Date().toISOString()
             };
             const newStyles = state.styles.map(s => s.id === styleId ? updatedStyle : s);
-            fetch('/api/styles', {
+            fetch(`${getApiBase()}/styles`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedStyle)

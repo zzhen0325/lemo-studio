@@ -11,6 +11,7 @@ import { IMultiValueInput } from "@/lib/workflow-api-parser";
 import { UIComponent } from "@/types/features/mapping-editor";
 import { usePostPlayground } from "@/hooks/features/playground/use-post-playground";
 import { toUnifiedConfigFromLegacy } from "@/lib/adapters/data-mapping";
+import { getApiBase } from "@/lib/api-base";
 
 export function useGenerationService() {
     const { toast } = useToast();
@@ -34,7 +35,8 @@ export function useGenerationService() {
 
     // Helper: Save to outputs
     const saveImageToOutputs = async (dataUrl: string, metadata?: Record<string, unknown>) => {
-        const resp = await fetch('/api/save-image', {
+        const resp = await fetch(`${getApiBase()}/save-image`, {
+
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'outputs', metadata })
@@ -46,7 +48,8 @@ export function useGenerationService() {
     // Helper: Save to history.json
     const saveHistoryToBackend = async (item: Generation) => {
         try {
-            await fetch('/api/history', {
+            await fetch(`${getApiBase()}/history`, {
+
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(item),
@@ -151,12 +154,12 @@ export function useGenerationService() {
         saveHistoryToBackend(result);
     };
 
-    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string) => {
+    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
         
         // Calculate effective source URL preferring path (uploaded URL) over base64
         const firstImage = currentUploadedImages[0];
-        const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
+        const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : sourceImageUrl;
 
         let modelId = "lemo_2dillustator"; // Default
         if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";

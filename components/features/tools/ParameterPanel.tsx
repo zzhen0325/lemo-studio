@@ -5,6 +5,7 @@ import { WebGLToolConfig, ToolParameter, ToolPreset } from './tool-configs';
 import { Trash2, Plus, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { getApiBase } from "@/lib/api-base";
 
 interface ParameterPanelProps {
     config: WebGLToolConfig;
@@ -100,7 +101,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
 
     const fetchPresets = React.useCallback(async () => {
         try {
-            const res = await fetch(`/api/tools/presets?toolId=${config.id}`);
+            const res = await fetch(`${getApiBase()}/tools/presets?toolId=${config.id}`);
             if (res.ok) {
                 const data = await res.json();
                 setPresets(data);
@@ -135,7 +136,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
                 }
             }
 
-            const res = await fetch('/api/tools/presets', {
+            const res = await fetch(`${getApiBase()}/tools/presets`, {
                 method: 'POST',
                 body: formData
             });
@@ -155,7 +156,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
     const handleDeletePreset = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
-            const res = await fetch(`/api/tools/presets?id=${id}&toolId=${config.id}`, {
+            const res = await fetch(`${getApiBase()}/tools/presets?id=${id}&toolId=${config.id}`, {
                 method: 'DELETE'
             });
             if (res.ok) {

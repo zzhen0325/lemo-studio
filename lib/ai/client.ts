@@ -1,4 +1,5 @@
 import { ProviderOptions } from './types';
+import { getApiBase } from "@/lib/api-base";
 
 export interface ClientGenerationParams {
     model: string; // e.g. doubao-pro-4k
@@ -42,7 +43,8 @@ export interface ClientImageParams {
 }
 
 export async function generateText(params: ClientGenerationParams): Promise<{ text: string }> {
-    const response = await fetch('/api/ai/text', {
+    const response = await fetch(`${getApiBase()}/ai/text`, {
+
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
@@ -61,7 +63,8 @@ export async function generateText(params: ClientGenerationParams): Promise<{ te
 }
 
 export async function describeImage(params: ClientDescribeParams): Promise<{ text: string }> {
-    const response = await fetch('/api/ai/describe', {
+    const response = await fetch(`${getApiBase()}/ai/describe`, {
+
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -85,7 +88,8 @@ export async function generateImage(
     params: ClientImageParams,
     onStream?: (chunk: { text?: string; images?: string[] }) => void
 ): Promise<{ images: string[]; metadata?: Record<string, unknown> }> {
-    const response = await fetch('/api/ai/image', {
+    const response = await fetch(`${getApiBase()}/ai/image`, {
+
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

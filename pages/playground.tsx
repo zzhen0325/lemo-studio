@@ -27,6 +27,7 @@ import { VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-
 import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
+import { getApiBase } from "@/lib/api-base";
 import { History, Image as ImageIcon, Edit2, Sparkles, LayoutGrid, X as CloseIcon, Palette } from "lucide-react";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import dynamic from "next/dynamic";
@@ -269,7 +270,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         sourceImageUrl: item.sourceImageUrl,
         createdAt: item.createdAt || new Date().toISOString(),
       };
-      await fetch('/api/history', {
+      await fetch(`${getApiBase()}/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(gen),
@@ -282,7 +283,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   useEffect(() => {
     const fetchWorkflows = async () => {
       try {
-        const res = await fetch('/api/view-comfy');
+        const res = await fetch(`${getApiBase()}/view-comfy`);
         if (res.ok) {
           const data = await res.json();
           setWorkflows(data.viewComfys || []);
@@ -450,7 +451,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       form.append('file', file);
 
       try {
-        const resp = await fetch('/api/upload', { method: 'POST', body: form });
+        const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: form });
         const json = await resp.json();
         const path = resp.ok && json?.path ? String(json.path) : undefined;
         const base64Data = dataUrl.split(',')[1];
@@ -488,7 +489,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       const uploadPromises = uploads.map(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
-        const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+        const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: formData });
         if (!resp.ok) throw new Error('Upload failed');
         const data = await resp.json();
         return data.path;
@@ -755,7 +756,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       // Upload main image
       const mainForm = new FormData();
       mainForm.append('file', mainFile);
-      const mainUploadResp = await fetch('/api/upload', { method: 'POST', body: mainForm });
+      const mainUploadResp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: mainForm });
       const mainUploadJson = await mainUploadResp.json();
       const mainPath = mainUploadResp.ok && mainUploadJson?.path ? String(mainUploadJson.path) : undefined;
 
@@ -778,7 +779,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           // Upload reference image
           const refForm = new FormData();
           refForm.append('file', refFile);
-          const refUploadResp = await fetch('/api/upload', { method: 'POST', body: refForm });
+          const refUploadResp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: refForm });
           const refUploadJson = await refUploadResp.json();
           const refPath = refUploadResp.ok && refUploadJson?.path ? String(refUploadJson.path) : undefined;
 

@@ -3,6 +3,7 @@ import { ErrorTypes, ResponseError } from "@/app/models/errors";
 import { useSearchParams } from "next/navigation";
 import { useState, useCallback } from "react"
 import { SETTINGS_STORAGE_KEY } from "@/lib/constants";
+import { getApiBase } from "@/lib/api-base";
 
 export interface IUsePostPlayground {
     viewComfy: IViewComfy,
@@ -22,9 +23,9 @@ export const usePostPlayground = () => {
     const doPost = useCallback(async ({ viewComfy, workflow, viewcomfyEndpoint, onSuccess, onError }: IUsePostPlayground) => {
         setLoading(true);
         try {
-            let url = "/api/comfy";
+            let url = `${getApiBase()}/comfy`;
             if (appId) {
-                url = "/api/byte-artist-comfy";
+                url = `${getApiBase()}/byte-artist-comfy`;
             }
 
             const formData = new FormData();

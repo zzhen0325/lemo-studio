@@ -88,6 +88,14 @@ export interface Style {
   updatedAt: string;
 }
 
+export interface StyleStack {
+  id: string;
+  name: string;
+  prompt: string;
+  imagePaths: string[];
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   displayName: string;

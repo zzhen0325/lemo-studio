@@ -1,0 +1,474 @@
+INFO 2026-01-15 21:51:41,287 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+ERROR 2026-01-15 21:51:41,715 v1(7) node_modules/@gulux/application/lib/application.js:254 10.75.169.211 i18n_fe.opera.node - default - - [gulux]::UnhandledRejection TSError: ⨯ Unable to compile TypeScript:
+[96m../lib/ai/providers.ts[0m:[93m761[0m:[93m38[0m - [91merror[0m[90m TS2322: [0mType 'Buffer<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Buffer<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+
+[7m761[0m                     blob = new Blob([buffer], { type: mime });
+[7m   [0m [91m                                     ~~~~~~[0m
+
+    at createTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:859:12)
+    at reportTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:863:19)
+    at getOutput (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1077:36)
+    at Object.compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1433:41)
+    at Module.m._compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1617:30)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+    at Object.require.extensions.<computed> [as .ts] (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1203:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1019:12)
+    at Module.require (node:internal/modules/cjs/loader:1231:19)
+INFO 2026-01-15 21:53:56,278 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+ERROR 2026-01-15 21:53:56,727 v1(7) node_modules/@gulux/application/lib/application.js:254 10.75.169.211 i18n_fe.opera.node - default - - [gulux]::UnhandledRejection TSError: ⨯ Unable to compile TypeScript:
+[96m../lib/ai/providers.ts[0m:[93m754[0m:[93m34[0m - [91merror[0m[90m TS2322: [0mType 'ArrayBuffer | SharedArrayBuffer' is not assignable to type 'BlobPart'.
+  Type 'SharedArrayBuffer' is not assignable to type 'BlobPart'.
+    Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+      Types of property '[Symbol.toStringTag]' are incompatible.
+        Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+
+[7m754[0m                 blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
+[7m   [0m [91m                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[96m../lib/ai/providers.ts[0m:[93m764[0m:[93m38[0m - [91merror[0m[90m TS2322: [0mType 'ArrayBuffer | SharedArrayBuffer' is not assignable to type 'BlobPart'.
+  Type 'SharedArrayBuffer' is not assignable to type 'BlobPart'.
+    Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+      Types of property '[Symbol.toStringTag]' are incompatible.
+        Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+
+[7m764[0m                     blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
+[7m   [0m [91m                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[96m../lib/ai/providers.ts[0m:[93m796[0m:[93m34[0m - [91merror[0m[90m TS2322: [0mType 'ArrayBuffer | SharedArrayBuffer' is not assignable to type 'BlobPart'.
+  Type 'SharedArrayBuffer' is not assignable to type 'BlobPart'.
+    Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+      Types of property '[Symbol.toStringTag]' are incompatible.
+        Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+
+[7m796[0m                 blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
+[7m   [0m [91m                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+    at createTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:859:12)
+    at reportTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:863:19)
+    at getOutput (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1077:36)
+    at Object.compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1433:41)
+    at Module.m._compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1617:30)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Object.require.extensions.<computed> [as .ts] (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+INFO 2026-01-15 21:55:16,181 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+ERROR 2026-01-15 21:55:16,163 v1(7) node_modules/@gulux/application/lib/application.js:254 10.75.169.211 i18n_fe.opera.node - default - - [gulux]::UnhandledRejection TSError: ⨯ Unable to compile TypeScript:
+[96m../lib/api/comfyui-service.ts[0m:[93m185[0m:[93m36[0m - [91merror[0m[90m TS2322: [0mType 'Buffer<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Buffer<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+
+[7m185[0m             const blob = new Blob([fileBuffer], { type: (mime.lookup(fileName) || 'image/png') as string });
+[7m   [0m [91m                                   ~~~~~~~~~~[0m
+
+    at createTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:859:12)
+    at reportTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:863:19)
+    at getOutput (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1077:36)
+    at Object.compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1433:41)
+    at Module.m._compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1617:30)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Object.require.extensions.<computed> [as .ts] (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+INFO 2026-01-15 21:56:04,481 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+ERROR 2026-01-15 21:56:06,514 v1(7) node_modules/@gulux/application/lib/application.js:254 10.75.169.211 i18n_fe.opera.node - default - - [gulux]::UnhandledRejection TSError: ⨯ Unable to compile TypeScript:
+[96mservice/presets.service.ts[0m:[93m4[0m:[93m29[0m - [91merror[0m[90m TS2307: [0mCannot find module '../components/features/playground-v2/types' or its corresponding type declarations.
+
+[7m4[0m import type { Preset } from '../components/features/playground-v2/types';
+[7m [0m [91m                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+    at createTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:859:12)
+    at reportTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:863:19)
+    at getOutput (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1077:36)
+    at Object.compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1433:41)
+    at Module.m._compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1617:30)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Object.require.extensions.<computed> [as .ts] (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+INFO 2026-01-15 21:57:07,155 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+INFO 2026-01-15 21:57:18,786 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+ERROR 2026-01-15 21:57:21,676 v1(7) node_modules/@gulux/application/lib/application.js:254 10.75.169.211 i18n_fe.opera.node - default - - [gulux]::UnhandledRejection TSError: ⨯ Unable to compile TypeScript:
+[96mservice/styles.service.ts[0m:[93m4[0m:[93m33[0m - [91merror[0m[90m TS2307: [0mCannot find module '../components/features/playground-v2/types' or its corresponding type declarations.
+
+[7m4[0m import type { StyleStack } from '../components/features/playground-v2/types';
+[7m [0m [91m                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+    at createTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:859:12)
+    at reportTSError (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:863:19)
+    at getOutput (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1077:36)
+    at Object.compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1433:41)
+    at Module.m._compile (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1617:30)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Object.require.extensions.<computed> [as .ts] (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+INFO 2026-01-15 21:58:29,728 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+INFO 2026-01-15 21:58:38,433 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+INFO 2026-01-15 21:58:42,663 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.169.211 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+INFO 2026-01-15 21:58:47,587 v1(7) server/node_modules/@gulux/application-http/lib/protocol_app.js:114 10.75.169.211 i18n_fe.opera.node - default - - [gulux] server started at port: 3000
+ERROR 2026-01-15 21:58:56,929 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485536916fe8000000000000008eb0e7a5511d711b7d961 K_SPANID=376215924254817 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:00,012 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485540011fe8000000000000008eb0e7a5511d711a714d0 K_SPANID=376215924254818 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:01,584 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485541583fe8000000000000008eb0e7a5511d7110ebb4e K_SPANID=376215924254819 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,330 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544318fe8000000000000008eb0e7a5511d711f8288b K_SPANID=376215924254820 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,356 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544337fe8000000000000008eb0e7a5511d711feb4c1 K_SPANID=376215924254821 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,559 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544558fe8000000000000008eb0e7a5511d7113cc4d7 K_SPANID=376215924254822 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,573 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544573fe8000000000000008eb0e7a5511d711db37b9 K_SPANID=376215924254823 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,586 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544584fe8000000000000008eb0e7a5511d71145a432 K_SPANID=376215924254824 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,604 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544603fe8000000000000008eb0e7a5511d7115ffc9a K_SPANID=376215924254825 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,608 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544607fe8000000000000008eb0e7a5511d711bde9ff K_SPANID=376215924254826 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,629 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544621fe8000000000000008eb0e7a5511d711c8d0bc K_SPANID=376215924254827 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,637 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544636fe8000000000000008eb0e7a5511d711a88433 K_SPANID=376215924254828 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,642 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544641fe8000000000000008eb0e7a5511d711bde698 K_SPANID=376215924254829 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,652 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544650fe8000000000000008eb0e7a5511d711c772b3 K_SPANID=376215924254830 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,682 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544672fe8000000000000008eb0e7a5511d711346bad K_SPANID=376215924254831 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,687 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544686fe8000000000000008eb0e7a5511d711460951 K_SPANID=376215924254832 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,705 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544704fe8000000000000008eb0e7a5511d7113ebff1 K_SPANID=376215924254833 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,715 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544712fe8000000000000008eb0e7a5511d7110274dc K_SPANID=376215924254834 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,718 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544716fe8000000000000008eb0e7a5511d7117cb972 K_SPANID=376215924254835 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,726 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544725fe8000000000000008eb0e7a5511d71174dd7f K_SPANID=376215924254836 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,832 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544832fe8000000000000008eb0e7a5511d71158f1ed K_SPANID=376215924254837 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,837 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544836fe8000000000000008eb0e7a5511d7114af025 K_SPANID=376215924254838 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,839 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544839fe8000000000000008eb0e7a5511d711958ea5 K_SPANID=376215924254839 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,842 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544841fe8000000000000008eb0e7a5511d711bd3f1f K_SPANID=376215924254840 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,848 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544847fe8000000000000008eb0e7a5511d711816f34 K_SPANID=376215924254841 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,856 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544855fe8000000000000008eb0e7a5511d71105c3b9 K_SPANID=376215924254842 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,857 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544856fe8000000000000008eb0e7a5511d711bab2f3 K_SPANID=376215924254843 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,864 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544864fe8000000000000008eb0e7a5511d71106c26c K_SPANID=376215924254844 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,865 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544865fe8000000000000008eb0e7a5511d7115ee052 K_SPANID=376215924254845 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,867 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544866fe8000000000000008eb0e7a5511d7112deb58 K_SPANID=376215924254846 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:04,869 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485544868fe8000000000000008eb0e7a5511d711c4a68c K_SPANID=376215924254847 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
+ERROR 2026-01-15 21:59:34,302 v1(7) server/node_modules/@byted-service/bytedtrace/lib/tracer/tracer.js:438 10.75.169.211 i18n_fe.opera.node - default - - K_LOGID=021768485574301fe8000000000000008eb0e7a5511d71105a442 K_SPANID=376215924254848 _type:log _name:err-500 _msg:NotFoundError: [@artus/injection] with "GlobalExceptionMiddleware" identifier was not found in the container. 
+    at ExecutionContainer.get (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/injection/src/execution_container.ts:26:13)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:12:47
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at LogIdMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/logid.js:11:16)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at StartSpanMiddleware.use (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/start_span.js:46:19)
+    at /Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application/lib/util/middleware_util.js:14:32
+    at Pipeline.dispatch (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@artus/pipeline/src/pipeline.ts:35:30)
+    at wrapNext (/Users/bytedance/Project/ai-project/Lemon8_ai_studio/server/node_modules/@gulux/application-http/lib/middleware/body_parser.js:22:20)
