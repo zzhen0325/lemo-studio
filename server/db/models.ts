@@ -101,6 +101,10 @@ export class Generation {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public config?: Record<string, any>;
 
+  @Prop({ type: () => Object })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public editConfig?: Record<string, any>;
+
   @Prop()
   public createdAt?: string;
 }

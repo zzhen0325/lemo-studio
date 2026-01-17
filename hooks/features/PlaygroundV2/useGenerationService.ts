@@ -5,7 +5,7 @@ import { projectStore } from "@/lib/store/project-store";
 import { userStore } from "@/lib/store/user-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
-import { GenerationConfig } from "@/components/features/playground-v2/types";
+import { GenerationConfig, EditPresetConfig } from "@/components/features/playground-v2/types";
 import { Generation } from "@/types/database";
 import { IMultiValueInput } from "@/lib/workflow-api-parser";
 import { UIComponent } from "@/types/features/mapping-editor";
@@ -19,13 +19,22 @@ export interface UnifiedModelConfig {
 }
 
 export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
+
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana' },
+    { id: 'coze_seed4', displayName: 'Seedream 4' },
     // { id: 'seed4_lemo1230', displayName: 'Seed 4.0' },
     { id: 'seed4_2_lemo', displayName: 'Seed4 ' },
     { id: 'lemo_2dillustator', displayName: 'Seed3 Lemo' },
     // { id: 'lemoseedt2i', displayName: 'Seed 4' },
-    { id: 'coze_seed4', displayName: 'Seedream 4' },
+
 ];
+
+export interface GenerateOptions {
+    configOverride?: GenerationConfig;
+    fixedCreatedAt?: string;
+    isBackground?: boolean;
+    editConfig?: EditPresetConfig;
+}
 
 export function useGenerationService() {
     const { toast } = useToast();
@@ -74,16 +83,23 @@ export function useGenerationService() {
         }
     };
 
-    const handleGenerate = async (configOverride?: GenerationConfig, fixedCreatedAt?: string, isBackground?: boolean) => {
+
+    const handleGenerate = async (options: GenerateOptions = {}) => {
+        const { configOverride, fixedCreatedAt, isBackground } = options;
         const generationTime = fixedCreatedAt || new Date().toISOString();
         const freshConfig = usePlaygroundStore.getState().config;
         const currentLoras = usePlaygroundStore.getState().selectedLoras;
+
+        // Prioritize editConfig from options, then configOverride, then current config
+        const editConfig = options.editConfig || configOverride?.editConfig || freshConfig.editConfig;
+
         const finalConfig = {
             ...(configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
                 ? configOverride
                 : freshConfig),
             loras: currentLoras,
-            presetName: selectedPresetName
+            presetName: selectedPresetName,
+            editConfig // Ensure it's part of finalConfig
         };
 
         // Set state to indicate generation has started
@@ -103,6 +119,7 @@ export function useGenerationService() {
             config: unifiedCfg,
             status: 'pending',
             sourceImageUrl: sourceImageUrl,
+            editConfig: editConfig,
             createdAt: generationTime,
         };
 
@@ -209,8 +226,9 @@ export function useGenerationService() {
             prompt: unified.prompt,
             width: Number(unified.width),
             height: Number(unified.height),
+            aspectRatio: unified.aspectRatio === 'auto' ? undefined : unified.aspectRatio,
             batchSize: 1, // Single task per call now
-            image: currentUploadedImages.length > 0 ? currentUploadedImages[0].base64 : undefined,
+            image: currentUploadedImages.length > 0 ? currentUploadedImages[0].previewUrl : undefined,
             options: {
                 seed: Math.floor(Math.random() * 2147483647),
                 stream: isCoze
@@ -250,7 +268,7 @@ export function useGenerationService() {
                         console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
                         setGenerationHistory((prev: Generation[]) => prev.map(item =>
                             item.id === taskId
-                                ? { ...item, outputUrl: savedPath, status: 'completed' }
+                                ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: currentConfig.editConfig }
                                 : item
                         ));
                     } catch (err) {
@@ -310,6 +328,7 @@ export function useGenerationService() {
                 status: 'completed',
                 sourceImageUrl: effectiveSourceUrl,
                 createdAt: generationTime,
+                editConfig: currentConfig.editConfig,
             };
             updateHistoryAndSave(taskId, gen);
         } else {
@@ -429,6 +448,7 @@ export function useGenerationService() {
                         status: 'completed',
                         sourceImageUrl: effectiveSourceUrl,
                         createdAt: generationTime,
+                        editConfig: currentConfig.editConfig
                     };
                     updateHistoryAndSave(taskId, gen);
                 }

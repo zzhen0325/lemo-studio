@@ -4,7 +4,7 @@ import { projectStore } from '@/lib/store/project-store';
 
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Copy, FolderPlus, GripVertical, Layers, Pencil, Trash2 } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Copy, FolderPlus, GripVertical, Layers, Pencil, Trash2, History as HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
@@ -31,7 +31,7 @@ interface HistoryListProps {
   history: Generation[];
   onRegenerate: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
-  onEdit?: (result: Generation) => void;
+  onEdit?: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   isGenerating?: boolean;
   variant?: 'default' | 'sidebar';
@@ -67,7 +67,6 @@ const HistoryList = observer(function HistoryList({
     setIsSelectionMode,
     selectedHistoryIds: selectedIds,
     toggleHistorySelection: toggleSelection,
-    setHistorySelection,
     clearHistorySelection: clearSelection,
     historyPage,
     hasMoreHistory,
@@ -569,7 +568,7 @@ function HistoryCard({
   allResults?: Generation[];
   onRegenerate: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
-  onEdit?: (result: Generation) => void;
+  onEdit?: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onRefImageClick: (url: string, id: string) => void;
   layoutMode?: 'grid' | 'list';
@@ -617,6 +616,15 @@ function HistoryCard({
 
             <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
+
+            {result.editConfig && (
+              <>
+                <span className="opacity-40">/</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
+                  EDIT
+                </span>
+              </>
+            )}
 
             {config?.loras && config.loras.length > 0 && config.loras.map((l, idx) => (
               <React.Fragment key={idx}>
@@ -696,7 +704,7 @@ function HistoryCard({
                     <div className="mt-3 group/ref relative w-fit">
                       <motion.div
                         layoutId={`img-ref-${result.id}`}
-                        className="relative w-20 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
+                        className="relative w-14 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
                         onClick={(e) => {
                           e.stopPropagation();
                           onRefImageClick(result.sourceImageUrl!, `img-ref-${result.id}`)
@@ -716,50 +724,6 @@ function HistoryCard({
                     </div>
                   )}
                 </motion.div>
-
-                <div className="absolute w-full bottom-4 left-4 flex  gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 rounded-sm border-white/10 bg-black/10 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRegenerate(result);
-                    }}
-                  >
-                    <span className="text-md hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Rerun</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-8 rounded-sm border-white/10 bg-black/10 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (config) {
-                        applyModel(config.model || '', {
-                          prompt: config.prompt,
-                          width: config.width,
-                          height: config.height,
-                          model: config.model,
-                          lora: config.lora,
-                          loras: config.loras,
-                          presetName: config.presetName,
-                        });
-                        applyPrompt(prompt);
-
-                        if (result.sourceImageUrl) {
-                          applyImage(result.sourceImageUrl);
-                        }
-
-                        toast({
-                          title: "参数已回填",
-                          description: "生成参数已应用到当前配置",
-                        });
-                      }
-                    }}
-                  >
-                    <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Use All</span>
-                  </Button>
-                </div>
               </motion.div>
 
               <motion.div className={cn(
@@ -881,14 +845,28 @@ function HistoryCard({
                           <TooltipButton
                             icon={<Pencil className="w-4 h-4" />}
                             label="Edit"
-                            tooltipContent="Edit"
+                            tooltipContent="以结果图开始新编辑"
                             tooltipSide="top"
                             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onEdit?.(res);
+                              onEdit?.(res, false);
                             }}
                           />
+
+                          {res.editConfig && (
+                            <TooltipButton
+                              icon={<HistoryIcon className="w-4 h-4" />}
+                              label="Edit Again"
+                              tooltipContent="恢复原图和标注再次编辑"
+                              tooltipSide="top"
+                              className="w-8 h-8 rounded-xl text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit?.(res, true);
+                              }}
+                            />
+                          )}
 
                           <TooltipButton
                             icon={<Download className="w-4 h-4" />}
@@ -908,6 +886,49 @@ function HistoryCard({
                 })}
               </motion.div>
             </motion.div>
+            <div className="flex gap-2 px-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 rounded-sm border-white/10 bg-black/20 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRegenerate(result);
+                }}
+              >
+                <span className="text-md hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Rerun</span>
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 rounded-sm border-white/10 bg-black/20 text-white/70 hover:bg-black/10 hover:text-white gap-1.5 px-3"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (config) {
+                    applyModel(config.model || '', {
+                      prompt: config.prompt,
+                      width: config.width,
+                      height: config.height,
+                      model: config.model,
+                      lora: config.lora,
+                      loras: config.loras,
+                      presetName: config.presetName,
+                    });
+                    applyPrompt(prompt);
+
+                    if (result.sourceImageUrl) {
+                      applyImage(result.sourceImageUrl);
+                    }
+
+                    toast({
+                      title: "参数已回填",
+                      description: "生成参数已应用到当前配置",
+                    });
+                  }
+                }}
+              >
+                <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Use All</span>
+              </Button>
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1029,11 +1050,21 @@ function HistoryCard({
           <TooltipButton
             icon={<Pencil className="w-4 h-4" />}
             label="Edit"
-            tooltipContent="Edit"
+            tooltipContent="以结果图开始新编辑"
             tooltipSide="top"
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => onEdit?.(result)}
+            onClick={() => onEdit?.(result, false)}
           />
+          {result.editConfig && (
+            <TooltipButton
+              icon={<HistoryIcon className="w-4 h-4" />}
+              label="Edit Again"
+              tooltipContent="恢复原图和标注再次编辑"
+              tooltipSide="top"
+              className="w-8 h-8 rounded-xl text-primary hover:text-primary hover:bg-primary/10"
+              onClick={() => onEdit?.(result, true)}
+            />
+          )}
           <TooltipButton
             icon={<RefreshCw className="w-4 h-4" />}
             label="Remix"

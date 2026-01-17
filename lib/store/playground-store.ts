@@ -26,6 +26,7 @@ interface PlaygroundState {
     showProjectSidebar: boolean;
     selectedPresetName: string | undefined;
     viewMode: 'home' | 'dock';
+    editConfig?: import('@/types/database').EditPresetConfig;
 
     // Selection Mode
     isSelectionMode: boolean;
@@ -49,6 +50,9 @@ interface PlaygroundState {
     setSelectedPresetName: (name: string | undefined) => void;
     setViewMode: (mode: 'home' | 'dock') => void;
     setActiveTab: (tab: string) => void;
+    updateUploadedImage: (id: string, updates: Partial<UploadedImage>) => void;
+    updateDescribeImage: (id: string, updates: Partial<UploadedImage>) => void;
+    updateHistorySourceUrl: (oldUrl: string, newUrl: string) => void;
 
     // UI States
     isAspectRatioLocked: boolean;
@@ -179,6 +183,47 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
         // Placeholder
     },
 
+    updateUploadedImage: (id, updates) => set((state) => ({
+        uploadedImages: state.uploadedImages.map(img => img.id === id ? { ...img, ...updates } : img)
+    })),
+
+    updateDescribeImage: (id, updates) => set((state) => ({
+        describeImages: state.describeImages.map(img => img.id === id ? { ...img, ...updates } : img)
+    })),
+
+    updateHistorySourceUrl: (oldUrl, newUrl) => set((state) => ({
+        generationHistory: state.generationHistory.map(item => {
+            let updated = false;
+            const newItem = { ...item };
+
+            if (newItem.sourceImageUrl === oldUrl) {
+                newItem.sourceImageUrl = newUrl;
+                updated = true;
+            }
+            if (newItem.outputUrl === oldUrl) {
+                newItem.outputUrl = newUrl;
+                updated = true;
+            }
+            if (newItem.config?.sourceImageUrl === oldUrl) {
+                newItem.config = { ...newItem.config, sourceImageUrl: newUrl };
+                updated = true;
+            }
+            if (newItem.editConfig?.originalImageUrl === oldUrl) {
+                newItem.editConfig = { ...newItem.editConfig, originalImageUrl: newUrl };
+                updated = true;
+            }
+            if (newItem.config?.editConfig?.originalImageUrl === oldUrl) {
+                newItem.config = {
+                    ...newItem.config,
+                    editConfig: { ...newItem.config.editConfig, originalImageUrl: newUrl }
+                };
+                updated = true;
+            }
+
+            return updated ? newItem : item;
+        })
+    })),
+
     applyPrompt: (prompt) => {
         set((state) => ({ config: { ...state.config, prompt } }));
     },
@@ -275,7 +320,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
                 model: 'gemini-3-pro-image-preview',
                 resolution: '1K',
                 aspectRatio: '16:9',
-                lora: ''
+                lora: '',
+                editConfig: undefined
             },
             uploadedImages: [],
             describeImages: [],
@@ -291,6 +337,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             isSelectorExpanded: false,
             selectedPresetName: undefined,
             viewMode: 'home',
+            editConfig: undefined,
             isSelectionMode: false,
             selectedHistoryIds: new Set(),
             historyPage: 1,

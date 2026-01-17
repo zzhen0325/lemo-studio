@@ -179,7 +179,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         // Use current category if not "All", otherwise default to "General"
         const categoryToUse = activeManagerCategory !== 'All' ? activeManagerCategory : 'General';
         const initialCoverUrl = currentEditConfig?.originalImageUrl || '';
-        
+
         setFormData({
             name: '',
             coverUrl: initialCoverUrl,
@@ -196,7 +196,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     // Auto-open create mode if currentEditConfig is provided
     React.useEffect(() => {
         if (open && currentEditConfig) {
-             handleCreate();
+            handleCreate();
         }
     }, [open, currentEditConfig, handleCreate]);
 
@@ -290,7 +290,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange} >
-            <DialogContent className="max-w-6xl h-[800px] flex flex-col p-0 gap-0 bg-zinc-950/95 backdrop-blur-2xl border-white/5 text-white overflow-hidden rounded-3xl">
+            <DialogContent className="max-w-6xl h-[800px] flex flex-col p-0 gap-0 bg-zinc-950/95 backdrop-blur-2xl border-white/5 text-white overflow-hidden rounded-3xl z-[10000]">
                 <DialogDescription className="hidden">
                     Manage your presets, including creating, editing, and organizing them into categories.
                 </DialogDescription>
@@ -486,7 +486,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                     <SelectValue placeholder="Select category" />
                                                                 </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
+                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[10010]">
                                                                     {presetCategories.map(cat => (
                                                                         <SelectItem key={cat} value={cat} className="hover:bg-emerald-500/20 focus:bg-emerald-500/20">{cat}</SelectItem>
                                                                     ))}
@@ -506,7 +506,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                     <SelectValue placeholder="Select model" />
                                                                 </SelectTrigger>
-                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
+                                                                <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[10010]">
                                                                     {AVAILABLE_MODELS.map(m => (
                                                                         <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
                                                                     ))}
@@ -529,7 +529,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                             <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                 <SelectValue placeholder="Select category" />
                                                             </SelectTrigger>
-                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
+                                                            <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[10010]">
                                                                 {presetCategories.map(cat => (
                                                                     <SelectItem key={cat} value={cat} className="hover:bg-emerald-500/20 focus:bg-emerald-500/20">{cat}</SelectItem>
                                                                 ))}
@@ -594,7 +594,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                     <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                         <SelectValue placeholder="Select size" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
+                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[10010]">
                                                                         <SelectItem value="1K">1K (Standard)</SelectItem>
                                                                         <SelectItem value="2K">2K (High Def)</SelectItem>
                                                                         <SelectItem value="4K">4K (Ultra High)</SelectItem>
@@ -614,7 +614,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                     <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                         <SelectValue placeholder="Select ratio" />
                                                                     </SelectTrigger>
-                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
+                                                                    <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[10010]">
                                                                         {['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'].map(ratio => (
                                                                             <SelectItem key={ratio} value={ratio}>{ratio}</SelectItem>
                                                                         ))}
@@ -635,7 +635,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                         <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
                                                                             <SelectValue placeholder="Select workflow" />
                                                                         </SelectTrigger>
-                                                                        <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
+                                                                        <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[10010]">
                                                                             <SelectItem value="default">System Default</SelectItem>
                                                                             {workflows.map(workflow => (
                                                                                 <SelectItem key={workflow.viewComfyJSON.id} value={workflow.viewComfyJSON.id}>
@@ -673,11 +673,11 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <div className="space-y-2 flex-1">
                                                                     <span className="text-xs text-white/40">Original Image</span>
                                                                     <div className="aspect-video rounded-xl border border-white/10 overflow-hidden relative bg-black/40">
-                                                                        <NextImage 
-                                                                            src={(formData.editConfig || currentEditConfig)?.originalImageUrl || ''} 
-                                                                            alt="Original" 
-                                                                            fill 
-                                                                            className="object-contain" 
+                                                                        <NextImage
+                                                                            src={(formData.editConfig || currentEditConfig)?.originalImageUrl || ''}
+                                                                            alt="Original"
+                                                                            fill
+                                                                            className="object-contain"
                                                                         />
                                                                     </div>
                                                                 </div>

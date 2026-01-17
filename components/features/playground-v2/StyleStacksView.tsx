@@ -89,9 +89,10 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                     <div className="flex flex-col gap-8 w-full pb-10">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
-                                <h2 className="text-3xl font-instrument-sans text-white flex items-center gap-3">
+                                <span className="text-3xl font-instrument-sans text-white flex items-center gap-3"
+                                style={{ fontFamily: "'InstrumentSerif', serif" }}>
                                     Moodboards
-                                </h2>
+                                </span>
                             </div>
 
                             <div className="flex items-center gap-4">

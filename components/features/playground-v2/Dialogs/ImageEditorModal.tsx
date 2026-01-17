@@ -10,15 +10,12 @@ import {
     Square,
     Circle as CircleIcon,
     ArrowRight,
-    RotateCcw,
-    RotateCw,
     Check,
     Palette,
     Layers,
     SlidersHorizontal,
     X,
     LucideIcon,
-    Trash2,
     ImagePlus,
     MessageSquarePlus,
     Upload,
@@ -31,13 +28,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger
+
 } from "@/components/ui/dropdown-menu";
 
-import { useImageEditor, EDITOR_COLORS, EditorColor } from '@/hooks/features/PlaygroundV2/useImageEditor';
+import { useImageEditor, EDITOR_COLORS, EditorColor, FabricObject } from '@/hooks/features/PlaygroundV2/useImageEditor';
 import { cn } from '@/lib/utils';
 
 import { PresetManagerDialog } from './PresetManagerDialog';
@@ -49,14 +43,13 @@ interface ImageEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     imageUrl: string;
-    onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean) => void;
+    onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean, editConfig?: EditPresetConfig) => void;
     initialState?: EditPresetConfig;
     workflows: IViewComfy[];
     inputSectionProps?: PlaygroundInputSectionProps;
 }
 
 export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows, inputSectionProps }: ImageEditorModalProps) {
-    const [showProperties, setShowProperties] = useState(true);
     const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
     const [currentEditConfig, setCurrentEditConfig] = useState<EditPresetConfig | undefined>(undefined);
     const [mounted, setMounted] = useState(false);
@@ -65,6 +58,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         setMounted(true);
     }, []);
 
+
+
     const {
         canvasRef,
         editorState,
@@ -72,7 +67,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         addText,
         undo,
         redo,
-        rotateCanvas,
+
 
         exportImage,
         updateBrushColor,
@@ -91,12 +86,48 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         setEditorState,
         isInitialized,
         initCanvas,
-        initCanvasWithImage
+        initCanvasWithImage,
+        setZoomEnabled
     } = useImageEditor(imageUrl);
+
+    useEffect(() => {
+        // Disable canvas zoom when preset manager is open to prevent scroll interference
+        if (setZoomEnabled) {
+            setZoomEnabled(!isPresetManagerOpen);
+        }
+    }, [isPresetManagerOpen, setZoomEnabled]);
 
     const [annotationText, setAnnotationText] = useState("");
     const annotInputRef = useRef<HTMLTextAreaElement>(null);
     const canvasContainerRef = useRef<HTMLDivElement>(null);
+    const hasLoadedInitialState = useRef(false);
+
+    // 恢复初始状态
+    useEffect(() => {
+        if (isOpen && isInitialized && initialState && !hasLoadedInitialState.current) {
+            console.log("Restoring initial state from editConfig");
+            if (initialState.canvasJson) {
+                loadCanvasState(initialState.canvasJson);
+            }
+            if (initialState.referenceImages) {
+                setEditorState(prev => ({
+                    ...prev,
+                    referenceImages: initialState.referenceImages || []
+                }));
+            }
+            if (initialState.backgroundColor) {
+                updateCanvasBackground(initialState.backgroundColor);
+            }
+            hasLoadedInitialState.current = true;
+        }
+    }, [isOpen, isInitialized, initialState, loadCanvasState, setEditorState, updateCanvasBackground]);
+
+    // 当 Modal 关闭或 imageUrl 变化时重置加载标志
+    useEffect(() => {
+        if (!isOpen) {
+            hasLoadedInitialState.current = false;
+        }
+    }, [isOpen, imageUrl]);
 
     // 渲染带有徽章的标注文本（用于输入框预览）
     const renderAnnotTextWithBadges = useCallback((text: string) => {
@@ -189,6 +220,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         }
     }, []);
 
+    const [isAutoAspectRatio, setIsAutoAspectRatio] = useState(false);
+
     // 处理文件上传
     const handleFileUpload = useCallback((files: FileList | null) => {
         console.log("handleFileUpload called", files?.length);
@@ -201,6 +234,27 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             reader.onload = (e) => {
                 const dataUrl = e.target?.result as string;
                 if (dataUrl) {
+                    // 如果是第一张图且未初始化，同步尺寸到输入框配置
+                    if (!isInitialized && index === 0 && inputSectionProps?.setConfig) {
+                        const img = new Image();
+                        img.onload = () => {
+                            let { width, height } = img;
+                            const minSide = Math.min(width, height);
+                            if (minSide < 1024) {
+                                const scale = 1024 / minSide;
+                                width = Math.round(width * scale);
+                                height = Math.round(height * scale);
+                            }
+                            inputSectionProps.setConfig(prev => ({
+                                ...prev,
+                                width,
+                                height,
+                            }));
+                            setIsAutoAspectRatio(true);
+                        };
+                        img.src = dataUrl;
+                    }
+
                     if (!isInitialized && index === 0) {
                         console.log("Initializing canvas with first uploaded image");
                         initCanvasWithImage(dataUrl);
@@ -212,7 +266,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             };
             reader.readAsDataURL(file);
         });
-    }, [addImage, isInitialized, initCanvasWithImage]);
+    }, [addImage, isInitialized, initCanvasWithImage, inputSectionProps]);
 
     // 同步编辑状态的文字
     useEffect(() => {
@@ -284,23 +338,22 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         // 过滤掉正在编辑的那个标注（如果有的话），避免重复
         const filteredAnnotations = annotations.filter(ann => {
             if (pendingAnnotation?.existingLabel) {
-                // @ts-expect-error - annotationMeta is a custom property added to the label
                 return pendingAnnotation.existingLabel.annotationMeta !== ann;
             }
             return true;
         });
 
-        const descriptions = filteredAnnotations.map(ann => `${ann.colorName} annotation: ${ann.text}`);
+        const descriptions = filteredAnnotations.map(ann => `${ann.annotationName}: ${ann.text}`);
 
         // 如果有正在编辑的标注且有文字内容，也加入实时同步
         if (pendingText && pendingAnnotation) {
-            const colorName = EDITOR_COLORS.find(c => c.hex === pendingAnnotation.color)?.name || 'Red';
-            descriptions.push(`${colorName} annotation: ${pendingText}`);
+            const annName = (pendingAnnotation.rect as FabricObject).annotationName || '新标注';
+            descriptions.push(`${annName}: ${pendingText}`);
         }
 
         let finalPrompt = "";
         if (descriptions.length > 0) {
-            finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注。\n标注说明：\n${descriptions.join('\n')}`;
+            finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：${descriptions.join('\n')}`;
         }
 
         // 避免在没有变化时频繁触发更新，并打破与 props 的循环依赖
@@ -332,16 +385,26 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             if (annotations.length > 0) {
                 // 构建详细的提示词，包含颜色标注信息
                 const annotationDescriptions = annotations.map(ann => {
-                    return `${ann.colorName} annotation: ${ann.text}`;
+                    return `${ann.annotationName}: ${ann.text}`;
                 });
 
-                finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注。\n标注说明：\n${annotationDescriptions.join('\n')}`;
+                finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：\n${annotationDescriptions.join('\n')}`;
             }
 
             // 提取参考图的 dataUrl 列表
             const refImageUrls = referenceImages.map(img => img.dataUrl);
 
-            onSave(dataUrl, finalPrompt || undefined, refImageUrls.length > 0 ? refImageUrls : undefined, shouldGenerate);
+            // 构建完整的编辑配置
+            const editConfig: EditPresetConfig = {
+                canvasJson: getCanvasState() || {},
+                referenceImages,
+                originalImageUrl: imageUrl,
+                annotations,
+                backgroundColor: editorState.backgroundColor,
+                canvasSize: { width: editorState.canvasWidth, height: editorState.canvasHeight }
+            };
+
+            onSave(dataUrl, finalPrompt || undefined, refImageUrls.length > 0 ? refImageUrls : undefined, shouldGenerate, editConfig);
         }
     };
 
@@ -367,7 +430,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         if (!canvasJson) return;
 
         // Use the current exported image as a preview cover
-        const currentPreview = exportImage();
+        // const currentPreview = exportImage();
 
         const annotations = getAnnotationsInfo();
         const referenceImages = editorState.referenceImages;
@@ -420,157 +483,35 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    onDragStart={(e) => e.stopPropagation()}
+                    onDragOver={(e) => e.stopPropagation()}
+                    onDragEnter={(e) => e.stopPropagation()}
+                    onDragLeave={(e) => e.stopPropagation()}
+                    onDrop={(e) => e.stopPropagation()}
                 >
                     {/* Backdrop */}
                     <div className="absolute inset-0 bg-[#0F0F15] " />
 
                     {/* Content */}
                     <div className="relative flex flex-col h-full z-10">
-                        {/* Header */}
-                        <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 bg-black/60 backdrop-blur-2xl shrink-0">
-                            <div className="flex items-center gap-4">
-                                <Button
-                                    variant="default"
-                                    size="sm"
-                                    className="h-8 px-3 rounded-full bg-white/20 text-white/60 hover:text-white hover:bg-white/10"
-                                    onClick={onClose}
-                                >
-                                    <X className="w-4 h-4 " />
-                                    Exit
-                                </Button>
-                                <div className="flex items-center gap-1 ml-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-                                        onClick={undo}
-                                        disabled={!editorState.canUndo}
-                                        title="Undo (Ctrl+Z)"
-                                    >
-                                        <Undo2 className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-                                        onClick={redo}
-                                        disabled={!editorState.canRedo}
-                                        title="Redo (Ctrl+Y)"
-                                    >
-                                        <Redo2 className="w-4 h-4" />
-                                    </Button>
-                                    <div className="w-px h-4 bg-white/10 mx-2" />
-                                    <span className="text-[11px] text-white/40 font-mono min-w-[3rem]">
-                                        {Math.round(editorState.zoom * 100)}%
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-3 rounded-full text-white/60 hover:text-white hover:bg-white/10"
-                                    onClick={handleSavePreset}
-                                >
-                                    <Save className="w-4 h-4 mr-1.5" />
-                                    Save as Preset
-                                </Button>
-                                <button
-                                    onClick={() => setShowProperties(!showProperties)}
-                                    className="lg:hidden p-2 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                                >
-                                    <SlidersHorizontal className="w-4 h-4" />
-                                </button>
-                            </div>
+                        {/* Floating Exit Button */}
+                        <div className="absolute top-6 left-6 z-[60]">
+                            <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 px-3 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white/60 hover:text-white hover:bg-black/70 transition-colors"
+                                onClick={onClose}
+                            >
+                                <X className="w-4 h-4 mr-1.5" />
+                                Exit
+                            </Button>
                         </div>
+
 
                         {/* Main Content */}
                         <div className="relative flex-1 flex overflow-hidden">
-                            {/* Left Toolbar */}
-                            <div className="w-16 border-r border-white/10 flex flex-col items-center py-4 gap-2 bg-black/40 shrink-0">
-                                <ToolButton
-                                    icon={Move}
-                                    active={editorState.activeTool === 'select'}
-                                    onClick={() => setTool('select')}
-                                    label="Select"
-                                />
-                                <ToolButton
-                                    icon={Pencil}
-                                    active={editorState.activeTool === 'brush'}
-                                    onClick={() => setTool('brush')}
-                                    label="Brush"
-                                />
-                                <ToolButton
-                                    icon={MessageSquarePlus}
-                                    active={editorState.activeTool === 'annotate'}
-                                    onClick={() => setTool('annotate')}
-                                    label="Label"
-                                />
-                                <ToolButton
-                                    icon={Type}
-                                    active={editorState.activeTool === 'text'}
-                                    onClick={() => addText()}
-                                    label="Text"
-                                />
 
-                                <div className="w-8 h-px bg-white/10 my-1" />
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button className={cn(
-                                            "p-2 rounded-full transition-colors",
-                                            ['rect', 'circle', 'arrow'].includes(editorState.activeTool)
-                                                ? "text-primary bg-primary/10"
-                                                : "text-white/50 hover:text-white hover:bg-white/10"
-                                        )}>
-                                            <Square className="w-5 h-5" />
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        side="right"
-                                        className="bg-black/90 backdrop-blur-xl border-white/10 text-white p-2 min-w-[120px] rounded-xl z-[110]"
-                                    >
-                                        <DropdownMenuItem onClick={() => setTool('rect')} className="gap-2 rounded-lg focus:bg-white/10">
-                                            <Square className="w-4 h-4" /> Rectangle
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setTool('circle')} className="gap-2 rounded-lg focus:bg-white/10">
-                                            <CircleIcon className="w-4 h-4" /> Circle
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setTool('arrow')} className="gap-2 rounded-lg focus:bg-white/10">
-                                            <ArrowRight className="w-4 h-4" /> Arrow
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-
-                                <div className="w-8 h-px bg-white/10 my-1" />
-
-                                <ToolButton
-                                    icon={RotateCcw}
-                                    onClick={() => rotateCanvas(-90)}
-                                    label="Rotate Left"
-                                />
-                                <ToolButton
-                                    icon={RotateCw}
-                                    onClick={() => rotateCanvas(90)}
-                                    label="Rotate Right"
-                                />
-
-                                <div className="w-8 h-px bg-white/10 my-1" />
-
-                                <ToolButton
-                                    icon={ImagePlus}
-                                    onClick={() => fileInputRef.current?.click()}
-                                    label="Add Image"
-                                />
-
-                                <ToolButton
-                                    icon={Trash2}
-                                    onClick={deleteSelected}
-                                    label="Delete (Del)"
-                                />
-                            </div>
 
                             {/* Hidden file input */}
                             <input
@@ -599,6 +540,112 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Floating Action Controls (Top Right) - Re-positioned into canvas area */}
+                                    <div className="absolute top-6 right-6 z-[60] flex items-center gap-1 bg-black/50 backdrop-blur-md rounded-full p-1 border border-white/10">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
+                                            onClick={undo}
+                                            disabled={!editorState.canUndo}
+                                            title="Undo (Ctrl+Z)"
+                                        >
+                                            <Undo2 className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
+                                            onClick={redo}
+                                            disabled={!editorState.canRedo}
+                                            title="Redo (Ctrl+Y)"
+                                        >
+                                            <Redo2 className="w-4 h-4" />
+                                        </Button>
+                                        <div className="w-px h-4 bg-white/10 mx-1" />
+                                        <span className="text-[11px] text-white/40 font-mono min-w-[3rem] text-center">
+                                            {Math.round(editorState.zoom * 100)}%
+                                        </span>
+                                    </div>
+
+                                    {/* Floating Toolbar (Top) */}
+                                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 p-2 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all duration-200 hover:bg-black/90">
+                                        <ToolButton
+                                            icon={Move}
+                                            active={editorState.activeTool === 'select'}
+                                            onClick={() => setTool('select')}
+                                            label="Select"
+                                        />
+                                        <ToolButton
+                                            icon={Pencil}
+                                            active={editorState.activeTool === 'brush'}
+                                            onClick={() => setTool('brush')}
+                                            label="Brush"
+                                        />
+                                        <ToolButton
+                                            icon={MessageSquarePlus}
+                                            active={editorState.activeTool === 'annotate'}
+                                            onClick={() => setTool('annotate')}
+                                            label="Label"
+                                        />
+                                        <ToolButton
+                                            icon={Type}
+                                            active={editorState.activeTool === 'text'}
+                                            onClick={() => addText()}
+                                            label="Text"
+                                        />
+
+                                        <div className="w-px h-6 bg-white/10 mx-1" />
+
+
+
+                                        <ToolButton
+                                            icon={Square}
+                                            active={editorState.activeTool === 'rect'}
+                                            onClick={() => setTool('rect')}
+                                            label="Rectangle"
+                                        />
+                                        <ToolButton
+                                            icon={CircleIcon}
+                                            active={editorState.activeTool === 'circle'}
+                                            onClick={() => setTool('circle')}
+                                            label="Circle"
+                                        />
+                                        <ToolButton
+                                            icon={ArrowRight}
+                                            active={editorState.activeTool === 'arrow'}
+                                            onClick={() => setTool('arrow')}
+                                            label="Arrow"
+                                        />
+
+                                        {/* <div className="w-px h-6 bg-white/10 mx-1" />
+
+                                        <ToolButton
+                                            icon={RotateCcw}
+                                            onClick={() => rotateCanvas(-90)}
+                                            label="Rotate Left"
+                                        />
+                                        <ToolButton
+                                            icon={RotateCw}
+                                            onClick={() => rotateCanvas(90)}
+                                            label="Rotate Right"
+                                        /> */}
+
+                                        <div className="w-px h-6 bg-white/10 mx-1" />
+
+                                        <ToolButton
+                                            icon={ImagePlus}
+                                            onClick={() => fileInputRef.current?.click()}
+                                            label="Add Image"
+                                        />
+
+                                        {/* <ToolButton
+                                            icon={Trash2}
+                                            onClick={deleteSelected}
+                                            label="Delete (Del)"
+                                        /> */}
+                                    </div>
                                     <div
                                         className="w-full h-full flex items-center justify-center relative"
                                         ref={canvasContainerRef}
@@ -836,13 +883,26 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                     </div>
                                 </div>
                                 {inputSectionProps && (
-                                    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 shadow-[0px_10px_30px_0px_rgba(0,0,0,0.10)]  bg-[#5d7b9544] rounded-[30px] ">
+                                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 shadow-[0px_10px_30px_0px_rgba(0,0,0,0.20)]  bg-[#5d7b9544] rounded-[30px] ">
                                         <PlaygroundInputSection
                                             {...inputSectionProps}
+                                            setConfig={(val) => {
+                                                inputSectionProps.setConfig(prev => {
+                                                    const next = typeof val === 'function' ? val(prev) : val;
+                                                    // Update auto aspect ratio state
+                                                    if (next.aspectRatio === 'auto') {
+                                                        setIsAutoAspectRatio(true);
+                                                    } else if (next.aspectRatio !== prev.aspectRatio || next.resolution !== prev.resolution) {
+                                                        setIsAutoAspectRatio(false);
+                                                    }
+                                                    return next;
+                                                });
+                                            }}
                                             width={inputSectionProps.width || 896}
                                             hideTitle
                                             variant="edit"
                                             handleGenerate={handleModalGenerate}
+                                            customAspectRatioLabel={isAutoAspectRatio ? "auto" : undefined}
                                         />
                                     </div>
                                 )}
@@ -850,17 +910,49 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
 
                             {/* Right Properties Panel */}
                             <AnimatePresence>
-                                {(editorState.activeTool !== 'select' || true) && showProperties && (
+                                {(editorState.activeTool !== 'select' || true) && (
                                     <motion.div
                                         initial={{ x: 200, opacity: 0 }}
                                         animate={{ x: 0, opacity: 1 }}
                                         exit={{ x: 200, opacity: 0 }}
-                                        className="w-64 border-l border-white/10 bg-black/60 backdrop-blur-2xl p-4 flex flex-col gap-6 shrink-0 overflow-y-auto"
+                                        className="w-64 border-l border-white/10 bg-black/60 backdrop-blur-2xl p-4 flex flex-col gap-10 shrink-0 overflow-y-auto"
                                     >
                                         {/* Canvas Settings */}
                                         <div className="space-y-4">
                                             <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
                                                 <Square className="w-3 h-3" /> Canvas Settings
+                                            </div>
+
+
+
+                                            {/* Manual Size Input */}
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-[10px] text-white/40">Width</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={editorState.canvasWidth}
+                                                        onChange={(e) => {
+                                                            const val = parseInt(e.target.value) || 0;
+                                                            updateCanvasSize(val, editorState.canvasHeight);
+                                                            inputSectionProps?.setConfig(prev => ({ ...prev, width: val }));
+                                                        }}
+                                                        className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
+                                                    />
+                                                </div>
+                                                <div className="flex-1 space-y-1">
+                                                    <Label className="text-[10px] text-white/40">Height</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={editorState.canvasHeight}
+                                                        onChange={(e) => {
+                                                            const val = parseInt(e.target.value) || 0;
+                                                            updateCanvasSize(editorState.canvasWidth, val);
+                                                            inputSectionProps?.setConfig(prev => ({ ...prev, height: val }));
+                                                        }}
+                                                        className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
+                                                    />
+                                                </div>
                                             </div>
 
                                             {/* Aspect Ratio Shortcuts */}
@@ -879,69 +971,53 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                                             "h-8 text-[10px] bg-white/5 border border-white/5 hover:bg-white/10",
                                                             editorState.canvasWidth === ratio.w && editorState.canvasHeight === ratio.h && "border-primary/50 text-primary bg-primary/5"
                                                         )}
-                                                        onClick={() => updateCanvasSize(ratio.w, ratio.h)}
+                                                        onClick={() => {
+                                                            updateCanvasSize(ratio.w, ratio.h);
+                                                            inputSectionProps?.setConfig(prev => ({ ...prev, width: ratio.w, height: ratio.h }));
+                                                        }}
                                                     >
                                                         {ratio.label} ({ratio.w}x{ratio.h})
                                                     </Button>
                                                 ))}
                                             </div>
 
-                                            {/* Manual Size Input */}
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 space-y-1">
-                                                    <Label className="text-[10px] text-white/40">Width</Label>
-                                                    <Input
-                                                        type="number"
-                                                        value={editorState.canvasWidth}
-                                                        onChange={(e) => updateCanvasSize(parseInt(e.target.value) || 0, editorState.canvasHeight)}
-                                                        className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
-                                                    />
-                                                </div>
-                                                <div className="flex-1 space-y-1">
-                                                    <Label className="text-[10px] text-white/40">Height</Label>
-                                                    <Input
-                                                        type="number"
-                                                        value={editorState.canvasHeight}
-                                                        onChange={(e) => updateCanvasSize(editorState.canvasWidth, parseInt(e.target.value) || 0)}
-                                                        className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
-                                                    />
-                                                </div>
-                                            </div>
 
-                                            {/* Canvas Background */}
-                                            <div className="space-y-2">
-                                                <div className="text-white/40 text-[10px]">Background Color</div>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {[
-                                                        { color: '#ffffff', label: 'White' },
-                                                        { color: '#000000', label: 'Black' },
-                                                        { color: '#f8f9fa', label: 'Light' },
-                                                        { color: '#1a1a20', label: 'Dark' },
-                                                        { color: 'transparent', label: 'None' },
-                                                    ].map((item) => (
-                                                        <button
-                                                            key={item.color}
-                                                            onClick={() => updateCanvasBackground(item.color)}
-                                                            className={cn(
-                                                                "w-6 h-6 rounded-md border border-white/10 transition-transform active:scale-95",
-                                                                editorState.backgroundColor === item.color ? "ring-2 ring-primary ring-offset-2 ring-offset-black" : "hover:border-white/30"
-                                                            )}
-                                                            style={{ backgroundColor: item.color === 'transparent' ? 'transparent' : item.color }}
-                                                            title={item.label}
-                                                        >
-                                                            {item.color === 'transparent' && (
-                                                                <div className="w-full h-full bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAACFJREFUGFdjZEADJgY0QCIsDAszMCADmBCIAAnAyMAEpAAZpAILuY7fXAAAAABJRU5ErkJggg==')] rounded-md" />
-                                                            )}
-                                                        </button>
-                                                    ))}
-                                                    {/* Custom Color Input Placeholder */}
-                                                    <input
-                                                        type="color"
-                                                        className="w-6 h-6 rounded-md border border-white/10 bg-transparent cursor-pointer"
-                                                        value={editorState.backgroundColor}
-                                                        onChange={(e) => updateCanvasBackground(e.target.value)}
-                                                    />
-                                                </div>
+
+
+                                        </div>
+                                        {/* Canvas Background */}
+                                        <div className="space-y-2">
+                                            <div className="text-white/40 text-[10px]">Background Color</div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { color: '#ffffff', label: 'White' },
+                                                    { color: '#000000', label: 'Black' },
+                                                    { color: '#f8f9fa', label: 'Light' },
+                                                    { color: '#1a1a20', label: 'Dark' },
+                                                    { color: 'transparent', label: 'None' },
+                                                ].map((item) => (
+                                                    <button
+                                                        key={item.color}
+                                                        onClick={() => updateCanvasBackground(item.color)}
+                                                        className={cn(
+                                                            "w-6 h-6 rounded-md border border-white/10 transition-transform active:scale-95",
+                                                            editorState.backgroundColor === item.color ? "ring-2 ring-primary ring-offset-2 ring-offset-black" : "hover:border-white/30"
+                                                        )}
+                                                        style={{ backgroundColor: item.color === 'transparent' ? 'transparent' : item.color }}
+                                                        title={item.label}
+                                                    >
+                                                        {item.color === 'transparent' && (
+                                                            <div className="w-full h-full bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAACFJREFUGFdjZEADJgY0QCIsDAszMCADmBCIAAnAyMAEpAAZpAILuY7fXAAAAABJRU5ErkJggg==')] rounded-md" />
+                                                        )}
+                                                    </button>
+                                                ))}
+                                                {/* Custom Color Input Placeholder */}
+                                                <input
+                                                    type="color"
+                                                    className="w-6 h-6 rounded-md border border-white/10 bg-transparent cursor-pointer"
+                                                    value={editorState.backgroundColor}
+                                                    onChange={(e) => updateCanvasBackground(e.target.value)}
+                                                />
                                             </div>
                                         </div>
 
@@ -986,7 +1062,20 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                                     className="py-2"
                                                 />
                                             </div>
+
                                         )}
+                                        {/* Action Toolbar (moved from header) */}
+                                        <div className="grid grid-cols-1 gap-2 mb-4">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 bg-white/5 border border-white/5 text-[10px]"
+                                                onClick={handleSavePreset}
+                                            >
+                                                <Save className="w-3.5 h-3.5 mr-1.5" />
+                                                Save Preset
+                                            </Button>
+                                        </div>
 
                                         {/* History Info */}
                                         <div className="space-y-3">
@@ -1024,7 +1113,7 @@ function ToolButton({ icon: Icon, active, onClick, label }: ToolButtonProps) {
         <button
             onClick={onClick}
             className={cn(
-                "p-2 rounded-full transition-all duration-200 group relative",
+                "p-2 rounded-xl transition-all duration-200 group relative",
                 active
                     ? "bg-primary text-black"
                     : "text-white/50 hover:text-white hover:bg-white/10"
@@ -1033,7 +1122,7 @@ function ToolButton({ icon: Icon, active, onClick, label }: ToolButtonProps) {
         >
             <Icon className="w-5 h-5" />
             {!active && (
-                <span className="absolute  bg-black/90  border border-white/10 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 transition-opacity pointer-events-none">
+                <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black/90 border border-white/10 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap z-50 transition-opacity pointer-events-none">
                     {label}
                 </span>
             )}

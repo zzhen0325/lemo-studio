@@ -9,7 +9,8 @@ export type AspectRatio =
   | '5:4'
   | '9:16'
   | '16:9'
-  | '21:9';
+  | '21:9'
+  | 'auto';
 export type SizeFrom = 'ratioResolution' | 'custom';
 export interface SelectedLora {
   model_name: string;
@@ -37,6 +38,7 @@ export interface GenerationConfig {
   sizeFrom?: SizeFrom;
   sourceImageUrl?: string;
   presetName?: string;
+  editConfig?: EditPresetConfig;
 }
 
 export interface Generation {
@@ -47,6 +49,7 @@ export interface Generation {
   config: GenerationConfig;
   status: 'pending' | 'completed' | 'failed';
   sourceImageUrl?: string;
+  editConfig?: EditPresetConfig;
   llmResponse?: string;
   progress?: number;
   progressStage?: string;
@@ -57,6 +60,7 @@ export interface AnnotationInfo {
   colorName: string;
   text: string;
   referenceImageLabel?: string;
+  annotationName: string;
 }
 
 export interface EditPresetConfig {

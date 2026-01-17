@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { GenerationConfig } from '@/components/features/playground-v2/types';
+import { GenerationConfig, UploadedImage } from '@/components/features/playground-v2/types';
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
@@ -58,6 +58,8 @@ interface ControlToolbarProps {
   onBatchSizeChange?: (size: number) => void;
   onClearPreset?: () => void;
   variant?: 'default' | 'edit';
+  customAspectRatioLabel?: string;
+  uploadedImages?: UploadedImage[];
 }
 
 
@@ -94,6 +96,8 @@ export default function ControlToolbar({
   onBatchSizeChange,
   onClearPreset,
   variant = 'default',
+  customAspectRatioLabel,
+  uploadedImages = [],
 }: ControlToolbarProps) {
 
 
@@ -183,7 +187,7 @@ export default function ControlToolbar({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[180px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
-        {AVAILABLE_MODELS.filter(m => ['gemini-3-pro-image-preview', 'coze_seed4'].includes(m.id)).map((model) => (
+        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview'].includes(m.id)).map((model) => (
           <DropdownMenuItem
             key={model.id}
             className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
@@ -265,7 +269,7 @@ export default function ControlToolbar({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" className={Inputbutton2}>
-                {currentAspectRatio}
+                {customAspectRatioLabel ?? currentAspectRatio}
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
@@ -298,6 +302,20 @@ export default function ControlToolbar({
                 <div className="space-y-4">
                   <div className="text-xs text-white/70">Aspect Ratio</div>
                   <div className="grid grid-cols-4 gap-2">
+                    <Button
+                      variant={currentAspectRatio === 'auto' ? "default" : "outline"}
+                      disabled={uploadedImages.length === 0 && variant !== 'edit'}
+                      className={cn(
+                        "h-8 rounded-xl transition-all",
+                        currentAspectRatio === 'auto'
+                          ? "bg-primary border-none text-black"
+                          : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10",
+                        uploadedImages.length === 0 && variant !== 'edit' && "opacity-50 cursor-not-allowed"
+                      )}
+                      onClick={() => onAspectRatioChange('auto')}
+                    >
+                      Auto
+                    </Button>
                     {aspectRatioPresets.map(preset => (
                       <Button
                         key={preset.name}

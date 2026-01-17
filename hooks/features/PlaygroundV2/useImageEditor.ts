@@ -7,10 +7,10 @@ export type EditorTool = 'select' | 'brush' | 'text' | 'rect' | 'circle' | 'arro
 
 // 统一颜色配置 - 画笔和标注框共用
 export const EDITOR_COLORS = [
+    { hex: '#ef4444', name: 'Red' },
     { hex: '#40cf8f', name: 'Emerald' },
     { hex: '#ffffff', name: 'White' },
     { hex: '#000000', name: 'Black' },
-    { hex: '#ef4444', name: 'Red' },
     { hex: '#3b82f6', name: 'Blue' },
     { hex: '#eab308', name: 'Yellow' },
     { hex: '#a855f7', name: 'Purple' },
@@ -68,7 +68,7 @@ export interface AnnotationData {
         height: number;
     };
     // 编辑模式下的已有标注信息
-    existingLabel?: fabric.IText;
+    existingLabel?: FabricObject;
     existingText?: string;
     existingRefImageLabel?: string;
 }
@@ -95,7 +95,7 @@ export const useImageEditor = (imageUrl: string) => {
     const canvasBackgroundRef = useRef<fabric.Rect | null>(null);
 
     const [editorState, setEditorState] = useState<EditorState>({
-        brushColor: '#40cf8f',
+        brushColor: '#ef4444',
         brushWidth: 2,
         fontSize: 32,
         activeTool: 'select',
@@ -113,6 +113,12 @@ export const useImageEditor = (imageUrl: string) => {
 
     const editorStateRef = useRef(editorState);
     editorStateRef.current = editorState;
+
+    // Control flag for zoom interactions
+    const isZoomEnabledRef = useRef(true);
+    const setZoomEnabled = useCallback((enabled: boolean) => {
+        isZoomEnabledRef.current = enabled;
+    }, []);
 
     const annotationCountRef = useRef(0);
     const historyRef = useRef<string[]>([]);
@@ -147,6 +153,7 @@ export const useImageEditor = (imageUrl: string) => {
     const isPanningRef = useRef(false);
     const lastPanPointRef = useRef<{ x: number, y: number } | null>(null);
     const isSpacePressedRef = useRef(false);
+    const hasMovedRef = useRef(false);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -224,6 +231,7 @@ export const useImageEditor = (imageUrl: string) => {
     }, [imageObj]);
 
     const handleMouseWheel = useCallback((opt: fabric.TPointerEventInfo<WheelEvent>) => {
+        if (!isZoomEnabledRef.current) return;
         const delta = opt.e.deltaY;
         let zoom = fabricCanvasRef.current?.getZoom() || 1;
         zoom *= 0.999 ** delta;
@@ -266,11 +274,32 @@ export const useImageEditor = (imageUrl: string) => {
 
         canvas.forEachObject(obj => {
             if (bgObjects.includes(obj)) return;
-            const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && (obj as FabricObject).backgroundColor !== undefined;
-            if (isNameLabel) return;
 
-            obj.selectable = allowSelect;
-            obj.evented = allowSelect;
+            // Check if object is part of an annotation (Rect with meta, or Label)
+            const isAnnotation = (obj as FabricObject).annotationMeta !== undefined ||
+                (obj as FabricObject).annotationName !== undefined ||
+                (obj as FabricObject).parentRect !== undefined;
+
+            if (tool === 'annotate') {
+                if (isAnnotation) {
+                    obj.selectable = true;
+                    obj.evented = true;
+                    obj.lockMovementX = false;
+                    obj.lockMovementY = false;
+                } else {
+                    // Shapes/Stickers/etc in annotate mode: ignore them so we can draw over
+                    obj.selectable = false;
+                    obj.evented = false;
+                }
+            } else {
+                const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && (obj as FabricObject).backgroundColor !== undefined;
+                if (isNameLabel) return;
+
+                obj.selectable = allowSelect;
+                obj.evented = allowSelect;
+                obj.lockMovementX = false;
+                obj.lockMovementY = false;
+            }
         });
 
         canvas.renderAll();
@@ -343,6 +372,8 @@ export const useImageEditor = (imageUrl: string) => {
             return;
         }
 
+        hasMovedRef.current = false;
+
         if (state.activeTool === 'select') {
             return;
         }
@@ -369,7 +400,20 @@ export const useImageEditor = (imageUrl: string) => {
 
         if (!['rect', 'circle', 'arrow', 'annotate'].includes(state.activeTool)) return;
         const bgObjects: (fabric.Object | null)[] = [imageObj, canvasBackgroundRef.current];
-        if (opt.target && !bgObjects.includes(opt.target)) return;
+
+        // 标注模式下的特殊逻辑
+        if (state.activeTool === 'annotate') {
+            // Because we set evented=false for non-annotations in setTool,
+            // opt.target will only be defined if we clicked an Annotation (or BG/Image, which we filter)
+            if (opt.target && !bgObjects.includes(opt.target)) {
+                // Clicked an annotation -> Return to let Fabric handle selection/drag
+                return;
+            }
+            // Clicked Empty or Non-Annotation (which are transparent/ignored) -> Start Drawing
+        } else {
+            // 其他绘制工具：如果点击了非背景对象，则不开始绘制
+            if (opt.target && !bgObjects.includes(opt.target)) return;
+        }
 
         isDrawingRef.current = true;
         startPointRef.current = { x: pointer.x, y: pointer.y };
@@ -487,9 +531,22 @@ export const useImageEditor = (imageUrl: string) => {
             return;
         }
 
-        if (!isDrawingRef.current) return;
-        isDrawingRef.current = false;
         const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+        const state = editorStateRef.current;
+
+
+        if (!isDrawingRef.current) {
+            // If we are in annotate mode, and we didn't draw, check if we clicked an annotation to edit
+            if (state.activeTool === 'annotate' && !hasMovedRef.current) {
+                const activeObject = canvas.getActiveObject() as FabricObject;
+                if (activeObject && (activeObject.annotationMeta || activeObject.annotationName || activeObject.parentRect)) {
+                    triggerAnnotationEdit(activeObject);
+                }
+            }
+            return;
+        }
+        isDrawingRef.current = false;
 
         if (activeObjectRef.current && canvas) {
             if (editorStateRef.current.activeTool === 'annotate') {
@@ -526,7 +583,7 @@ export const useImageEditor = (imageUrl: string) => {
         }
         activeObjectRef.current = null;
         startPointRef.current = null;
-    }, [saveHistory, setTool]);
+    }, [saveHistory, setTool, triggerAnnotationEdit]);
 
     const callbackRefs = useRef({ handleMouseWheel, onMouseDown, onMouseMove, onMouseUp, saveHistory });
     callbackRefs.current = { handleMouseWheel, onMouseDown, onMouseMove, onMouseUp, saveHistory };
@@ -575,7 +632,7 @@ export const useImageEditor = (imageUrl: string) => {
                 try {
                     const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
                     const iw = img.width || 1, ih = img.height || 1;
-                    const fitZ = Math.min(w / iw, h / ih) * 0.9;
+                    const fitZ = Math.min(w / iw, h / ih) * 0.7;
 
                     const bgRect = new fabric.Rect({
                         left: w / 2, top: h / 2, width: iw, height: ih,
@@ -631,9 +688,13 @@ export const useImageEditor = (imageUrl: string) => {
             callbackRefs.current.saveHistory();
         });
         canvas.on('object:modified', () => callbackRefs.current.saveHistory());
-        canvas.on('selection:created', (o) => { if (o.selected?.length === 1 && ((o.selected[0] as FabricObject).parentRect || (o.selected[0] as FabricObject).nameLabel)) triggerAnnotationEdit(o.selected[0] as FabricObject); });
-        canvas.on('selection:updated', (o) => { if (o.selected?.length === 1 && ((o.selected[0] as FabricObject).parentRect || (o.selected[0] as FabricObject).nameLabel)) triggerAnnotationEdit(o.selected[0] as FabricObject); });
+        canvas.on('selection:created', () => { /* No auto-trigger edit */ });
+        canvas.on('selection:updated', () => { /* No auto-trigger edit */ });
+        canvas.on('selection:cleared', () => {
+            // No need to lock, logic is handled in setTool/object props
+        });
         canvas.on('object:moving', (o) => {
+            hasMovedRef.current = true;
             const t = o.target as FabricObject; if (!t || (!t.nameLabel && !t.textLabel)) return;
             const r = t as fabric.Rect, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1);
             if (t.nameLabel) t.nameLabel.set({ left: rl, top: rt - 18 });
@@ -647,7 +708,7 @@ export const useImageEditor = (imageUrl: string) => {
         });
 
         return canvas;
-    }, [imageUrl, triggerAnnotationEdit, imageObj]);
+    }, [imageUrl, imageObj]);
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -794,9 +855,8 @@ export const useImageEditor = (imageUrl: string) => {
             (l as FabricObject).annotationMeta = { colorName: EDITOR_COLORS.find(c => c.hex === col)?.name || 'Red', text: t.trim(), referenceImageLabel: rL, annotationName: n };
             c.add(l); (r as FabricObject).textLabel = l; (l as FabricObject).parentRect = r;
         }
-        r.set({ selectable: true, evented: true }); c.setActiveObject(r); c.renderAll(); callbackRefs.current.saveHistory();
-        const next = EDITOR_COLORS[(EDITOR_COLORS.findIndex(c => c.hex === col) + 1) % EDITOR_COLORS.length].hex;
-        setEditorState(p => ({ ...p, pendingAnnotation: null, brushColor: next }));
+        r.set({ selectable: true, evented: true, lockMovementX: false, lockMovementY: false }); c.setActiveObject(r); c.renderAll(); callbackRefs.current.saveHistory();
+        setEditorState(p => ({ ...p, pendingAnnotation: null }));
     }, [editorState.pendingAnnotation]);
 
     const cancelAnnotation = useCallback(() => {
@@ -893,7 +953,7 @@ export const useImageEditor = (imageUrl: string) => {
         }
 
         const cw = canvas.width || 800, ch = canvas.height || 600;
-        const initialZoom = Math.min(cw / w, ch / h) * 0.9;
+        const initialZoom = Math.min(cw / w, ch / h) * 0.7;
 
         const bgRect = new fabric.Rect({
             left: cw / 2, top: ch / 2, width: w, height: h,
@@ -946,7 +1006,7 @@ export const useImageEditor = (imageUrl: string) => {
         try {
             const img = await fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
             const iw = img.width || 1, ih = img.height || 1;
-            const fitZ = Math.min(cw / iw, ch / ih) * 0.9;
+            const fitZ = Math.min(cw / iw, ch / ih) * 0.7;
 
             const bgRect = new fabric.Rect({
                 left: cw / 2, top: ch / 2, width: iw, height: ih,
@@ -986,6 +1046,6 @@ export const useImageEditor = (imageUrl: string) => {
         canvasRef, editorState, setTool, addText, addShape, addImage, undo, redo, rotateCanvas, applyFilter, exportImage,
         updateBrushColor, updateBrushWidth, deleteSelected, confirmAnnotation, cancelAnnotation, addReferenceImage,
         removeReferenceImage, getAnnotationsInfo, updateCanvasBackground, updateCanvasSize, fabricCanvasRef,
-        getCanvasState, loadCanvasState, setEditorState, isInitialized, initCanvas, initCanvasWithImage
+        getCanvasState, loadCanvasState, setEditorState, isInitialized, initCanvas, initCanvasWithImage, setZoomEnabled
     };
 };

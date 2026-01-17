@@ -4,7 +4,6 @@ import { getApiBase } from "@/lib/api-base";
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -12,7 +11,7 @@ export function GoogleApiStatus({ className }: { className?: string }) {
     const [status, setStatus] = useState<'idle' | 'checking' | 'connected' | 'blocked' | 'offline'>('idle');
     const [lastCheck, setLastCheck] = useState<Date | null>(null);
 
-    const checkStatus = async () => {
+    const checkStatus = React.useCallback(async () => {
         setStatus('checking');
         try {
             const res = await fetch(`${getApiBase()}/check-google-api`);
@@ -22,13 +21,13 @@ export function GoogleApiStatus({ className }: { className?: string }) {
         } catch {
             setStatus('offline');
         }
-    };
+    }, []);
 
     useEffect(() => {
         checkStatus();
-        const interval = setInterval(checkStatus, 30000); // 每30秒检查一次
+        const interval = setInterval(checkStatus, 30000); // Check every 30s
         return () => clearInterval(interval);
-    }, []);
+    }, [checkStatus]);
 
     const getStatusConfig = () => {
         switch (status) {
@@ -48,25 +47,23 @@ export function GoogleApiStatus({ className }: { className?: string }) {
     const config = getStatusConfig();
 
     return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md cursor-help hover:bg-white/10 transition-colors", className)}>
-                        <div className={cn("w-2 h-2 rounded-full", config.color, config.glow)} />
-                        <span className="text-[10px] font-medium text-white/50 tracking-widest uppercase">
-                            Google API
-                        </span>
-                    </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="bg-[#121212] border-white/10 text-white text-xs">
-                    <div className="space-y-1">
-                        <p className="font-semibold">{config.label}</p>
-                        {lastCheck && (
-                            <p className="text-white/40 text-[10px]">Last check: {lastCheck.toLocaleTimeString()}</p>
-                        )}
-                    </div>
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md cursor-help hover:bg-white/10 transition-colors", className)}>
+                    <div className={cn("w-2 h-2 rounded-full", config.color, config.glow)} />
+                    <span className="text-[10px] font-medium text-white/50 tracking-widest uppercase">
+                        Google API
+                    </span>
+                </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-[#121212] border-white/10 text-white text-xs">
+                <div className="space-y-1">
+                    <p className="font-semibold">{config.label}</p>
+                    {lastCheck && (
+                        <p className="text-white/40 text-[10px]">Last check: {lastCheck.toLocaleTimeString()}</p>
+                    )}
+                </div>
+            </TooltipContent>
+        </Tooltip>
     );
 }

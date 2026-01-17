@@ -1,0 +1,2 @@
+INFO 2026-01-17 21:00:41,531 v1(7) node_modules/@gulux/application/lib/application.js:166 192.168.31.75 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
+INFO 2026-01-17 21:00:47,116 v1(7) server/node_modules/@gulux/application-http/lib/protocol_app.js:114 192.168.31.75 i18n_fe.opera.node - default - - [gulux] server started at port: 3000

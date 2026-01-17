@@ -9,6 +9,8 @@ export interface UploadedImage {
   previewUrl: string;
   path?: string;
   isUploading?: boolean;
+  width?: number;
+  height?: number;
 }
 
 export interface PresetExtended extends Omit<Preset, 'coverUrl'> {

@@ -882,8 +882,8 @@ export class CozeImageProvider implements ImageProvider {
         const mime = mimeMatch ? mimeMatch[1] : "image/png";
         const buffer = Buffer.from(base64Data, "base64");
         blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-      } else if (imageUrl.startsWith("/")) {
-        // 2. Handle local file paths
+      } else if (imageUrl.startsWith("/") && imageUrl.length < 2048) {
+        // 2. Handle local file paths (with sanity check on length to avoid misidentifying long base64)
         const truncatedUrl =
           imageUrl.length > 100 ? `${imageUrl.substring(0, 100)}...` : imageUrl;
         console.log(

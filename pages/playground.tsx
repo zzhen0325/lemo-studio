@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/common/use-toast";
 import { usePromptOptimization, AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
 
 
-import { useGenerationService } from "@/hooks/features/PlaygroundV2/useGenerationService";
+import { useGenerationService, type GenerateOptions } from "@/hooks/features/PlaygroundV2/useGenerationService";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { GoogleApiStatus } from "@/components/features/playground-v2/GoogleApiStatus";
 import SimpleImagePreview from "@/components/features/playground-v2/SimpleImagePreview";
@@ -78,7 +78,6 @@ type DockTab = 'history' | 'gallery' | 'describe' | 'style';
 export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   onEditMapping,
 }: PlaygroundV2PageProps) {
-
   const { toast } = useToast();
   const isDesktop = useMediaQuery("(min-width: 1440px)");
   const config = usePlaygroundStore(s => s.config);
@@ -99,15 +98,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
   const applyModel = usePlaygroundStore(s => s.applyModel);
   const addStyle = usePlaygroundStore(s => s.addStyle);
+  const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
+  const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
 
-  const setConfig = (val: GenerationConfig | ((prev: GenerationConfig) => GenerationConfig)) => {
+  const setConfig = React.useCallback((val: GenerationConfig | ((prev: GenerationConfig) => GenerationConfig)) => {
     const currentConfig = usePlaygroundStore.getState().config;
     if (typeof val === 'function') {
       updateConfig(val(currentConfig));
     } else {
       updateConfig(val);
     }
-  };
+  }, [updateConfig]);
 
   // const hasGenerated = usePlaygroundStore(s => s.hasGenerated);
   const setHasGenerated = usePlaygroundStore(s => s.setHasGenerated);
@@ -298,7 +299,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   }, [uploadedImages, updateConfig]);
 
 
-  const applyWorkflowDefaults = (workflow: IViewComfy) => {
+  const updateHistorySourceUrl = usePlaygroundStore(s => s.updateHistorySourceUrl);
+
+  const applyWorkflowDefaults = React.useCallback((workflow: IViewComfy) => {
     const mappingConfig = workflow.viewComfyJSON.mappingConfig as { components: UIComponent[] } | undefined;
     const newConfig = { ...config };
     const newLoras: SelectedLora[] = [];
@@ -369,7 +372,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setConfig({ ...newConfig, loras: newLoras });
     if (selectedModel !== 'Workflow') setSelectedModel('Workflow');
     setSelectedLoras(newLoras);
-  };
+  }, [config, setConfig, selectedModel, setSelectedModel, setSelectedLoras]);
 
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedResult, setSelectedResult] = useState<Generation | undefined>(undefined);
@@ -378,10 +381,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [editingPresetConfig, setEditingPresetConfig] = useState<EditPresetConfig | undefined>(undefined);
 
   const { handleGenerate: singleGenerate, executeGeneration, isGenerating } = useGenerationService();
-  const { callVision } = useAIService();
 
   // Wrapper for batch generation
-  const handleGenerate = async (configOverride?: GenerationConfig) => {
+  const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
+    const { configOverride, editConfig } = options;
     // Switch to Dock Mode and History Tab
     setViewMode('dock');
     setActiveTab('history');
@@ -411,7 +414,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
 
       // 1. Immediately create and show the pending card
-      singleGenerate(configOverride, startTime, true).then((taskId) => {
+      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig }).then((taskId) => {
         // 2. Schedule the actual backend execution with a staggered delay
         if (taskId) {
           setTimeout(() => {
@@ -420,61 +423,89 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         }
       });
     }
-  };
-  const { optimizePrompt, isOptimizing } = usePromptOptimization(); // 使用settings中的配置
+  }, [batchSize, singleGenerate, executeGeneration, setViewMode, setActiveTab, setShowHistory]);
 
-  const handleFilesUpload = async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
+  const { optimizePrompt, isOptimizing } = usePromptOptimization(); // 使用settings中的配置
+  const { callVision } = useAIService();
+
+  const handleFilesUpload = React.useCallback(async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     const setImages = target === 'describe' ? setDescribeImages : setUploadedImages;
+    const updateImage = target === 'describe' ? updateDescribeImage : updateUploadedImage;
 
     for (const file of uploads) {
-      const tempId = Math.random().toString(36).substring(7);
+      const tempId = uuidv4(); // Use uuid for better ID management
+
+      // 1. Generate local preview and base64 immediately
       const dataUrl: string = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(String(e.target?.result));
         reader.readAsDataURL(file);
       });
+      const base64Data = dataUrl.split(',')[1];
 
-      // Add placeholder
+      // 2. Get image dimensions
+      const dimensions: { width: number; height: number } = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.src = dataUrl;
+      });
+
+      // 3. Add to UI immediately
       setImages((prev: UploadedImage[]) => [...prev, {
         id: tempId,
         file,
-        base64: '',
+        base64: base64Data,
         previewUrl: dataUrl,
-        isUploading: true
+        isUploading: true,
+        width: dimensions.width,
+        height: dimensions.height
       }]);
 
-      const form = new FormData();
-      form.append('file', file);
-
-      try {
-        const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: form });
-        const json = await resp.json();
-        const path = resp.ok && json?.path ? String(json.path) : undefined;
-        const base64Data = dataUrl.split(',')[1];
-
-        setImages((prev: UploadedImage[]) => prev.map((img: UploadedImage) =>
-          img.id === tempId
-            ? { ...img, base64: base64Data, path, isUploading: false }
-            : img
-        ));
-      } catch (err) {
-        console.error("Upload failed", err);
-        const base64Data = dataUrl.split(',')[1];
-        setImages((prev: UploadedImage[]) => prev.map((img: UploadedImage) =>
-          img.id === tempId
-            ? { ...img, base64: base64Data, isUploading: false }
-            : img
-        ));
+      // 4. Update config for 'auto' mode if it's the first image in reference
+      if (target === 'reference' && usePlaygroundStore.getState().config.aspectRatio === 'auto') {
+        let { width, height } = dimensions;
+        const minSide = Math.min(width, height);
+        if (minSide < 1024) {
+          const scale = 1024 / minSide;
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        updateConfig({ width, height });
       }
+
+      // 5. Start background upload (NO await)
+      (async () => {
+        const form = new FormData();
+        form.append('file', file);
+
+        const originalUrl = dataUrl; // Keep track of the local URL
+
+        try {
+          const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: form });
+          const json = await resp.ok ? await resp.json() : null;
+          const path = json?.path ? String(json.path) : undefined;
+
+          // Update the specific image with its CDN path
+          updateImage(tempId, { path, isUploading: false });
+
+          // Also update history records that were using this local URL
+          if (path) {
+            updateHistorySourceUrl(originalUrl, path);
+          }
+        } catch (err) {
+          console.error("Upload failed in background", err);
+          updateImage(tempId, { isUploading: false });
+        }
+      })();
     }
-  };
+  }, [setDescribeImages, setUploadedImages, updateDescribeImage, updateUploadedImage, updateHistorySourceUrl, updateConfig]);
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files; if (!files) return;
     // 默认通过 input 上传的归为参考图，除非有特殊逻辑
     await handleFilesUpload(files, activeTab === 'describe' ? 'describe' : 'reference');
   };
-  const removeImage = (index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); };
+  const removeImage = React.useCallback((index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); }, [setUploadedImages]);
 
   const handleStyleUpload = async (files: File[] | FileList) => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -586,12 +617,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setSelectedPresetName(presetName);
     setIsPresetGridOpen(false);
   };
-  const handleOptimizePrompt = async () => {
+  const handleOptimizePrompt = React.useCallback(async () => {
     const optimizedText = await optimizePrompt(config.prompt, selectedAIModel);
     if (optimizedText) setConfig(prev => ({ ...prev, prompt: optimizedText }));
-  };
+  }, [config.prompt, optimizePrompt, selectedAIModel, setConfig]);
 
-  const handleDescribe = async () => {
+  const handleDescribe = React.useCallback(async () => {
     if (describeImages.length === 0) {
       toast({ title: "错误", description: "请先上传图片", variant: "destructive" });
       return;
@@ -607,11 +638,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     // Create a temporary loading card
     const loadingId = `describe-loading-${Date.now()}`;
+    const image = describeImages[0];
+    const imageUrl = image.path || image.previewUrl;
+
     const loadingCard: import('@/types/database').Generation = {
       id: loadingId,
       userId: 'anonymous',
       projectId: 'default',
-      outputUrl: describeImages[0].previewUrl,
+      outputUrl: imageUrl,
       config: {
         prompt: "Analyzing image...",
         width: config.width,
@@ -620,7 +654,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         lora: config.lora,
       },
       status: 'pending',
-      sourceImageUrl: describeImages[0].previewUrl,
+      sourceImageUrl: imageUrl,
       createdAt: startTime,
     };
 
@@ -632,6 +666,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       let base64 = describeImages[0].base64;
       if (!base64 && describeImages[0].previewUrl.startsWith('data:')) {
         base64 = describeImages[0].previewUrl.split(',')[1];
+      }
+
+      if (!base64 && imageUrl.startsWith('data:')) {
+        base64 = imageUrl.split(',')[1];
       }
 
       if (!base64) {
@@ -653,7 +691,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           id: `describe-${Date.now()}-${index}`,
           userId: 'anonymous',
           projectId: 'default',
-          outputUrl: describeImages[0].previewUrl,
+          outputUrl: imageUrl,
           config: {
             prompt: desc,
             width: config.width,
@@ -662,7 +700,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             lora: config.lora,
           },
           status: 'completed',
-          sourceImageUrl: describeImages[0].previewUrl,
+          sourceImageUrl: imageUrl,
           createdAt: startTime,
         }));
 
@@ -687,14 +725,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } finally {
       setIsDescribing(false);
     }
-  };
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, toast]);
 
   const handleBatchUse = async (results: Generation[]) => {
     if (!results || results.length === 0) return;
     toast({ title: "批量生成中", description: `即将开始 ${results.length} 个生成任务...` });
     for (const result of results) {
       const newConfig = { ...config, prompt: result.config?.prompt || "" };
-      await handleGenerate(newConfig);
+      await handleGenerate({ configOverride: newConfig });
       await new Promise(r => setTimeout(r, 200));
     }
   };
@@ -708,7 +746,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       height: result.config?.height || config.height,
       model: result.config?.model || config.model,
     };
-    await handleGenerate(fullConfig);
+    await handleGenerate({ configOverride: fullConfig });
   };
 
   const handleDownload = (imageUrl: string) => { const link = document.createElement("a"); link.href = imageUrl; link.download = `PlaygroundV2-${Date.now()}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
@@ -728,22 +766,37 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     // Don't clear selectedResult here to allow exit animation to use the data
   };
 
-  const handleEditImage = (result: import('@/types/database').Generation) => {
-    const url = result.outputUrl || "";
+  const handleEditImage = (result: import('@/types/database').Generation, isAgain?: boolean) => {
+    const editConfig = result.editConfig;
+    const url = (isAgain && editConfig) ? editConfig.originalImageUrl : (result.outputUrl || "");
+
     if (url) {
       setEditingImageUrl(url);
+      setEditingPresetConfig(isAgain ? editConfig : undefined);
+      // 同时同步到全局配置中，确保 handleGenerate 能获取到
+      updateConfig({ editConfig: isAgain ? editConfig : undefined });
       setIsEditorOpen(true);
       setIsImageModalOpen(false);
+    } else {
+      toast({ title: "无法编辑", description: "找不到原始图片 URL", variant: "destructive" });
     }
   };
 
-  const handleSaveEditedImage = async (dataUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean) => {
+  const handleSaveEditedImage = async (dataUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean, editConfig?: EditPresetConfig) => {
     setIsEditorOpen(false);
+    if (shouldGenerate) {
+      setViewMode('dock');
+      setActiveTab('history');
+      setShowHistory(true);
+    }
     try {
       // If a prompt was provided (e.g. from labeling tool), update the playground prompt
-      if (prompt) {
-        setConfig(prev => ({ ...prev, prompt }));
-      }
+      // Also update editConfig in the global configuration
+      setConfig(prev => ({
+        ...prev,
+        prompt: prompt || prev.prompt,
+        editConfig
+      }));
 
       // 准备所有要添加的图片
       const imagesToAdd: UploadedImage[] = [];
@@ -762,6 +815,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
       const mainBase64 = dataUrl.split(',')[1];
       imagesToAdd.push({
+        id: uuidv4(),
         file: mainFile,
         base64: mainBase64,
         previewUrl: dataUrl,
@@ -785,6 +839,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
           const refBase64 = refDataUrl.split(',')[1];
           imagesToAdd.push({
+            id: uuidv4(),
             file: refFile,
             base64: refBase64,
             previewUrl: refDataUrl,
@@ -793,8 +848,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         }
       }
 
-      // 3. 添加所有图片到 playground state（按顺序：标注图, 参考图1, 参考图2...）
-      setUploadedImages(prev => [...prev, ...imagesToAdd]);
+      // 3. 添加所有图片到 playground state（按顺序：标注图, 参考图1, 参考图2...），放在最前面
+      setUploadedImages(prev => [...imagesToAdd, ...prev]);
 
       const refCount = referenceImageUrls?.length || 0;
       const message = refCount > 0
@@ -803,7 +858,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       toast({ title: "图片已保存", description: message });
 
       if (shouldGenerate) {
-        handleGenerate();
+        handleGenerate({ editConfig });
       }
     } catch (error) {
       console.error("Failed to save edited image:", error);
@@ -848,7 +903,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     removeImage,
     handleFilesUpload,
     handleOptimizePrompt,
-    handleGenerate: () => handleGenerate(),
+    handleGenerate: () => handleGenerate({}),
     handleDescribe,
     setSelectedAIModel,
     setSelectedModel,

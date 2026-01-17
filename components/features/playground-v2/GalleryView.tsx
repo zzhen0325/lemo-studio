@@ -244,16 +244,12 @@ export default function GalleryView() {
                 <div className=" w-full min-w-0 flex flex-col flex-1 overflow-hidden">
 
 
-                    {loading && sortedHistory.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-                            <div className="relative">
-                                <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                                <div className="absolute inset-0 bg-gray-500/20 blur-xl animate-pulse rounded-full" />
-                            </div>
-                            <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
-                        </div>
-                    ) : sortedHistory.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32">
+                    {sortedHistory.length === 0 ? (
+                        
+                    
+                        
+                            
+                        <div className="flex w-64 flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32">
                             <div className="p-6 bg-white/5 rounded-full">
                                 <Search className="w-12 h-12 text-white/20" />
                             </div>
@@ -261,32 +257,46 @@ export default function GalleryView() {
                                 <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
                                 <p className="text-white/30">Your generated images will appear here once you start creating.</p>
                             </div>
+                        
+
+
                         </div>
+
+                       
                     ) : (
-                        <div className="flex flex-col space-y-4 flex-1 overflow-hidden">
+                        <div className="flex flex-col space-y-4  overflow-hidden">
+
+                            <div className="flex flex-row items-center h-14 mt-4 justify-between ">
+                                <div className="flex mb-0">
+                                    <span className="text-3xl font-instrument-sans text-white flex items-center "
+                                    style={{ fontFamily: "'InstrumentSerif', serif" }}>
+                                    Gallery
+                                    </span>
+                                </div>
 
 
-                            <div className="relative group shrink-0 h-12 w-full ">
-                                <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
-                                <input
+                                <div className="relative flex items-center group w-64  ">
+                                    <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 " />
+                                    <input
                                     type="text"
                                     placeholder="Search prompts..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
-                                />
-                                {searchQuery && (
+                                    className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 "
+                                     />
+                                      {searchQuery && (
                                     <button
                                         onClick={() => setSearchQuery("")}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
                                     >
                                         <X className="w-3.5 h-3.5" />
                                     </button>
-                                )}
+                                        )}
 
-
-
+                                </div>
                             </div>
+
+
                             <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-3xl">
 
                                 <MasonryGrid

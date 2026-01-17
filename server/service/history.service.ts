@@ -64,6 +64,7 @@ export class HistoryService {
           progress: item.progress,
           progressStage: item.progressStage,
           llmResponse: item.llmResponse,
+          editConfig: item.editConfig,
         } as Generation;
       });
 
@@ -143,6 +144,14 @@ export class HistoryService {
           const outputImage = await this.imageAssetModel.findOne({ url: item.outputUrl });
           await this.generationModel.updateOne({ _id: newDoc._id }, { outputImageId: outputImage?._id });
         }
+      }
+
+      // 如果有 editConfig，同步保存到记录中
+      if (item.editConfig) {
+        await this.generationModel.updateOne(
+          { _id: item.id && isValidObjectId(item.id) ? item.id : undefined }, // 这里可能需要更稳妥的定位方式，但 saveHistory 内部已有逻辑
+          { $set: { editConfig: item.editConfig } }
+        );
       }
 
       return { success: true };

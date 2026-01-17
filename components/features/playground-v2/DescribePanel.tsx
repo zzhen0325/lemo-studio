@@ -7,6 +7,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { RefObject } from "react";
 import type { UploadedImage } from "@/components/features/playground-v2/types";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
+import { formatImageUrl } from "@/lib/api-base";
 
 export interface DescribePanelProps {
   open: boolean;
@@ -119,11 +120,11 @@ export function DescribePanel({
                           className="relative cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setPreviewImage(img.previewUrl, `img-input-${img.id || idx}`);
+                            setPreviewImage(formatImageUrl(img.path || img.previewUrl), `img-input-${img.id || idx}`);
                           }}
                         >
                           <Image
-                            src={img.previewUrl}
+                            src={formatImageUrl(img.path || img.previewUrl)}
                             alt="Preview"
                             width={80}
                             height={80}

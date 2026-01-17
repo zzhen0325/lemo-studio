@@ -77,6 +77,7 @@ export interface PlaygroundInputSectionProps {
     hideTitle?: boolean;
     variant?: 'default' | 'edit';
     width?: string | number;
+    customAspectRatioLabel?: string;
 }
 
 export function PlaygroundInputSection({
@@ -130,10 +131,12 @@ export function PlaygroundInputSection({
     setIsDraggingOverPanel,
     variant = 'default',
     width,
+    customAspectRatioLabel,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
 
     const getCurrentAspectRatio = () => {
+        if (config.aspectRatio === 'auto') return 'auto';
         return getAspectRatioByDimensions(config.width, config.height);
     };
 
@@ -216,10 +219,10 @@ export function PlaygroundInputSection({
                                                 position: 'relative'
                                             }}
                                         >
-                                            <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(formatImageUrl(image.previewUrl), `stack-img-${image.id || index}`)}>
+                                            <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(formatImageUrl(image.path || image.previewUrl), `stack-img-${image.id || index}`)}>
                                                 <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
                                                     <Image
-                                                        src={formatImageUrl(image.previewUrl)}
+                                                        src={formatImageUrl(image.path || image.previewUrl)}
                                                         alt={`Uploaded ${index + 1}`}
                                                         width={56}
                                                         height={56}
@@ -341,6 +344,31 @@ export function PlaygroundInputSection({
                         aspectRatioPresets={aspectRatioPresets}
                         currentAspectRatio={getCurrentAspectRatio()}
                         onAspectRatioChange={(ar: string) => {
+                            if (ar === 'auto') {
+                                let w = config.width;
+                                let h = config.height;
+
+                                if (uploadedImages.length > 0) {
+                                    const firstImage = uploadedImages[0];
+                                    w = firstImage.width || w;
+                                    h = firstImage.height || h;
+                                }
+
+                                const minSide = Math.min(w, h);
+                                if (minSide < 1024) {
+                                    const scale = 1024 / minSide;
+                                    w = Math.round(w * scale);
+                                    h = Math.round(h * scale);
+                                }
+
+                                setConfig(prev => ({
+                                    ...prev,
+                                    aspectRatio: 'auto',
+                                    width: w,
+                                    height: h
+                                }));
+                                return;
+                            }
                             // Keep the current resolution setting when changing aspect ratio
                             setConfig(prev => {
                                 const currentSize = (prev.resolution as '1K' | '2K' | '4K') || '1K';
@@ -393,6 +421,8 @@ export function PlaygroundInputSection({
                         isPresetGridOpen={isPresetGridOpen}
                         onClearPreset={onClearPreset}
                         variant={variant}
+                        customAspectRatioLabel={customAspectRatioLabel}
+                        uploadedImages={uploadedImages}
                     />
                 </div>
             </div>

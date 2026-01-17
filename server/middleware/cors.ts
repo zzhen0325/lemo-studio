@@ -13,7 +13,13 @@ export default class CorsMiddleware extends GuluXMiddleware {
     @Res() res: HTTPResponse,
     @Next() next: NextFunction,
   ) {
-    res.set('Access-Control-Allow-Origin', '*');
+    const origin = req.get('Origin');
+    if (origin) {
+      res.set('Access-Control-Allow-Origin', origin);
+      res.set('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.set('Access-Control-Allow-Origin', '*');
+    }
     res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
     res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-tt-logid');
     res.set('Access-Control-Expose-Headers', 'x-tt-logid');

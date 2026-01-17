@@ -2,10 +2,9 @@ import {
   AspectRatio,
   Resolution,
   GenerationConfig,
-  SizeFrom,
 } from '@/types/database';
 
-const AR_MAP: Record<AspectRatio, Record<Resolution, { w: number; h: number }>> = {
+const AR_MAP: Record<Exclude<AspectRatio, 'auto'>, Record<Resolution, { w: number; h: number }>> = {
   '1:1': { '1K': { w: 1024, h: 1024 }, '2K': { w: 2048, h: 2048 }, '4K': { w: 4096, h: 4096 } },
   '2:3': { '1K': { w: 848, h: 1264 }, '2K': { w: 1696, h: 2528 }, '4K': { w: 3392, h: 5056 } },
   '3:2': { '1K': { w: 1264, h: 848 }, '2K': { w: 2528, h: 1696 }, '4K': { w: 5056, h: 3392 } },
@@ -20,17 +19,18 @@ const AR_MAP: Record<AspectRatio, Record<Resolution, { w: number; h: number }>> 
 
 export const RATIO_BASED_MODELS = new Set<string>(['gemini-3-pro-image-preview', 'seed4_2_lemo', 'coze_seed4']);
 
-export function deriveSize(aspectRatio: AspectRatio, resolution: Resolution) {
+export function deriveSize(aspectRatio: Exclude<AspectRatio, 'auto'>, resolution: Resolution) {
   const pair = AR_MAP[aspectRatio][resolution];
   return { width: pair.w, height: pair.h };
 }
 
 export function inferRatioResolution(width: number, height: number) {
-  let best: { aspectRatio: AspectRatio; resolution: Resolution; w: number; h: number; diff: number } | null = null;
+  let best: { aspectRatio: Exclude<AspectRatio, 'auto'>; resolution: Resolution; w: number; h: number; diff: number } | null = null;
   const resolutions: Resolution[] = ['1K', '2K', '4K'];
-  const ratios = Object.keys(AR_MAP) as AspectRatio[];
+  const ratios = Object.keys(AR_MAP) as Exclude<AspectRatio, 'auto'>[];
   for (const ar of ratios) {
     for (const res of resolutions) {
+      if (!AR_MAP[ar] || !AR_MAP[ar][res]) continue;
       const { w, h } = AR_MAP[ar][res];
       const diff = Math.abs(w - width) + Math.abs(h - height);
       if (!best || diff < best.diff) best = { aspectRatio: ar, resolution: res, w, h, diff };
@@ -67,10 +67,22 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
       resolution = '2K';
     }
 
-    const aspectRatio = input.aspectRatio || inferred?.aspectRatio || '1:1';
+    const aspectRatio: AspectRatio = input.aspectRatio || inferred?.aspectRatio || '1:1';
+    if (aspectRatio === 'auto') {
+      return {
+        ...input,
+        prompt: input.prompt,
+        width,
+        height,
+        model,
+        resolution: resolution || '1K',
+        aspectRatio: 'auto',
+        sizeFrom: 'custom',
+      };
+    }
 
     if (resolution && aspectRatio) {
-      const size = deriveSize(aspectRatio, resolution);
+      const size = deriveSize(aspectRatio as Exclude<AspectRatio, 'auto'>, resolution);
       return {
         ...input,
         prompt: input.prompt,
