@@ -28,7 +28,7 @@ export function usePromptOptimization(options: UsePromptOptimizationOptions = {}
       if (model !== 'auto') {
         if (model === 'doubao') modelId = 'doubao-seed-1-8-251228';
         if (model === 'gpt') modelId = 'deepseek-chat';
-        if (model === 'gemini') modelId = 'gemini-1.5-flash';
+        if (model === 'gemini') modelId = 'gemini-3-pro-image-preview';
       }
       // 如果model === 'auto'，则modelId为undefined，useAIService会使用settings中的配置
 

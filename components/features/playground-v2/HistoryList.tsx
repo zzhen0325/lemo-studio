@@ -7,9 +7,11 @@ import Image from "next/image";
 import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, FolderPlus, GripVertical, Layers, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
+import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { cn } from "@/lib/utils";
+import { formatImageUrl } from '@/lib/api-base';
 import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
@@ -367,10 +369,10 @@ const HistoryList = observer(function HistoryList({
                     </div>
                   ) : (
                     <div className="flex flex-col gap-6 group/card">
-                      <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase tracking-tight ">
+                      <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase ">
                         <div className="flex items-center gap-4">
                           <span>{new Date(group.startAt).toLocaleString()}</span>
-                          <span className="opacity-20">/</span>
+                          <span className="opacity-40">/</span>
                           <span className="text-white/40">Image Analysis</span>
                         </div>
                       </div>
@@ -383,7 +385,7 @@ const HistoryList = observer(function HistoryList({
                               className="w-full"
                             >
                               <Image
-                                src={group.sourceImage}
+                                src={formatImageUrl(group.sourceImage)}
                                 alt="Source for describe"
                                 width={1024}
                                 height={1024}
@@ -578,9 +580,10 @@ function HistoryCard({
   const [isHover, setIsHover] = React.useState(false);
   const { applyPrompt, applyModel, applyImage, styles, addImageToStyle } = usePlaygroundStore();
   const { toast } = useToast();
-  const mainImage = result.outputUrl;
+  const mainImage = formatImageUrl(result.outputUrl);
 
   const config = result.config;
+  const modelDisplayName = AVAILABLE_MODELS.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
   const prompt = config?.prompt || '';
   const timeStr = new Date(result.createdAt).toLocaleString();
 
@@ -608,27 +611,27 @@ function HistoryCard({
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
           <div className="flex items-center gap-4">
             {config?.presetName && (
-              <span className="text-white text-md bg-[#b4cdbf4c] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
+              <span className="text-white text-md bg-[#b4cdbf22] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
             )}
-            <span className="opacity-20">/</span>
+             <span className="text-white/40">{modelDisplayName}</span>
+           
+            <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
-            <span className="opacity-20">/</span>
-            <span className="text-white/40">{config?.model || 'Unknown'}</span>
 
             {config?.loras && config.loras.length > 0 && config.loras.map((l, idx) => (
               <React.Fragment key={idx}>
-                <span className="opacity-20">/</span>
+                <span className="opacity-40">/</span>
                 <span className="text-white/40  ">
                   LoRA: {l.model_name.replace('.safetensors', '')} ({l.strength})
                 </span>
               </React.Fragment>
             ))}
-            <span className="opacity-20">/</span>
+            <span className="opacity-40">/</span>
             <span>{timeStr}</span>
 
             {result.status === 'pending' && (
               <>
-                <span className="opacity-20">/</span>
+                <span className="opacity-40">/</span>
                 <span className="text-primary animate-pulse font-medium">
                   {result.progress ? `${Math.round(result.progress)}%` : 'Generating...'}
                   {result.progressStage ? ` - ${result.progressStage}` : ''}
@@ -700,7 +703,7 @@ function HistoryCard({
                         }}
                       >
                         <Image
-                          src={result.sourceImageUrl}
+                          src={formatImageUrl(result.sourceImageUrl)}
                           alt="Reference"
                           fill
                           className="object-cover"
@@ -792,40 +795,22 @@ function HistoryCard({
                             transition={{ duration: 0.5 }}
                             className="relative z-10 w-full h-full"
                           >
-                            {(() => {
-                              const isCdnUrl = img && /^[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+\//.test(img);
-                              const isValidSrc = img && img.length > 8 && (
-                                img.startsWith('/') ||
-                                img.startsWith('http://') ||
-                                img.startsWith('https://') ||
-                                img.startsWith('data:image/') ||
-                                isCdnUrl // Support CDN URLs like sf16-sg.tiktokcdn.com/...
-                              );
-
-                              if (!isValidSrc) return <div className="absolute inset-0 bg-white/5" />;
-
-                              // Add https:// prefix for CDN URLs without protocol
-                              const imageSrc = isCdnUrl && !img.startsWith('http') ? `https://${img}` : img;
-
-                              return (
-                                <Image
-                                  src={imageSrc}
-                                  alt="Generated image"
-                                  fill
-                                  sizes="(max-width: 1536px) 50vw, 800px"
-                                  className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!isSelectionMode) {
-                                      const rect = e.currentTarget.getBoundingClientRect();
-                                      onImageClick(res, rect);
-                                    } else {
-                                      onToggleSelect?.();
-                                    }
-                                  }}
-                                />
-                              );
-                            })()}
+                            <Image
+                              src={formatImageUrl(img)}
+                              alt="Generated image"
+                              fill
+                              sizes="(max-width: 1536px) 50vw, 800px"
+                              className="object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isSelectionMode) {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  onImageClick(res, rect);
+                                } else {
+                                  onToggleSelect?.();
+                                }
+                              }}
+                            />
                           </motion.div>
                         ) : (
                           <motion.div

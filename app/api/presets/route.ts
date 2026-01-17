@@ -1,50 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-import { Preset } from '@/components/features/playground-v2/types';
+import { connectMongo } from '@/server/db/mongo';
+import { PresetModel } from '@/server/db/models';
 import { v4 as uuidv4 } from 'uuid';
-
-// Helper to ensure directory exists
-const PRESET_DIR = path.join(process.cwd(), 'public/preset');
-
-async function ensurePresetDir() {
-    try {
-        await fs.access(PRESET_DIR);
-    } catch {
-        await fs.mkdir(PRESET_DIR, { recursive: true });
-    }
-}
 
 // GET: List all presets
 export async function GET() {
-    await ensurePresetDir();
     try {
-        const files = await fs.readdir(PRESET_DIR);
-        const jsonFiles = files.filter(f => f.endsWith('.json'));
-
-        const presets: Preset[] = [];
-        for (const file of jsonFiles) {
-            try {
-                const filePath = path.join(PRESET_DIR, file);
-                const content = await fs.readFile(filePath, 'utf-8');
-                const preset = JSON.parse(content);
-                presets.push(preset);
-            } catch (e) {
-                console.error(`Failed to parse preset ${file}`, e);
-            }
-        }
-
-        // Sort by title or creation time if available (currently just random order)
-        return NextResponse.json(presets);
-    } catch {
+        await connectMongo();
+        const presets = await PresetModel.find().sort({ createdAt: -1 }).lean();
+        
+        // Map _id to id for frontend compatibility
+        const formattedPresets = presets.map(p => ({
+            ...p,
+            id: String(p._id),
+            _id: undefined
+        }));
+        
+        return NextResponse.json(formattedPresets);
+    } catch (error) {
+        console.error('Failed to fetch presets from MongoDB', error);
         return NextResponse.json({ error: 'Failed to fetch presets' }, { status: 500 });
     }
 }
 
 // POST: Create or Update a preset
 export async function POST(req: NextRequest) {
-    await ensurePresetDir();
     try {
+        await connectMongo();
         const formData = await req.formData();
         const jsonStr = formData.get('json') as string;
         const coverFile = formData.get('cover') as File | null;
@@ -53,9 +35,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing json data' }, { status: 400 });
         }
 
-        const presetData = JSON.parse(jsonStr) as Preset;
-        // If no ID, generate one. But usually frontend might send one? 
-        // Let's ensure there is an ID.
+        const presetData = JSON.parse(jsonStr);
         if (!presetData.id) {
             presetData.id = uuidv4();
         }
@@ -65,22 +45,27 @@ export async function POST(req: NextRequest) {
         if (coverFile && coverFile.size > 0) {
             const arrayBuffer = await coverFile.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
-
-            // Determine extension
-            let ext = 'png';
-            if (coverFile.type === 'image/jpeg') ext = 'jpg';
-            else if (coverFile.type === 'image/webp') ext = 'webp';
-
-            const fileName = `${id}.${ext}`;
-            const filePath = path.join(PRESET_DIR, fileName);
-
-            await fs.writeFile(filePath, buffer);
-            presetData.coverUrl = `/preset/${fileName}`;
+            const base64 = buffer.toString('base64');
+            const dataUrl = `data:${coverFile.type || 'image/png'};base64,${base64}`;
+            presetData.coverUrl = dataUrl;
         }
 
-        // Save JSON
-        const jsonPath = path.join(PRESET_DIR, `${id}.json`);
-        await fs.writeFile(jsonPath, JSON.stringify(presetData, null, 2));
+        await PresetModel.findOneAndUpdate(
+            { _id: id },
+            {
+                _id: id,
+                name: presetData.name,
+                coverUrl: presetData.coverUrl,
+                coverData: presetData.coverUrl?.startsWith('data:') ? presetData.coverUrl : undefined,
+                config: presetData.config,
+                editConfig: presetData.editConfig,
+                category: presetData.category,
+                projectId: presetData.projectId,
+                type: presetData.type,
+                createdAt: presetData.createdAt || new Date().toISOString(),
+            },
+            { upsert: true, new: true }
+        );
 
         return NextResponse.json(presetData);
 
@@ -92,37 +77,18 @@ export async function POST(req: NextRequest) {
 
 // DELETE: Remove a preset
 export async function DELETE(req: NextRequest) {
-    await ensurePresetDir();
     try {
+        await connectMongo();
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');
 
         if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
 
-        const jsonPath = path.join(PRESET_DIR, `${id}.json`);
-
-        // Try to find the image to delete too
-        // We strictly assume the image is named [id].[ext] but we don't know the ext.
-        // Or we read the JSON first to find the cover path.
-
-        // Strategy: Read JSON to get cover path
-        try {
-            const content = await fs.readFile(jsonPath, 'utf-8');
-            const preset = JSON.parse(content);
-            if (preset.cover && preset.cover.startsWith('/preset/')) {
-                const imageName = path.basename(preset.cover);
-                const imagePath = path.join(PRESET_DIR, imageName);
-                await fs.unlink(imagePath).catch(() => { }); // Ignore if not found
-            }
-        } catch {
-            // failed to read/parse json, just proceed to delete json
-        }
-
-        await fs.unlink(jsonPath);
+        await PresetModel.deleteOne({ _id: id });
         return NextResponse.json({ success: true });
 
-    } catch {
-        // If error is ENOENT (file not found), consider it success
+    } catch (error) {
+        console.error('Delete preset error:', error);
         return NextResponse.json({ error: 'Failed to delete preset' }, { status: 500 });
     }
 }

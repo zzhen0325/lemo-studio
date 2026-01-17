@@ -21,15 +21,25 @@ export default class AiController {
   }
 
   @Post('/image')
-  public async postImage(@Body() body: ImageRequestBody) {
-    // 返回值中可能包含 stream 字段，由上层根据需要封装为 SSE 或其他形式
-    return this.aiService.generateImage(body);
+  public async postImage(@Body() body: ImageRequestBody, @Res() res: HTTPResponse) {
+    const result = await this.aiService.generateImage(body);
+    if (result.stream) {
+      res.headers['Content-Type'] = 'text/event-stream';
+      res.headers['Cache-Control'] = 'no-cache';
+      res.headers['Connection'] = 'keep-alive';
+      res.body = result.stream;
+      return;
+    }
+    return result;
   }
 
   @Post('/text')
   public async postText(@Body() body: TextRequestBody, @Res() res: HTTPResponse) {
     const result = await this.aiService.generateText(body);
     if (result.stream) {
+      res.headers['Content-Type'] = 'text/event-stream';
+      res.headers['Cache-Control'] = 'no-cache';
+      res.headers['Connection'] = 'keep-alive';
       res.body = result.stream;
       return;
     }

@@ -18,7 +18,7 @@ const AR_MAP: Record<AspectRatio, Record<Resolution, { w: number; h: number }>> 
   '21:9': { '1K': { w: 1584, h: 672 }, '2K': { w: 3168, h: 1344 }, '4K': { w: 6336, h: 2688 } },
 };
 
-export const RATIO_BASED_MODELS = new Set<string>(['Nano banana', 'nanobanana', 'Seed 4.2']);
+export const RATIO_BASED_MODELS = new Set<string>(['gemini-3-pro-image-preview', 'seed4_2_lemo', 'coze_seed4']);
 
 export function deriveSize(aspectRatio: AspectRatio, resolution: Resolution) {
   const pair = AR_MAP[aspectRatio][resolution];
@@ -41,16 +41,29 @@ export function inferRatioResolution(width: number, height: number) {
 }
 
 export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationConfig {
-  const model = input.model || 'Nano banana';
+  let model = input.model || 'gemini-3-pro-image-preview';
   const width = Number(input.width);
   const height = Number(input.height);
+
+  // Backward compatibility for legacy model names
+  if (model === 'Nano banana' || model === 'nanobanana') {
+    model = 'gemini-3-pro-image-preview';
+  } else if (model === 'Seed 4.2') {
+    model = 'seed4_2_lemo';
+  } else if (model === 'Seed 4.0') {
+    model = 'seed4_lemo1230';
+  } else if (model === 'Seed 3' || model === '3D Lemo seed3') {
+    model = 'lemo_2dillustator';
+  } else if (model === 'Seed 4') {
+    model = 'lemoseedt2i';
+  }
 
   if (RATIO_BASED_MODELS.has(model)) {
     const inferred = inferRatioResolution(width, height);
     let resolution = input.resolution || inferred?.resolution;
 
     // Default to 2K for Seed 4.2 if no resolution specified
-    if (model === 'Seed 4.2' && !input.resolution) {
+    if (model === 'seed4_2_lemo' && !input.resolution) {
       resolution = '2K';
     }
 

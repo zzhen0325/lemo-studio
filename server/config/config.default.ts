@@ -11,6 +11,26 @@ if (process.cwd() !== workspaceRoot) {
   process.chdir(workspaceRoot);
 }
 
+// 加载 .env.local 环境变量（模拟 Next.js 行为）
+import fs from "fs";
+const envLocalPath = path.join(process.cwd(), ".env.local");
+if (fs.existsSync(envLocalPath)) {
+  const envContent = fs.readFileSync(envLocalPath, "utf8");
+  envContent.split("\n").forEach((line) => {
+    const trimmedLine = line.trim();
+    if (trimmedLine && !trimmedLine.startsWith("#")) {
+      const firstEqIndex = trimmedLine.indexOf("=");
+      if (firstEqIndex !== -1) {
+        const key = trimmedLine.substring(0, firstEqIndex).trim();
+        const value = trimmedLine.substring(firstEqIndex + 1).trim().replace(/^['"](.*)['"]$/, "$1");
+        if (key && !process.env[key]) {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+}
+
 const config: ApplicationConfig = {
   name: "lemo-ai-studio-server",
   middleware: [CorsMiddleware, GlobalExceptionMiddleware],

@@ -1,9 +1,0 @@
-{
-  "prompt": "黄色lemo卡通形象",
-  "img_width": 2400,
-  "image_height": 1200,
-  "gen_num": 1,
-  "base_model": "3D Lemo seed3",
-  "image_size": "1K",
-  "lora": ""
-}

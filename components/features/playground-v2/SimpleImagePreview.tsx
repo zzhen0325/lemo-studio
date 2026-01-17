@@ -1,6 +1,7 @@
 import React from 'react';
 import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatImageUrl } from '@/lib/api-base';
 
 interface SimpleImagePreviewProps {
     imageUrl: string | null;
@@ -29,7 +30,7 @@ export default function SimpleImagePreview({
                         onClick={(e) => e.stopPropagation()}
                     >
                         <Image
-                            src={imageUrl}
+                            src={formatImageUrl(imageUrl)}
                             alt="Preview"
                             width={1600}
                             height={1600}

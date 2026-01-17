@@ -3,7 +3,7 @@
     "id": "provider-doubao",
     "name": "Doubao (豆包)",
     "providerType": "openai-compatible",
-    "apiKey": "",
+    "apiKey": "88e719ed-3b78-43ef-9da7-9f51f8721bd9",
     "baseURL": "https://ark.cn-beijing.volces.com/api/v3",
     "models": [
       {
@@ -30,7 +30,7 @@
     "id": "provider-deepseek",
     "name": "DeepSeek",
     "providerType": "openai-compatible",
-    "apiKey": "",
+    "apiKey": "sk-a7b8e6d890ca4a858d386991b2501136",
     "baseURL": "https://api.deepseek.com",
     "models": [
       {
@@ -56,7 +56,7 @@
     "id": "provider-google",
     "name": "Google Gemini",
     "providerType": "",
-    "apiKey": "",
+    "apiKey": "AIzaSyBAtO6bs0mve4AXhLyy-hJB4X2HD_dJqP0",
     "baseURL": "",
     "models": [
       {
@@ -112,5 +112,24 @@
     "isEnabled": true,
     "createdAt": "2026-01-11T00:00:00.000Z",
     "updatedAt": "2026-01-11T06:38:04.903Z"
+  },
+  {
+    "id": "provider-coze",
+    "name": "Coze (Seedream)",
+    "providerType": "coze-image",
+    "apiKey": "pat_X7OyWaaYkJwnaaxnTcTx2OZahUzi1Q2V3zxKGZ7mMYEbbFVewPZbzqKrdZPME2zL",
+    "baseURL": "https://bot-open-api.bytedance.net/v3/chat",
+    "models": [
+      {
+        "modelId": "coze_seed4",
+        "displayName": "Seedream 4",
+        "task": [
+          "image"
+        ]
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-17T00:00:00.000Z",
+    "updatedAt": "2026-01-17T00:00:00.000Z"
   }
 ]

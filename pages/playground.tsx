@@ -658,7 +658,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             prompt: desc,
             width: config.width,
             height: config.height,
-            model: "gemini-1.5-flash",
+            model: "gemini-3-pro-image-preview",
             lora: config.lora,
           },
           status: 'completed',
@@ -1167,15 +1167,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                       </div>
                     )}
 
-                    {!isPresetGridOpen && (activeTab === 'history') && (
-                      <PresetGridOverlay
-                        open={isPresetGridOpen}
-                        onOpenChange={setIsPresetGridOpen}
-                        onOpenManager={() => setIsPresetManagerOpen(true)}
-                        onSelectPreset={handlePresetSelect}
-                      />
-                    )}
-
                     {/* History List - Visible in History Tab */}
                     {viewMode === 'dock' && activeTab === 'history' && (
                       <div className="mt-2  w-full relative flex-1 overflow-hidden z-30">
@@ -1245,6 +1236,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
             <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.model || selectedModel} onConfirm={(m) => updateConfig({ model: m })} />
             <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />
+            <PresetGridOverlay
+              open={isPresetGridOpen}
+              onOpenChange={setIsPresetGridOpen}
+              onOpenManager={() => setIsPresetManagerOpen(true)}
+              onSelectPreset={handlePresetSelect}
+            />
             <PresetManagerDialog
               open={isPresetManagerOpen}
               onOpenChange={setIsPresetManagerOpen}

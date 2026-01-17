@@ -106,13 +106,19 @@ export class Generation {
 }
 
 @Database('default')
-@modelOptions({ schemaOptions: { timestamps: true } })
+@modelOptions({ schemaOptions: { timestamps: true, _id: false } })
 export class Preset {
+  @Prop({ required: true })
+  public _id!: string;
+
   @Prop({ required: true })
   public name!: string;
 
   @Prop()
   public coverUrl?: string;
+
+  @Prop()
+  public coverData?: string; // Base64 data for the cover image
 
   @Prop({ type: () => Object })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,6 +139,16 @@ export class Preset {
 
   @Prop()
   public createdAt?: string;
+}
+
+@Database('default')
+@modelOptions({ schemaOptions: { timestamps: true } })
+export class PresetCategory {
+  @Prop({ required: true, default: 'default', unique: true })
+  public key!: string;
+
+  @Prop({ type: () => [String], default: [] })
+  public categories!: string[];
 }
 
 @Database('default')
@@ -281,6 +297,7 @@ export class ApiSettings {
 export const ImageAssetModel = getModelForClass(ImageAsset);
 export const GenerationModel = getModelForClass(Generation);
 export const PresetModel = getModelForClass(Preset);
+export const PresetCategoryModel = getModelForClass(PresetCategory);
 export const StyleStackModel = getModelForClass(StyleStack);
 export const ToolPresetModel = getModelForClass(ToolPreset);
 export const DatasetEntryModel = getModelForClass(DatasetEntry);

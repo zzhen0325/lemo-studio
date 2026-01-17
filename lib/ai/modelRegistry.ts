@@ -27,12 +27,14 @@ function readProvidersConfig(): { id: string; apiKey: string; baseURL?: string; 
 const PROVIDER_ENV_MAP: Record<string, string> = {
     'provider-doubao': 'DOUBAO_API_KEY',
     'provider-deepseek': 'DEEPSEEK_API_KEY',
-    'provider-google': 'GOOGLE_API_KEY'
+    'provider-google': 'GOOGLE_API_KEY',
+    'provider-coze': 'COZE_API_TOKEN'
 };
 
 // 根据modelId查找对应的provider配置
 function findProviderConfigForModel(modelId: string): { apiKey: string; baseURL?: string; providerType: string } | null {
     const providers = readProvidersConfig();
+    
     for (const provider of providers) {
         if (!provider.isEnabled) continue;
         for (const model of provider.models) {
@@ -75,6 +77,11 @@ function findProviderConfigForModel(modelId: string): { apiKey: string; baseURL?
         }
     }
     return null;
+}
+
+export function getGoogleApiKey(): string {
+    const config = findProviderConfigForModel('gemini-3-pro-image-preview');
+    return config?.apiKey || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
 }
 
 export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfig>): TextProvider | VisionProvider | ImageProvider {

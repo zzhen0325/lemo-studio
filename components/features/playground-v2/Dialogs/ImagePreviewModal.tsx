@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Generation } from '@/types/database';
 import { useToast } from '@/hooks/common/use-toast';
 import { cn } from '@/lib/utils';
+import { formatImageUrl } from '@/lib/api-base';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
 
   if (!result) return null;
 
-  const imageUrl = result.outputUrl || "";
+  const imageUrl = formatImageUrl(result.outputUrl || "");
   const config = result.config;
   const prompt = config?.prompt || "";
 

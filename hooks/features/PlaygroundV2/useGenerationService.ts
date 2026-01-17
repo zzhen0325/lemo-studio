@@ -13,6 +13,20 @@ import { usePostPlayground } from "@/hooks/features/playground/use-post-playgrou
 import { toUnifiedConfigFromLegacy } from "@/lib/adapters/data-mapping";
 import { getApiBase } from "@/lib/api-base";
 
+export interface UnifiedModelConfig {
+    id: string;
+    displayName: string;
+}
+
+export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
+    { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana' },
+    // { id: 'seed4_lemo1230', displayName: 'Seed 4.0' },
+    { id: 'seed4_2_lemo', displayName: 'Seed4 ' },
+    { id: 'lemo_2dillustator', displayName: 'Seed3 Lemo' },
+    // { id: 'lemoseedt2i', displayName: 'Seed 4' },
+    { id: 'coze_seed4', displayName: 'Seedream 4' },
+];
+
 export function useGenerationService() {
     const { toast } = useToast();
 
@@ -128,7 +142,10 @@ export function useGenerationService() {
                 return;
             }
 
-            if (selectedModel === "Workflow") {
+            // 优先使用 config 中的模型 ID
+            const effectiveModel = unifiedCfg.model || selectedModel;
+
+            if (effectiveModel === "Workflow") {
                 await handleWorkflow(taskId, finalConfig, generationTime, sourceImageUrl);
             } else {
                 await handleUnifiedImageGen(taskId, finalConfig, generationTime, sourceImageUrl);
@@ -161,14 +178,11 @@ export function useGenerationService() {
         const firstImage = currentUploadedImages[0];
         const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : sourceImageUrl;
 
-        let modelId = "lemo_2dillustator"; // Default
-        if (selectedModel === "Nano banana") modelId = "gemini-1.5-flash";
-        if (selectedModel === "Seed 4.0") modelId = "seed4_lemo1230";
-        if (selectedModel === "Seed 4.2") modelId = "seed4_2_lemo";
-        if (selectedModel === "Seed 4") modelId = "lemoseedt2i";
-        if (selectedModel === "coze_seed4") modelId = "coze_seed4";
-
         const unified = toUnifiedConfigFromLegacy(currentConfig);
+
+        // 使用统一模型配置进行映射，优先使用 config 中的模型 ID
+        const modelId = unified.model || selectedModel || "gemini-3-pro-image-preview";
+
         console.log(`[useGenerationService] selectedModel: ${selectedModel}, mapping to modelId: ${modelId}`);
 
         // Validation for Seed 4.2 dimensions
@@ -184,6 +198,7 @@ export function useGenerationService() {
         }
 
         const isCoze = modelId === "coze_seed4";
+        const processedImages = new Set<string>();
 
         const res = await callImage({
             model: modelId,
@@ -205,29 +220,37 @@ export function useGenerationService() {
                 ));
             }
             if (chunk.images && chunk.images.length > 0) {
-                try {
-                    const savedPath = await saveImageToOutputs(
-                        chunk.images[0],
-                        {
-                            config: {
-                                prompt: unified.prompt,
-                                width: Number(unified.width),
-                                height: Number(unified.height),
-                                model: unified.model || selectedModel,
-                                loras: usePlaygroundStore.getState().selectedLoras,
-                                workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
-                            },
-                            createdAt: generationTime,
-                            sourceImageUrl: effectiveSourceUrl,
-                        }
-                    );
-                    setGenerationHistory((prev: Generation[]) => prev.map(item =>
-                        item.id === taskId
-                            ? { ...item, outputUrl: savedPath, status: 'completed' }
-                            : item
-                    ));
-                } catch (err) {
-                    console.error("Failed to save streamed image:", err);
+                for (const imgUrl of chunk.images) {
+                    // 对于 Coze 短链，已在 Provider 层保证了只有完整 URL (带结尾斜杠) 才会返回
+                    // 因此这里只需要去重即可，不再需要额外的正则校验（否则可能会误杀合法的长 URL 或不带斜杠的 CDN 链接）
+                    if (processedImages.has(imgUrl)) continue;
+                    processedImages.add(imgUrl);
+
+                    try {
+                        console.log(`[useGenerationService] Saving streamed image: ${imgUrl}`);
+                        const savedPath = await saveImageToOutputs(
+                            imgUrl,
+                            {
+                                config: {
+                                    prompt: unified.prompt,
+                                    width: Number(unified.width),
+                                    height: Number(unified.height),
+                                    model: unified.model || selectedModel,
+                                    loras: usePlaygroundStore.getState().selectedLoras,
+                                    workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                                },
+                                createdAt: generationTime,
+                                sourceImageUrl: effectiveSourceUrl,
+                            }
+                        );
+                        setGenerationHistory((prev: Generation[]) => prev.map(item =>
+                            item.id === taskId
+                                ? { ...item, outputUrl: savedPath, status: 'completed' }
+                                : item
+                        ));
+                    } catch (err) {
+                        console.error("Failed to save streamed image:", err);
+                    }
                 }
             }
         } : undefined);

@@ -112,13 +112,13 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
         prompt: '',
         width: 1376,
         height: 768,
-        model: 'Nano banana',
+        model: 'gemini-3-pro-image-preview',
         resolution: '1K',
         lora: ''
     },
     uploadedImages: [],
     describeImages: [],
-    selectedModel: 'Nano banana',
+    selectedModel: 'gemini-3-pro-image-preview',
     selectedWorkflowConfig: undefined,
     selectedLoras: [],
     hasGenerated: false,
@@ -215,7 +215,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             const newConfig = configData ? { ...state.config, ...configData, model: finalModel } : { ...state.config, model: finalModel };
 
             // Default to 2K for Seed 4.2
-            if (finalModel === 'Seed 4.2' && !newConfig.resolution) {
+            if (finalModel === 'seed4_2_lemo' && !newConfig.resolution) {
                 newConfig.resolution = '2K';
             }
 
@@ -269,14 +269,14 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
                 prompt: '',
                 width: 1376,
                 height: 768,
-                model: 'Nano banana',
+                model: 'gemini-3-pro-image-preview',
                 resolution: '1K',
                 aspectRatio: '16:9',
                 lora: ''
             },
             uploadedImages: [],
             describeImages: [],
-            selectedModel: 'Nano banana',
+            selectedModel: 'gemini-3-pro-image-preview',
             selectedWorkflowConfig: undefined,
             selectedLoras: [],
             hasGenerated: false,

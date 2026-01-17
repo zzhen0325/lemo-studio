@@ -19,16 +19,7 @@ import {
 import { GenerationConfig } from '@/components/features/playground-v2/types';
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
-
-// 统一的模型配置：消除重复映射
-const MODEL_CONFIG: Record<string, { displayName: string; modelKey: string }> = {
-  'seed3': { displayName: 'Seed 3', modelKey: '3D Lemo seed3' },
-  'seed4': { displayName: 'Seed 4.0', modelKey: 'Seed 4.0' },
-  'seed4_2': { displayName: 'Seed 4.2', modelKey: 'Seed 4.2' },
-  'lemoseedt2i': { displayName: 'Seed 4', modelKey: 'Seed 4' },
-  'nano_banana': { displayName: 'Nano banana', modelKey: 'Nano banana' },
-  'coze_seed4': { displayName: 'Coze Seed 4', modelKey: 'coze_seed4' },
-};
+import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
 
 
 
@@ -112,10 +103,10 @@ export default function ControlToolbar({
 
   // 初始化与回填：根据外部 selectedModel 映射到内部 selectValue
   React.useEffect(() => {
-    // 反向查找：根据 modelKey 找到对应的 selectValue
-    const entry = Object.entries(MODEL_CONFIG).find(([, cfg]) => cfg.modelKey === selectedModel);
+    // 简化映射：直接匹配 id 或 Workflow
+    const entry = AVAILABLE_MODELS.find((cfg) => cfg.id === selectedModel);
     if (entry) {
-      setSelectValue(entry[0]);
+      setSelectValue(entry.id);
     } else if (selectedModel === 'Workflow' && selectedWorkflowName) {
       const wf = (Array.isArray(workflows) ? workflows : []).find(
         (w) => w.viewComfyJSON.title === selectedWorkflowName
@@ -133,10 +124,10 @@ export default function ControlToolbar({
     onClearPreset?.(); // 切换模型时清除预设选择
 
     // 使用统一配置处理模型切换
-    const cfg = MODEL_CONFIG[val];
+    const cfg = AVAILABLE_MODELS.find(m => m.id === val);
     if (cfg) {
-      onModelChange(cfg.modelKey);
-      onConfigChange?.({ model: cfg.modelKey });
+      onModelChange(cfg.id);
+      onConfigChange?.({ model: cfg.id });
 
       // Coze Seed 4 默认设置 2K
       if (val === 'coze_seed4') {
@@ -159,20 +150,21 @@ export default function ControlToolbar({
 
   // 使用统一配置获取显示标签
   const triggerLabel = (() => {
-    if (selectValue && MODEL_CONFIG[selectValue]) {
-      return MODEL_CONFIG[selectValue].displayName;
+    const activeModel = AVAILABLE_MODELS.find(m => m.id === selectValue);
+    if (activeModel) {
+      return activeModel.displayName;
     }
     if (selectedModel === 'Workflow') return selectedBaseModelName || 'Base Model';
     return 'Model';
   })();
 
 
-  const BASE_MODEL_LIST = [
-    { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
-    { name: 'flux1-dev-fp8.safetensors', cover: '/basemodels/flux1-dev-fp8.safetensors.jpg' },
-    { name: 'Zimage', cover: '/basemodels/Zimage.jpg' },
-    { name: 'qwen', cover: '/basemodels/qwen.jpg' },
-  ];
+  // const BASE_MODEL_LIST = [
+  //   { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
+  //   { name: 'flux1-dev-fp8.safetensors', cover: '/basemodels/flux1-dev-fp8.safetensors.jpg' },
+  //   { name: 'Zimage', cover: '/basemodels/Zimage.jpg' },
+  //   { name: 'qwen', cover: '/basemodels/qwen.jpg' },
+  // ];
 
   const handleBaseModelSelect = (modelName: string) => {
     onModelChange('Workflow');
@@ -191,53 +183,20 @@ export default function ControlToolbar({
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[240px]  bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
-        <DropdownMenuItem
-          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
-          onClick={() => handleUnifiedSelectChange('nano_banana')}
-        >
-          <span className={`w-2 h-2 rounded-full ${selectValue === 'nano_banana' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-          Nano banana
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
-          onClick={() => handleUnifiedSelectChange('seed3')}
-        >
-          <span className={`w-2 h-2 rounded-full ${selectValue === 'seed3' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-          Seed 3
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
-          onClick={() => handleUnifiedSelectChange('seed4')}
-        >
-          <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-          Seed 4
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
-          onClick={() => handleUnifiedSelectChange('seed4_2')}
-        >
-          <span className={`w-2 h-2 rounded-full ${selectValue === 'seed4_2' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-          Seed 4.2
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
-          onClick={() => handleUnifiedSelectChange('lemoseedt2i')}
-        >
-          <span className={`w-2 h-2 rounded-full ${selectValue === 'lemoseedt2i' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-          Seed 4 (LemoSeed T2I)
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
-          onClick={() => handleUnifiedSelectChange('coze_seed4')}
-        >
-          <span className={`w-2 h-2 rounded-full ${selectValue === 'coze_seed4' ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-          Coze Seed 4
-        </DropdownMenuItem>
-
+      <DropdownMenuContent className="w-[180px]  bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+        {AVAILABLE_MODELS.filter(m => ['gemini-3-pro-image-preview', 'coze_seed4'].includes(m.id)).map((model) => (
+          <DropdownMenuItem
+            key={model.id}
+            className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
+            onClick={() => handleUnifiedSelectChange(model.id)}
+          >
+            <span className={`w-2 h-2 rounded-full ${selectValue === model.id ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+            {model.displayName}
+          </DropdownMenuItem>
+        ))}
 
         {/* workflow模型 */}
-        {BASE_MODEL_LIST.map((model) => (
+        {/* {BASE_MODEL_LIST.map((model) => (
           <DropdownMenuItem
             key={model.name}
             className="text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 py-2"
@@ -246,7 +205,7 @@ export default function ControlToolbar({
             <span className={`w-2 h-2 rounded-full ${selectedModel === 'Workflow' && selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
             <span className="truncate">{model.name}</span>
           </DropdownMenuItem>
-        ))}
+        ))} */}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -259,7 +218,7 @@ export default function ControlToolbar({
       <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
         <div className="flex justify-start items-center gap-2">
           <div className="flex items-center gap-2">
-            {variant !== 'mini' && (
+            {variant !== 'mini' && selectedModel !== 'coze_seed4' && (
               <Button
                 className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
                 onClick={onTogglePresetGrid}
@@ -313,7 +272,7 @@ export default function ControlToolbar({
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[320px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
-                {(selectedModel === 'Nano banana' || selectedModel === 'Seed 4.2' || selectedModel === 'coze_seed4') && (
+                {(selectedModel === 'gemini-3-pro-image-preview' || selectedModel === 'seed4_2_lemo' || selectedModel === 'coze_seed4') && (
                   <div className="space-y-4">
                     <div className="text-xs text-white/70">Resolution</div>
                     <div className="flex gap-2">

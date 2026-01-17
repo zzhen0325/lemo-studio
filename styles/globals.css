@@ -17,106 +17,80 @@
 
 
 
-@layer base {
-  :root {
-    --background: 0.1450 0 0;
-    --foreground: 100% 0.00011 271.152;
-    --card: 0.2050 0 0;
-    --card-foreground: 0.9850 0 0;
-    --popover: 0.2690 0 0;
-    --popover-foreground: 0.9850 0 0;
-    --primary: 97.012% 0.06553 130.923;
-    --primary-foreground: 0.2050 0 0;
-    --secondary: 0.2690 0 0;
-    --secondary-foreground: 0.9850 0 0;
-    --muted: 0.2690 0 0;
-    --muted-foreground: 0.7080 0 0;
-    --accent: 0.3710 0 0;
-    --accent-foreground: 0.9850 0 0;
-    --destructive: 0.7040 0.1910 22.2160;
-    --destructive-foreground: 0.9850 0 0;
-    --border: 0.2750 0 0;
-    --input: 0.3250 0 0;
-    --ring: 0.5560 0 0;
-    --radius: 0.75rem;
-    --chart-1: 0.8100 0.1000 252;
-    --chart-2: 0.6200 0.1900 260;
-    --chart-3: 0.5500 0.2200 263;
-    --chart-4: 0.4900 0.2200 264;
-    --chart-5: 0.4200 0.1800 266;
-    --sidebar: 0.2050 0 0;
-    --sidebar-foreground: 0.9850 0 0;
-    --sidebar-primary: 0.4880 0.2430 264.3760;
-    --sidebar-primary-foreground: 0.9850 0 0;
-    --sidebar-accent: 0.2690 0 0;
-    --sidebar-accent-foreground: 0.9850 0 0;
-    --sidebar-border: 0.2750 0 0;
-    --sidebar-ring: 0.4390 0 0;
 
-    /* Font definitions from user snippet - combining with existing if needed, but using user's preference */
-    --font-sans: var(--font-inter), ui-sans-serif, system-ui;
-    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  }
+:root {
+  --background: 0 0% 14.5%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 20.5%;
+  --card-foreground: 0 0% 98.5%;
+  --popover: 0 0% 26.9%;
+  --popover-foreground: 0 0% 98.5%;
+  --primary: 89 100% 91%;
+  --primary-foreground: 0 0% 20.5%;
+  --secondary: 0 0% 26.9%;
+  --secondary-foreground: 0 0% 98.5%;
+  --muted: 0 0% 26.9%;
+  --muted-foreground: 0 0% 70.8%;
+  --accent: 0 0% 37.1%;
+  --accent-foreground: 0 0% 98.5%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98.5%;
+  --border: 300 8% 95%;
+  --input: 0 0% 32.5%;
+  --ring: 0 0% 55.6%;
+  --radius: 0.75rem;
+  --chart-1: 252 10% 81%;
+  --chart-2: 260 19% 62%;
+  --chart-3: 263 22% 55%;
+  --chart-4: 264 22% 49%;
+  --chart-5: 266 18% 42%;
+  --sidebar-background: 0 0% 98.5%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
 
-  .dark {
-    --background: 0.1450 0 0;
-    --foreground: 0.9850 0 0;
-    --card: 0.2050 0 0;
-    --card-foreground: 0.9850 0 0;
-    --popover: 0.2690 0 0;
-    --popover-foreground: 0.9850 0 0;
-    --primary: 1.0000 0 0;
-    --primary-foreground: 0.2050 0 0;
-    --secondary: 0.2690 0 0;
-    --secondary-foreground: 0.9850 0 0;
-    --muted: 0.2690 0 0;
-    --muted-foreground: 0.7080 0 0;
-    --accent: 0.3710 0 0;
-    --accent-foreground: 0.9850 0 0;
-    --destructive: 0.7040 0.1910 22.2160;
-    --destructive-foreground: 0.9850 0 0;
-    --border: 0.2750 0 0;
-    --input: 0.3250 0 0;
-    --ring: 0.5560 0 0;
-    --chart-1: 0.8100 0.1000 252;
-    --chart-2: 0.6200 0.1900 260;
-    --chart-3: 0.5500 0.2200 263;
-    --chart-4: 0.4900 0.2200 264;
-    --chart-5: 0.4200 0.1800 266;
-    --sidebar: 0.2050 0 0;
-    --sidebar-foreground: 0.9850 0 0;
-    --sidebar-primary: 0.4880 0.2430 264.3760;
-    --sidebar-primary-foreground: 0.9850 0 0;
-    --sidebar-accent: 0.2690 0 0;
-    --sidebar-accent-foreground: 0.9850 0 0;
-    --sidebar-border: 0.2750 0 0;
-    --sidebar-ring: 0.4390 0 0;
-  }
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-@layer base {
-  :root {
-    --sidebar-background: 98.5% 0 0;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 0 0% 98%;
-    --sidebar-primary-foreground: 240 5.9% 10%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+.dark {
+  --background: 0 0% 14.5%;
+  --foreground: 0 0% 98.5%;
+  --card: 0 0% 20.5%;
+  --card-foreground: 0 0% 98.5%;
+  --popover: 0 0% 26.9%;
+  --popover-foreground: 0 0% 98.5%;
+  --primary: 89 100% 91%;
+  --primary-foreground: 0 0% 20.5%;
+  --secondary: 0 0% 26.9%;
+  --secondary-foreground: 0 0% 98.5%;
+  --muted: 0 0% 26.9%;
+  --muted-foreground: 0 0% 70.8%;
+  --accent: 0 0% 37.1%;
+  --accent-foreground: 0 0% 98.5%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98.5%;
+  --border: 300 8% 95%;
+  --input: 0 0% 32.5%;
+  --ring: 0 0% 55.6%;
+  --chart-1: 252 10% 81%;
+  --chart-2: 260 19% 62%;
+  --chart-3: 263 22% 55%;
+  --chart-4: 264 22% 49%;
+  --chart-5: 266 18% 42%;
+  --sidebar-background: 240 5.9% 10%;
+  --sidebar-foreground: 240 4.8% 95.9%;
+  --sidebar-primary: 0 0% 98%;
+  --sidebar-primary-foreground: 240 5.9% 10%;
+  --sidebar-accent: 240 3.7% 15.9%;
+  --sidebar-accent-foreground: 240 4.8% 95.9%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
 }
 
 @layer base {

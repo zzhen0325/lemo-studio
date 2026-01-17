@@ -56,21 +56,8 @@ export class ToolsPresetsService {
       let thumbnailPath = '';
       if (screenshot) {
         const buffer = Buffer.from(await screenshot.arrayBuffer());
-        const fileName = `${id}.png`;
-        const cdn = await uploadBufferToCdn(buffer, {
-          fileName,
-          dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/tools/${toolId}`,
-          region: 'SG',
-        });
-        thumbnailPath = cdn.url;
-        await this.imageAssetModel.create({
-          url: cdn.url,
-          dir: cdn.dir,
-          fileName: cdn.fileName,
-          region: 'SG',
-          type: 'upload',
-          meta: { toolId, presetId: id },
-        });
+        const dataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
+        thumbnailPath = dataUrl;
       }
 
       const preset: ToolPreset = {

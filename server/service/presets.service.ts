@@ -1,10 +1,13 @@
 import { randomUUID } from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
 import type { Preset } from '@/types/database';
 import { Inject, Injectable } from '@gulux/gulux';
 import { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { Preset as PresetEntity, ImageAsset } from '../db';
-import { uploadBufferToCdn } from '../utils/cdn';
+
+const PRESET_DIR = path.join(process.cwd(), 'public/preset');
 
 @Injectable()
 export class PresetsService {
@@ -16,13 +19,20 @@ export class PresetsService {
 
   public async listPresets(): Promise<Preset[]> {
     try {
-      const presets = await this.presetModel.find().sort({ createdAt: -1 }).lean();
+      let presets = await this.presetModel.find().sort({ createdAt: -1 }).lean();
+
+      // Migration check: if DB is empty, try to import from local files
+      if (presets.length === 0) {
+        await this.migrateFromFiles();
+        presets = await this.presetModel.find().sort({ createdAt: -1 }).lean();
+      }
+
       return presets.map((p) => ({
         id: String(p._id),
         name: p.name,
         coverUrl: p.coverUrl || '',
         config: (p.config || {}) as Preset['config'],
-        editConfig: (p.editConfig || {}) as Preset['editConfig'],
+        editConfig: p.editConfig as Preset['editConfig'],
         category: p.category,
         projectId: p.projectId,
         createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
@@ -31,6 +41,59 @@ export class PresetsService {
     } catch (error) {
       console.error('Failed to fetch presets', error);
       throw new HttpError(500, 'Failed to fetch presets');
+    }
+  }
+
+  private async migrateFromFiles() {
+    try {
+      await fs.access(PRESET_DIR);
+      const files = await fs.readdir(PRESET_DIR);
+      const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'categories.json');
+
+      console.log(`Starting migration of ${jsonFiles.length} presets from files...`);
+
+      for (const file of jsonFiles) {
+        try {
+          const id = path.basename(file, '.json');
+          const content = await fs.readFile(path.join(PRESET_DIR, file), 'utf-8');
+          const presetData = JSON.parse(content) as Preset;
+
+          // Try to find matching image
+          const imageExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+          let dataUrl = presetData.coverUrl;
+
+          for (const ext of imageExtensions) {
+            const imagePath = path.join(PRESET_DIR, `${id}${ext}`);
+            try {
+              await fs.access(imagePath);
+              const buffer = await fs.readFile(imagePath);
+              const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+              dataUrl = `data:${mime};base64,${buffer.toString('base64')}`;
+              break;
+            } catch { /* ignore */ }
+          }
+
+          await this.presetModel.updateOne(
+            { _id: id },
+            {
+              name: presetData.name,
+              coverUrl: dataUrl,
+              coverData: dataUrl?.startsWith('data:') ? dataUrl : undefined,
+              config: presetData.config,
+              editConfig: presetData.editConfig,
+              category: presetData.category,
+              projectId: presetData.projectId,
+              type: presetData.type,
+              createdAt: presetData.createdAt || new Date().toISOString(),
+            },
+            { upsert: true }
+          );
+        } catch (e) {
+          console.error(`Failed to migrate preset ${file}`, e);
+        }
+      }
+    } catch {
+      // Directory doesn't exist or other error, skip migration
     }
   }
 
@@ -53,34 +116,18 @@ export class PresetsService {
       if (coverFile && coverFile.size && coverFile.size > 0) {
         const arrayBuffer = await coverFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-
-        let ext = 'png';
-        if (coverFile.type === 'image/jpeg') ext = 'jpg';
-        else if (coverFile.type === 'image/webp') ext = 'webp';
-
-        const fileName = `${id}.${ext}`;
-        const cdn = await uploadBufferToCdn(buffer, {
-          fileName,
-          dir: 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/preset',
-          region: 'SG',
-        });
-        presetData.coverUrl = cdn.url;
-
-        await this.imageAssetModel.create({
-          url: cdn.url,
-          dir: cdn.dir,
-          fileName: cdn.fileName,
-          region: 'SG',
-          type: 'upload',
-          meta: { presetId: id },
-        });
+        const base64 = buffer.toString('base64');
+        const dataUrl = `data:${coverFile.type || 'image/png'};base64,${base64}`;
+        
+        presetData.coverUrl = dataUrl;
       }
 
-      await this.presetModel.updateOne(
+      await this.presetModel.findOneAndUpdate(
         { _id: presetData.id },
         {
           name: presetData.name,
           coverUrl: presetData.coverUrl,
+          coverData: presetData.coverUrl?.startsWith('data:') ? presetData.coverUrl : undefined,
           config: presetData.config,
           editConfig: presetData.editConfig,
           category: presetData.category,
@@ -88,7 +135,7 @@ export class PresetsService {
           type: presetData.type,
           createdAt: presetData.createdAt || new Date().toISOString(),
         },
-        { upsert: true },
+        { upsert: true, new: true },
       );
 
       return presetData;

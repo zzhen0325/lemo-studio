@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, Filter, LayoutGrid, SlidersHorizontal, Trash2, LucideIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sidebar, SidebarContent, SidebarHeader } from "@/components/ui/sidebar";
@@ -505,7 +505,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                     }} />
                 ) : (
                     <Image
-                        src={item.outputUrl || ""}
+                        src={formatImageUrl(item.outputUrl) || ""}
                         alt="Generated masterwork"
                         width={item.config?.width || 1024}
                         height={item.config?.height || 1024}

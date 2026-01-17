@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { X, Plus, Sparkles } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { formatImageUrl } from "@/lib/api-base";
 
 import PromptInput from "@/components/features/playground-v2/PromptInput";
 import ControlToolbar from "@/components/features/playground-v2/ControlToolbar";
@@ -218,10 +219,10 @@ export function PlaygroundInputSection({
                                             position: 'relative'
                                         }}
                                     >
-                                        <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(image.previewUrl, `stack-img-${image.id || index}`)}>
+                                        <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(formatImageUrl(image.previewUrl), `stack-img-${image.id || index}`)}>
                                             <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
                                                 <Image
-                                                    src={image.previewUrl}
+                                                    src={formatImageUrl(image.previewUrl)}
                                                     alt={`Uploaded ${index + 1}`}
                                                     width={56}
                                                     height={56}
@@ -343,36 +344,42 @@ export function PlaygroundInputSection({
                         currentAspectRatio={getCurrentAspectRatio()}
                         onAspectRatioChange={(ar: string) => {
                             // Keep the current resolution setting when changing aspect ratio
-                            const currentSize = (config.resolution as '1K' | '2K' | '4K') || '1K';
-                            const resolution = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
-                            if (resolution) {
-                                setConfig(prev => ({
-                                    ...prev,
-                                    width: resolution.w,
-                                    height: resolution.h,
-                                    aspectRatio: ar as GenerationConfig['aspectRatio']
-                                }));
-                            }
+                            setConfig(prev => {
+                                const currentSize = (prev.resolution as '1K' | '2K' | '4K') || '1K';
+                                const resolution = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
+                                if (resolution) {
+                                    return {
+                                        ...prev,
+                                        width: resolution.w,
+                                        height: resolution.h,
+                                        aspectRatio: ar as GenerationConfig['aspectRatio']
+                                    };
+                                }
+                                return prev;
+                            });
                         }}
                         currentImageSize={(config.resolution as '1K' | '2K' | '4K') || '1K'}
                         onImageSizeChange={(size: string) => {
-                            const ar = config.aspectRatio || getCurrentAspectRatio();
-                            const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
-                            if (resolution) {
-                                setConfig({
-                                    ...config,
-                                    width: resolution.w,
-                                    height: resolution.h,
-                                    resolution: size as Resolution,
-                                    aspectRatio: ar as GenerationConfig['aspectRatio']
-                                });
-                            }
+                            setConfig(prev => {
+                                const ar = prev.aspectRatio || getAspectRatioByDimensions(prev.width, prev.height);
+                                const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
+                                if (resolution) {
+                                    return {
+                                        ...prev,
+                                        width: resolution.w,
+                                        height: resolution.h,
+                                        resolution: size as Resolution,
+                                        aspectRatio: ar as GenerationConfig['aspectRatio']
+                                    };
+                                }
+                                return prev;
+                            });
                         }}
                         isAspectRatioLocked={isAspectRatioLocked}
                         onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
                         onGenerate={handleGenerate}
                         isGenerating={isGenerating}
-                        loadingText={selectedModel === "Seed 4.0" ? "Seed 4.0 生成中..." : "生成中..."}
+                        loadingText={selectedModel === "seed4_lemo1230" ? "Seed 4.0 生成中..." : "生成中..."}
                         selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
                         selectedBaseModelName={config.model}
                         workflows={workflows}

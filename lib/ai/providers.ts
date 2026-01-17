@@ -260,13 +260,19 @@ export class GoogleGenAIProvider
     }
 
     const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
+    const agent = getProxyAgent();
+    const fetchOptions: RequestInit & { agent?: unknown } = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents }),
+    };
+
+    if (agent) {
+      fetchOptions.agent = agent;
+    }
 
     try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents }),
-      });
+      const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -307,13 +313,19 @@ export class GoogleGenAIProvider
     if (prompt) parts.push({ text: prompt });
 
     const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
+    const agent = getProxyAgent();
+    const fetchOptions: RequestInit & { agent?: unknown } = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts }] }),
+    };
+
+    if (agent) {
+      fetchOptions.agent = agent;
+    }
 
     try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ role: "user", parts }] }),
-      });
+      const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -368,16 +380,22 @@ export class GoogleGenAIProvider
     }
 
     const url = `${this.baseURL}/models/gemini-3-pro-image-preview:generateContent?key=${this.apiKey}`;
+    const agent = getProxyAgent();
+    const fetchOptions: RequestInit & { agent?: unknown } = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts }],
+        generationConfig: configParams,
+      }),
+    };
+
+    if (agent) {
+      fetchOptions.agent = agent;
+    }
 
     try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts }],
-          generationConfig: configParams,
-        }),
-      });
+      const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -666,6 +684,7 @@ export class CozeImageProvider implements ImageProvider {
     const stream = new ReadableStream({
       start: async (controller) => {
         let buffer = "";
+        let accumulatedText = ""; // Track accumulated text for image extraction
         try {
           while (true) {
             const { done, value } = await reader.read();
@@ -678,6 +697,8 @@ export class CozeImageProvider implements ImageProvider {
             for (const line of lines) {
               const trimmed = line.trim();
               if (!trimmed) continue;
+
+              // console.log(`[CozeImageProvider] Received chunk: ${trimmed.substring(0, 100)}...`);
 
               if (trimmed.startsWith("event:")) {
                 // Event type handled if needed
@@ -695,17 +716,19 @@ export class CozeImageProvider implements ImageProvider {
                   ) {
                     const content = data.content || data.message?.content;
                     if (content) {
+                      accumulatedText += content; // Accumulate text for image extraction
                       controller.enqueue(
                         textEncoder.encode(
                           `data: ${JSON.stringify({ text: content })}\n\n`
                         )
                       );
 
-                      // Real-time image extraction (especially for Coze where image might be in answer content)
-                      const images = this.extractImagesFromContent(content);
+                      // Real-time image extraction from accumulated text
+                      const images = this.extractImagesFromContent(accumulatedText);
                       images.forEach((img: string) => {
                         if (!generatedImages.includes(img)) {
                           generatedImages.push(img);
+                          console.log(`[CozeImageProvider] Found image URL in stream: ${img}`);
                           // Push to stream immediately for better UX
                           controller.enqueue(
                             textEncoder.encode(
@@ -771,47 +794,53 @@ export class CozeImageProvider implements ImageProvider {
 
   private extractImagesFromContent(content: string): string[] {
     const generatedImages: string[] = [];
-    // Regex to extract URLs, now accounting for potential "image:" prefix
-    // We capture the URL part to easily strip the prefix if it exists
-    const urlRegex =
-      /(?:image:)?(https?:\/\/(?:[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp|bmp)|[st]\.coze\.cn\/t\/[^\s"'<>]+))/gi;
-
+    
+    // 1. Match Coze short URLs - must end with a slash /
+    // Use [a-zA-Z0-9_-] to avoid consuming "image:http..." as part of the path
+    const cozeRegex = /https?:\/\/[st]\.coze\.cn\/t\/[a-zA-Z0-9_-]+\//gi;
     let match;
-    while ((match = urlRegex.exec(content)) !== null) {
-      const url = match[1];
-      if (!generatedImages.includes(url)) {
-        generatedImages.push(url);
+    while ((match = cozeRegex.exec(content)) !== null) {
+      if (!generatedImages.includes(match[0])) {
+        generatedImages.push(match[0]);
       }
     }
 
-    // If content itself is a single URL (optionally with prefix), treat it as image
-    let trimmed = content.trim();
-    if (trimmed.startsWith("image:")) {
-      trimmed = trimmed.substring(6).trim();
+    // 2. Match regular image URLs with extensions
+    const fileRegex =
+      /https?:\/\/[^\s"'<>]+?\.(?:png|jpe?g|gif|webp|bmp)(?:\?[^\s"'<>]*)?(?:#[^\s"'<>]*)?/gi;
+    while ((match = fileRegex.exec(content)) !== null) {
+      if (!generatedImages.includes(match[0])) {
+        generatedImages.push(match[0]);
+      }
     }
 
-    if (
-      trimmed.startsWith("http") &&
-      trimmed.includes("://") &&
-      !trimmed.includes(" ") &&
-      !generatedImages.includes(trimmed)
-    ) {
-      generatedImages.push(trimmed);
-    }
-
-    // Try JSON parse if content looks like JSON
-    if (content.trim().startsWith("{")) {
-      try {
-        const parsed = JSON.parse(content);
-        if (parsed.image_url) generatedImages.push(parsed.image_url);
-        if (parsed.url) generatedImages.push(parsed.url);
-        if (Array.isArray(parsed.output)) {
-          parsed.output.forEach((url: string) => generatedImages.push(url));
+    // 3. Fallback for content that might be split by "image:"
+    const parts = content.split(/image:/i);
+    for (const part of parts) {
+      const trimmedPart = part.trim();
+      if (
+        trimmedPart.startsWith("http") &&
+        !trimmedPart.includes(" ") &&
+        (trimmedPart.includes("coze.cn/t/") || /\.(?:png|jpg|jpeg|gif|webp|bmp)$/i.test(trimmedPart))
+      ) {
+        // Ensure the Coze URL part is clean if it was followed by something else
+        let finalUrl = trimmedPart;
+        if (trimmedPart.includes("coze.cn/t/")) {
+          const cozeMatch = trimmedPart.match(/https?:\/\/[st]\.coze\.cn\/t\/[a-zA-Z0-9_-]+\//i);
+          if (cozeMatch) {
+            finalUrl = cozeMatch[0];
+          } else {
+            // If it looks like a Coze URL but doesn't match the strict regex (e.g. incomplete), skip it
+            continue;
+          }
         }
-      } catch {
-        /* not json */
+        
+        if (!generatedImages.includes(finalUrl)) {
+          generatedImages.push(finalUrl);
+        }
       }
     }
+
     return generatedImages;
   }
 

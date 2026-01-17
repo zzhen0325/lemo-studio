@@ -47,18 +47,18 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-6xl max-h-[75vh] p-0 bg-[#ffffff] backdrop-blur-xl border-white/10 rounded-3xl shadow-none overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-white/10">
-                    <div className="flex items-center gap-1">
+            <DialogContent className="max-w-6xl h-[75vh] p-0 bg-[#ffffff] border-white/10 rounded-3xl shadow-2xl shadow-black/10 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between pt-10 px-8 shrink-0 mb-4">
+                    <div className="flex items-center gap-3">
                         {CATEGORIES.map(cat => (
                             <button
                                 key={cat}
                                 onClick={() => setActiveCategory(cat)}
                                 className={cn(
-                                    "px-4 py-2 rounded-xl text-xs font-medium transition-all",
+                                    "px-4 py-2 rounded-xl text-sm font-medium transition-all",
                                     activeCategory === cat
-                                        ? "bg-primary text-black"
-                                        : "text-black/50 hover:text-black hover:bg-black/5"
+                                        ? "bg-[#0F0F15] text-white"
+                                        : "text-black/50 bg-black/5 hover:text-black hover:bg-black/15"
                                 )}
                             >
                                 {cat}
@@ -70,15 +70,15 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                         variant="default"
                         size="sm"
                         onClick={handleOpenManager}
-                        className="text-black/60 hover:text-black hover:bg-black/5 rounded-xl gap-2 bg-transparent border-black/5"
+                        className="text-black/60 hover:text-black hover:bg-black/5 rounded-xl gap-4 bg-transparent border-black/5"
                     >
                         <Settings className="w-4 h-4" />
                         <span className="text-xs">Manage</span>
                     </Button>
                 </div>
 
-                <ScrollArea className="h-[calc(85vh-70px)]">
-                    <div className="p-6">
+                <ScrollArea className="flex-1">
+                    <div className="p-6 pt-2">
                         {filteredPresets.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 text-black/30 space-y-4">
                                 <LayoutTemplate className="w-16 h-16 opacity-30" />
@@ -93,7 +93,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                 </Button>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-3 mx-2">
+                            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-6 gap-4 mx-2">
                                 {filteredPresets.map(preset => {
                                     const cover = preset.coverUrl || preset.cover;
                                     const name = preset.name || preset.title || "Untitled";
@@ -101,10 +101,10 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                     return (
                                         <button
                                             key={preset.id}
-                                            className="group relative flex flex-col items-start overflow-hidden bg-gray-50 hover:shadow-[#e7e7e7]  hover:shadow-2xl  border-gray-100 transition-all rounded-2xl border hover:border-gray-200 p-2 w-full"
+                                            className="group relative flex flex-col items-start overflow-hidden bg-black/2 hover:shadow-[#e7e7e7]  hover:shadow-2xl  border-gray-100 transition-all rounded-2xl border hover:border-gray-200 p-2 w-full"
                                             onClick={() => handlePresetSelect(preset)}
                                         >
-                                            <div className="relative w-full aspect-[1/1] rounded-lg bg-white/10 overflow-hidden">
+                                            <div className="relative w-full aspect-[1/1] rounded-lg bg-black/5 overflow-hidden">
                                                 {cover ? (
                                                     <Image
                                                         src={cover}
@@ -126,7 +126,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                                 )}
                                             </div>
                                             <div className="w-full pt-2 pb-1 px-1">
-                                                <h3 className="text-xs text-black/90 text-center line-clamp-1 font-normal">{name}</h3>
+                                                <span className="text-xs text-black/90 text-center  font-normal">{name}</span>
                                             </div>
                                         </button>
                                     );

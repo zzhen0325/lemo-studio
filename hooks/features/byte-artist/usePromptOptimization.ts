@@ -31,7 +31,7 @@ export function usePromptOptimization(options: UsePromptOptimizationOptions): Us
 
     try {
       // Map legacy model names to registry IDs
-      let modelId = 'gemini-1.5-flash';
+      let modelId = 'gemini-3-pro-image-preview';
       if (model === 'doubao') modelId = 'doubao-pro-4k';
       if (model === 'gpt') modelId = 'deepseek-chat';
 

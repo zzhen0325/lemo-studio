@@ -1,9 +1,0 @@
-{
-  "prompt": "圣诞lemo骑驯鹿",
-  "img_width": 1024,
-  "image_height": 1024,
-  "gen_num": 1,
-  "base_model": "3D Lemo seed3",
-  "image_size": "1K",
-  "lora": ""
-}

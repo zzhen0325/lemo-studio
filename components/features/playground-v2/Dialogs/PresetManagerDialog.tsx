@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
+import { AVAILABLE_MODELS } from '@/hooks/features/PlaygroundV2/useGenerationService';
 import {
     DndContext,
     closestCenter,
@@ -40,11 +41,9 @@ interface PresetManagerDialogProps {
     currentEditConfig?: EditPresetConfig;
 }
 
-const NATIVE_MODELS = ['Nano banana', 'Seed 4.0', 'Seed 4.2', '3D Lemo seed3'];
-
 const DEFAULT_CONFIG: GenerationConfig = {
     prompt: '',
-    model: 'Nano banana',
+    model: 'gemini-3-pro-image-preview',
     width: 1024,
     height: 1024,
     resolution: '1K',
@@ -212,13 +211,14 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     const isEditPreset = !!(formData.editConfig || currentEditConfig && isCreating);
 
     const handleSave = async () => {
-        const isActuallyEdit = !!formData.editConfig;
+        const isActuallyEdit = !!formData.editConfig && Object.keys(formData.editConfig).length > 0;
         if (!formData.name) return;
         if (!isActuallyEdit && !formData.config?.prompt) return;
 
         const presetToSave = {
             ...formData,
             type: isActuallyEdit ? 'edit' : 'generation',
+            editConfig: isActuallyEdit ? formData.editConfig : undefined,
             id: editingId || `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             createdAt: new Date().toISOString()
         } as Preset;
@@ -507,12 +507,10 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                     <SelectValue placeholder="Select model" />
                                                                 </SelectTrigger>
                                                                 <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[200]">
-                                                                    <SelectItem value="Nano banana">Nano banana</SelectItem>
-                                                                    <SelectItem value="Seed 4.0">Seed 4.0</SelectItem>
-                                                                    <SelectItem value="Seed 4.2">Seed 4.2</SelectItem>
-                                                                    <SelectItem value="3D Lemo seed3">3D Lemo seed3</SelectItem>
+                                                                    {AVAILABLE_MODELS.map(m => (
+                                                                        <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
+                                                                    ))}
                                                                     <SelectItem value="Workflow">Workflow</SelectItem>
-
                                                                 </SelectContent>
                                                             </Select>
                                                         </div>
@@ -624,7 +622,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 </Select>
                                                             </div>
 
-                                                            {!NATIVE_MODELS.includes(formData.config?.model || '') && (
+                                                            {!AVAILABLE_MODELS.some(m => m.id === (formData.config?.model || '')) && (
                                                                 <div className="space-y-2">
                                                                     <Label className="text-sm">Linked Workflow</Label>
                                                                     <Select
