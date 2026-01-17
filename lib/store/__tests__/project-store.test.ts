@@ -1,10 +1,13 @@
 import { projectStore } from "../project-store";
 import { GenerationResult } from "@/components/features/playground-v2/types";
+import { userStore } from "../user-store";
 
 describe("ProjectStore", () => {
   beforeEach(() => {
     // Reset store state
     projectStore.projects = [];
+    // Provide a fake logged-in user so ProjectStore can create projects
+    userStore.currentUser = { id: "u1", name: "Test User" } as any;
     projectStore.addProject("Default Project");
   });
 
