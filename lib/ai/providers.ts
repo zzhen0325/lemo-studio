@@ -708,6 +708,7 @@ export class CozeImageProvider implements ImageProvider {
 
                 try {
                   const data = JSON.parse(dataStr);
+                  // console.log(`[CozeImageProvider] parsed event: ${data.event || data.type}`);
 
                   // Handle message delta for real-time text
                   if (
@@ -717,11 +718,8 @@ export class CozeImageProvider implements ImageProvider {
                     const content = data.content || data.message?.content;
                     if (content) {
                       accumulatedText += content; // Accumulate text for image extraction
-                      controller.enqueue(
-                        textEncoder.encode(
-                          `data: ${JSON.stringify({ text: content })}\n\n`
-                        )
-                      );
+                      const sseData = `data: ${JSON.stringify({ text: content })}\n\n`;
+                      controller.enqueue(textEncoder.encode(sseData));
 
                       // Real-time image extraction from accumulated text
                       const images = this.extractImagesFromContent(accumulatedText);
@@ -730,11 +728,9 @@ export class CozeImageProvider implements ImageProvider {
                           generatedImages.push(img);
                           console.log(`[CozeImageProvider] Found image URL in stream: ${img}`);
                           // Push to stream immediately for better UX
-                          controller.enqueue(
-                            textEncoder.encode(
-                              `data: ${JSON.stringify({ images: [img] })}\n\n`
-                            )
-                          );
+                          const imgSseData = `data: ${JSON.stringify({ images: [img] })}\n\n`;
+                          console.log(`[CozeImageProvider] Enqueueing image SSE: ${imgSseData.substring(0, 100)}...`);
+                          controller.enqueue(textEncoder.encode(imgSseData));
                         }
                       });
                     }

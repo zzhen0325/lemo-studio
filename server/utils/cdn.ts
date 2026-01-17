@@ -44,8 +44,9 @@ async function postForm<T = unknown>(pathName: string, form: FormData): Promise<
     (typeof data === 'string' && data) ||
     `CDN request failed: ${res.status}`;
 
-  const success = res.ok && (code === 0 || code === undefined);
+  const success = res.ok && (code === 0 || code === undefined || code === 200);
   if (!success) {
+    console.error('[CDN Error Detail]', { status: res.status, code, data, text: text.slice(0, 500) });
     const msg = typeof message === 'string' ? message : JSON.stringify(message);
     const detail = text ? ` body=${text}` : '';
     throw new Error(`[cdn ${res.status}] ${msg}${detail}`);

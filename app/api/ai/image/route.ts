@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
         const result = await (providerInstance as unknown as ImageProvider).generateImage(params);
 
         if (result.stream) {
+            console.log(`[API] /api/ai/image returning SSE stream for model: ${model}`);
             return new Response(result.stream, {
                 headers: {
                     'Content-Type': 'text/event-stream',
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
+        console.log(`[API] /api/ai/image returning JSON response for model: ${model}`);
         return NextResponse.json(result);
 
     } catch (error: unknown) {

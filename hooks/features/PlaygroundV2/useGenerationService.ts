@@ -199,6 +199,7 @@ export function useGenerationService() {
 
         const isCoze = modelId === "coze_seed4";
         const processedImages = new Set<string>();
+        let lastSavedPath = "";
 
         const res = await callImage({
             model: modelId,
@@ -212,6 +213,7 @@ export function useGenerationService() {
                 stream: isCoze
             }
         }, isCoze ? async (chunk) => {
+            console.log(`[useGenerationService] Received stream chunk:`, chunk);
             if (chunk.text) {
                 setGenerationHistory((prev: Generation[]) => prev.map(item =>
                     item.id === taskId
@@ -221,8 +223,6 @@ export function useGenerationService() {
             }
             if (chunk.images && chunk.images.length > 0) {
                 for (const imgUrl of chunk.images) {
-                    // 对于 Coze 短链，已在 Provider 层保证了只有完整 URL (带结尾斜杠) 才会返回
-                    // 因此这里只需要去重即可，不再需要额外的正则校验（否则可能会误杀合法的长 URL 或不带斜杠的 CDN 链接）
                     if (processedImages.has(imgUrl)) continue;
                     processedImages.add(imgUrl);
 
@@ -243,6 +243,8 @@ export function useGenerationService() {
                                 sourceImageUrl: effectiveSourceUrl,
                             }
                         );
+                        lastSavedPath = savedPath;
+                        console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
                         setGenerationHistory((prev: Generation[]) => prev.map(item =>
                             item.id === taskId
                                 ? { ...item, outputUrl: savedPath, status: 'completed' }
@@ -255,10 +257,28 @@ export function useGenerationService() {
             }
         } : undefined);
 
+        console.log(`[useGenerationService] callImage finished. isCoze: ${isCoze}`);
+
         if (isCoze) {
-            const finalItem = usePlaygroundStore.getState().generationHistory.find(h => h.id === taskId);
-            if (finalItem) {
-                saveHistoryToBackend(finalItem);
+            console.log(`[useGenerationService] Coze stream call finished. lastSavedPath: ${lastSavedPath}`);
+            // Wait for a small delay to ensure all state updates and async tasks are settled
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const finalItemInState = usePlaygroundStore.getState().generationHistory.find(h => h.id === taskId);
+            
+            if (finalItemInState) {
+                const finalOutputUrl = lastSavedPath || finalItemInState.outputUrl;
+                if (!finalOutputUrl) {
+                    console.warn(`[useGenerationService] Coze finished but no image URL was captured!`);
+                }
+
+                const itemToSave = {
+                    ...finalItemInState,
+                    outputUrl: finalOutputUrl,
+                    status: finalOutputUrl ? 'completed' : finalItemInState.status
+                } as Generation;
+                
+                console.log(`[useGenerationService] Finalizing Coze history with outputUrl: ${itemToSave.outputUrl}`);
+                saveHistoryToBackend(itemToSave);
             }
         } else if (res?.images && res.images.length > 0) {
             const dataUrl = res.images[0];

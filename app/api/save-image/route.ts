@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { uploadBufferToCdn } from '../../../server/utils/cdn';
 
 const BodySchema = z.object({
-  imageBase64: z.string().min(1),
-  ext: z.enum(['png', 'jpg', 'jpeg', 'webp', 'gif']).optional().default('png'),
-  subdir: z.enum(['outputs', 'upload']).optional().default('outputs'),
-  metadata: z.record(z.any()).optional(),
+  imageBase64: z.string(),
+  ext: z.string().optional().default('png'),
+  subdir: z.string().optional().default('outputs'),
+  metadata: z.any().optional(),
 });
 
 type ImageExt = z.infer<typeof BodySchema>['ext'];
@@ -85,20 +85,24 @@ export async function POST(request: Request) {
     }
 
     const { imageBase64, subdir } = parsed.data;
-    console.log('[API] /api/save-image called with', { subdir, ext: parsed.data.ext, isUrl: imageBase64.startsWith('http') });
-    let ext = normalizeExt(parsed.data.ext);
+    console.log('[API] /api/save-image request received:', { subdir, isUrl: imageBase64.startsWith('http') });
+    let ext = normalizeExt(parsed.data.ext as ImageExt);
 
     let imageBuffer: Buffer;
     if (imageBase64.startsWith('http')) {
+      console.log('[API] /api/save-image fetching URL:', imageBase64);
       const downloaded = await fetchImageBuffer(imageBase64);
+      console.log('[API] /api/save-image downloaded size:', downloaded.buffer.length, 'mime:', downloaded.mime);
       const inferred = getExtFromMime(downloaded.mime);
       if (inferred) ext = inferred;
       imageBuffer = downloaded.buffer;
     } else {
+      console.log('[API] /api/save-image processing base64');
       const { base64, mime } = extractBase64(imageBase64);
       const inferred = getExtFromMime(mime);
       if (inferred) ext = inferred;
       imageBuffer = Buffer.from(base64, 'base64');
+      console.log('[API] /api/save-image base64 size:', imageBuffer.length, 'mime:', mime);
     }
 
     const stamp = Date.now();
@@ -106,9 +110,12 @@ export async function POST(request: Request) {
     const filename = `img_${stamp}_${rand}.${ext}`;
     const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/${subdir}`;
 
+    console.log('[API] /api/save-image uploading to CDN:', { filename, dir });
     const cdnRes = await uploadBufferToCdn(imageBuffer, { fileName: filename, dir, region: 'SG' });
+    console.log('[API] /api/save-image upload success:', cdnRes.url);
     return NextResponse.json({ path: cdnRes.url });
   } catch (error) {
+    console.error('[API] /api/save-image fatal error:', error);
     return NextResponse.json({ error: 'Failed to save image', details: String(error) }, { status: 500 });
   }
 }

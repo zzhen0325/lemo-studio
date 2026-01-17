@@ -86,7 +86,7 @@ export async function describeImage(params: ClientDescribeParams): Promise<{ tex
 
 export async function generateImage(
     params: ClientImageParams,
-    onStream?: (chunk: { text?: string; images?: string[] }) => void
+    onStream?: (chunk: { text?: string; images?: string[] }) => void | Promise<void>
 ): Promise<{ images: string[]; metadata?: Record<string, unknown> }> {
     const response = await fetch(`${getApiBase()}/ai/image`, {
 
@@ -107,7 +107,10 @@ export async function generateImage(
     }
 
     const contentType = response.headers.get('Content-Type');
+    console.log(`[ai-client] response status: ${response.status}, contentType: ${contentType}`);
+
     if (contentType?.includes('text/event-stream') && onStream) {
+        console.log(`[ai-client] starting SSE stream processing`);
         const reader = response.body?.getReader();
         if (!reader) throw new Error('Response body is not readable');
 
@@ -117,28 +120,45 @@ export async function generateImage(
 
         while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            
+            if (value) {
+                const chunkText = decoder.decode(value, { stream: true });
+                console.log(`[ai-client] received chunk (${value.length} bytes)`);
+                buffer += chunkText;
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || !trimmed.startsWith('data:')) continue;
-
-                const dataStr = trimmed.substring(5).trim();
-                try {
-                    const data = JSON.parse(dataStr);
-                    if (data.text) {
-                        onStream({ text: data.text });
-                    }
-                    if (data.images) {
-                        finalImages = data.images;
-                        onStream({ images: data.images });
-                    }
-                } catch { /* ignore parsing errors */ }
+                for (const line of lines) {
+                    await processLine(line);
+                }
             }
+
+            if (done) {
+                console.log(`[ai-client] SSE stream reader done`);
+                break;
+            }
+        }
+
+        // Process any remaining content in buffer
+        if (buffer.trim()) {
+            await processLine(buffer);
+        }
+
+        async function processLine(line: string) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data:')) return;
+
+            const dataStr = trimmed.substring(5).trim();
+            try {
+                const data = JSON.parse(dataStr);
+                if (data.text) {
+                    await onStream!({ text: data.text });
+                }
+                if (data.images) {
+                    finalImages = data.images;
+                    await onStream!({ images: data.images });
+                }
+            } catch { /* ignore parsing errors */ }
         }
 
         return { images: finalImages, metadata: { isStream: true } };
