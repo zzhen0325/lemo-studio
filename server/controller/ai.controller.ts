@@ -3,6 +3,8 @@ import { Body, Controller, Post, Res } from '@gulux/gulux/application-http';
 import type { HTTPResponse } from '@gulux/gulux/application-http';
 import { AiService, DescribeRequestBody, ImageRequestBody, TextRequestBody } from '../service/ai.service';
 import { Readable } from 'node:stream';
+import { HttpError } from '../utils/http-error';
+import { DescribeRequestSchema, ImageRequestSchema, TextRequestSchema } from '../../lib/schemas/ai';
 
 /**
  * AI 相关接口（GuluX）
@@ -18,12 +20,20 @@ export default class AiController {
 
   @Post('/describe')
   public async postDescribe(@Body() body: DescribeRequestBody) {
-    return this.aiService.describe(body);
+    const parsed = DescribeRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpError(400, 'Invalid request payload', parsed.error.flatten());
+    }
+    return this.aiService.describe(parsed.data);
   }
 
   @Post('/image')
   public async postImage(@Body() body: ImageRequestBody, @Res() res: HTTPResponse) {
-    const result = await this.aiService.generateImage(body);
+    const parsed = ImageRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpError(400, 'Invalid request payload', parsed.error.flatten());
+    }
+    const result = await this.aiService.generateImage(parsed.data);
 
 
     if (result.stream) {
@@ -44,7 +54,11 @@ export default class AiController {
 
   @Post('/text')
   public async postText(@Body() body: TextRequestBody, @Res() res: HTTPResponse) {
-    const result = await this.aiService.generateText(body);
+    const parsed = TextRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpError(400, 'Invalid request payload', parsed.error.flatten());
+    }
+    const result = await this.aiService.generateText(parsed.data);
     if (result.stream) {
       res.set('Content-Type', 'text/event-stream');
       res.set('Cache-Control', 'no-cache, no-transform');

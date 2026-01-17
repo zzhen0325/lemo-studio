@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/ai/modelRegistry";
 import { getSystemPrompt } from "@/config/system-prompts";
 import { VisionGenerationInput } from "@/lib/ai/types";
+import { DescribeRequestSchema } from "@/lib/schemas/ai";
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
+        const json = await req.json();
+        const parsed = DescribeRequestSchema.safeParse(json);
+        if (!parsed.success) {
+            console.log('[API] /api/ai/describe invalid payload', parsed.error.flatten());
+            return NextResponse.json(
+                { error: 'Invalid request payload', details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+
         const {
             image, // Base64 or URL
             model,
@@ -13,15 +23,7 @@ export async function POST(req: NextRequest) {
             systemPrompt: explicitSystemPrompt,
             prompt, // User prompt for the image
             options
-        } = body;
-
-        if (!image) {
-            return NextResponse.json({ error: "Missing image data" }, { status: 400 });
-        }
-
-        if (!model) {
-            return NextResponse.json({ error: "Missing model ID" }, { status: 400 });
-        }
+        } = parsed.data;
 
         const providerInstance = getProvider(model);
 

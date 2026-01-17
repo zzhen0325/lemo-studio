@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/ai/modelRegistry";
 import { ImageGenerationInput, ImageProvider } from "@/lib/ai/types";
+import { ImageRequestSchema } from "@/lib/schemas/ai";
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
+        const json = await req.json();
+        const parsed = ImageRequestSchema.safeParse(json);
+        if (!parsed.success) {
+            console.log('[API] /api/ai/image invalid payload', parsed.error.flatten());
+            return NextResponse.json(
+                { error: 'Invalid request payload', details: parsed.error.flatten() },
+                { status: 400 }
+            );
+        }
+
         const {
             prompt,
             model,
@@ -14,11 +24,7 @@ export async function POST(req: NextRequest) {
             aspectRatio,
             image, // for i2i
             options
-        } = body;
-
-        if (!model) {
-            return NextResponse.json({ error: "Missing model ID" }, { status: 400 });
-        }
+        } = parsed.data;
 
         const providerInstance = getProvider(model);
 
@@ -26,7 +32,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Model ${model} does not support image generation` }, { status: 400 });
         }
 
-        console.log(`[API] /api/ai/image request body options:`, JSON.stringify(body.options));
+        console.log(`[API] /api/ai/image request body options:`, JSON.stringify(options));
         
         const params: ImageGenerationInput = {
             prompt: prompt ?? '',

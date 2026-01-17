@@ -2,6 +2,8 @@ import { Inject } from '@gulux/gulux';
 import { Body, Controller, Delete, Files, Get, Post, Put, Query } from '@gulux/gulux/application-http';
 import { DatasetService, DatasetQuery, DatasetPostParams, DatasetDeleteParams, DatasetUpdateBody } from '../service/dataset.service';
 import { toFileLike } from '../utils/formdata';
+import { HttpError } from '../utils/http-error';
+import { DatasetDeleteSchema, DatasetPostSchema, DatasetQuerySchema, DatasetUpdateSchema } from '../../lib/schemas/dataset';
 
 /**
  * 数据集管理：
@@ -17,7 +19,11 @@ export default class DatasetController {
 
   @Get()
   public async getDataset(@Query() query: DatasetQuery) {
-    return this.service.getDataset(query);
+    const parsed = DatasetQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      throw new HttpError(400, 'Invalid query', parsed.error.flatten());
+    }
+    return this.service.getDataset(parsed.data);
   }
 
   @Post()
@@ -25,6 +31,15 @@ export default class DatasetController {
     @Body() body: any,
     @Files() files: Record<string, any>,
   ) {
+    const parsed = DatasetPostSchema.safeParse({
+      collection: body?.collection,
+      mode: body?.mode,
+      newName: body?.newName,
+    });
+    if (!parsed.success) {
+      throw new HttpError(400, 'Invalid payload', parsed.error.flatten());
+    }
+
     const fileLike = toFileLike(files?.file);
     const params: DatasetPostParams = {
       file: fileLike
@@ -33,20 +48,28 @@ export default class DatasetController {
             arrayBuffer: fileLike.arrayBuffer,
           }
         : null,
-      collection: body?.collection,
-      mode: body?.mode,
-      newName: body?.newName,
+      collection: parsed.data.collection,
+      mode: parsed.data.mode,
+      newName: parsed.data.newName ?? undefined,
     };
     return this.service.postDataset(params);
   }
 
   @Delete()
   public async deleteDataset(@Query() params: DatasetDeleteParams) {
-    return this.service.deleteDataset(params);
+    const parsed = DatasetDeleteSchema.safeParse(params);
+    if (!parsed.success) {
+      throw new HttpError(400, 'Invalid query', parsed.error.flatten());
+    }
+    return this.service.deleteDataset(parsed.data);
   }
 
   @Put()
   public async putDataset(@Body() body: DatasetUpdateBody) {
-    return this.service.updateDataset(body);
+    const parsed = DatasetUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new HttpError(400, 'Invalid payload', parsed.error.flatten());
+    }
+    return this.service.updateDataset(parsed.data);
   }
 }
