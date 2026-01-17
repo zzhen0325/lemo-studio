@@ -47,7 +47,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-6xl h-[75vh] p-0 bg-[#ffffff] border-white/10 rounded-3xl shadow-2xl shadow-black/10 overflow-hidden flex flex-col">
+            <DialogContent className="max-w-6xl z-[10001] h-[75vh] p-0 bg-[#ffffff] border-white/10 rounded-3xl shadow-2xl shadow-black/10 overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between pt-10 px-8 shrink-0 mb-4">
                     <div className="flex items-center gap-3">
                         {CATEGORIES.map(cat => (

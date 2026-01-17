@@ -182,7 +182,7 @@ export default function ControlToolbar({
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[180px]  bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+      <DropdownMenuContent className="w-[180px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
         {AVAILABLE_MODELS.filter(m => ['gemini-3-pro-image-preview', 'coze_seed4'].includes(m.id)).map((model) => (
           <DropdownMenuItem
             key={model.id}
@@ -269,7 +269,7 @@ export default function ControlToolbar({
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[320px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+            <DropdownMenuContent className="w-[320px] z-[10001] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
                 {(selectedModel === 'gemini-3-pro-image-preview' || selectedModel === 'seed4_2_lemo' || selectedModel === 'coze_seed4') && (
                   <div className="space-y-4">

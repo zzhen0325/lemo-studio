@@ -82,7 +82,7 @@ export default function LoraSelectorDialog({ open, onOpenChange, value, onConfir
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[80vh] flex flex-col rounded-3xl bg-zinc-950/90 backdrop-blur-xl border-white/10 p-0 overflow-hidden">
+      <DialogContent className="max-w-6xl z-[10001] h-[80vh] flex flex-col rounded-3xl bg-zinc-950/90 backdrop-blur-xl border-white/10 p-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-light text-white">Select LoRA Model</DialogTitle>

@@ -72,7 +72,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                         className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-purple-600/20 backdrop-blur-md border-4 border-dashed border-purple-400/50 m-4 rounded-[3rem] pointer-events-none"
                     >
                         <div className="flex flex-col items-center gap-4 bg-neutral-900/80 p-10 rounded-[2rem] shadow-2xl border border-white/10">
-                            <div className="w-20 h-20 rounded-full bg-purple-600 flex items-center justify-center animate-bounce">
+                            <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center animate-bounce">
                                 <Upload size={40} className="text-white" />
                             </div>
                             <div className="text-center">
@@ -89,7 +89,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                     <div className="flex flex-col gap-8 w-full pb-10">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
-                                <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                                <h2 className="text-3xl font-instrument-sans text-white flex items-center gap-3">
                                     Moodboards
                                 </h2>
                             </div>
@@ -108,7 +108,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                 </div>
                                 <Button
                                     onClick={() => setIsCreating(true)}
-                                    className="rounded-full px-6 bg-purple-600 hover:bg-purple-500 text-white gap-2 h-10 shadow-lg shadow-purple-900/20 border border-purple-400/20"
+                                    className="rounded-full px-6 bg-primary hover:bg-white text-black gap-2 h-10 shadow-lg shadow-purple-900/20 border border-purple-400/20"
                                 >
                                     <Plus size={18} />
                                     创建新风格
@@ -123,7 +123,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                     initial={{ opacity: 0, scale: 0.95, y: -20 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                                    className="p-8 rounded-[2.5rem] bg-neutral-900/40 border border-white/10 backdrop-blur-3xl shadow-2xl flex flex-col gap-6"
+                                    className="p-8  w-full  rounded-2xl bg-black/20 border border-white/10 backdrop-blur-xl  flex flex-col gap-6"
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
@@ -146,7 +146,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                                 placeholder="例如：赛博朋克深红"
                                                 value={newName}
                                                 onChange={(e) => setNewName(e.target.value)}
-                                                className="bg-white/5 border-white/10 rounded-2xl h-14 px-6 focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all"
+                                                className="bg-white/5 border-white/10 rounded-2xl h-14 px-6  "
                                             />
                                         </div>
                                         <div className="flex flex-col gap-3">
@@ -155,15 +155,15 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                                 placeholder="输入该风格的核心 prompt..."
                                                 value={newPrompt}
                                                 onChange={(e) => setNewPrompt(e.target.value)}
-                                                className="bg-white/5 border-white/10 rounded-2xl h-14 px-6 focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all"
+                                                className="bg-white/5 border-white/10 rounded-2xl h-14 px-6 "
                                             />
                                         </div>
                                     </div>
                                     <div className="flex gap-3 justify-end mt-2">
                                         <Button
-                                            variant="ghost"
+                                            variant="outline"
                                             onClick={() => setIsCreating(false)}
-                                            className="rounded-xl px-8 h-12 text-white/60 hover:text-white"
+                                            className="rounded-xl px-8 bg-transparent h-12 border border-white/20 text-white/60 hover:text-white hover:bg-white/5"
                                         >
                                             取消
                                         </Button>
