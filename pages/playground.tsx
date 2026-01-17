@@ -669,8 +669,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         // Remove loading card and add real results
         setGenerationHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => item.id !== loadingId)]);
 
-        // Also save each description to backend
-        newHistoryItems.forEach(item => saveHistoryToBackend(item));
+        // Also save each description to backend and sync to gallery
+        newHistoryItems.forEach(item => {
+          saveHistoryToBackend(item);
+          usePlaygroundStore.getState().addGalleryItem(item);
+        });
 
         toast({ title: "描述成功", description: `已生成 ${results.length} 组描述卡片` });
       } else {
@@ -1081,7 +1084,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   (activeTab === 'gallery' || activeTab === 'style')
                     ? "hidden"
                     : viewMode === 'dock'
-                      ? "max-w-full sm:max-w-[600px] md:max-w-[800px] lg:max-w-[1000px] xl:max-w-[1200px] 2xl:max-w-[1400px] h-full pt-4 overflow-hidden"
+                      ? "max-w-full sm:max-w-[600px] md:max-w-[800px] lg:max-w-[1000px] xl:max-w-[1200px] 2xl:max-w-[1200px] mt-10 h-full pt-4 overflow-hidden"
                       : "max-w-full sm:max-w-[540px] md:max-w-[720px] lg:max-w-[800px] xl:max-w-[900px] 2xl:max-w-[1000px]",
                   (viewMode === 'home') && (isPresetGridOpen ? "mt-0" : "-mt-60")
                 )}>

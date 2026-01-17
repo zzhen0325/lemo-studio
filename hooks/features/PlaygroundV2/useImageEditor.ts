@@ -19,6 +19,29 @@ export const EDITOR_COLORS = [
 
 export type EditorColor = typeof EDITOR_COLORS[number]['hex'];
 
+export interface AnnotationMeta {
+    colorName: string;
+    text: string;
+    referenceImageLabel?: string;
+    annotationName: string;
+}
+
+export interface FabricObject extends fabric.Object {
+    name?: string;
+    annotationMeta?: AnnotationMeta;
+    parentRect?: fabric.Rect;
+    nameLabel?: fabric.IText;
+    textLabel?: fabric.IText;
+    annotationName?: string;
+    annotationMetaLabel?: string;
+    id?: string;
+    _prevEvented?: boolean;
+}
+
+export interface FabricCanvas extends fabric.Canvas {
+    _wasDrawingMode?: boolean;
+}
+
 // 参考图数据结构
 export interface ReferenceImage {
     id: string;
@@ -138,9 +161,11 @@ export const useImageEditor = (imageUrl: string) => {
                     canvas.defaultCursor = 'grab';
                     canvas.hoverCursor = 'grab';
                     // 暂时禁用所有对象的事件，防止它们改变光标
-                    canvas.forEachObject(obj => {
-                        (obj as any)._prevEvented = obj.evented;
-                        obj.evented = false;
+                    canvas.getObjects().forEach(obj => {
+                        if (obj !== imageObj && obj !== canvasBackgroundRef.current) {
+                            (obj as FabricObject)._prevEvented = obj.evented;
+                            obj.evented = false;
+                        }
                     });
                     canvas.setCursor('grab');
                     canvas.renderAll();
@@ -158,15 +183,17 @@ export const useImageEditor = (imageUrl: string) => {
                     canvas.defaultCursor = 'default';
                     canvas.hoverCursor = 'move';
                     // 恢复对象的事件响应
-                    canvas.forEachObject(obj => {
-                        if ((obj as any)._prevEvented !== undefined) {
-                            obj.evented = (obj as any)._prevEvented;
-                            delete (obj as any)._prevEvented;
+                    canvas.getObjects().forEach(obj => {
+                        if (obj !== imageObj && obj !== canvasBackgroundRef.current) {
+                            if ((obj as FabricObject)._prevEvented !== undefined) {
+                                obj.evented = (obj as FabricObject)._prevEvented!;
+                                delete (obj as FabricObject)._prevEvented;
+                            }
                         } else {
                             // 默认逻辑
-                            const skip = [imageObj, canvasBackgroundRef.current];
-                            const isBg = skip.includes(obj as any);
-                            const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && obj.backgroundColor !== undefined;
+                            const skip: (fabric.Object | null)[] = [imageObj, canvasBackgroundRef.current];
+                            const isBg = skip.includes(obj);
+                            const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && (obj as FabricObject).backgroundColor !== undefined;
                             obj.evented = !isBg && !isNameLabel;
                         }
                     });
@@ -194,7 +221,7 @@ export const useImageEditor = (imageUrl: string) => {
             window.removeEventListener('keyup', handleKeyUp);
             window.removeEventListener('blur', handleBlur);
         };
-    }, []);
+    }, [imageObj]);
 
     const handleMouseWheel = useCallback((opt: fabric.TPointerEventInfo<WheelEvent>) => {
         const delta = opt.e.deltaY;
@@ -213,6 +240,12 @@ export const useImageEditor = (imageUrl: string) => {
         setEditorState(prev => ({ ...prev, zoom }));
     }, []);
 
+    const updateBrushColor = useCallback((col: EditorColor) => {
+        const c = fabricCanvasRef.current; if (!c) return;
+        if (c.freeDrawingBrush) (c.freeDrawingBrush as fabric.PencilBrush).color = col;
+        setEditorState(p => ({ ...p, brushColor: col }));
+    }, []);
+
     const setTool = useCallback((tool: EditorTool) => {
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
@@ -229,11 +262,11 @@ export const useImageEditor = (imageUrl: string) => {
         }
 
         const allowSelect = tool === 'select' || tool === 'annotate';
-        const bgObjects = [imageObj, canvasBackgroundRef.current];
+        const bgObjects: (fabric.Object | null)[] = [imageObj, canvasBackgroundRef.current];
 
         canvas.forEachObject(obj => {
-            if (bgObjects.includes(obj as any)) return;
-            const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && obj.backgroundColor !== undefined;
+            if (bgObjects.includes(obj)) return;
+            const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && (obj as FabricObject).backgroundColor !== undefined;
             if (isNameLabel) return;
 
             obj.selectable = allowSelect;
@@ -243,14 +276,14 @@ export const useImageEditor = (imageUrl: string) => {
         canvas.renderAll();
     }, [imageObj]);
 
-    const triggerAnnotationEdit = useCallback((target: any) => {
+    const triggerAnnotationEdit = useCallback((target: FabricObject) => {
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
 
         const rect = (target.parentRect || (target.nameLabel ? target : null)) as fabric.Rect;
         if (!rect) return;
 
-        const textLabel = (rect as any).textLabel as fabric.IText & { annotationMeta?: AnnotationInfo };
+        const textLabel = (rect as FabricObject).textLabel as fabric.IText & { annotationMeta?: AnnotationInfo };
         if (!textLabel) return;
 
         const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0];
@@ -294,10 +327,10 @@ export const useImageEditor = (imageUrl: string) => {
             isPanningRef.current = true;
             lastPanPointRef.current = { x: evt.clientX, y: evt.clientY };
             canvas.selection = false;
-            
+
             // 如果处于绘图模式，暂时禁用它
             if (canvas.isDrawingMode) {
-                (canvas as any)._wasDrawingMode = true;
+                (canvas as FabricCanvas)._wasDrawingMode = true;
                 canvas.isDrawingMode = false;
             }
 
@@ -335,7 +368,8 @@ export const useImageEditor = (imageUrl: string) => {
         }
 
         if (!['rect', 'circle', 'arrow', 'annotate'].includes(state.activeTool)) return;
-        if (opt.target && ![imageObj, canvasBackgroundRef.current].includes(opt.target as any)) return;
+        const bgObjects: (fabric.Object | null)[] = [imageObj, canvasBackgroundRef.current];
+        if (opt.target && !bgObjects.includes(opt.target)) return;
 
         isDrawingRef.current = true;
         startPointRef.current = { x: pointer.x, y: pointer.y };
@@ -436,11 +470,11 @@ export const useImageEditor = (imageUrl: string) => {
             if (fabricCanvasRef.current) {
                 const canvas = fabricCanvasRef.current;
                 canvas.selection = editorStateRef.current.activeTool === 'select' || editorStateRef.current.activeTool === 'annotate';
-                
+
                 // 恢复绘图模式
-                if ((canvas as any)._wasDrawingMode) {
+                if ((canvas as FabricCanvas)._wasDrawingMode) {
                     canvas.isDrawingMode = true;
-                    (canvas as any)._wasDrawingMode = false;
+                    (canvas as FabricCanvas)._wasDrawingMode = false;
                 }
 
                 // 恢复光标状态
@@ -497,137 +531,135 @@ export const useImageEditor = (imageUrl: string) => {
     const callbackRefs = useRef({ handleMouseWheel, onMouseDown, onMouseMove, onMouseUp, saveHistory });
     callbackRefs.current = { handleMouseWheel, onMouseDown, onMouseMove, onMouseUp, saveHistory };
 
+    const initFabric = useCallback((w: number, h: number) => {
+        if (!canvasRef.current) return null;
+
+        if (fabricCanvasRef.current) {
+            fabricCanvasRef.current.dispose();
+        }
+
+        const canvas = new fabric.Canvas(canvasRef.current!, {
+            width: w,
+            height: h,
+            backgroundColor: '#1a1a20',
+            enableRetinaScaling: true,
+            fireMiddleClick: true,
+            stopContextMenu: true,
+        });
+
+        fabric.Object.prototype.transparentCorners = false;
+        fabric.Object.prototype.cornerSize = 4;
+        fabric.Object.prototype.cornerStyle = 'circle';
+        fabric.Object.prototype.borderColor = '#4AA8FF';
+        fabric.Object.prototype.borderScaleFactor = 2;
+
+        const renderCircle = (ctx: CanvasRenderingContext2D, left: number, top: number, style: unknown, obj: fabric.Object) => {
+            const r = (obj.cornerSize || 12) / 2;
+            ctx.save(); ctx.beginPath(); ctx.arc(left, top, r, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+            ctx.strokeStyle = '#56AEFF'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
+        };
+
+        const defaultControls = fabric.Object.prototype.controls;
+        if (defaultControls) {
+            Object.keys(defaultControls).forEach(k => {
+                if (defaultControls[k]) {
+                    defaultControls[k]!.render = renderCircle;
+                }
+            });
+        }
+
+        fabricCanvasRef.current = canvas;
+
+        const runSetup = async () => {
+            if (imageUrl) {
+                try {
+                    const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+                    const iw = img.width || 1, ih = img.height || 1;
+                    const fitZ = Math.min(w / iw, h / ih) * 0.9;
+
+                    const bgRect = new fabric.Rect({
+                        left: w / 2, top: h / 2, width: iw, height: ih,
+                        originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
+                        selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
+                        name: 'canvas-background',
+                        shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
+                    });
+
+                    canvas.add(bgRect);
+                    canvas.sendObjectToBack(bgRect);
+                    canvasBackgroundRef.current = bgRect;
+
+                    img.set({
+                        left: w / 2, top: h / 2, originX: 'center', originY: 'center',
+                        selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ
+                    });
+
+                    canvas.add(img);
+                    setImageObj(img);
+                    setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: 1 }));
+
+                    canvas.clipPath = new fabric.Rect({
+                        left: w / 2, top: h / 2, width: iw * fitZ, height: ih * fitZ,
+                        originX: 'center', originY: 'center', absolutePositioned: true
+                    });
+                    setIsInitialized(true);
+                } catch (err) {
+                    console.error("Failed to load image:", err);
+                }
+            } else {
+                setIsInitialized(false);
+            }
+
+            canvas.requestRenderAll();
+            callbackRefs.current.saveHistory();
+        };
+
+        runSetup();
+
+        canvas.on('mouse:wheel', (o) => callbackRefs.current.handleMouseWheel(o));
+        canvas.on('mouse:down', (o) => callbackRefs.current.onMouseDown(o));
+        canvas.on('mouse:move', (o) => callbackRefs.current.onMouseMove(o));
+        canvas.on('mouse:up', () => callbackRefs.current.onMouseUp());
+        canvas.on('path:created', () => callbackRefs.current.saveHistory());
+        canvas.on('object:added', (o) => {
+            const t = o.target;
+            if (t && t !== imageObj && t !== canvasBackgroundRef.current) {
+                t.set({ borderColor: '#ffffff', borderScaleFactor: 2, cornerColor: '#1079BB', cornerStrokeColor: '#ffffff', transparentCorners: false, cornerSize: 8, cornerStyle: 'circle' });
+                // 使用内部定义的 renderCircle
+                if (t.controls) Object.keys(t.controls).forEach(k => t.controls[k]!.render = renderCircle);
+            }
+            callbackRefs.current.saveHistory();
+        });
+        canvas.on('object:modified', () => callbackRefs.current.saveHistory());
+        canvas.on('selection:created', (o) => { if (o.selected?.length === 1 && ((o.selected[0] as FabricObject).parentRect || (o.selected[0] as FabricObject).nameLabel)) triggerAnnotationEdit(o.selected[0] as FabricObject); });
+        canvas.on('selection:updated', (o) => { if (o.selected?.length === 1 && ((o.selected[0] as FabricObject).parentRect || (o.selected[0] as FabricObject).nameLabel)) triggerAnnotationEdit(o.selected[0] as FabricObject); });
+        canvas.on('object:moving', (o) => {
+            const t = o.target as FabricObject; if (!t || (!t.nameLabel && !t.textLabel)) return;
+            const r = t as fabric.Rect, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1);
+            if (t.nameLabel) t.nameLabel.set({ left: rl, top: rt - 18 });
+            if (t.textLabel) t.textLabel.set({ left: rl + 5, top: rt + rh + 5 });
+        });
+        canvas.on('object:scaling', (o) => {
+            const t = o.target as FabricObject; if (!t || (!t.nameLabel && !t.textLabel)) return;
+            const r = t as fabric.Rect, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1);
+            if (t.nameLabel) t.nameLabel.set({ left: rl, top: rt - 18 });
+            if (t.textLabel) t.textLabel.set({ left: rl + 5, top: rt + rh + 5 });
+        });
+
+        return canvas;
+    }, [imageUrl, triggerAnnotationEdit, imageObj]);
+
     useEffect(() => {
         if (!canvasRef.current) return;
         const container = canvasRef.current.parentElement;
         if (!container) return;
 
-        let canvas: fabric.Canvas | null = null;
-        let resizeObserver: ResizeObserver | null = null;
-
-        const init = (w: number, h: number) => {
-            if (fabricCanvasRef.current) {
-                fabricCanvasRef.current.dispose();
-            }
-
-            canvas = new fabric.Canvas(canvasRef.current!, {
-                width: w,
-                height: h,
-                backgroundColor: '#1a1a20',
-                enableRetinaScaling: true,
-                fireMiddleClick: true,
-                stopContextMenu: true,
-            });
-
-            fabric.Object.prototype.transparentCorners = false;
-            fabric.Object.prototype.cornerSize = 4;
-            fabric.Object.prototype.cornerStyle = 'circle';
-            fabric.Object.prototype.borderColor = '#4AA8FF';
-            fabric.Object.prototype.borderScaleFactor = 2;
-
-            const renderCircle = (ctx: CanvasRenderingContext2D, left: number, top: number, style: any, obj: fabric.Object) => {
-                const r = (obj.cornerSize || 12) / 2;
-                ctx.save(); ctx.beginPath(); ctx.arc(left, top, r, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
-                ctx.strokeStyle = '#56AEFF'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
-            };
-
-            // 安全地设置默认控制点样式
-            const defaultControls = fabric.Object.prototype.controls;
-            if (defaultControls) {
-                Object.keys(defaultControls).forEach(k => {
-                    if (defaultControls[k]) {
-                        defaultControls[k].render = renderCircle;
-                    }
-                });
-            }
-
-            fabricCanvasRef.current = canvas;
-
-            const runSetup = async () => {
-                const initialW = 1024, initialH = 1024;
-
-                if (imageUrl) {
-                    try {
-                        const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
-                        const iw = img.width || 1, ih = img.height || 1;
-                        const fitZ = Math.min(w / iw, h / ih) * 0.9;
-
-                        const bgRect = new fabric.Rect({
-                            left: w / 2, top: h / 2, width: iw, height: ih,
-                            originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
-                            selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
-                            name: 'canvas-background',
-                            shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
-                        });
-
-                        canvas!.add(bgRect);
-                        canvas!.sendObjectToBack(bgRect);
-                        canvasBackgroundRef.current = bgRect;
-
-                        img.set({
-                            left: w / 2, top: h / 2, originX: 'center', originY: 'center',
-                            selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ
-                        });
-
-                        canvas!.add(img);
-                        setImageObj(img);
-                        setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: 1 }));
-
-                        canvas!.clipPath = new fabric.Rect({
-                            left: w / 2, top: h / 2, width: iw * fitZ, height: ih * fitZ,
-                            originX: 'center', originY: 'center', absolutePositioned: true
-                        });
-                        setIsInitialized(true);
-                    } catch (err) {
-                        console.error("Failed to load image:", err);
-                    }
-                } else {
-                    // 空白模式，等待手动初始化
-                    setIsInitialized(false);
-                }
-
-                canvas!.requestRenderAll();
-                callbackRefs.current.saveHistory();
-            };
-
-            runSetup();
-
-            canvas.on('mouse:wheel', (o) => callbackRefs.current.handleMouseWheel(o));
-            canvas.on('mouse:down', (o) => callbackRefs.current.onMouseDown(o));
-            canvas.on('mouse:move', (o) => callbackRefs.current.onMouseMove(o));
-            canvas.on('mouse:up', () => callbackRefs.current.onMouseUp());
-            canvas.on('path:created', () => callbackRefs.current.saveHistory());
-            canvas.on('object:added', (o) => {
-                const t = o.target;
-                if (t && t !== imageObj && t !== canvasBackgroundRef.current) {
-                    t.set({ borderColor: '#ffffff', borderScaleFactor: 2, cornerColor: '#1079BB', cornerStrokeColor: '#ffffff', transparentCorners: false, cornerSize: 8, cornerStyle: 'circle' });
-                    if (t.controls) Object.keys(t.controls).forEach(k => t.controls[k].render = renderCircle);
-                }
-                callbackRefs.current.saveHistory();
-            });
-            canvas.on('object:modified', () => callbackRefs.current.saveHistory());
-            canvas.on('selection:created', (o) => { if (o.selected?.length === 1 && ((o.selected[0] as any).parentRect || (o.selected[0] as any).nameLabel)) triggerAnnotationEdit(o.selected[0]); });
-            canvas.on('selection:updated', (o) => { if (o.selected?.length === 1 && ((o.selected[0] as any).parentRect || (o.selected[0] as any).nameLabel)) triggerAnnotationEdit(o.selected[0]); });
-            canvas.on('object:moving', (o) => {
-                const t = o.target as any; if (!t || (!t.nameLabel && !t.textLabel)) return;
-                const r = t as fabric.Rect, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1);
-                if (t.nameLabel) t.nameLabel.set({ left: rl, top: rt - 18 });
-                if (t.textLabel) t.textLabel.set({ left: rl + 5, top: rt + rh + 5 });
-            });
-            canvas.on('object:scaling', (o) => {
-                const t = o.target as any; if (!t || (!t.nameLabel && !t.textLabel)) return;
-                const r = t as fabric.Rect, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1);
-                if (t.nameLabel) t.nameLabel.set({ left: rl, top: rt - 18 });
-                if (t.textLabel) t.textLabel.set({ left: rl + 5, top: rt + rh + 5 });
-            });
-        };
-
-        resizeObserver = new ResizeObserver((entries) => {
+        const resizeObserver = new ResizeObserver((entries) => {
             const entry = entries[0];
             if (entry) {
                 const { width, height } = entry.contentRect;
                 if (width > 0 && height > 0 && !fabricCanvasRef.current) {
-                    init(width, height);
+                    initFabric(width, height);
                 } else if (fabricCanvasRef.current && width > 0 && height > 0) {
                     fabricCanvasRef.current.setDimensions({ width, height });
                     fabricCanvasRef.current.requestRenderAll();
@@ -644,14 +676,14 @@ export const useImageEditor = (imageUrl: string) => {
                 fabricCanvasRef.current = null;
             }
         };
-    }, [imageUrl, triggerAnnotationEdit]); // 移除 imageObj 等状态依赖，防止初始化死循环
+    }, [initFabric]);
 
     const undo = useCallback(() => {
         if (historyIndexRef.current <= 0 || !fabricCanvasRef.current) return;
         historyIndexRef.current--;
         fabricCanvasRef.current.loadFromJSON(historyRef.current[historyIndexRef.current]).then(() => {
             const obs = fabricCanvasRef.current?.getObjects() || [];
-            canvasBackgroundRef.current = obs.find(o => (o as any).name === 'canvas-background') as fabric.Rect || null;
+            canvasBackgroundRef.current = obs.find(o => (o as fabric.Object & { name?: string }).name === 'canvas-background') as fabric.Rect || null;
             fabricCanvasRef.current?.renderAll();
             setEditorState(prev => ({ ...prev, canUndo: historyIndexRef.current > 0, canRedo: true }));
         });
@@ -662,7 +694,7 @@ export const useImageEditor = (imageUrl: string) => {
         historyIndexRef.current++;
         fabricCanvasRef.current.loadFromJSON(historyRef.current[historyIndexRef.current]).then(() => {
             const obs = fabricCanvasRef.current?.getObjects() || [];
-            canvasBackgroundRef.current = obs.find(o => (o as any).name === 'canvas-background') as fabric.Rect || null;
+            canvasBackgroundRef.current = obs.find(o => (o as fabric.Object & { name?: string }).name === 'canvas-background') as fabric.Rect || null;
             fabricCanvasRef.current?.renderAll();
             setEditorState(prev => ({ ...prev, canUndo: true, canRedo: historyIndexRef.current < historyRef.current.length - 1 }));
         });
@@ -694,14 +726,14 @@ export const useImageEditor = (imageUrl: string) => {
 
     const applyFilter = useCallback((ft: string, v?: number) => {
         const c = fabricCanvasRef.current; if (!c || !imageObj) return;
-        let f;
+        let f: fabric.filters.BaseFilter<string> | undefined;
         if (ft === 'grayscale') f = new fabric.filters.Grayscale();
         else if (ft === 'sepia') f = new fabric.filters.Sepia();
         else if (ft === 'invert') f = new fabric.filters.Invert();
         else if (ft === 'brightness') f = new fabric.filters.Brightness({ brightness: v || 0 });
         else if (ft === 'contrast') f = new fabric.filters.Contrast({ contrast: v || 0 });
         if (f) {
-            const fs = imageObj.filters || []; const idx = fs.findIndex(i => i.type === f.type);
+            const fs = imageObj.filters || []; const idx = fs.findIndex(i => i.type === f!.type);
             if (idx > -1) fs[idx] = f; else fs.push(f);
             imageObj.applyFilters(); c.renderAll(); saveHistory();
         }
@@ -718,7 +750,6 @@ export const useImageEditor = (imageUrl: string) => {
         return dataUrl;
     }, [imageObj]);
 
-    const updateBrushColor = (c: EditorColor) => { setEditorState(p => ({ ...p, brushColor: c })); if (fabricCanvasRef.current?.freeDrawingBrush) fabricCanvasRef.current.freeDrawingBrush.color = c; };
     const updateBrushWidth = (w: number) => {
         setEditorState(p => ({ ...p, brushWidth: w }));
         const c = fabricCanvasRef.current; if (!c) return;
@@ -730,11 +761,12 @@ export const useImageEditor = (imageUrl: string) => {
     const deleteSelected = useCallback(() => {
         const c = fabricCanvasRef.current; if (!c) return;
         const aos = c.getActiveObjects(); if (aos.length === 0) return;
-        const skip = [imageObj, canvasBackgroundRef.current]; const rem = new Set<fabric.Object>();
+        const skip: (fabric.Object | null)[] = [imageObj, canvasBackgroundRef.current]; const rem = new Set<fabric.Object>();
         aos.forEach(o => {
-            if (skip.includes(o as any)) return;
-            rem.add(o); if ((o as any).nameLabel) rem.add((o as any).nameLabel); if ((o as any).textLabel) rem.add((o as any).textLabel);
-            if ((o as any).parentRect) { const pr = (o as any).parentRect; rem.add(pr); if (pr.nameLabel) rem.add(pr.nameLabel); if (pr.textLabel) rem.add(pr.textLabel); }
+            const isBg = skip.includes(o);
+            if (isBg) return;
+            rem.add(o); if ((o as FabricObject).nameLabel) rem.add((o as FabricObject).nameLabel!); if ((o as FabricObject).textLabel) rem.add((o as FabricObject).textLabel!);
+            if ((o as FabricObject).parentRect) { const pr = (o as FabricObject).parentRect as FabricObject; rem.add(pr); if (pr.nameLabel) rem.add(pr.nameLabel); if (pr.textLabel) rem.add(pr.textLabel); }
         });
         rem.forEach(o => c.remove(o)); c.discardActiveObject(); c.renderAll(); saveHistory();
     }, [saveHistory, imageObj]);
@@ -751,16 +783,16 @@ export const useImageEditor = (imageUrl: string) => {
     const confirmAnnotation = useCallback((t: string, rL?: string) => {
         const c = fabricCanvasRef.current, a = editorState.pendingAnnotation; if (!c || !a) return;
         const r = a.rect, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1), col = a.color;
-        if (a.existingLabel) c.remove(a.existingLabel); if ((r as any).nameLabel) c.remove((r as any).nameLabel);
-        let n: string; if (!a.existingLabel && !a.existingText) { annotationCountRef.current++; n = `标注${annotationCountRef.current}`; } else n = (r as any).annotationName || `标注${annotationCountRef.current}`;
-        (r as any).annotationName = n;
+        if (a.existingLabel) c.remove(a.existingLabel); if ((r as FabricObject).nameLabel) c.remove((r as FabricObject).nameLabel!);
+        let n: string; if (!a.existingLabel && !a.existingText) { annotationCountRef.current++; n = `标注${annotationCountRef.current}`; } else n = (r as FabricObject).annotationName || `标注${annotationCountRef.current}`;
+        (r as FabricObject).annotationName = n;
         const nL = new fabric.IText(n, { left: rl, top: rt - 18, fontFamily: 'sans-serif', fontSize: 12, fill: '#ffffff', backgroundColor: col, padding: 2, selectable: false, evented: false });
-        c.add(nL); (r as any).nameLabel = nL; (nL as any).parentRect = r;
+        c.add(nL); (r as FabricObject).nameLabel = nL; (nL as FabricObject).parentRect = r;
         let lT = t.trim(); if (rL) lT = lT ? `${lT} (${rL})` : rL;
         if (lT) {
             const l = new fabric.IText(lT, { left: rl + 5, top: rt + rh + 5, fontFamily: 'sans-serif', fontSize: 14, fill: col, backgroundColor: 'rgba(0,0,0,0.7)', padding: 4, selectable: true, evented: true, editable: false });
-            (l as any).annotationMeta = { colorName: EDITOR_COLORS.find(c => c.hex === col)?.name || 'Red', text: t.trim(), referenceImageLabel: rL, annotationName: n };
-            c.add(l); (r as any).textLabel = l; (l as any).parentRect = r;
+            (l as FabricObject).annotationMeta = { colorName: EDITOR_COLORS.find(c => c.hex === col)?.name || 'Red', text: t.trim(), referenceImageLabel: rL, annotationName: n };
+            c.add(l); (r as FabricObject).textLabel = l; (l as FabricObject).parentRect = r;
         }
         r.set({ selectable: true, evented: true }); c.setActiveObject(r); c.renderAll(); callbackRefs.current.saveHistory();
         const next = EDITOR_COLORS[(EDITOR_COLORS.findIndex(c => c.hex === col) + 1) % EDITOR_COLORS.length].hex;
@@ -792,7 +824,7 @@ export const useImageEditor = (imageUrl: string) => {
     const getAnnotationsInfo = useCallback((): AnnotationInfo[] => {
         const c = fabricCanvasRef.current; if (!c) return [];
         const res: AnnotationInfo[] = [];
-        c.getObjects().forEach(o => { if (o.type === 'i-text' && (o as any).annotationMeta) res.push((o as any).annotationMeta); });
+        c.getObjects().forEach(o => { if (o.type === 'i-text' && (o as FabricObject).annotationMeta) res.push((o as FabricObject).annotationMeta!); });
         return res;
     }, []);
 
@@ -816,32 +848,49 @@ export const useImageEditor = (imageUrl: string) => {
         return fabricCanvasRef.current.toJSON();
     }, []);
 
-    const loadCanvasState = useCallback((json: any) => {
-        if (!fabricCanvasRef.current) return;
-        fabricCanvasRef.current.loadFromJSON(json).then(() => {
-            const obs = fabricCanvasRef.current?.getObjects() || [];
-            canvasBackgroundRef.current = obs.find(o => (o as any).name === 'canvas-background') as fabric.Rect || null;
-            
-            // Attempt to restore imageObj reference
-            // Assuming the main image is the first FabricImage that is not the background (background is Rect)
-            const mainImg = obs.find(o => o instanceof fabric.FabricImage) as fabric.FabricImage | null;
-            if (mainImg) {
-                setImageObj(mainImg);
-            }
+    const loadCanvasState = useCallback((json: unknown) => {
+        if (!fabricCanvasRef.current || !json) return;
+        if (typeof json === 'string' || typeof json === 'object') {
+            fabricCanvasRef.current.loadFromJSON(json as string | Record<string, unknown>).then(() => {
+                const obs = fabricCanvasRef.current?.getObjects() || [];
+                canvasBackgroundRef.current = obs.find(o => (o as FabricObject).name === 'canvas-background') as fabric.Rect || null;
 
-            fabricCanvasRef.current?.renderAll();
-            // Update history with the loaded state
-            const jsonStr = JSON.stringify(fabricCanvasRef.current?.toJSON());
-            historyRef.current = [jsonStr];
-            historyIndexRef.current = 0;
-            setEditorState(prev => ({ ...prev, canUndo: false, canRedo: false }));
-            setIsInitialized(true);
-        });
+                // Attempt to restore imageObj reference
+                // Assuming the main image is the first FabricImage that is not the background (background is Rect)
+                const mainImg = obs.find(o => o instanceof fabric.FabricImage) as fabric.FabricImage | null;
+                if (mainImg) {
+                    setImageObj(mainImg);
+                }
+
+                fabricCanvasRef.current?.renderAll();
+                // Update history with the loaded state
+                const jsonStr = JSON.stringify(fabricCanvasRef.current?.toJSON());
+                historyRef.current = [jsonStr];
+                historyIndexRef.current = 0;
+                setEditorState(prev => ({ ...prev, canUndo: false, canRedo: false }));
+                setIsInitialized(true);
+            });
+        }
     }, []);
 
     const initCanvas = useCallback((w: number, h: number) => {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
+        let canvas = fabricCanvasRef.current;
+
+        // 如果 canvas 还没初始化，尝试手动触发一次初始化
+        if (!canvas && canvasRef.current) {
+            const container = canvasRef.current.parentElement;
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    canvas = initFabric(rect.width, rect.height);
+                }
+            }
+        }
+
+        if (!canvas) {
+            console.error("Canvas not initialized");
+            return;
+        }
 
         const cw = canvas.width || 800, ch = canvas.height || 600;
         const initialZoom = Math.min(cw / w, ch / h) * 0.9;
@@ -866,12 +915,31 @@ export const useImageEditor = (imageUrl: string) => {
 
         canvas.requestRenderAll();
         setIsInitialized(true);
-        saveHistory();
-    }, [saveHistory]);
+    }, [initFabric]);
 
     const initCanvasWithImage = useCallback(async (url: string) => {
-        const canvas = fabricCanvasRef.current;
-        if (!canvas) return;
+        let canvas = fabricCanvasRef.current;
+        if (!canvas && canvasRef.current) {
+            const container = canvasRef.current.parentElement;
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    canvas = initFabric(rect.width, rect.height);
+                }
+            }
+        }
+
+        if (!canvas) {
+            console.warn("fabricCanvasRef is null during initCanvasWithImage, waiting a bit...");
+            // 尝试等待一帧，给 ResizeObserver 机会
+            await new Promise(resolve => setTimeout(resolve, 50));
+            canvas = fabricCanvasRef.current;
+        }
+
+        if (!canvas) {
+            console.error("Canvas not initialized for image");
+            return;
+        }
 
         const cw = canvas.width || 800, ch = canvas.height || 600;
 
@@ -912,7 +980,7 @@ export const useImageEditor = (imageUrl: string) => {
         } catch (err) {
             console.error("Failed to load image:", err);
         }
-    }, [saveHistory]);
+    }, [saveHistory, initFabric]);
 
     return {
         canvasRef, editorState, setTool, addText, addShape, addImage, undo, redo, rotateCanvas, applyFilter, exportImage,

@@ -281,7 +281,7 @@ export function useGenerationService() {
                 } as Generation;
 
                 console.log(`[useGenerationService] Finalizing Coze history with outputUrl: ${itemToSave.outputUrl}`);
-                saveHistoryToBackend(itemToSave);
+                updateHistoryAndSave(taskId, itemToSave);
             }
         } else if (res?.images && res.images.length > 0) {
             const dataUrl = res.images[0];

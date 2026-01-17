@@ -3,7 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ChevronDown, Link, Unlink, Sparkles, Plus, Minus } from "lucide-react";
+import { Loader2, ChevronDown, Link, Unlink, Plus, Minus } from "lucide-react";
 import Image from "next/image";
 
 
@@ -57,7 +57,7 @@ interface ControlToolbarProps {
   batchSize?: number;
   onBatchSizeChange?: (size: number) => void;
   onClearPreset?: () => void;
-  variant?: 'default' | 'mini';
+  variant?: 'default' | 'edit';
 }
 
 
@@ -85,8 +85,7 @@ export default function ControlToolbar({
   onAspectRatioChange,
   currentImageSize,
   onImageSizeChange,
-  isMockMode,
-  onMockModeChange,
+
   isSelectorExpanded = false,
   onSelectorExpandedChange,
   isPresetGridOpen = false,
@@ -218,7 +217,7 @@ export default function ControlToolbar({
       <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
         <div className="flex justify-start items-center gap-2">
           <div className="flex items-center gap-2">
-            {variant !== 'mini' && (
+            {variant !== 'edit' && (
               <Button
                 className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
                 onClick={onTogglePresetGrid}
@@ -347,16 +346,6 @@ export default function ControlToolbar({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button
-            variant="default"
-            size="sm"
-            className={cn(Inputbutton2, isMockMode && "bg-amber-500/20 text-amber-500 border-amber-500/50")}
-            onClick={() => onMockModeChange?.(!isMockMode)}
-            title="Mock Mode"
-          >
-            <Sparkles className={cn("w-2 h-2", isMockMode && "animate-pulse")} />
-            {isMockMode && <span className="ml-1 text-[10px] font-bold">MOCK</span>}
-          </Button>
         </div>
 
 

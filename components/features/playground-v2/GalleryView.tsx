@@ -230,7 +230,7 @@ export default function GalleryView() {
     );
 
     return (
-        <div className="w-[90%] h-full mt-20 mx-auto  bg-transparent flex flex-col overflow-hidden">
+        <div className="w-[90%] h-full mt-1 0 mx-auto  bg-transparent flex flex-col overflow-hidden">
 
             <div className="flex flex-row z-20 pb-4 bg-transparent shrink-0">
                 {/* 搜索框 */}
@@ -325,7 +325,7 @@ export default function GalleryView() {
                     )}
                 </div>
                 {/* Sidebar Filters - Only visible in full gallery mode */}
-                <div className="w-48 flex-none  pb-2 pl-6 flex flex-col min-h-0">
+                <div className="w-0 flex-none  pb-2 pl-6 flex flex-col min-h-0">
                     <div className="bg-white/5 border border-white/10 rounded-2xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
                         <GradualBlur
                             target="parent"
@@ -405,6 +405,7 @@ export default function GalleryView() {
                         </div>
                     </div>
                 </div>
+
             </div>
 
             <ImagePreviewModal
@@ -561,7 +562,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
 
                 {/* Reference Image Thumbnail */}
                 {item.sourceImageUrl && (
-                    <div className="absolute top-3 left-3 z-10 w-12 h-12 rounded-lg border-2 border-white overflow-hidden shadow-xl transition-transform duration-300 group-hover:scale-110">
+                    <div className="absolute top-3 left-3 z-10 w-12 h-12 rounded-lg border border-white overflow-hidden shadow-2xl transition-transform duration-300 group-hover:scale-110">
                         <Image
                             src={formatImageUrl(item.sourceImageUrl)}
                             alt="Reference image"

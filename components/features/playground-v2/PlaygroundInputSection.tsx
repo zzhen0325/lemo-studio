@@ -37,7 +37,6 @@ export interface PlaygroundInputSectionProps {
     isDraggingOverPanel: boolean;
     isPresetGridOpen: boolean;
     isAspectRatioLocked: boolean;
-    isMockMode: boolean;
     isSelectorExpanded: boolean;
     batchSize: number;
     selectedModel: string;
@@ -66,7 +65,6 @@ export interface PlaygroundInputSectionProps {
     setIsAspectRatioLocked: (val: boolean) => void;
     setSelectedWorkflowConfig: (wf: IViewComfy | undefined) => void;
     applyWorkflowDefaults: (wf: IViewComfy) => void;
-    setMockMode: (val: boolean) => void;
     setIsSelectorExpanded: (val: boolean) => void;
     setBatchSize: (val: number) => void;
     setIsLoraDialogOpen: (val: boolean) => void;
@@ -77,7 +75,7 @@ export interface PlaygroundInputSectionProps {
     setIsDraggingOver: (val: boolean) => void;
     setIsDraggingOverPanel: (val: boolean) => void;
     hideTitle?: boolean;
-    variant?: 'default' | 'mini';
+    variant?: 'default' | 'edit';
     width?: string | number;
 }
 
@@ -97,7 +95,6 @@ export function PlaygroundInputSection({
     isDraggingOverPanel,
     isPresetGridOpen,
     isAspectRatioLocked,
-    isMockMode,
     isSelectorExpanded,
     batchSize,
     selectedModel,
@@ -122,7 +119,6 @@ export function PlaygroundInputSection({
     setIsAspectRatioLocked,
     setSelectedWorkflowConfig,
     applyWorkflowDefaults,
-    setMockMode,
     setIsSelectorExpanded,
     setBatchSize,
     setIsLoraDialogOpen,
@@ -184,7 +180,7 @@ export function PlaygroundInputSection({
                 </div>
             )}
 
-            <div 
+            <div
                 className={cn(
                     !width && "w-full",
                     isDescribeMode && showHistory ? "h-auto" : ""
@@ -196,83 +192,85 @@ export function PlaygroundInputSection({
                     showHistory ? "bg-[linear-gradient(180deg,rgba(0,0,0,0.4)_31.44%,rgba(93, 123, 149, 0.78)_100%)]" : "bg-black/40"
                 )}>
                     <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden">
-                        <div
-                            className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
-                            onMouseEnter={() => setIsStackHovered(true)}
-                            onMouseLeave={() => setIsStackHovered(false)}
-                        >
-                            {/* 图片堆栈 */}
-                            {uploadedImages.map((image, index) => {
-                                const rotations = [-6, 4, -2, 3];
-                                return (
-                                    <motion.div
-                                        key={image.id || index}
-                                        initial={false}
-                                        animate={{
-                                            marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
-                                            rotate: isStackHovered ? 0 : rotations[index % rotations.length],
-                                            scale: 1
-                                        }}
-                                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                        style={{
-                                            zIndex: (uploadedImages.length - index) + 100,
-                                            position: 'relative'
-                                        }}
-                                    >
-                                        <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(formatImageUrl(image.previewUrl), `stack-img-${image.id || index}`)}>
-                                            <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
-                                                <Image
-                                                    src={formatImageUrl(image.previewUrl)}
-                                                    alt={`Uploaded ${index + 1}`}
-                                                    width={56}
-                                                    height={56}
-                                                    className={cn(
-                                                        "w-14 h-14 object-cover rounded-2xl bg-black border border-primary shadow-xl",
-                                                        image.isUploading && "opacity-50 grayscale blur-[1px]"
-                                                    )}
-                                                />
-                                                {image.isUploading && (
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <LoadingSpinner size={16} className="text-white" />
-                                                    </div>
-                                                )}
-                                            </motion.div>
-                                            {!image.isUploading && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                                                    className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
-                                                >
-                                                    <X className="w-2 h-2" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-
-                            {/* 上传按钮 - 作为堆栈的最后一个元素 */}
-                            <motion.button
-                                onClick={() => fileInputRef.current?.click()}
-                                initial={false}
-                                animate={{
-                                    rotate: 3,
-                                    marginLeft: uploadedImages.length > 0 ? (isStackHovered ? 8 : -36) : 0,
-                                    scale: 1
-                                }}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                transition={{ type: "tween", duration: 0.05 }}
-                                style={{
-                                    zIndex: 0,
-                                    position: 'relative'
-                                }}
-                                className={cn(
-                                    "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
-                                )}
+                        {variant !== 'edit' && (
+                            <div
+                                className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
+                                onMouseEnter={() => setIsStackHovered(true)}
+                                onMouseLeave={() => setIsStackHovered(false)}
                             >
-                                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            </motion.button>
-                        </div>
+                                {/* 图片堆栈 */}
+                                {uploadedImages.map((image, index) => {
+                                    const rotations = [-6, 4, -2, 3];
+                                    return (
+                                        <motion.div
+                                            key={image.id || index}
+                                            initial={false}
+                                            animate={{
+                                                marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
+                                                rotate: isStackHovered ? 0 : rotations[index % rotations.length],
+                                                scale: 1
+                                            }}
+                                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                            style={{
+                                                zIndex: (uploadedImages.length - index) + 100,
+                                                position: 'relative'
+                                            }}
+                                        >
+                                            <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(formatImageUrl(image.previewUrl), `stack-img-${image.id || index}`)}>
+                                                <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
+                                                    <Image
+                                                        src={formatImageUrl(image.previewUrl)}
+                                                        alt={`Uploaded ${index + 1}`}
+                                                        width={56}
+                                                        height={56}
+                                                        className={cn(
+                                                            "w-14 h-14 object-cover rounded-2xl bg-black border border-primary shadow-xl",
+                                                            image.isUploading && "opacity-50 grayscale blur-[1px]"
+                                                        )}
+                                                    />
+                                                    {image.isUploading && (
+                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                            <LoadingSpinner size={16} className="text-white" />
+                                                        </div>
+                                                    )}
+                                                </motion.div>
+                                                {!image.isUploading && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                                                        className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
+                                                    >
+                                                        <X className="w-2 h-2" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+
+                                {/* 上传按钮 - 作为堆栈的最后一个元素 */}
+                                <motion.button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    initial={false}
+                                    animate={{
+                                        rotate: 3,
+                                        marginLeft: uploadedImages.length > 0 ? (isStackHovered ? 8 : -36) : 0,
+                                        scale: 1
+                                    }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    transition={{ type: "tween", duration: 0.05 }}
+                                    style={{
+                                        zIndex: 0,
+                                        position: 'relative'
+                                    }}
+                                    className={cn(
+                                        "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
+                                    )}
+                                >
+                                    <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                </motion.button>
+                            </div>
+                        )}
 
                         <div className="flex-1 mt-1 flex items-center gap-2">
                             <div className="flex-1">
@@ -291,7 +289,7 @@ export function PlaygroundInputSection({
                                     onDraggingOverChange={setIsDraggingOver}
                                 />
                             </div>
-                            {variant !== 'mini' && (
+                            {variant !== 'edit' && (
                                 <Button
                                     variant="light"
                                     size="sm"
@@ -384,8 +382,6 @@ export function PlaygroundInputSection({
                         selectedBaseModelName={config.model}
                         workflows={workflows}
                         onWorkflowSelect={(wf) => { setSelectedWorkflowConfig(wf); applyWorkflowDefaults(wf); }}
-                        isMockMode={isMockMode}
-                        onMockModeChange={setMockMode}
                         isSelectorExpanded={isSelectorExpanded}
                         onSelectorExpandedChange={setIsSelectorExpanded}
                         batchSize={batchSize}
@@ -401,7 +397,7 @@ export function PlaygroundInputSection({
                 </div>
             </div>
 
-            {variant !== 'mini' && isDescribeMode && (
+            {variant !== 'edit' && isDescribeMode && (
                 <DescribePanel
                     open={isDescribeMode}
                     panelRef={describePanelRef}

@@ -191,7 +191,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                   className="absolute top-4 left-4 z-[110] group/ref"
                 >
                   <div
-                    className="w-20 h-20 rounded-xl border-2 rounded-xl border-white overflow-hidden shadow-2xl cursor-zoom-in transition-transform duration-300 hover:scale-110 active:scale-95"
+                    className="w-20 h-20 rounded-xl border-2  border-white overflow-hidden shadow-2xl cursor-zoom-in transition-transform duration-300 hover:scale-110 active:scale-95"
                     onClick={(e) => {
                       e.stopPropagation();
                       setPreviewImage(result.sourceImageUrl || null, `ref-${result.id}`);

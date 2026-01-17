@@ -73,7 +73,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         undo,
         redo,
         rotateCanvas,
-        applyFilter,
+
         exportImage,
         updateBrushColor,
         updateBrushWidth,
@@ -191,6 +191,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
 
     // 处理文件上传
     const handleFileUpload = useCallback((files: FileList | null) => {
+        console.log("handleFileUpload called", files?.length);
         if (!files || files.length === 0) return;
 
         Array.from(files).forEach((file, index) => {
@@ -201,8 +202,10 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                 const dataUrl = e.target?.result as string;
                 if (dataUrl) {
                     if (!isInitialized && index === 0) {
+                        console.log("Initializing canvas with first uploaded image");
                         initCanvasWithImage(dataUrl);
                     } else {
+                        console.log("Adding image to existing canvas");
                         addImage(dataUrl);
                     }
                 }
@@ -262,9 +265,17 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, deleteSelected]);
 
-    // 实时同步标注信息到下方 Prompt 输入框
+    // 为避免循环依赖，使用 ref 保存最新的 inputSectionProps
+    const inputSectionPropsRef = useRef(inputSectionProps);
     useEffect(() => {
-        if (!inputSectionProps?.setConfig) return;
+        inputSectionPropsRef.current = inputSectionProps;
+    }, [inputSectionProps]);
+
+    // 实时同步标注信息到下方 Prompt 输入框
+    const lastSyncedPromptRef = useRef<string>("");
+    useEffect(() => {
+        const props = inputSectionPropsRef.current;
+        if (!props?.setConfig) return;
 
         const annotations = getAnnotationsInfo();
         const pendingText = annotationText.trim();
@@ -287,24 +298,26 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             descriptions.push(`${colorName} annotation: ${pendingText}`);
         }
 
+        let finalPrompt = "";
         if (descriptions.length > 0) {
-            const finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注。\n标注说明：\n${descriptions.join('\n')}`;
-
-            // 避免在没有变化时频繁触发更新
-            if (inputSectionProps.config.prompt !== finalPrompt) {
-                inputSectionProps.setConfig(prev => ({
-                    ...prev,
-                    prompt: finalPrompt
-                }));
-            }
-        } else if (inputSectionProps.config.prompt && inputSectionProps.config.prompt.startsWith('根据图中的彩色标注修改图片')) {
-            // 如果所有标注都被清空了，且当前的 prompt 是由标注生成的，则清空它
-            inputSectionProps.setConfig(prev => ({
-                ...prev,
-                prompt: ''
-            }));
+            finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注。\n标注说明：\n${descriptions.join('\n')}`;
         }
-    }, [editorState, annotationText, getAnnotationsInfo, inputSectionProps]);
+
+        // 避免在没有变化时频繁触发更新，并打破与 props 的循环依赖
+        if (finalPrompt !== lastSyncedPromptRef.current) {
+            if (finalPrompt) {
+                props.setConfig(prev => {
+                    if (prev.prompt === finalPrompt) return prev;
+                    return { ...prev, prompt: finalPrompt };
+                });
+                lastSyncedPromptRef.current = finalPrompt;
+            } else if (lastSyncedPromptRef.current && props.config.prompt.startsWith('根据图中的彩色标注修改图片')) {
+                // 如果所有标注都被清空了，且当前的 prompt 是由标注生成的，则清空它
+                props.setConfig(prev => ({ ...prev, prompt: '' }));
+                lastSyncedPromptRef.current = "";
+            }
+        }
+    }, [editorState.pendingAnnotation, editorState.brushColor, editorState.referenceImages, editorState.canUndo, annotationText, getAnnotationsInfo]);
 
     const handleSave = (e?: React.MouseEvent | boolean) => {
         const shouldGenerate = typeof e === 'boolean' ? e : false;
@@ -463,15 +476,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                 >
                                     <Save className="w-4 h-4 mr-1.5" />
                                     Save as Preset
-                                </Button>
-                                <Button
-                                    variant="act"
-                                    size="sm"
-                                    className="h-8 px-4 rounded-full gap-1.5 font-medium"
-                                    onClick={handleSave}
-                                >
-                                    <Check className="w-3.5 h-3.5" />
-                                    Apply
                                 </Button>
                                 <button
                                     onClick={() => setShowProperties(!showProperties)}
@@ -646,8 +650,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
 
                                         {/* Empty State Overlay */}
                                         {!isInitialized && (
-                                            <div className="absolute inset-0 -mt-20 flex flex-col items-center justify-center z-50">
-                                                <div className="bg-black/0   p-12 rounded-[40px] flex flex-col items-center gap-8 ">
+                                            <div className="absolute inset-0 -mt-20 flex flex-col items-center justify-center z-50 pointer-events-auto">
+                                                <div className="bg-black/0 p-12 rounded-[40px] flex flex-col items-center gap-8 pointer-events-auto">
                                                     <div className="flex flex-col items-center gap-3 text-center">
                                                         <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
                                                             <ImagePlus className="w-8 h-8 text-primary" />
@@ -661,16 +665,24 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                                     <div className="flex flex-col w-full gap-3">
                                                         <Button
                                                             variant="act"
-                                                            className="h-12 w-full rounded-2xl gap-2 text-base font-medium shadow-[0_0_20px_oklch(var(--primary)/0.2)]"
-                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="h-12 w-full rounded-2xl gap-2 text-base font-medium shadow-[0_0_20px_oklch(var(--primary)/0.2)] pointer-events-auto"
+                                                            onClick={(e) => {
+                                                                console.log("Upload button clicked");
+                                                                e.stopPropagation();
+                                                                fileInputRef.current?.click();
+                                                            }}
                                                         >
                                                             <Upload className="w-5 h-5" />
                                                             上传图片
                                                         </Button>
                                                         <Button
                                                             variant="ghost"
-                                                            className="h-12 w-full rounded-2xl gap-2 text-base font-medium bg-white/5 border border-white/5 hover:bg-white/10 text-white/80"
-                                                            onClick={() => initCanvas(1024, 1024)}
+                                                            className="h-12 w-full rounded-2xl gap-2 text-base font-medium bg-white/5 border border-white/5 hover:bg-white/10 text-white/80 pointer-events-auto"
+                                                            onClick={(e) => {
+                                                                console.log("New canvas button clicked");
+                                                                e.stopPropagation();
+                                                                initCanvas(1024, 1024);
+                                                            }}
                                                         >
                                                             <Plus className="w-5 h-5" />
                                                             新建空白画框
@@ -824,12 +836,12 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                     </div>
                                 </div>
                                 {inputSectionProps && (
-                                    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 shadow-2xl shadow-[0px_10px_30px_0px_rgba(0,0,0,0.10)]  bg-[#5d7b9544] rounded-[30px] ">
+                                    <div className="absolute bottom-20 left-1/2 -translate-x-1/2 shadow-[0px_10px_30px_0px_rgba(0,0,0,0.10)]  bg-[#5d7b9544] rounded-[30px] ">
                                         <PlaygroundInputSection
                                             {...inputSectionProps}
                                             width={inputSectionProps.width || 896}
                                             hideTitle
-                                            variant="mini"
+                                            variant="edit"
                                             handleGenerate={handleModalGenerate}
                                         />
                                     </div>

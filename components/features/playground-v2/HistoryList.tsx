@@ -4,7 +4,7 @@ import { projectStore } from '@/lib/store/project-store';
 
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, List, LayoutGrid, Folder, Copy, FolderPlus, GripVertical, Layers, Pencil, Trash2 } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Copy, FolderPlus, GripVertical, Layers, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
