@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ZoomIn, ZoomOut, RefreshCw, Pencil, Info, Copy, Download } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,6 +9,7 @@ import { Generation } from '@/types/database';
 import { useToast } from '@/hooks/common/use-toast';
 import { cn } from '@/lib/utils';
 import { formatImageUrl } from '@/lib/api-base';
+import { usePlaygroundStore } from '@/lib/store/playground-store';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
@@ -20,6 +22,12 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
   const [scale, setScale] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
   const { toast } = useToast();
+  const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,11 +82,13 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex overflow-hidden pointer-events-auto"
+          className="fixed inset-0 z-[10000] flex overflow-hidden pointer-events-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -172,12 +182,47 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
 
 
 
+
+              {/* Reference Image Thumbnail */}
+              {result.sourceImageUrl && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="absolute top-4 left-4 z-[110] group/ref"
+                >
+                  <div
+                    className="w-20 h-20 rounded-xl border-2 rounded-xl border-white overflow-hidden shadow-2xl cursor-zoom-in transition-transform duration-300 hover:scale-110 active:scale-95"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewImage(result.sourceImageUrl || null, `ref-${result.id}`);
+                    }}
+                  >
+                    <Image
+                      src={formatImageUrl(result.sourceImageUrl)}
+                      alt="Reference"
+                      fill
+                      className="object-cover"
+                      sizes="80px"
+                    />
+                    <div className="absolute inset-0 bg-black/20 group-hover/ref:bg-transparent transition-colors flex items-center justify-center">
+                      <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover/ref:opacity-100 transition-opacity" />
+                    </div>
+                  </div>
+                  <div className="mt-2 px-2 py-0.5 rounded-md bg-black/40 backdrop-blur-md border border-white/10 text-[9px] text-white/50 uppercase tracking-tighter text-center">
+                    Reference
+                  </div>
+                </motion.div>
+              )}
+
               {/* ESC 提示 */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
-                className="absolute top-4 left-4 z-[100] px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 text-white/30 text-[10px] font-mono uppercase tracking-wider"
+                className={cn(
+                  "absolute left-4 z-[100] px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 text-white/30 text-[10px] font-mono uppercase tracking-wider",
+                  result.sourceImageUrl ? "top-32" : "top-4"
+                )}
               >
                 ESC to close
               </motion.div>
@@ -301,6 +346,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

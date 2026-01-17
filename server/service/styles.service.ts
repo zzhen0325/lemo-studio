@@ -36,20 +36,23 @@ export class StylesService {
       }
 
       const updatedAt = new Date();
+      const doc = {
+        name: styleData.name,
+        prompt: styleData.prompt,
+        imagePaths: styleData.imagePaths || [],
+        previewUrls: styleData.imagePaths || [],
+        updatedAt,
+      };
+
       await this.styleStackModel.updateOne(
         { _id: styleData.id },
-        {
-          name: styleData.name,
-          prompt: styleData.prompt,
-          imagePaths: styleData.imagePaths || [],
-          previewUrls: styleData.imagePaths || [],
-          updatedAt,
-        },
+        { $set: doc },
         { upsert: true },
       );
 
       return {
         ...styleData,
+        id: styleData.id,
         updatedAt: updatedAt.toISOString(),
       };
     } catch (error) {

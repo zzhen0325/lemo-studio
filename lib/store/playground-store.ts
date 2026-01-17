@@ -83,10 +83,11 @@ interface PlaygroundState {
     // Style Stacks
     styles: StyleStack[];
     initStyles: () => void;
-    addStyle: (style: StyleStack) => void;
+    addStyle: (style: StyleStack) => Promise<void>;
     updateStyle: (style: StyleStack) => void;
-    deleteStyle: (id: string) => void;
-    addImageToStyle: (styleId: string, imagePath: string) => void;
+    deleteStyle: (id: string) => Promise<void>;
+    removeImageFromStyle: (styleId: string, imagePath: string) => Promise<void>;
+    addImageToStyle: (styleId: string, imagePath: string) => Promise<void>;
 
     // Categories
     presetCategories: string[];
@@ -105,6 +106,8 @@ interface PlaygroundState {
     hasMoreGallery: boolean;
     isFetchingGallery: boolean;
     fetchGallery: (page?: number) => Promise<void>;
+    addGalleryItem: (item: Generation) => void;
+    deleteHistory: (ids: string[]) => Promise<void>;
 }
 
 export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
@@ -324,8 +327,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
                 const data = await res.json();
                 if (data.history) {
                     set((state) => ({
-                        generationHistory: page === 1 
-                            ? data.history 
+                        generationHistory: page === 1
+                            ? data.history
                             : [...state.generationHistory, ...data.history],
                         historyPage: page,
                         hasMoreHistory: data.hasMore
@@ -349,7 +352,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
         set({ isFetchingGallery: true });
         try {
-            const limit = 1000;
+            const limit = 50;
             const url = new URL(`${getApiBase()}/history`);
             url.searchParams.set('page', page.toString());
             url.searchParams.set('limit', limit.toString());
@@ -360,8 +363,8 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
                 const data = await res.json();
                 if (data.history) {
                     set((state) => ({
-                        galleryItems: page === 1 
-                            ? data.history 
+                        galleryItems: page === 1
+                            ? data.history
                             : [...state.galleryItems, ...data.history],
                         galleryPage: page,
                         hasMoreGallery: data.hasMore
@@ -372,6 +375,30 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             console.error("Failed to fetch gallery", error);
         } finally {
             set({ isFetchingGallery: false });
+        }
+    },
+
+    addGalleryItem: (item: Generation) => {
+        set((state) => ({
+            galleryItems: [item, ...state.galleryItems]
+        }));
+    },
+
+    deleteHistory: async (ids: string[]) => {
+        try {
+            const res = await fetch(`${getApiBase()}/history`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            });
+
+            if (res.ok) {
+                set((state) => ({
+                    generationHistory: state.generationHistory.filter(item => !ids.includes(item.id))
+                }));
+            }
+        } catch (error) {
+            console.error("Failed to delete history", error);
         }
     },
 
@@ -582,10 +609,39 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
 
     deleteStyle: async (id: string) => {
         try {
-            await fetch(`${getApiBase()}/styles?id=${id}`, { method: 'DELETE' });
-            set((state) => ({ styles: state.styles.filter(s => s.id !== id) }));
+            const res = await fetch(`${getApiBase()}/styles?id=${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                set((state) => ({ styles: state.styles.filter(s => s.id !== id) }));
+            }
         } catch (e) {
             console.error("Failed to delete style", e);
+        }
+    },
+
+    removeImageFromStyle: async (styleId: string, imagePath: string) => {
+        const state = get();
+        const style = state.styles.find(s => s.id === styleId);
+        if (!style) return;
+
+        const updatedStyle = {
+            ...style,
+            imagePaths: style.imagePaths.filter(p => p !== imagePath),
+            updatedAt: new Date().toISOString()
+        };
+
+        try {
+            const res = await fetch(`${getApiBase()}/styles`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedStyle)
+            });
+            if (res.ok) {
+                set((state) => ({
+                    styles: state.styles.map(s => s.id === styleId ? updatedStyle : s)
+                }));
+            }
+        } catch (e) {
+            console.error("Failed to remove image from style", e);
         }
     },
 

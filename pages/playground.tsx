@@ -502,7 +502,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         updatedAt: new Date().toISOString()
       };
 
-      addStyle(newStyle);
+      await addStyle(newStyle);
       toast({ title: "风格创建成功", description: `已成功创建新风格并包含 ${uploads.length} 张图片` });
     } catch (error) {
       console.error("Failed to upload images for new style", error);
@@ -859,31 +859,31 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsPresetGridOpen,
     onClearPreset: () => setSelectedPresetName(undefined),
     setIsDescribeMode: (val: boolean) => {
-       if (val) {
-         setViewMode('dock');
-         setActiveTab('describe');
-       } else {
-         // If attempting to close describe mode, maybe go to history?
-         // Or stay in dock mode but change tab?
-         // For now, if val is false, switch to history if we were in describe
-         if (activeTab === 'describe') setActiveTab('history');
-       }
+      if (val) {
+        setViewMode('dock');
+        setActiveTab('describe');
+      } else {
+        // If attempting to close describe mode, maybe go to history?
+        // Or stay in dock mode but change tab?
+        // For now, if val is false, switch to history if we were in describe
+        if (activeTab === 'describe') setActiveTab('history');
+      }
     },
     setDescribeImages,
     setIsDraggingOver,
     setIsDraggingOverPanel,
   }), [
-    viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused, 
-    isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver, 
-    isDraggingOverPanel, isPresetGridOpen, isAspectRatioLocked, isMockMode, 
-    isSelectorExpanded, batchSize, selectedModel, selectedAIModel, selectedLoras, 
-    selectedPresetName, selectedWorkflowConfig, workflows, fileInputRef, 
-    describePanelRef, setConfig, setIsStackHovered, setIsInputFocused, 
-    setPreviewImage, removeImage, handleFilesUpload, handleOptimizePrompt, 
-    handleGenerate, handleDescribe, setSelectedAIModel, setSelectedModel, 
-    setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults, 
-    setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen, 
-    setIsPresetGridOpen, setDescribeImages, setIsDraggingOver, 
+    viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused,
+    isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver,
+    isDraggingOverPanel, isPresetGridOpen, isAspectRatioLocked, isMockMode,
+    isSelectorExpanded, batchSize, selectedModel, selectedAIModel, selectedLoras,
+    selectedPresetName, selectedWorkflowConfig, workflows, fileInputRef,
+    describePanelRef, setConfig, setIsStackHovered, setIsInputFocused,
+    setPreviewImage, removeImage, handleFilesUpload, handleOptimizePrompt,
+    handleGenerate, handleDescribe, setSelectedAIModel, setSelectedModel,
+    setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults,
+    setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
+    setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName
   ]);
 
@@ -988,7 +988,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                             tooltipContent="Describe image"
                             tooltipSide={tooltipSide}
                             className={getButtonStyle(activeTab === 'describe')}
-                            onClick={() => setActiveTab('describe')}
+                            onClick={() => activeTab === 'describe' ? setActiveTab('history') : setActiveTab('describe')}
 
                           />
                           <span className="text-[10px]">Describe</span>
@@ -1151,7 +1151,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           <span className="text-sm font-medium">Gallery</span>
                         </button>
 
-                           <button
+                        <button
                           onClick={() => { setViewMode('dock'); setActiveTab('style'); }}
                           className={cn(
                             "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
@@ -1193,7 +1193,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         />
                       </div>
                     )}
-                    
+
                   </div>
                 </div>
 
@@ -1213,7 +1213,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-32">
                     <div className="h-full w-full  overflow-hidden relative">
                       <Suspense fallback={<div className="flex  w-[90%] items-center justify-center h-full text-white">Loading Styles...</div>}>
-                         <StyleStacksView isDragging={isDraggingOver} />
+                        <StyleStacksView isDragging={isDraggingOver} />
                       </Suspense>
                     </div>
                   </div>

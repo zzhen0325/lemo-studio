@@ -4,7 +4,7 @@ import { projectStore } from '@/lib/store/project-store';
 
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Loader2, Copy, FolderPlus, GripVertical, Layers, Pencil } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, List, LayoutGrid, Folder, Copy, FolderPlus, GripVertical, Layers, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
@@ -62,7 +62,7 @@ const HistoryList = observer(function HistoryList({
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const {
     setPreviewImage,
-   
+
     isSelectionMode,
     setIsSelectionMode,
     selectedHistoryIds: selectedIds,
@@ -74,7 +74,7 @@ const HistoryList = observer(function HistoryList({
     isFetchingHistory,
     fetchHistory
   } = usePlaygroundStore();
-  
+
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -161,31 +161,15 @@ const HistoryList = observer(function HistoryList({
     <div
       className=" rounded-3xl h-full flex flex-col relative overflow-hidden"
     >
-     
+
 
 
 
 
       {/* Header Actions: 标题、视图切换 & 关闭 (层级 z-20，确保在模糊 z-10 上方) */}
       {/* <div className="flex items-center justify-between px-6 pt-4 pb-2 z-20 shrink-0">
-           <GradualBlur
-        target="parent"
-        position="top"
-        height="60px"
-        strength={3}
-        divCount={5}
-        curve="ease-in-out"
-        exponential={true}
-        zIndex={10}
-        opacity={1}
-        borderRadius="1.5rem"
-        animate={{
-          type: 'scroll',
-          targetRef: scrollRef,
-          startOffset: 0,
-          endOffset: 80
-        }}
-      />
+
+
         <div className="flex z-20">
           <span className="text-white text-2xl"
             style={{ fontFamily: "'InstrumentSerif', serif" }}
@@ -195,23 +179,7 @@ const HistoryList = observer(function HistoryList({
         <div className="flex items-center gap-3 z-20">
           <div className="flex items-center p-1 gap-2 bg-black/40 backdrop-blur-md rounded-lg border border-white/10">
             <div className='flex gap-2'>
-              <button
-                onClick={() => {
-                  setIsSelectionMode(!isSelectionMode);
-                  if (isSelectionMode) clearSelection(); // Clear selection on exit
-                }}
-                className={cn(
-                  " px-2 rounded-md flex items-center gap-2 transition-all",
-                  isSelectionMode
-                    ? "bg-white/10 text-primary"
-                    : "text-white/40 hover:text-white hover:bg-white/5"
-                )}
-                title="Select Mode"
-              >
-
-                <Folder className="w-3.5 h-3.5" />
-                <span className='text-sm'>Manager</span>
-              </button>
+             
               <AnimatePresence>
                 {isSelectionMode && (
                   <motion.div
@@ -274,10 +242,26 @@ const HistoryList = observer(function HistoryList({
             <X className="w-4 h-4 hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.4)]" />
           </button>
         </div>
-        
-      </div> */}
-      
 
+      </div> */}
+
+      {/* <button
+        onClick={() => {
+          setIsSelectionMode(!isSelectionMode);
+          if (isSelectionMode) clearSelection(); // Clear selection on exit
+        }}
+        className={cn(
+          " px-2 rounded-md flex items-center gap-2 transition-all",
+          isSelectionMode
+            ? "bg-white/10 text-primary"
+            : "text-white/40 hover:text-white hover:bg-white/5"
+        )}
+        title="Select Mode"
+      >
+
+        <Folder className="w-3.5 h-3.5" />
+        <span className='text-sm'>Manager</span>
+      </button> */}
       <div
         ref={scrollRef}
         className={cn(
@@ -285,7 +269,7 @@ const HistoryList = observer(function HistoryList({
           variant === 'default' ? "mt-0" : "mt-2"
         )}
       >
-      
+
         <div className={cn(
           layoutMode === 'list'
             ? "flex flex-col gap-8 w-full mt-4 mx-auto"
@@ -482,6 +466,22 @@ const HistoryList = observer(function HistoryList({
                   <FolderPlus className="w-4 h-4" />
                   Add to Project
                 </Button>
+                <div className="w-[1px] h-4 bg-white/10" />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 rounded-full hover:bg-red-500/10 text-red-500 hover:text-red-400 gap-2"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete ${selectedIds.size} items?`)) {
+                      usePlaygroundStore.getState().deleteHistory(Array.from(selectedIds));
+                      setIsSelectionMode(false);
+                      clearSelection();
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </Button>
               </div>
             </motion.div>
           </>
@@ -613,8 +613,8 @@ function HistoryCard({
             {config?.presetName && (
               <span className="text-white text-md bg-[#b4cdbf22] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
             )}
-             <span className="text-white/40">{modelDisplayName}</span>
-           
+            <span className="text-white/80">{modelDisplayName}</span>
+
             <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
 
@@ -690,7 +690,7 @@ function HistoryCard({
                     {prompt}
                   </p>
 
-                
+
 
                   {result.sourceImageUrl && (
                     <div className="mt-3 group/ref relative w-fit">

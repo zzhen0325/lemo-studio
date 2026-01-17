@@ -25,7 +25,11 @@ export class HistoryService {
     const { page, limit, projectId, userId } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
-    console.log('query=======',query)
+
+    // 自动清理过期记录
+    await this.cleanupStaleGenerations();
+
+    console.log('query=======', query)
     try {
       const filter: Record<string, unknown> = {};
       if (projectId && projectId !== 'null' && projectId !== 'undefined') {
@@ -36,7 +40,7 @@ export class HistoryService {
       }
 
       const total = await this.generationModel.countDocuments(filter);
-      console.log('total=======',total)
+      console.log('total=======', total)
       const items = await this.generationModel
         .find(filter)
         .sort({ createdAt: -1 })
@@ -146,6 +150,41 @@ export class HistoryService {
       console.error('Failed to save history item:', error);
       if (error instanceof HttpError) throw error;
       throw new HttpError(500, 'Failed to save history item');
+    }
+  }
+
+  public async deleteHistory(ids: string[]): Promise<{ success: true }> {
+    try {
+      if (!Array.isArray(ids) || ids.length === 0) {
+        throw new HttpError(400, 'Invalid IDs');
+      }
+
+      const validIds = ids.filter((id) => isValidObjectId(id));
+      if (validIds.length === 0) {
+        throw new HttpError(400, 'No valid IDs provided');
+      }
+
+      await this.generationModel.deleteMany({ _id: { $in: validIds } });
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to delete history:', error);
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(500, 'Failed to delete history');
+    }
+  }
+
+  public async cleanupStaleGenerations(): Promise<void> {
+    try {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const result = await this.generationModel.deleteMany({
+        status: 'pending',
+        createdAt: { $lt: tenMinutesAgo }
+      });
+      if (result.deletedCount > 0) {
+        console.log(`[HistoryService] Cleaned up ${result.deletedCount} stale generation records.`);
+      }
+    } catch (error) {
+      console.error('[HistoryService] Failed to cleanup stale generations:', error);
     }
   }
 }

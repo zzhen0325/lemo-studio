@@ -1,5 +1,5 @@
 import { Inject } from '@gulux/gulux';
-import { Body, Controller, Get, Post, Query } from '@gulux/gulux/application-http';
+import { Body, Controller, Delete, Get, Post, Query } from '@gulux/gulux/application-http';
 import { HistoryService, HistoryQuery } from '../service/history.service';
 
 /**
@@ -20,5 +20,10 @@ export default class HistoryController {
   @Post()
   public async postHistory(@Body() body: any) {
     return this.service.saveHistory(body);
+  }
+
+  @Delete()
+  public async deleteHistory(@Body() body: { ids: string[] }) {
+    return this.service.deleteHistory(body.ids);
   }
 }

@@ -229,16 +229,14 @@ export class DoubaoVisionProvider implements TextProvider, VisionProvider {
 }
 
 export class GoogleGenAIProvider
-  implements TextProvider, VisionProvider, ImageProvider
-{
+  implements TextProvider, VisionProvider, ImageProvider {
   private apiKey: string;
   private modelId: string;
   private baseURL = "https://generativelanguage.googleapis.com/v1beta";
 
   constructor(config: ModelConfig) {
     console.log(
-      `[GoogleGenAIProvider] Initializing with model: ${
-        config.modelId
+      `[GoogleGenAIProvider] Initializing with model: ${config.modelId
       }, hasApiKey: ${!!config.apiKey}`
     );
 
@@ -413,9 +411,8 @@ export class GoogleGenAIProvider
 
       for (const part of resParts) {
         if (part.inlineData && part.inlineData.data) {
-          const dataUrl = `data:${
-            part.inlineData.mimeType || "image/png"
-          };base64,${part.inlineData.data}`;
+          const dataUrl = `data:${part.inlineData.mimeType || "image/png"
+            };base64,${part.inlineData.data}`;
           return { images: [dataUrl] };
         }
       }
@@ -461,9 +458,8 @@ export class BytedanceAfrProvider implements ImageProvider {
       sign,
     });
 
-    const url = `${
-      API_CONFIG.BASE_URL
-    }/media/api/pic/afr?${queryParams.toString()}`;
+    const url = `${API_CONFIG.BASE_URL
+      }/media/api/pic/afr?${queryParams.toString()}`;
 
     const isSeed42 = this.config.modelId === "seed4_2_lemo";
     const conf: Record<string, unknown> = {
@@ -529,8 +525,7 @@ export class BytedanceAfrProvider implements ImageProvider {
     if (!success) {
       console.error("==================", url, fetchOptions);
       throw new Error(
-        `ByteArtist Generation Failed: ${
-          data.message || data.algo_status_message
+        `ByteArtist Generation Failed: ${data.message || data.algo_status_message
         } `
       );
     }
@@ -585,11 +580,11 @@ export class CozeImageProvider implements ImageProvider {
       file_url?: string;
       file_id?: string;
     }> = [
-      {
-        type: "text",
-        text: `Prompt: ${prompt}\n\n[Parameters]\nwidth: ${w}\nheight: ${h}\naspect_ratio: ${ar}`,
-      },
-    ];
+        {
+          type: "text",
+          text: `Prompt: ${prompt}\n\n[Parameters]\nwidth: ${w}\nheight: ${h}\naspect_ratio: ${ar}`,
+        },
+      ];
 
     // If there are reference images, upload them and add file_id to content
     const refImages = images || (image ? [image] : []);
@@ -790,7 +785,7 @@ export class CozeImageProvider implements ImageProvider {
 
   private extractImagesFromContent(content: string): string[] {
     const generatedImages: string[] = [];
-    
+
     // 1. Match Coze short URLs - must end with a slash /
     // Use [a-zA-Z0-9_-] to avoid consuming "image:http..." as part of the path
     const cozeRegex = /https?:\/\/[st]\.coze\.cn\/t\/[a-zA-Z0-9_-]+\//gi;
@@ -830,7 +825,7 @@ export class CozeImageProvider implements ImageProvider {
             continue;
           }
         }
-        
+
         if (!generatedImages.includes(finalUrl)) {
           generatedImages.push(finalUrl);
         }

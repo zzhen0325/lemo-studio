@@ -40,6 +40,8 @@ function tryExtractImageUrlFromHtml(html: string): string | null {
   if (metaRefresh && /^https?:\/\//i.test(metaRefresh)) return metaRefresh;
   const direct = html.match(/https?:\/\/[^\s"'<>]+?\.(?:png|jpe?g|gif|webp)(?:\?[^\s"'<>]*)?(?:#[^\s"'<>]*)?/i)?.[0];
   if (direct) return direct;
+  const imgTag = html.match(/<img[^>]*src=["']([^"']+)["']/i)?.[1];
+  if (imgTag && /^https?:\/\//i.test(imgTag)) return imgTag;
   return null;
 }
 
@@ -72,7 +74,7 @@ async function fetchImageBuffer(url: string, depth = 0): Promise<{ buffer: Buffe
     }
   }
 
-  throw new Error(`Downloaded content is not an image: mime=${mime || 'unknown'} url=${url}`);
+  throw new Error(`Downloaded content is not an image: mime=${mime || 'unknown'} url=${url} body=${text.slice(0, 500)}`);
 }
 
 export async function POST(request: Request) {
@@ -87,20 +89,23 @@ export async function POST(request: Request) {
     const { imageBase64, subdir } = parsed.data;
     console.log('[API] /api/save-image request received:', { subdir, isUrl: imageBase64.startsWith('http') });
     let ext = normalizeExt(parsed.data.ext as ImageExt);
+    let inferredMime: string | undefined;
 
     let imageBuffer: Buffer;
     if (imageBase64.startsWith('http')) {
       console.log('[API] /api/save-image fetching URL:', imageBase64);
       const downloaded = await fetchImageBuffer(imageBase64);
       console.log('[API] /api/save-image downloaded size:', downloaded.buffer.length, 'mime:', downloaded.mime);
-      const inferred = getExtFromMime(downloaded.mime);
-      if (inferred) ext = inferred;
+      const inferredExt = getExtFromMime(downloaded.mime);
+      if (inferredExt) ext = inferredExt;
+      inferredMime = downloaded.mime;
       imageBuffer = downloaded.buffer;
     } else {
       console.log('[API] /api/save-image processing base64');
       const { base64, mime } = extractBase64(imageBase64);
-      const inferred = getExtFromMime(mime);
-      if (inferred) ext = inferred;
+      const inferredExt = getExtFromMime(mime);
+      if (inferredExt) ext = inferredExt;
+      inferredMime = mime;
       imageBuffer = Buffer.from(base64, 'base64');
       console.log('[API] /api/save-image base64 size:', imageBuffer.length, 'mime:', mime);
     }
@@ -110,8 +115,13 @@ export async function POST(request: Request) {
     const filename = `img_${stamp}_${rand}.${ext}`;
     const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/${subdir}`;
 
-    console.log('[API] /api/save-image uploading to CDN:', { filename, dir });
-    const cdnRes = await uploadBufferToCdn(imageBuffer, { fileName: filename, dir, region: 'SG' });
+    console.log('[API] /api/save-image uploading to CDN:', { filename, dir, inferredMime });
+    const cdnRes = await uploadBufferToCdn(imageBuffer, {
+      fileName: filename,
+      dir,
+      region: 'SG',
+      mimeType: inferredMime
+    });
     console.log('[API] /api/save-image upload success:', cdnRes.url);
     return NextResponse.json({ path: cdnRes.url });
   } catch (error) {

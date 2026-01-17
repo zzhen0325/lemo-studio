@@ -47,6 +47,7 @@ export class UploadService {
       fileName,
       dir: 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/upload',
       region: 'SG',
+      mimeType: file.type,
     });
 
     await this.imageAssetModel.create({

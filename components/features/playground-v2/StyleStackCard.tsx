@@ -3,11 +3,17 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { StyleStack } from './types';
-import { Plus, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Plus, Sparkles, Image as ImageIcon, Trash2, Edit3, Settings2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { cn } from '@/lib/utils';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface StyleStackCardProps {
     style: StyleStack;
@@ -20,7 +26,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     onClick,
     size = 'md'
 }) => {
-    const { applyPrompt, applyImage } = usePlaygroundStore();
+    const { applyPrompt, applyImage, deleteStyle } = usePlaygroundStore();
     const isSmall = size === 'sm';
     const isGridLg = size === 'grid-lg';
     const [isExpanded, setIsExpanded] = useState(false);
@@ -45,28 +51,68 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
             <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-2 z-[30] pointer-events-auto">
                 <Button
                     size="sm"
-                    className="rounded-full bg-neutral-900/80 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-white/30 gap-1.5 h-8 px-3 shadow-2xl transition-all active:scale-95"
+                    className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-purple-500/50 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
                     onClick={(e) => {
                         e.stopPropagation();
                         applyPrompt(style.prompt);
                     }}
                 >
-                    <Sparkles size={12} className="text-purple-400" />
-                    <span className="text-[10px] uppercase tracking-wider font-bold">Use Prompt</span>
+                    <Sparkles size={14} className="text-purple-400 group-hover/btn:animate-pulse" />
+                    <span className="text-[11px] uppercase tracking-wider font-bold">Use Prompt</span>
                 </Button>
                 {style.imagePaths.length > 0 && (
                     <Button
                         size="sm"
-                        className="rounded-full bg-neutral-900/80 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-white/30 gap-1.5 h-8 px-3 shadow-2xl transition-all active:scale-95"
+                        className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-blue-500/50 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
                         onClick={(e) => {
                             e.stopPropagation();
                             applyImage(style.imagePaths[0]);
                         }}
                     >
-                        <ImageIcon size={12} className="text-blue-400" />
-                        <span className="text-[10px] uppercase tracking-wider font-bold">Use Image</span>
+                        <ImageIcon size={14} className="text-blue-400 group-hover/btn:scale-110 transition-transform" />
+                        <span className="text-[11px] uppercase tracking-wider font-bold">Use Image</span>
                     </Button>
                 )}
+            </div>
+
+            {/* Management Menu */}
+            <div className="absolute top-4 right-4 z-[40] opacity-0 group-hover:opacity-100 transition-opacity">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-neutral-900/50 backdrop-blur-md border border-white/10 text-white/40 hover:text-white hover:bg-neutral-800"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Settings2 size={16} />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-32 bg-neutral-900/90 border-white/10 backdrop-blur-xl rounded-xl">
+                        <DropdownMenuItem
+                            className="gap-2 text-white/70 focus:text-white focus:bg-white/10 rounded-lg cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onClick?.(); // Open detail which serves as edit
+                            }}
+                        >
+                            <Edit3 size={14} />
+                            编辑
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="gap-2 text-red-400 focus:text-red-300 focus:bg-red-400/10 rounded-lg cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('确定要删除这个风格吗？')) {
+                                    deleteStyle(style.id);
+                                }
+                            }}
+                        >
+                            <Trash2 size={14} />
+                            删除
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             {/* Image Stack Container */}
@@ -86,8 +132,8 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                             )}
                             initial={false}
                             animate={{
-                                x: isExpanded 
-                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : isGridLg ? 110 : 160) 
+                                x: isExpanded
+                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : isGridLg ? 110 : 160)
                                     : (index - (displayImages.length - 1) / 2) * (isSmall ? 30 : isGridLg ? 35 : 50),
                                 y: isExpanded ? (isSmall ? -10 : -20) : index * -4,
                                 rotate: isExpanded ? (index - (displayImages.length - 1) / 2) * 10 : (index - (displayImages.length - 1) / 2) * 5,

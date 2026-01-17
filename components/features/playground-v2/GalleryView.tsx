@@ -2,9 +2,7 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
-import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, Filter, LayoutGrid, SlidersHorizontal, Trash2, LucideIcon } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sidebar, SidebarContent, SidebarHeader } from "@/components/ui/sidebar";
+import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, Layers } from "lucide-react";
 import GradualBlur from "@/components/GradualBlur";
 import ImagePreviewModal from './Dialogs/ImagePreviewModal';
 import ImageEditorModal from './Dialogs/ImageEditorModal';
@@ -21,7 +19,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import { Layers } from 'lucide-react';
+
 
 
 
@@ -36,6 +34,9 @@ export default function GalleryView() {
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
     const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
+    const galleryPage = usePlaygroundStore(s => s.galleryPage);
+    const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
+    const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
@@ -135,6 +136,25 @@ export default function GalleryView() {
         }
     }, [galleryItems.length, handleRefresh]);
 
+    const loadMoreRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMoreGallery && !isFetchingGallery) {
+                    fetchGallery(galleryPage + 1);
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (loadMoreRef.current) {
+            observer.observe(loadMoreRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, [hasMoreGallery, isFetchingGallery, galleryPage, fetchGallery]);
+
     const handleDownload = (e: React.MouseEvent, imageUrl: string, filename: string) => {
         e.stopPropagation();
         const link = document.createElement("a");
@@ -211,64 +231,64 @@ export default function GalleryView() {
 
     return (
         <div className="w-[90%] h-full mt-20 mx-auto  bg-transparent flex flex-col overflow-hidden">
-          
-                <div className="flex flex-row z-20 pb-4 bg-transparent shrink-0">
-                       {/* 搜索框 */}
-                   
-                </div>
 
-                
-                <div className="flex flex-1 overflow-hidden min-h-0">
-                  
+            <div className="flex flex-row z-20 pb-4 bg-transparent shrink-0">
+                {/* 搜索框 */}
 
-                    <div className=" w-full space-y-6 min-w-0 flex flex-col">
-                      
+            </div>
 
-                        {loading && sortedHistory.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-                                <div className="relative">
-                                    <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-                                    <div className="absolute inset-0 bg-gray-500/20 blur-xl animate-pulse rounded-full" />
-                                </div>
-                                <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
+
+            <div className="flex flex-1 overflow-hidden min-h-0">
+
+
+                <div className=" w-full min-w-0 flex flex-col flex-1 overflow-hidden">
+
+
+                    {loading && sortedHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+                            <div className="relative">
+                                <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                                <div className="absolute inset-0 bg-gray-500/20 blur-xl animate-pulse rounded-full" />
                             </div>
-                        ) : sortedHistory.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32">
-                                <div className="p-6 bg-white/5 rounded-full">
-                                    <Search className="w-12 h-12 text-white/20" />
-                                </div>
-                                <div className="text-center space-y-2">
-                                    <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
-                                    <p className="text-white/30">Your generated images will appear here once you start creating.</p>
-                                </div>
+                            <p className="text-white/40 font-medium animate-pulse tracking-wide">Syncing Archive...</p>
+                        </div>
+                    ) : sortedHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32">
+                            <div className="p-6 bg-white/5 rounded-full">
+                                <Search className="w-12 h-12 text-white/20" />
                             </div>
-                        ) : (
-                            <div className="flex flex-col space-y-1 ">
-
-                            
-                             <div className="relative group flex-1 h-12 w-full ">
-                        <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Search prompts..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery("")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        )}
+                            <div className="text-center space-y-2">
+                                <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
+                                <p className="text-white/30">Your generated images will appear here once you start creating.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col space-y-4 flex-1 overflow-hidden">
 
 
-                   
-                    </div>
+                            <div className="relative group shrink-0 h-12 w-full ">
+                                <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 transition-colors" />
+                                <input
+                                    type="text"
+                                    placeholder="Search prompts..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 transition-all"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => setSearchQuery("")}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+
+
+
+                            </div>
                             <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-3xl">
-                                
+
                                 <MasonryGrid
                                     items={sortedHistory}
                                     columnsCount={columnsCount}
@@ -281,109 +301,127 @@ export default function GalleryView() {
                                         />
                                     )}
                                 />
-                            </div>
 
-                            </div>
-                        )}
-                    </div>
-                      {/* Sidebar Filters - Only visible in full gallery mode */}
-                        <div className="w-48 flex-none  pb-2 pl-6 flex flex-col min-h-0">
-                            <div className="bg-white/5 border border-white/10 rounded-2xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
-                                <GradualBlur
-                                    target="parent"
-                                    position="top"
-                                    height="100px"
-                                    strength={6}
-                                    divCount={5}
-                                    curve="bezier"
-                                    exponential={true}
-                                    zIndex={10}
-                                    opacity={1}
-                                    borderRadius="1.5rem"
-                                    animate={{
-                                        type: 'scroll',
-                                        targetRef: scrollRef,
-                                        startOffset: 0,
-                                        endOffset: 80
-                                    }}
-                                />
-                                <div className="p-2 pt-4 flex flex-col gap-4 flex-1 min-h-0">
-                                    {/* Header */}
-                                    <div className="flex items-center px-2 justify-between z-20 shrink-0">
-                                        <span className="text-xl text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Filters</span>
-                                        {(selectedModels.length > 0 || selectedPresets.length > 0) && (
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedModels([]);
-                                                    setSelectedPresets([]);
-                                                }}
-                                                className="h-7 w-7 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                                                title="Clear Filters"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                                        <div className="flex flex-col gap-6">
-                                            {/* Models Section */}
-                                            {availableModels.length > 0 && (
-                                                <div className="space-y-2">
-                                                    <div className="text-sm  text-white/40  ">Models</div>
-                                                    <div className="space-y-1">
-                                                        {availableModels.map(model => (
-                                                            <FilterItem
-                                                                key={model}
-                                                                label={model}
-                                                                isSelected={selectedModels.includes(model)}
-                                                                onClick={() => toggleModel(model)}
-                                                                icon={Box}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Presets Section */}
-                                            {availablePresets.length > 0 && (
-                                                <div className="space-y-2">
-                                                    <div className="text-sm  text-white/40 ">Presets</div>
-                                                    <div className="space-y-1">
-                                                        {availablePresets.map(preset => (
-                                                            <FilterItem
-                                                                key={preset}
-                                                                label={preset}
-                                                                isSelected={selectedPresets.includes(preset)}
-                                                                onClick={() => togglePreset(preset)}
-                                                                icon={SlidersHorizontal}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                {/* Load More Indicator */}
+                                <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
+                                    {isFetchingGallery ? (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                            <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
                                         </div>
-                                    </div>
+                                    ) : hasMoreGallery ? (
+                                        <div className="h-4" />
+                                    ) : galleryItems.length > 0 && (
+                                        <div className="flex flex-col items-center gap-2 opacity-20">
+                                            <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
+                                            <span className="text-[10px] text-white font-mono uppercase tracking-widest">End of Gallery</span>
+                                            <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                        </div>
+                    )}
+                </div>
+                {/* Sidebar Filters - Only visible in full gallery mode */}
+                <div className="w-48 flex-none  pb-2 pl-6 flex flex-col min-h-0">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
+                        <GradualBlur
+                            target="parent"
+                            position="top"
+                            height="100px"
+                            strength={6}
+                            divCount={5}
+                            curve="bezier"
+                            exponential={true}
+                            zIndex={10}
+                            opacity={1}
+                            borderRadius="1.5rem"
+                            animate={{
+                                type: 'scroll',
+                                targetRef: scrollRef,
+                                startOffset: 0,
+                                endOffset: 80
+                            }}
+                        />
+                        <div className="p-2 pt-4 flex flex-col gap-4 flex-1 min-h-0">
+                            {/* Header */}
+                            <div className="flex items-center px-2 justify-between z-20 shrink-0">
+                                <span className="text-xl text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Filters</span>
+                                {(selectedModels.length > 0 || selectedPresets.length > 0) && (
+                                    <button
+                                        onClick={() => {
+                                            setSelectedModels([]);
+                                            setSelectedPresets([]);
+                                        }}
+                                        className="h-7 w-7 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                                        title="Clear Filters"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+
+                            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                                <div className="flex flex-col gap-6">
+                                    {/* Models Section */}
+                                    {availableModels.length > 0 && (
+                                        <div className="space-y-2">
+                                            <div className="text-sm  text-white/40  ">Models</div>
+                                            <div className="space-y-1">
+                                                {availableModels.map(model => (
+                                                    <FilterItem
+                                                        key={model}
+                                                        label={model}
+                                                        isSelected={selectedModels.includes(model)}
+                                                        onClick={() => toggleModel(model)}
+                                                        icon={Box}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Presets Section */}
+                                    {availablePresets.length > 0 && (
+                                        <div className="space-y-2">
+                                            <div className="text-sm  text-white/40 ">Presets</div>
+                                            <div className="space-y-1">
+                                                {availablePresets.map(preset => (
+                                                    <FilterItem
+                                                        key={preset}
+                                                        label={preset}
+                                                        isSelected={selectedPresets.includes(preset)}
+                                                        onClick={() => togglePreset(preset)}
+                                                        icon={SlidersHorizontal}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
+                    </div>
                 </div>
+            </div>
 
-                <ImagePreviewModal
-                    isOpen={!!selectedItem}
-                    onClose={() => setSelectedItem(null)}
-                    result={selectedItem || undefined}
-                    onEdit={handleEditImage}
-                />
+            <ImagePreviewModal
+                isOpen={!!selectedItem}
+                onClose={() => setSelectedItem(null)}
+                result={selectedItem || undefined}
+                onEdit={handleEditImage}
+            />
 
-                <ImageEditorModal
-                    isOpen={isEditorOpen}
-                    imageUrl={editingImageUrl}
-                    onClose={() => setIsEditorOpen(false)}
-                    onSave={handleSaveEditedImage}
-                    workflows={[]}
-                />
-            
+            <ImageEditorModal
+                isOpen={isEditorOpen}
+                imageUrl={editingImageUrl}
+                onClose={() => setIsEditorOpen(false)}
+                onSave={handleSaveEditedImage}
+                workflows={[]}
+            />
+
         </div >
     );
 }
@@ -471,7 +509,6 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
     const [isLoaded, setIsLoaded] = useState(false);
     const { ref, isInView } = useInView({ rootMargin: '200px' });
     const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
-    const applyModel = usePlaygroundStore(s => s.applyModel);
     const remix = usePlaygroundStore(s => s.remix);
     const applyImage = usePlaygroundStore(s => s.applyImage);
     const styles = usePlaygroundStore(s => s.styles);
@@ -520,6 +557,19 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         onLoad={() => setIsLoaded(true)}
                     />
 
+                )}
+
+                {/* Reference Image Thumbnail */}
+                {item.sourceImageUrl && (
+                    <div className="absolute top-3 left-3 z-10 w-12 h-12 rounded-lg border-2 border-white overflow-hidden shadow-xl transition-transform duration-300 group-hover:scale-110">
+                        <Image
+                            src={formatImageUrl(item.sourceImageUrl)}
+                            alt="Reference image"
+                            fill
+                            className="object-cover"
+                            sizes="48px"
+                        />
+                    </div>
                 )}
                 {/* 
                 <ProgressiveBlur

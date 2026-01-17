@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Model ${model} does not support image generation` }, { status: 400 });
         }
 
+        console.log(`[API] /api/ai/image request body options:`, JSON.stringify(body.options));
+        
         const params: ImageGenerationInput = {
             prompt: prompt ?? '',
             width,
@@ -33,9 +35,14 @@ export async function POST(req: NextRequest) {
             batchSize,
             aspectRatio,
             image,
-            options
+            options: {
+                 ...options,
+                 // Ensure stream is true for coze-image models if we are expecting a stream
+                 stream: options?.stream === true || model === 'coze_seed4'
+             }
         };
 
+        console.log(`[API] /api/ai/image params.options.stream:`, params.options?.stream);
         const result = await (providerInstance as unknown as ImageProvider).generateImage(params);
 
         if (result.stream) {
@@ -49,7 +56,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        console.log(`[API] /api/ai/image returning JSON response for model: ${model}`);
+        console.log(`[API] /api/ai/image returning JSON response for model: ${model}. result.stream is ${typeof result.stream}`);
         return NextResponse.json(result);
 
     } catch (error: unknown) {

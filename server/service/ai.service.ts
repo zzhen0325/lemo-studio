@@ -103,7 +103,11 @@ export class AiService {
       batchSize,
       aspectRatio,
       image,
-      options,
+      options: {
+        ...options,
+        // Ensure stream is true for coze-image models if we are expecting a stream
+        stream: options?.stream === true || model === 'coze_seed4'
+      },
     };
 
     const result = await (providerInstance as unknown as ImageProvider).generateImage(params);

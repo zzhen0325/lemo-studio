@@ -169,11 +169,14 @@ export function useGenerationService() {
             config: { ...item.config, ...result.config }
         } : item));
         saveHistoryToBackend(result);
+
+        // Also sync to Gallery if it's visible or being cached
+        usePlaygroundStore.getState().addGalleryItem(result);
     };
 
     const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-        
+
         // Calculate effective source URL preferring path (uploaded URL) over base64
         const firstImage = currentUploadedImages[0];
         const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : sourceImageUrl;
@@ -264,7 +267,7 @@ export function useGenerationService() {
             // Wait for a small delay to ensure all state updates and async tasks are settled
             await new Promise(resolve => setTimeout(resolve, 500));
             const finalItemInState = usePlaygroundStore.getState().generationHistory.find(h => h.id === taskId);
-            
+
             if (finalItemInState) {
                 const finalOutputUrl = lastSavedPath || finalItemInState.outputUrl;
                 if (!finalOutputUrl) {
@@ -276,7 +279,7 @@ export function useGenerationService() {
                     outputUrl: finalOutputUrl,
                     status: finalOutputUrl ? 'completed' : finalItemInState.status
                 } as Generation;
-                
+
                 console.log(`[useGenerationService] Finalizing Coze history with outputUrl: ${itemToSave.outputUrl}`);
                 saveHistoryToBackend(itemToSave);
             }

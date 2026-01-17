@@ -12,6 +12,7 @@ interface UploadOptions {
   dir?: string;
   region?: string;
   email?: string;
+  mimeType?: string;
 }
 
 interface UploadResult {
@@ -71,11 +72,18 @@ export async function uploadBufferToCdn(buffer: Buffer, opts: UploadOptions = {}
   form.set('region', region);
   form.set('fileName', fileName);
   form.set('email', email);
-  form.set('file', new File([buffer], fileName));
+  form.set('file', new File([buffer], fileName, { type: opts.mimeType || 'image/png' }));
 
   const resp = await postForm<{ fileName?: string; files?: string[]; cdnUrl?: string }>('/cdn/upload', form);
   const finalFileName = resp.fileName || resp.files?.[0] || fileName;
-  const finalUrl = resp.cdnUrl || buildUrl(dir, finalFileName);
+  let finalUrl = resp.cdnUrl;
+  if (finalUrl && !/^https?:\/\//i.test(finalUrl)) {
+    finalUrl = `https://${finalUrl.replace(/^\/\//, '')}`;
+  }
+
+  if (!finalUrl || !/^https?:\/\//i.test(finalUrl)) {
+    throw new Error(`[cdn] Invalid response: missing or malformed cdnUrl. resp=${JSON.stringify(resp)}`);
+  }
 
   console.log('[cdn-upload]', { dir, region, email, finalFileName, cdnUrl: finalUrl });
 

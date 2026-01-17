@@ -218,7 +218,7 @@ export default function ControlToolbar({
       <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
         <div className="flex justify-start items-center gap-2">
           <div className="flex items-center gap-2">
-            {variant !== 'mini' && selectedModel !== 'coze_seed4' && (
+            {variant !== 'mini' && (
               <Button
                 className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
                 onClick={onTogglePresetGrid}

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatImageUrl } from '@/lib/api-base';
@@ -14,14 +15,22 @@ export default function SimpleImagePreview({
     layoutId,
     onClose
 }: SimpleImagePreviewProps) {
-    return (
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) return null;
+
+    return createPortal(
         <AnimatePresence>
             {imageUrl && (
                 <motion.div
                     initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
                     animate={{ opacity: 1, backdropFilter: 'blur(12px)' }}
                     exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 cursor-zoom-out"
+                    className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 cursor-zoom-out"
                     onClick={onClose}
                 >
                     <motion.div
@@ -41,6 +50,7 @@ export default function SimpleImagePreview({
                     </motion.div>
                 </motion.div>
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
     );
 }

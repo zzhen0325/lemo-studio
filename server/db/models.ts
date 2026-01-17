@@ -152,8 +152,11 @@ export class PresetCategory {
 }
 
 @Database('default')
-@modelOptions({ schemaOptions: { timestamps: true } })
+@modelOptions({ schemaOptions: { timestamps: true, _id: false } })
 export class StyleStack {
+  @Prop({ required: true })
+  public _id!: string;
+
   @Prop({ required: true })
   public name!: string;
 
@@ -166,10 +169,7 @@ export class StyleStack {
   @Prop({ type: () => [String], default: [] })
   public previewUrls?: string[];
 
-  @Prop()
   public createdAt?: Date;
-
-  @Prop()
   public updatedAt?: Date;
 }
 
