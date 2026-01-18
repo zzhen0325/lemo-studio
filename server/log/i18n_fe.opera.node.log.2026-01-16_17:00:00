@@ -1,7 +1,0 @@
-INFO 2026-01-16 17:24:06,284 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.187.221 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
-WARN 2026-01-16 17:24:06,295 v1(7) node_modules/@artus/core/lib/scanner/task.js:30 10.75.187.221 i18n_fe.opera.node - default - - [scan->walk] /Users/bytedance/Desktop/seeseezz/gulux/Lemon8_ai_studio/server is not exists.
-WARN 2026-01-16 17:24:06,044 v1(7) node_modules/@gulux/application/lib/application.js:245 10.75.187.221 i18n_fe.opera.node - default - - [gulux] unload protocol plugin, just start the runtime, the process may exit directly
-INFO 2026-01-16 17:26:27,443 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.187.221 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
-INFO 2026-01-16 17:26:33,237 v1(7) server/node_modules/@gulux/application-http/lib/protocol_app.js:114 10.75.187.221 i18n_fe.opera.node - default - - [gulux] server started at port: 3000
-INFO 2026-01-16 17:27:56,504 v1(7) node_modules/@gulux/application/lib/application.js:166 10.75.187.221 i18n_fe.opera.node - default - - GuluX will use @gulux/gulux as default framework
-INFO 2026-01-16 17:28:02,932 v1(7) server/node_modules/@gulux/application-http/lib/protocol_app.js:114 10.75.187.221 i18n_fe.opera.node - default - - [gulux] server started at port: 3000
