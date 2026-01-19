@@ -8,13 +8,13 @@ import {
   Layers,
   Info,
   CheckCircle2,
-  Box,
   Hash
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import { UIComponent } from "@/types/features/mapping-editor";
+import { cn } from "@/lib/utils";
 
 interface RawWorkflowNode {
   inputs: Record<string, unknown>;
@@ -114,13 +114,15 @@ export function WorkflowAnalyzer({
 
   return (
     <div className="h-full flex flex-col gap-4">
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-2 text-white/40 text-[10px] uppercase tracking-widest font-bold">
-          <Box className="w-3 h-3" />
-          Workflow Nodes
+      <div className="flex items-center justify-between px-2 mb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-4 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+          <div className="flex items-center gap-2 text-white/90 text-[11px] uppercase tracking-[0.2em] font-black">
+            Workflow Nodes
+          </div>
         </div>
-        <Badge variant="secondary" className="bg-white/5 text-white/20 border-0 font-mono text-[10px]">
-          {parsedNodes.length} Nodes
+        <Badge variant="secondary" className="bg-white/5 text-zinc-500 border border-white/5 font-mono text-[10px] px-2 py-0.5 rounded-lg">
+          {parsedNodes.length} ACTIVE_UNITS
         </Badge>
       </div>
 
@@ -141,19 +143,21 @@ export function WorkflowAnalyzer({
                 <motion.div
                   key={node.id}
                   layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.02 }}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.01 }}
                   onClick={() => handleNodeClick(node.id)}
                   className="cursor-pointer group"
                 >
                   <Card
-                    className={`transition-all duration-300 border-white/5 bg-white/[0.01] hover:bg-white/[0.03] overflow-hidden relative ${isSelected
-                      ? 'border-white/20 bg-white/5 shadow-2xl ring-1 ring-white/10'
-                      : isMapped
-                        ? 'border-emerald-500/20 bg-emerald-500/[0.02]'
-                        : ''
-                      }`}
+                    className={cn(
+                      "transition-all duration-500 border-white/5 bg-white/[0.01] hover:bg-white/[0.03] overflow-hidden relative rounded-2xl",
+                      isSelected
+                        ? "border-primary/30 bg-primary/[0.03] shadow-[0_0_30px_rgba(59,130,246,0.1)] ring-1 ring-primary/20"
+                        : isMapped
+                          ? "border-emerald-500/20 bg-emerald-500/[0.02]"
+                          : ""
+                    )}
                   >
                     <CardContent className="p-4">
                       <div className="flex flex-col gap-3">
@@ -214,21 +218,26 @@ export function WorkflowAnalyzer({
                               return (
                                 <div
                                   key={key}
-                                  className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-all ${isParamSelected
-                                    ? 'bg-white/10 text-white font-medium border border-white/10'
-                                    : 'text-white/40 hover:bg-white/5 hover:text-white/60'
-                                    } ${isMapped ? 'bg-emerald-500/[0.03] text-emerald-400 border-white/0' : ''}`}
+                                  className={cn(
+                                    "flex items-center justify-between p-2.5 rounded-xl text-[11px] cursor-pointer transition-all duration-300 border",
+                                    isParamSelected
+                                      ? "bg-primary/10 text-white font-bold border-primary/20 shadow-inner"
+                                      : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300 border-transparent",
+                                    isMapped && !isParamSelected && "bg-emerald-500/[0.03] text-emerald-400 border-emerald-500/10"
+                                  )}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onParameterSelect?.(node.id, key);
                                   }}
                                 >
-                                  <div className="flex items-center gap-2 overflow-hidden">
+                                  <div className="flex items-center gap-2.5 overflow-hidden">
                                     {isMapped && <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
                                     <span className="truncate" title={key}>{key}</span>
                                   </div>
-                                  <Badge variant="outline" className={`text-[9px] px-1.5 h-4 border-white/5 font-mono ${isConnection ? 'text-amber-500/50 border-amber-500/10' : 'text-white/20'
-                                    }`}>
+                                  <Badge variant="outline" className={cn(
+                                    "text-[9px] px-1.5 h-4 border-white/5 font-mono tracking-tighter",
+                                    isConnection ? "text-amber-500/50 border-amber-500/10" : "text-zinc-600"
+                                  )}>
                                     {isConnection ? 'LINK' : valueType.toUpperCase()}
                                   </Badge>
                                 </div>

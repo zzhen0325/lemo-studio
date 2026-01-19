@@ -5,14 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Upload,
   Save,
   Layers,
-  Plus
+  Plus,
+  Search,
+  Workflow,
+  ChevronLeft
 } from "lucide-react";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { MappingConfig, UIComponent } from "@/types/features/mapping-editor";
 import { WorkflowApiJSON } from "@/lib/workflow-api-parser";
@@ -20,10 +23,19 @@ import { localStorageManager } from "@/lib/local-storage-manager";
 import { WorkflowAnalyzer } from "@/components/features/mapping-editor/workflow-analyzer";
 import { ParameterMappingPanel } from "@/components/features/mapping-editor/parameter-mapping-panel";
 import { NodeConfigurationDialog } from "@/components/features/mapping-editor/node-configuration-dialog";
-import { MappingList } from "@/components/features/mapping-editor/mapping-list";
 import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import { getApiBase } from "@/lib/api-base";
+import { cn } from "@/lib/utils";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { SidebarContent } from "@/components/ui/sidebar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 
 interface LocalEditorState {
@@ -51,6 +63,12 @@ export function MappingEditorPage() {
   const [isWorkflowSelectorOpen, setIsWorkflowSelectorOpen] = useState(false);
   const [isNodeDialogOpen, setIsNodeDialogOpen] = useState(false);
   const [workflows, setWorkflows] = useState<IViewComfy[]>([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredWorkflows = workflows.filter(wf =>
+    wf.viewComfyJSON.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const fetchWorkflows = useCallback(async () => {
     try {
@@ -432,169 +450,289 @@ export function MappingEditorPage() {
 
   if (editorState.isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-[#030303]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">加载中...</p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+          />
+          <p className="text-white/40 text-sm font-medium tracking-widest uppercase">加载中</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className=" w-full max-w-8xl   mx-auto p-6 space-y-6 h-full mt-20 overflow-y-auto">
-      {/* 页面标题和操作栏 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">ViewComfy</h1>
-
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSaveConfig}
-            disabled={!editorState.currentConfig || !editorState.isDirty}
-          >
-            <Save className="w-4 h-4 mr-2" />
-            保存配置
-          </Button>
-
-
-
-
-
-        </div>
-      </div>
-
-      {/* Workflow Tabs */}
-      <div className="w-full overflow-x-auto pb-2">
-        <Tabs
-          value={editorState.currentConfig?.title || "default"}
-          onValueChange={(val) => {
-            if (val === "default") {
-              // Clear selection
-              setEditorState(prev => ({ ...prev, currentConfig: null }));
-            } else {
-              const wf = workflows.find(w => w.viewComfyJSON.title === val);
-              if (wf) handleSelectWorkflow(wf);
-            }
-          }}
-          className="w-full"
+    <div className="flex h-full w-full bg-black/10 text-white overflow-hidden selection:bg-primary/30">
+      <TooltipProvider>
+        {/* Sidebar */}
+        <motion.aside
+          initial={false}
+          animate={{ width: sidebarCollapsed ? 64 : 260 }}
+          className={cn(
+            "relative flex flex-col border-r border-white/5 bg-black/0 transition-all duration-300 ease-in-out z-30",
+            sidebarCollapsed && "items-center"
+          )}
         >
-          <TabsList className="w-full justify-start h-auto flex-wrap gap-2 bg-transparent p-0">
-            <TabsTrigger
-              value="default"
-              className="rounded-full bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border border-transparent px-4 py-2"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              新建/上传
-            </TabsTrigger>
-            {workflows.map(wf => (
-              <TabsTrigger
-                key={wf.viewComfyJSON.id}
-                value={wf.viewComfyJSON.title}
-                className="rounded-full bg-muted/50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border border-transparent px-4 py-2"
+          <div className="p-4 flex items-center justify-between border-b border-white/5 h-16">
+            {!sidebarCollapsed && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2"
               >
-                {wf.viewComfyJSON.title || "Untitled Workflow"}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {/* 工作流上传区域 */}
-      {!editorState.currentConfig && (
-        <Card className="bg-white/5 border border-white/10 w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" />
-              上传 ComfyUI 工作流
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="config-title">配置标题</Label>
-              <Input
-                id="config-title"
-                placeholder="输入配置标题..."
-                value={configTitle}
-                onChange={(e) => setConfigTitle(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="workflow-file">工作流文件 (JSON)</Label>
-              <Input
-                id="workflow-file"
-                type="file"
-                accept=".json"
-                onChange={handleWorkflowUpload}
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="h-px bg-border flex-1" />
-              <span className="text-xs text-muted-foreground uppercase">或者</span>
-              <div className="h-px bg-border flex-1" />
-            </div>
-
-            <Button variant="outline" className="w-full" onClick={() => setIsWorkflowSelectorOpen(true)}>
-              <Layers className="w-4 h-4 mr-2" />
-              从服务器加载现有工作流
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Workflow className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="font-bold tracking-tight text-sm uppercase text-white/60">Library</span>
+              </motion.div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="h-8 w-8 text-white/20 hover:text-white hover:bg-white/5 rounded-lg"
+            >
+              <ChevronLeft className={cn("w-4 h-4 transition-transform duration-300", sidebarCollapsed && "rotate-180")} />
             </Button>
-
-            <div className="text-sm text-muted-foreground">
-              <p>请上传从 ComfyUI 导出的工作流 JSON 文件。</p>
-              <p>文件应包含完整的节点定义和参数信息。</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 主编辑区域 */}
-      {editorState.currentConfig && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-          <div className="lg:col-span-2 h-full flex flex-col overflow-hidden gap-4">
-            <MappingList
-              components={editorState.currentConfig.uiConfig.components}
-              onEdit={(index: number) => {
-                setEditorState(prev => ({
-                  ...prev,
-                  editingComponentIndex: index,
-                  selectedParameter: null, // Clear selected parameter to focus on editing
-                  selectedNode: null
-                }));
-              }}
-              onDelete={handleComponentDelete}
-            />
-            <WorkflowAnalyzer
-              workflowApiJSON={editorState.currentConfig.workflowApiJSON}
-              onNodeSelect={handleNodeSelect}
-              onParameterSelect={handleParameterSelect}
-              selectedNode={editorState.selectedNode}
-              selectedParameter={editorState.selectedParameter}
-              existingComponents={editorState.currentConfig.uiConfig.components}
-            />
           </div>
 
-          <div className="lg:col-span-1 h-full overflow-y-auto">
-            <ParameterMappingPanel
-              workflowApiJSON={editorState.currentConfig.workflowApiJSON}
-              selectedNode={editorState.selectedNode}
-              selectedParameter={editorState.selectedParameter}
-              existingComponents={editorState.currentConfig.uiConfig.components}
-              onComponentCreate={handleComponentCreate}
-              onComponentUpdate={handleComponentUpdate}
-              onComponentDelete={handleComponentDelete}
-              onParameterSelect={handleParameterSelect}
-              editingComponentIndex={editorState.editingComponentIndex}
-              onCancelEdit={() => setEditorState(prev => ({ ...prev, editingComponentIndex: null }))}
-            />
+          <SidebarContent className="flex-1 flex flex-col gap-4 p-3 overflow-hidden">
+            {!sidebarCollapsed && (
+              <div className="px-1">
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-primary/50 transition-colors" />
+                  <Input
+                    placeholder="搜索工作流..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 bg-white/[0.03] border-white/5 h-9 text-xs rounded-xl focus:ring-1 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+              </div>
+            )}
+
+            <ScrollArea className="flex-1 -mx-3 px-3">
+              <div className="space-y-1">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start h-10 px-3 rounded-xl transition-all duration-200",
+                    !editorState.currentConfig ? "bg-primary/10 text-primary border border-primary/10" : "text-white/40 hover:bg-white/5 hover:text-white"
+                  )}
+                  onClick={() => setEditorState(prev => ({ ...prev, currentConfig: null }))}
+                >
+                  <Plus className={cn("w-4 h-4", !sidebarCollapsed && "mr-3")} />
+                  {!sidebarCollapsed && <span className="text-sm font-medium">新建配置</span>}
+                </Button>
+
+                <div className="my-4 px-3 flex items-center gap-2">
+                  <Separator className="flex-1 bg-white/5" />
+                  {!sidebarCollapsed && <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">最近的工作流</span>}
+                  <Separator className="flex-1 bg-white/5" />
+                </div>
+
+                {filteredWorkflows.map((wf) => {
+                  const isActive = editorState.currentConfig?.title === wf.viewComfyJSON.title;
+                  return (
+                    <Button
+                      key={wf.viewComfyJSON.id}
+                      variant="ghost"
+                      className={cn(
+                        "w-full justify-start h-11 px-3 rounded-xl transition-all duration-200 group relative",
+                        isActive ? "bg-white/5 text-white border border-white/10 shadow-lg" : "text-white/40 hover:bg-white/[0.03] hover:text-white"
+                      )}
+                      onClick={() => handleSelectWorkflow(wf)}
+                    >
+                      <Layers className={cn("w-4 h-4", !sidebarCollapsed && "mr-3", isActive ? "text-primary" : "text-white/20")} />
+                      {!sidebarCollapsed && (
+                        <div className="flex flex-col items-start overflow-hidden">
+                          <span className="text-sm font-medium truncate w-full">{wf.viewComfyJSON.title || "未命名工作流"}</span>
+                          {isActive && <motion.div layoutId="active-indicator" className="absolute left-0 w-1 h-5 bg-primary rounded-full" />}
+                        </div>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </SidebarContent>
+        </motion.aside>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-white/[0.01]">
+          <main className="flex-1 flex flex-col relative overflow-hidden z-10">
+            {/* Header */}
+            <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-white/[0.02] backdrop-blur-sm z-20">
+              <div className="flex items-center gap-4">
+                {editorState.currentConfig ? (
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col">
+                      <h2 className="text-sm font-bold tracking-tight text-white/90 leading-none mb-1">
+                        {editorState.currentConfig.title}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-tighter">Workflow Module</span>
+                        {editorState.isDirty && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-[10px] text-amber-500/80 font-bold uppercase tracking-widest">Unsaved</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Module Ready</h2>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveConfig}
+                  disabled={!editorState.currentConfig || !editorState.isDirty}
+                  className="h-9 px-5 bg-primary/10 border-primary/20 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-widest transition-all rounded-xl gap-2 disabled:opacity-30 disabled:bg-white/5 disabled:border-white/5 disabled:text-zinc-600"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Sync Changes
+                </Button>
+              </div>
+            </header>
+
+          <div className="flex-1 overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              {!editorState.currentConfig ? (
+                <motion.div
+                  key="empty-state"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  className="absolute inset-0 flex items-center justify-center p-12"
+                >
+                  <Card className="max-w-2xl w-full bg-white/[0.01] border-white/5 backdrop-blur-3xl shadow-2xl rounded-[2.5rem] overflow-hidden relative group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                    <CardHeader className="text-center pt-16 pb-8 relative">
+                      <div className="w-24 h-24 rounded-[2rem] bg-primary/5 border border-primary/10 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_60px_rgba(59,130,246,0.2)] transition-all duration-700">
+                        <Upload className="w-10 h-10 text-primary animate-pulse" />
+                      </div>
+                      <CardTitle className="text-3xl font-bold tracking-tight mb-3 text-white">Initialize Workflow</CardTitle>
+                      <p className="text-zinc-500 text-sm max-w-sm mx-auto leading-relaxed">
+                        Deploy a ComfyUI API definition or select from your neural library to begin parameter synthesis.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="px-16 pb-16 space-y-8 relative">
+                      <div className="grid gap-6">
+                        <div className="space-y-3">
+                          <Label className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] px-1">Deployment Name</Label>
+                          <Input
+                            placeholder="Enter a distinctive title..."
+                            value={configTitle}
+                            onChange={(e) => setConfigTitle(e.target.value)}
+                            className="bg-white/[0.02] border-white/5 h-14 rounded-2xl focus:ring-1 focus:ring-primary/20 transition-all px-5 text-sm"
+                          />
+                        </div>
+                        <div className="relative group/upload">
+                          <Input
+                            type="file"
+                            accept=".json"
+                            onChange={handleWorkflowUpload}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          />
+                          <div className="border-2 border-dashed border-white/5 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 bg-white/[0.01] group-hover/upload:bg-primary/[0.03] group-hover/upload:border-primary/30 transition-all duration-500">
+                            <Plus className="w-8 h-8 text-zinc-700 group-hover/upload:text-primary group-hover/upload:scale-110 transition-all duration-500" />
+                            <div className="text-center">
+                                <span className="text-xs font-bold text-zinc-500 group-hover/upload:text-zinc-300 block mb-1">Upload JSON Definition</span>
+                                <span className="text-[10px] text-zinc-700">API format exported from ComfyUI</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 py-2">
+                        <Separator className="flex-1 bg-white/5" />
+                        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em]">OR</span>
+                        <Separator className="flex-1 bg-white/5" />
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        className="w-full h-16 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] transition-all gap-3 shadow-inner"
+                        onClick={() => setIsWorkflowSelectorOpen(true)}
+                      >
+                        <Layers className="w-4 h-4 text-primary" />
+                        Load from Neural Library
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="editor-state"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="h-full"
+                >
+                  <ResizablePanelGroup
+                    direction="horizontal"
+                    className="h-full"
+                  >
+                    <ResizablePanel defaultSize={65} minSize={40}>
+                      <div className="h-full flex flex-col p-6 gap-6">
+                        <div className="flex-1 flex flex-col overflow-hidden bg-white/[0.01] border border-white/5 rounded-3xl p-6 backdrop-blur-md">
+                           <WorkflowAnalyzer
+                            workflowApiJSON={editorState.currentConfig.workflowApiJSON}
+                            onNodeSelect={handleNodeSelect}
+                            onParameterSelect={handleParameterSelect}
+                            selectedNode={editorState.selectedNode}
+                            selectedParameter={editorState.selectedParameter}
+                            existingComponents={editorState.currentConfig.uiConfig.components}
+                          />
+                        </div>
+                      </div>
+                    </ResizablePanel>
+
+                    <ResizableHandle withHandle />
+
+                    <ResizablePanel defaultSize={35} minSize={25}>
+                      <div className="h-full p-6 pl-0">
+                        <div className="h-full bg-white/[0.01] border border-white/5 rounded-3xl p-6 backdrop-blur-md overflow-y-auto">
+                          <ParameterMappingPanel
+                            workflowApiJSON={editorState.currentConfig.workflowApiJSON}
+                            selectedNode={editorState.selectedNode}
+                            selectedParameter={editorState.selectedParameter}
+                            existingComponents={editorState.currentConfig.uiConfig.components}
+                            onComponentCreate={handleComponentCreate}
+                            onComponentUpdate={handleComponentUpdate}
+                            onComponentDelete={handleComponentDelete}
+                            onParameterSelect={handleParameterSelect}
+                            editingComponentIndex={editorState.editingComponentIndex}
+                            onCancelEdit={() => setEditorState(prev => ({ ...prev, editingComponentIndex: null }))}
+                            onEdit={(index: number) => {
+                              setEditorState(prev => ({
+                                ...prev,
+                                editingComponentIndex: index,
+                                selectedParameter: null,
+                                selectedNode: null
+                              }));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </div>
-      )}
+        </main>
+      </div>
+    </TooltipProvider>
 
       <WorkflowSelectorDialog
         open={isWorkflowSelectorOpen}

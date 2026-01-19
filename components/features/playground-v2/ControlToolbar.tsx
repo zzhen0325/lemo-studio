@@ -3,7 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ChevronDown, Link, Unlink, Plus, Minus } from "lucide-react";
+import { Loader2, ChevronDown, Link, Unlink, Plus, Minus, X } from "lucide-react";
 import Image from "next/image";
 
 
@@ -169,13 +169,6 @@ export default function ControlToolbar({
   //   { name: 'qwen', cover: '/basemodels/qwen.jpg' },
   // ];
 
-  const handleBaseModelSelect = (modelName: string) => {
-    onModelChange('Workflow');
-    onConfigChange?.({ model: modelName });
-    onSelectorExpandedChange?.(false);
-  };
-
-
   const ModelDropdown = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -223,12 +216,28 @@ export default function ControlToolbar({
           <div className="flex items-center gap-2">
             {variant !== 'edit' && (
               <Button
-                className={cn(Inputbutton2, isPresetGridOpen && "bg-white/10")}
+                className={cn(
+                  Inputbutton2,
+                  isPresetGridOpen && "bg-white/10",
+                  selectedPresetName && "bg-primary/20 text-primary border-primary/20"
+                )}
                 onClick={onTogglePresetGrid}
               >
 
                 {selectedPresetName ? selectedPresetName : 'Presets'}
-                <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
+                {selectedPresetName ? (
+                  <div
+                    className=" p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClearPreset?.();
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5 opacity-60 hover:opacity-100" />
+                  </div>
+                ) : (
+                  <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isPresetGridOpen && "rotate-180")} />
+                )}
               </Button>
             )}
             <ModelDropdown />

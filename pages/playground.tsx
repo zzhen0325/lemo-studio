@@ -922,7 +922,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setBatchSize,
     setIsLoraDialogOpen,
     setIsPresetGridOpen,
-    onClearPreset: () => setSelectedPresetName(undefined),
+    onClearPreset: () => {
+      setSelectedPresetName(undefined);
+      setSelectedModel("");
+      setSelectedWorkflowConfig(undefined);
+    },
     setIsDescribeMode: (val: boolean) => {
       if (val) {
         setViewMode('dock');

@@ -117,8 +117,8 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
 
             {/* Image Stack Container */}
             <div className={cn(
-                "relative w-full flex items-center justify-center perspective-1000",
-                isSmall ? "h-[140px]" : "h-[200px]",
+                "relative w-full flex items-center justify-center perspective-1000 transition-all duration-300",
+                isSmall ? "h-[140px] [@media(max-height:850px)]:h-[100px] [@media(max-height:750px)]:h-[80px]" : "h-[200px]",
                 isGridLg && "h-[220px]"
             )}>
                 {hasImages ? (
@@ -126,14 +126,14 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                         <motion.div
                             key={path}
                             className={cn(
-                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900 shadow-xl",
-                                isSmall ? "w-28 h-[140px]" : "w-40 h-[200px]",
+                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900 shadow-xl transition-all duration-300",
+                                isSmall ? "w-28 h-[140px] [@media(max-height:850px)]:h-[100px] [@media(max-height:850px)]:w-20 [@media(max-height:750px)]:h-[80px] [@media(max-height:750px)]:w-16" : "w-40 h-[200px]",
                                 isGridLg && "w-[180px] h-[220px]"
                             )}
                             initial={false}
                             animate={{
                                 x: isExpanded
-                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : isGridLg ? 110 : 160)
+                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? (isExpanded ? 100 : 30) : isGridLg ? 110 : 160)
                                     : (index - (displayImages.length - 1) / 2) * (isSmall ? 30 : isGridLg ? 35 : 50),
                                 y: isExpanded ? (isSmall ? -10 : -20) : index * -4,
                                 rotate: isExpanded ? (index - (displayImages.length - 1) / 2) * 10 : (index - (displayImages.length - 1) / 2) * 5,
@@ -152,12 +152,12 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                     ))
                 ) : (
                     <div className={cn(
-                        "rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 text-white/40 bg-white/5",
-                        isSmall ? "w-28 h-28" : "w-40 h-40",
+                        "rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 text-white/40 bg-white/5 transition-all duration-300",
+                        isSmall ? "w-28 h-28 [@media(max-height:850px)]:w-20 [@media(max-height:850px)]:h-20 [@media(max-height:750px)]:w-16 [@media(max-height:750px)]:h-16" : "w-40 h-40",
                         isGridLg && "w-[180px] h-[220px]"
                     )}>
                         <Plus size={isSmall ? 18 : 24} />
-                        <span className="text-xs">暂无图片</span>
+                        <span className="text-xs [@media(max-height:850px)]:hidden">暂无图片</span>
                     </div>
                 )}
 
@@ -168,13 +168,13 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
             <div className="flex flex-col gap-1">
                 <div className="flex flex-col items-center justify-center">
                     <h3 className={cn(
-                        "font-semibold text-white truncate w-full text-center",
-                        isSmall ? "text-base" : "text-lg",
+                        "font-semibold text-white truncate w-full text-center transition-all duration-300",
+                        isSmall ? "text-base [@media(max-height:850px)]:text-sm" : "text-lg",
                         isGridLg && "text-xl mt-2"
                     )}>{style.name}</h3>
                     <p className={cn(
-                        "text-white/50 line-clamp-2 w-full text-center",
-                        isSmall ? "text-[10px] min-h-[1.5rem]" : "text-sm min-h-[2.5rem]"
+                        "text-white/50 line-clamp-2 w-full text-center transition-all duration-300",
+                        isSmall ? "text-[10px] min-h-[1.5rem] [@media(max-height:850px)]:hidden" : "text-sm min-h-[2.5rem]"
                     )}>
                         {style.prompt || "未设置提示词"}
                     </p>

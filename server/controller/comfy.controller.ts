@@ -1,6 +1,7 @@
 import { Inject } from '@gulux/gulux';
 import { Body, Controller, Header, Post, Res, Files } from '@gulux/gulux/application-http';
 import type { HTTPResponse } from '@gulux/gulux/application-http';
+import { Readable } from 'node:stream';
 import { ComfyService } from '../service/comfy.service';
 import { buildFormDataLike } from '../utils/formdata';
 
@@ -18,7 +19,7 @@ export default class ComfyController {
   @Post()
   public async postComfy(
     @Body() body: Record<string, unknown>,
-    @Files() files: Record<string, any>,
+    @Files() files: Record<string, unknown>,
     @Header('x-tt-logid') logIdHeader?: string,
     @Header('X-TT-LOGID') logIdHeaderUpper?: string,
     @Res() res?: HTTPResponse,
@@ -30,7 +31,9 @@ export default class ComfyController {
     if (res) {
       res.set('Content-Type', 'application/octet-stream');
       res.set('Content-Disposition', 'attachment; filename="generated_images.bin"');
-      res.body = stream;
+      // @ts-expect-error Readable.fromWeb might not be in the current TS types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      res.body = Readable.fromWeb(stream as any);
       return;
     }
     return stream;

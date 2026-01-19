@@ -24,6 +24,7 @@ import {
   ComponentType,
 } from "@/types/features/mapping-editor";
 import { WorkflowApiJSON } from "@/lib/workflow-api-parser";
+import { MappingList } from "./mapping-list";
 
 interface ParameterMappingPanelProps {
   workflowApiJSON: WorkflowApiJSON;
@@ -36,6 +37,7 @@ interface ParameterMappingPanelProps {
   onParameterSelect?: (nodeId: string, parameterKey: string) => void;
   editingComponentIndex?: number | null;
   onCancelEdit?: () => void;
+  onEdit?: (index: number) => void;
 }
 
 const PLAYGROUND_TARGETS = [
@@ -55,6 +57,8 @@ export function ParameterMappingPanel({
   existingComponents,
   onComponentCreate,
   onComponentUpdate,
+  onComponentDelete,
+  onEdit,
   editingComponentIndex,
   onCancelEdit
 }: ParameterMappingPanelProps) {
@@ -310,6 +314,20 @@ export function ParameterMappingPanel({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {existingComponents.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <MappingList
+            components={existingComponents}
+            onEdit={(index) => onEdit?.(index)}
+            onDelete={(index) => onComponentDelete?.(index)}
+          />
+        </motion.div>
+      )}
     </div>
   );
 }

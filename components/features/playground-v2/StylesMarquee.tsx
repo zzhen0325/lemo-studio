@@ -3,12 +3,13 @@
 import React, { useEffect } from 'react';
 import { StyleStackCard } from './StyleStackCard';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { cn } from '@/lib/utils';
 
 interface StylesMarqueeProps {
     className?: string;
 }
 
-export const StylesMarquee: React.FC<StylesMarqueeProps> = () => {
+export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className }) => {
     const styles = usePlaygroundStore(s => s.styles);
     const initStyles = usePlaygroundStore(s => s.initStyles);
 
@@ -26,7 +27,11 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = () => {
 
     return (
         <div
-            className="relative w-full overflow-hidden py-[4vw] select-none pointer-events-auto group/marquee [&_h3]:!text-black/80 [&_p]:!text-black/40"
+            className={cn(
+                "relative w-full overflow-hidden select-none pointer-events-auto group/marquee [&_h3]:!text-black/80 [&_p]:!text-black/40",
+                "py-[4vw] [@media(max-height:900px)]:py-[2vw] [@media(max-height:750px)]:py-4 [@media(max-height:650px)]:hidden",
+                className
+            )}
         >
             <style>
                 {`
@@ -43,7 +48,13 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = () => {
                 }}
             >
                 {duplicatedStyles.map((style, idx) => (
-                    <div key={`${style.id}-${idx}`} className="w-[14vw]  text-black shrink-0">
+                    <div 
+                        key={`${style.id}-${idx}`} 
+                        className={cn(
+                            "w-[14vw] text-black shrink-0 transition-all duration-300",
+                            "[@media(max-height:900px)]:w-[12vw] [@media(max-height:750px)]:w-[10vw] min-w-[140px]"
+                        )}
+                    >
                         <StyleStackCard
                             style={style}
                             size="sm"

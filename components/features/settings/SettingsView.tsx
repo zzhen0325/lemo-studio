@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Settings as SettingsIcon,
-    SquareTerminal,
     ChevronRight,
     ChevronDown,
     Key,
@@ -15,10 +14,11 @@ import {
     RefreshCw,
     Image as ImageIcon,
     Wand2,
-    Eye
+    Eye,
+    Box
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/common/use-toast";
 import MappingEditorPage from "@/pages/mapping-editor-page";
+import { AuroraBackground } from "@/components/ui/aurora-background";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { APIProviderConfig, ServiceType, SERVICE_METADATA } from "@/lib/api-config/types";
@@ -165,28 +168,41 @@ export function SettingsView() {
     };
 
     const sidebarItems = [
-        { id: SettingsTab.Providers, label: "API Providers", description: "管理模型服务商配置", icon: Key },
-        { id: SettingsTab.Services, label: "服务配置", description: "各功能的模型绑定和提示词", icon: SettingsIcon },
-        { id: SettingsTab.MappingEditor, label: "Mapping Editor", description: "节点映射配置", icon: SquareTerminal },
+        { 
+            id: SettingsTab.Providers, 
+            label: "Model Providers", 
+            icon: Key, 
+            description: "Manage API keys and neural endpoints" 
+        },
+        { 
+            id: SettingsTab.Services, 
+            label: "System Services", 
+            icon: Sparkles, 
+            description: "Configure core AI engines and prompts" 
+        },
+        { 
+            id: SettingsTab.MappingEditor, 
+            label: "Workflow Mapper", 
+            icon: Box, 
+            description: "Synthesize parameter interfaces" 
+        },
     ];
 
     // 服务列表
     const serviceList: ServiceType[] = ['imageGeneration', 'describe', 'optimize', 'translate'];
 
     return (
-        <div className="flex h-full pt-20 w-full overflow-hidden text-zinc-100"
-            style={{
-                background: "linear-gradient(180deg, #131718 0%, #1079BB 150%)",
+        <div className="flex h-full w-full  pt-20 overflow-hidden text-zinc-100 relative"
+         style={{
+                background: "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 75%, #D8C6B8 100%)",
             }}>
+         
+            
             {/* Sidebar */}
-            <aside className="w-72 flex flex-col bg-black/0">
-                <div className="p-6 pb-4">
-                    <h2 className="text-sm font-bold text-white/90 uppercase tracking-widest flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Settings
-                    </h2>
-                </div>
-                <div className="px-3 flex-1 overflow-y-auto space-y-1">
+            <aside className="w-72 flex flex-col bg-black/40 backdrop-blur-xl border-r border-white/5 z-10">
+                
+                
+                <div className="px-4 flex-1 overflow-y-auto space-y-2 py-4">
                     {sidebarItems.map((item) => {
                         const isActive = currentTab === item.id;
                         return (
@@ -194,67 +210,96 @@ export function SettingsView() {
                                 key={item.id}
                                 onClick={() => setCurrentTab(item.id)}
                                 className={cn(
-                                    "flex items-center w-full px-3 py-3 rounded-lg transition-all duration-200 group text-left",
+                                    "flex items-center w-full px-4 py-3.5 rounded-2xl transition-all duration-300 group text-left relative overflow-hidden",
                                     isActive
-                                        ? "bg-zinc-800/50 text-white"
-                                        : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                                        ? "bg-white/5 text-white shadow-lg border border-white/10"
+                                        : "text-zinc-500 hover:bg-white/[0.02] hover:text-zinc-300 border border-transparent"
                                 )}
                             >
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="sidebar-active-pill"
+                                        className="absolute left-0 top-3 bottom-3 w-1 bg-primary rounded-full"
+                                        initial={false}
+                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                    />
+                                )}
                                 <div className={cn(
-                                    "p-2 rounded-md mr-3 transition-colors",
-                                    isActive ? "bg-white/10 text-white" : "bg-white/5 text-zinc-500 group-hover:text-zinc-300"
+                                    "p-2.5 rounded-xl mr-4 transition-all duration-300",
+                                    isActive 
+                                        ? "bg-primary/20 text-primary shadow-[0_0_15px_rgba(59,130,246,0.2)]" 
+                                        : "bg-white/5 text-zinc-600 group-hover:text-zinc-400"
                                 )}>
                                     <item.icon className="size-4" />
                                 </div>
-                                <div className="flex-1">
-                                    <div className="text-sm font-medium">{item.label}</div>
-                                    <div className="text-[10px] text-white/30 truncate">{item.description}</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className={cn(
+                                        "text-sm font-semibold transition-colors",
+                                        isActive ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"
+                                    )}>{item.label}</div>
+                                    <div className="text-[10px] text-zinc-600 truncate mt-0.5">{item.description}</div>
                                 </div>
-                                {isActive && <ChevronRight className="size-3 text-white/30 ml-2" />}
+                                <ChevronRight className={cn(
+                                    "size-3 transition-all duration-300",
+                                    isActive ? "text-primary opacity-100 translate-x-0" : "text-zinc-700 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"
+                                )} />
                             </button>
                         );
                     })}
                 </div>
+
+                <div className="p-6 mt-auto border-t border-white/5 bg-black/20">
+                    <div className="flex items-center gap-3 px-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Core Engine Active</span>
+                    </div>
+                </div>
             </aside>
 
             {/* Content Area */}
-            <main className="flex-1 h-full overflow-hidden px-10 flex flex-col">
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <main className="flex-1 h-full overflow-hidden flex flex-col z-10">
+                <div className={cn(
+                    "flex-1 flex flex-col min-h-0",
+                    currentTab !== SettingsTab.MappingEditor && "overflow-y-auto px-12 custom-scrollbar"
+                )}>
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={currentTab}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.3, ease: "easeOut" }}
-                            className="h-full w-full"
+                            initial={{ opacity: 0, scale: 0.98 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 1.02 }}
+                            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                            className="flex-1 flex flex-col min-h-0"
                         >
                             {/* API Providers Tab */}
                             {currentTab === SettingsTab.Providers && (
-                                <div className="space-y-8 pb-20">
-                                    <div className="flex items-start justify-between">
-                                        <div className="space-y-2">
-                                            <h1 className="text-3xl font-bold tracking-tight text-white">API Providers</h1>
-                                            <p className="text-zinc-400 text-sm max-w-2xl">
-                                                管理模型服务商配置，支持 OpenAI 兼容接口、Google GenAI 等多种 Provider 类型。
+                                <div className="space-y-10 pb-20 pt-12">
+                                    <div className="flex items-end justify-between border-b border-white/5 pb-8">
+                                        <div className="space-y-3">
+                                            <h1 className="text-4xl font-bold tracking-tight text-white">API Providers</h1>
+                                            <p className="text-zinc-500 text-sm max-w-2xl leading-relaxed">
+                                                Manage your model provider configurations. Integrate OpenAI-compatible interfaces, 
+                                                Google GenAI, and custom neural engines into your workflow.
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={fetchConfig}
-                                                disabled={isLoading}
-                                                className="text-zinc-400 hover:text-white"
-                                            >
-                                                <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
-                                            </Button>
+                                        <div className="flex items-center gap-3">
+                                            <TooltipProvider>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={fetchConfig}
+                                                    disabled={isLoading}
+                                                    className="h-11 w-11 rounded-xl bg-white/5 border border-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+                                                >
+                                                    <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+                                                </Button>
+                                            </TooltipProvider>
                                             <Button
                                                 onClick={handleOpenAddProvider}
-                                                className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                                                className="h-11 px-6 rounded-xl bg-primary text-white hover:bg-primary/90 shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all font-bold text-xs uppercase tracking-widest gap-2"
                                             >
-                                                <Plus className="size-4 mr-2" />
-                                                新增 Provider
+                                                <Plus className="size-4" />
+                                                Add Provider
                                             </Button>
                                         </div>
                                     </div>
@@ -294,15 +339,18 @@ export function SettingsView() {
 
                             {/* Services Configuration Tab */}
                             {currentTab === SettingsTab.Services && (
-                                <div className="space-y-8 pb-20">
-                                    <div className="space-y-2">
-                                        <h1 className="text-3xl font-bold tracking-tight text-white">服务配置</h1>
-                                        <p className="text-zinc-400 text-sm max-w-2xl">
-                                            配置各项AI服务使用的模型和系统提示词。
-                                        </p>
+                                <div className="space-y-10 pb-20 pt-12">
+                                    <div className="flex items-end justify-between border-b border-white/5 pb-8">
+                                        <div className="space-y-3">
+                                            <h1 className="text-4xl font-bold tracking-tight text-white">Service Config</h1>
+                                            <p className="text-zinc-500 text-sm max-w-2xl leading-relaxed">
+                                                Assign default model providers for system services. Fine-tune which neural engine 
+                                                powers your workflow analysis and parameter mapping.
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    <div className="space-y-4">
+                                    <div className="grid gap-6">
                                         {serviceList.map((serviceType) => {
                                             const meta = SERVICE_METADATA[serviceType];
                                             const serviceConfig = settings.services?.[serviceType];
@@ -313,43 +361,51 @@ export function SettingsView() {
                                                 : '';
 
                                             return (
-                                                <Card key={serviceType} className="bg-black/40 border-white/5">
-                                                    <Collapsible open={isExpanded} onOpenChange={() => toggleServiceExpanded(serviceType)}>
+                                                <Collapsible
+                                                    key={serviceType}
+                                                    open={isExpanded}
+                                                    onOpenChange={() => toggleServiceExpanded(serviceType)}
+                                                    className="group"
+                                                >
+                                                    <Card className={cn(
+                                                        "bg-white/[0.01] border-white/5 overflow-hidden transition-all duration-500",
+                                                        isExpanded ? "bg-white/[0.03] border-white/10 shadow-2xl" : "hover:bg-white/[0.02]"
+                                                    )}>
                                                         <CollapsibleTrigger asChild>
-                                                            <CardHeader className="cursor-pointer hover:bg-white/5 transition-colors rounded-t-lg">
-                                                                <div className="flex items-center justify-between">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="p-2 rounded-lg bg-white/10 text-emerald-400">
-                                                                            {serviceIcons[serviceType]}
-                                                                        </div>
-                                                                        <div>
-                                                                            <CardTitle className="text-sm text-white">{meta.label}</CardTitle>
-                                                                            <CardDescription className="text-xs text-zinc-500">
-                                                                                {meta.description}
-                                                                            </CardDescription>
-                                                                        </div>
+                                                            <div className="flex items-center justify-between p-6 cursor-pointer select-none">
+                                                                <div className="flex items-center gap-5">
+                                                                    <div className={cn(
+                                                                        "p-3 rounded-2xl transition-all duration-500",
+                                                                        isExpanded ? "bg-primary/20 text-primary shadow-[0_0_20px_rgba(59,130,246,0.2)]" : "bg-white/5 text-zinc-500"
+                                                                    )}>
+                                                                        {serviceIcons[serviceType]}
                                                                     </div>
-                                                                    <div className="flex items-center gap-3">
-                                                                        <span className="text-xs text-zinc-500">
-                                                                            {serviceConfig?.binding?.modelId || '未配置'}
-                                                                        </span>
-                                                                        {isExpanded ? (
-                                                                            <ChevronDown className="size-4 text-zinc-400" />
-                                                                        ) : (
-                                                                            <ChevronRight className="size-4 text-zinc-400" />
-                                                                        )}
+                                                                    <div>
+                                                                        <h3 className="text-lg font-bold text-white tracking-tight">{meta.label}</h3>
+                                                                        <p className="text-xs text-zinc-500 mt-0.5 font-medium">{meta.description}</p>
                                                                     </div>
                                                                 </div>
-                                                            </CardHeader>
+                                                                <div className="flex items-center gap-6">
+                                                                    <div className="hidden md:flex flex-col items-end">
+                                                                        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Neural Binding</span>
+                                                                        <Badge variant="outline" className="bg-emerald-500/5 text-emerald-500 border-emerald-500/20 text-[10px] font-mono px-2 py-0.5">
+                                                                            {serviceConfig?.binding?.modelId || "Not Bound"}
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <div className={cn(
+                                                                        "p-2 rounded-xl bg-white/5 text-zinc-500 transition-transform duration-500",
+                                                                        isExpanded && "rotate-180 bg-primary/10 text-primary"
+                                                                    )}>
+                                                                        <ChevronDown className="size-4" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </CollapsibleTrigger>
-
+                                                        
                                                         <CollapsibleContent>
-                                                            <CardContent className="pt-0 space-y-4">
-                                                                {/* Model Binding */}
-                                                                <div className="space-y-2">
-                                                                    <Label className="text-xs text-zinc-400 font-medium">
-                                                                        使用模型
-                                                                    </Label>
+                                                            <div className="p-8 pt-2 space-y-8 border-t border-white/5 bg-black/20">
+                                                                <div className="space-y-3">
+                                                                    <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] px-1">Neural Model Binding</Label>
                                                                     <Select
                                                                         value={currentValue}
                                                                         onValueChange={(val) => {
@@ -359,14 +415,15 @@ export function SettingsView() {
                                                                             });
                                                                         }}
                                                                     >
-                                                                        <SelectTrigger className="bg-black/40 border-white/10 text-white/90 h-10">
-                                                                            <SelectValue placeholder="选择模型" />
+                                                                        <SelectTrigger className="bg-white/[0.02] border-white/5 h-12 rounded-xl focus:ring-1 focus:ring-primary/20 transition-all px-4">
+                                                                            <SelectValue placeholder="Select a model engine" />
                                                                         </SelectTrigger>
-                                                                        <SelectContent className="bg-zinc-950 border-white/10 text-zinc-200">
+                                                                        <SelectContent className="bg-zinc-900 border-white/10">
                                                                             {models.map(m => (
-                                                                                <SelectItem
-                                                                                    key={`${m.providerId}:${m.modelId}`}
+                                                                                <SelectItem 
+                                                                                    key={`${m.providerId}:${m.modelId}`} 
                                                                                     value={`${m.providerId}:${m.modelId}`}
+                                                                                    className="text-zinc-300 focus:bg-primary/20 focus:text-white transition-colors"
                                                                                 >
                                                                                     {m.providerName} / {m.displayName}
                                                                                 </SelectItem>
@@ -375,84 +432,79 @@ export function SettingsView() {
                                                                     </Select>
                                                                 </div>
 
-                                                                {/* System Prompt (only for services that support it) */}
                                                                 {meta.hasSystemPrompt && (
-                                                                    <div className="space-y-2">
-                                                                        <Label className="text-xs text-zinc-400 font-medium">
-                                                                            系统提示词
-                                                                        </Label>
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex items-center justify-between px-1">
+                                                                            <Label className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Core Directives</Label>
+                                                                            <span className="text-[10px] text-zinc-700 font-mono italic">Behavioral constraints for this module</span>
+                                                                        </div>
                                                                         <Textarea
+                                                                            placeholder="Enter system prompt instructions..."
                                                                             value={serviceConfig?.systemPrompt || ''}
                                                                             onChange={(e) => {
                                                                                 updateServiceConfig(serviceType, {
                                                                                     systemPrompt: e.target.value
                                                                                 });
                                                                             }}
-                                                                            placeholder="输入系统提示词..."
-                                                                            className="bg-black/40 border-white/10 text-white/90 placeholder:text-zinc-600 min-h-[120px] font-mono text-xs resize-y"
+                                                                            className="bg-white/[0.02] border-white/5 min-h-[140px] rounded-2xl focus:ring-1 focus:ring-primary/20 transition-all p-5 leading-relaxed text-sm resize-none custom-scrollbar font-mono"
                                                                         />
-                                                                        <p className="text-[10px] text-zinc-600">
-                                                                            用于指导AI模型的行为和输出格式
-                                                                        </p>
                                                                     </div>
                                                                 )}
-                                                            </CardContent>
+                                                            </div>
                                                         </CollapsibleContent>
-                                                    </Collapsible>
-                                                </Card>
+                                                    </Card>
+                                                </Collapsible>
                                             );
                                         })}
                                     </div>
 
-                                    {/* ComfyUI Config */}
-                                    <Card className="bg-black/40 border-white/5">
-                                        <CardHeader>
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-lg bg-white/10 text-blue-400">
-                                                    <Globe className="size-4" />
+                                    {/* ComfyUI Global Config */}
+                                    <div className="pt-10 border-t border-white/5">
+                                        <Card className="bg-white/[0.01] border-white/5 overflow-hidden">
+                                            <div className="p-8 flex items-center justify-between">
+                                                <div className="flex items-center gap-5">
+                                                    <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                        <Globe className="size-5" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-lg font-bold text-white tracking-tight">ComfyUI Endpoint</h3>
+                                                        <p className="text-xs text-zinc-500 mt-0.5 font-medium">Global ComfyUI server connection parameters</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <CardTitle className="text-sm text-white">ComfyUI 配置</CardTitle>
-                                                    <CardDescription className="text-xs text-zinc-500">
-                                                        配置 ComfyUI 服务器连接
-                                                    </CardDescription>
+                                                <div className="flex-1 max-w-md ml-12">
+                                                    <div className="relative group">
+                                                        <Input
+                                                            type="text"
+                                                            placeholder="http://127.0.0.1:8188/"
+                                                            value={settings.comfyUrl || ''}
+                                                            onChange={(e) => updateSettings({ ...settings, comfyUrl: e.target.value })}
+                                                            className="bg-white/[0.02] border-white/5 h-12 rounded-xl focus:ring-1 focus:ring-primary/20 transition-all px-4 font-mono text-sm"
+                                                        />
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                            <span className="text-[9px] font-bold text-zinc-600 uppercase">Live</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="comfyUrl" className="text-xs text-zinc-400 font-medium">
-                                                    服务器地址
-                                                </Label>
-                                                <Input
-                                                    id="comfyUrl"
-                                                    type="text"
-                                                    placeholder="e.g. http://127.0.0.1:8188/"
-                                                    value={settings.comfyUrl || ''}
-                                                    onChange={(e) => updateSettings({ ...settings, comfyUrl: e.target.value })}
-                                                    className="bg-black/40 border-white/10 text-white/90 placeholder:text-zinc-600 font-mono text-sm"
-                                                />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                        </Card>
+                                    </div>
 
                                     {/* Footer Action */}
-                                    <div className="sticky bottom-6 flex justify-end">
+                                    <div className="sticky bottom-8 flex justify-end pt-10">
                                         <Button
                                             onClick={handleSaveSettings}
-                                            className="rounded-full px-8 h-12 bg-white text-black hover:bg-white/90 font-medium shadow-lg"
+                                            className="rounded-2xl px-10 h-14 bg-white text-black hover:bg-zinc-200 font-bold uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all hover:scale-105 active:scale-95"
                                         >
-                                            保存设置
+                                            Commit Configuration
                                         </Button>
                                     </div>
                                 </div>
                             )}
 
                             {currentTab === SettingsTab.MappingEditor && (
-                                <div className="h-full w-full -m-8 md:-m-12">
-                                    <div className="h-full w-full">
-                                        <MappingEditorPage />
-                                    </div>
+                                <div className="flex-1 min-h-0 w-full overflow-hidden">
+                                    <MappingEditorPage />
                                 </div>
                             )}
                         </motion.div>
