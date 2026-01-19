@@ -33,6 +33,6 @@ export default class ComfyController {
       res.body = stream;
       return;
     }
-    return { stream };
+    return stream;
   }
 }

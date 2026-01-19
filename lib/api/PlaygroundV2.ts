@@ -124,7 +124,8 @@ export async function runComfyWorkflowWithMapping(args: {
       buffer = buffer.slice(idx + sep.length);
       const mimeEndIndex = findSub(part, new TextEncoder().encode('\r\n\r\n'));
       if (mimeEndIndex !== -1) {
-        const mimeType = new TextDecoder().decode(part.slice(0, mimeEndIndex)).split(': ')[1];
+        const mimeHeader = new TextDecoder().decode(part.slice(0, mimeEndIndex));
+        const mimeType = mimeHeader.split(': ')[1]?.trim() || "application/octet-stream";
         const data = part.slice(mimeEndIndex + 4);
         outputs.push(new Blob([data], { type: mimeType }));
       }

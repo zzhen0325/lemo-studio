@@ -404,21 +404,21 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       const currentConfig = usePlaygroundStore.getState().config;
       const currentLoras = usePlaygroundStore.getState().selectedLoras;
       const finalConfig = {
-        ...(configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
-          ? configOverride
-          : currentConfig),
-        loras: currentLoras
+        ...currentConfig,
+        ...(configOverride && typeof configOverride === 'object' ? configOverride : {}),
+        loras: currentLoras,
+        taskId: batchTaskId
       };
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
       const firstImage = currentUploadedImages[0];
       const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
 
       // 1. Immediately create and show the pending card
-      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId }).then((taskId) => {
+      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId }).then((uniqueId) => {
         // 2. Schedule the actual backend execution with a staggered delay
-        if (taskId) {
+        if (uniqueId) {
           setTimeout(() => {
-            executeGeneration(taskId, finalConfig, startTime, sourceImageUrl);
+            executeGeneration(uniqueId, batchTaskId, finalConfig, startTime, sourceImageUrl);
           }, i * 1100);
         }
       });
@@ -451,8 +451,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         img.src = dataUrl;
       });
 
-      // 3. Add to UI immediately
-      setImages((prev: UploadedImage[]) => [...prev, {
+      // 3. Add to UI immediately (prepend to show on top)
+      setImages((prev: UploadedImage[]) => [{
         id: tempId,
         file,
         base64: base64Data,
@@ -460,7 +460,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         isUploading: true,
         width: dimensions.width,
         height: dimensions.height
-      }]);
+      }, ...prev]);
 
       // 4. Update config for 'auto' mode if it's the first image in reference
       if (target === 'reference' && usePlaygroundStore.getState().config.aspectRatio === 'auto') {

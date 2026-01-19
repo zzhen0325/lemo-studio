@@ -111,6 +111,7 @@ export interface EditorState {
     canvasWidth: number;
     canvasHeight: number;
     backgroundColor: string;
+    canvasVersion: number;
 }
 
 export const useImageEditor = (imageUrl: string) => {
@@ -132,6 +133,7 @@ export const useImageEditor = (imageUrl: string) => {
         canvasWidth: 1024,
         canvasHeight: 1024,
         backgroundColor: '#eeeeee', // 默认白色底，更符合“画纸”直觉
+        canvasVersion: 0,
     });
 
     const [isInitialized, setIsInitialized] = useState(false);
@@ -151,6 +153,7 @@ export const useImageEditor = (imageUrl: string) => {
             canvasWidth: 1024,
             canvasHeight: 1024,
             backgroundColor: '#eeeeee',
+            canvasVersion: 0,
         });
         setImageObj(null);
         canvasBackgroundRef.current = null;
@@ -196,6 +199,7 @@ export const useImageEditor = (imageUrl: string) => {
             ...prev,
             canUndo: historyIndexRef.current > 0,
             canRedo: false,
+            canvasVersion: prev.canvasVersion + 1,
         }));
     }, []);
 
@@ -801,7 +805,7 @@ export const useImageEditor = (imageUrl: string) => {
             const obs = fabricCanvasRef.current?.getObjects() || [];
             canvasBackgroundRef.current = obs.find(o => (o as fabric.Object & { name?: string }).name === 'canvas-background') as fabric.Rect || null;
             fabricCanvasRef.current?.renderAll();
-            setEditorState(prev => ({ ...prev, canUndo: historyIndexRef.current > 0, canRedo: true }));
+            setEditorState(prev => ({ ...prev, canUndo: historyIndexRef.current > 0, canRedo: true, canvasVersion: prev.canvasVersion + 1 }));
         });
     }, []);
 
@@ -812,7 +816,7 @@ export const useImageEditor = (imageUrl: string) => {
             const obs = fabricCanvasRef.current?.getObjects() || [];
             canvasBackgroundRef.current = obs.find(o => (o as fabric.Object & { name?: string }).name === 'canvas-background') as fabric.Rect || null;
             fabricCanvasRef.current?.renderAll();
-            setEditorState(prev => ({ ...prev, canUndo: true, canRedo: historyIndexRef.current < historyRef.current.length - 1 }));
+            setEditorState(prev => ({ ...prev, canUndo: true, canRedo: historyIndexRef.current < historyRef.current.length - 1, canvasVersion: prev.canvasVersion + 1 }));
         });
     }, []);
 

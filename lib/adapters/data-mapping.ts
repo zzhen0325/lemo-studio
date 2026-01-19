@@ -41,14 +41,14 @@ export function inferRatioResolution(width: number, height: number) {
 }
 
 export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationConfig {
-  let model = input.model || 'gemini-3-pro-image-preview';
+  let model = input.model;
   const width = Number(input.width);
   const height = Number(input.height);
 
   // Backward compatibility for legacy model names
   if (model === 'Nano banana' || model === 'nanobanana') {
     model = 'gemini-3-pro-image-preview';
-  } else if (model === 'Seed 4.2') {
+  } else if (model === 'Seed 4.2' || model === '3D Lemo Seed_4' || model === 'Seed4 ') {
     model = 'seed4_2_lemo';
   } else if (model === 'Seed 4.0') {
     model = 'seed4_lemo1230';
@@ -58,7 +58,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
     model = 'lemoseedt2i';
   }
 
-  if (RATIO_BASED_MODELS.has(model)) {
+  if (model && RATIO_BASED_MODELS.has(model)) {
     const inferred = inferRatioResolution(width, height);
     let resolution = input.resolution || inferred?.resolution;
 

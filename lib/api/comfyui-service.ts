@@ -55,36 +55,47 @@ export class ComfyUIService {
             }
 
             const stream = new ReadableStream<Uint8Array>({
-                async start(controller) {
-                    for (const file of outputFiles) {
+                start(controller) {
+                    console.log(`[ComfyUIService] Stream start hook triggered. Files to process: ${outputFiles.length}`);
+                    // Execute the processing in a background task so start() returns synchronously
+                    (async () => {
                         try {
-                            let outputBuffer: Blob;
-                            let mimeType: string;
-                            if (typeof file === 'string' && textOutputEnabled) {
-                                outputBuffer = new Blob([file], {
-                                    type: 'text/plain'
-                                });
-                                mimeType = 'text/plain'
+                            for (let i = 0; i < outputFiles.length; i++) {
+                                const file = outputFiles[i];
+                                console.log(`[ComfyUIService] Processing file ${i + 1}/${outputFiles.length}`);
+
+                                let outputBuffer: Blob;
+                                let mimeType: string;
+                                if (typeof file === 'string' && textOutputEnabled) {
+                                    outputBuffer = new Blob([file], { type: 'text/plain' });
+                                    mimeType = 'text/plain';
+                                } else {
+                                    console.log(`[ComfyUIService] Fetching file data from ComfyUI...`);
+                                    outputBuffer = await comfyUIAPIService.getOutputFiles({ file });
+                                    mimeType = mime.lookup(file?.filename) || "application/octet-stream";
+                                }
+
+                                const mimeInfo = `Content-Type: ${mimeType}\r\n\r\n`;
+                                controller.enqueue(new TextEncoder().encode(mimeInfo));
+
+                                const buffer = await outputBuffer.arrayBuffer();
+                                console.log(`[ComfyUIService] Enqueuing binary data. Size: ${buffer.byteLength}`);
+                                controller.enqueue(new Uint8Array(buffer));
+
+                                controller.enqueue(new TextEncoder().encode("--BLOB_SEPARATOR--"));
+                                console.log(`[ComfyUIService] Finished file ${i + 1}`);
                             }
-                            else {
-                                outputBuffer = await comfyUIAPIService.getOutputFiles({ file });
-                                mimeType =
-                                    mime.lookup(file?.filename) || "application/octet-stream";
-                            }
-                            const mimeInfo = `Content-Type: ${mimeType}\r\n\r\n`;
-                            controller.enqueue(new TextEncoder().encode(mimeInfo));
-                            controller.enqueue(
-                                new Uint8Array(await outputBuffer.arrayBuffer()),
-                            );
-                            controller.enqueue(
-                                new TextEncoder().encode("\r\n--BLOB_SEPARATOR--\r\n"),
-                            );
                         } catch (error) {
-                            console.error("Failed to get output file");
-                            console.error(error);
+                            console.error("[ComfyUIService] Stream processing error:", error);
+                            controller.error(error);
+                        } finally {
+                            console.log("[ComfyUIService] Closing stream controller");
+                            controller.close();
                         }
-                    }
-                    controller.close();
+                    })().catch(err => {
+                        console.error("[ComfyUIService] Fatal stream crash:", err);
+                        try { controller.error(err); } catch { }
+                    });
                 },
             });
             logger.info('返回 stream ======');

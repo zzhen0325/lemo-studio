@@ -33,7 +33,7 @@ import {
 
 } from "@/components/ui/dropdown-menu";
 
-import { useImageEditor, EDITOR_COLORS, EditorColor, FabricObject } from '@/hooks/features/PlaygroundV2/useImageEditor';
+import { useImageEditor, EDITOR_COLORS, EditorColor } from '@/hooks/features/PlaygroundV2/useImageEditor';
 import { cn } from '@/lib/utils';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { formatImageUrl } from '@/lib/api-base';
@@ -336,12 +336,18 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         });
     }, [addImage, isInitialized, initCanvasWithImage, inputSectionProps]);
 
-    // 同步编辑状态的文字
+    // Consolidate editing text synchronization and focus
     useEffect(() => {
         if (editorState.pendingAnnotation) {
-            setAnnotationText(editorState.pendingAnnotation.existingText || "");
-            // 自动聚焦
-            setTimeout(() => annotInputRef.current?.focus(), 100);
+            const text = editorState.pendingAnnotation.existingText || "";
+            setAnnotationText(text);
+            // Autofocus after a short delay to ensure DOM is ready
+            const timer = setTimeout(() => {
+                if (annotInputRef.current) {
+                    annotInputRef.current.focus();
+                }
+            }, 50);
+            return () => clearTimeout(timer);
         } else {
             setAnnotationText("");
         }
@@ -393,32 +399,18 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         inputSectionPropsRef.current = inputSectionProps;
     }, [inputSectionProps]);
 
-    // 实时同步标注信息到下方 Prompt 输入框
+    // 同步标注信息到下方 Prompt 输入框 (仅在标注确定或画布内容变化时同步，而非输入中)
     const lastSyncedPromptRef = useRef<string>("");
     useEffect(() => {
         if (!isOpen || !isInitialized) return;
         const props = inputSectionPropsRef.current;
         if (!props?.setConfig) return;
 
+        // 获取当前所有已确定的标注信息
+        // 我们不再在此处包含 pendingAnnotation 的实时输入文字，
+        // 从而实现“只有点击确认后才同步”的需求。
         const annotations = getAnnotationsInfo();
-        const pendingText = annotationText.trim();
-        const pendingAnnotation = editorState.pendingAnnotation;
-
-        // 过滤掉正在编辑的那个标注（如果有的话），避免重复
-        const filteredAnnotations = annotations.filter(ann => {
-            if (pendingAnnotation?.existingLabel) {
-                return pendingAnnotation.existingLabel.annotationMeta !== ann;
-            }
-            return true;
-        });
-
-        const descriptions = filteredAnnotations.map(ann => `${ann.annotationName}: ${ann.text} `);
-
-        // 如果有正在编辑的标注且有文字内容，也加入实时同步
-        if (pendingText && pendingAnnotation) {
-            const annName = (pendingAnnotation.rect as FabricObject).annotationName || '新标注';
-            descriptions.push(`${annName}: ${pendingText} `);
-        }
+        const descriptions = annotations.map(ann => `${ann.annotationName}: ${ann.text} `);
 
         let finalPrompt = "";
         if (descriptions.length > 0) {
@@ -428,6 +420,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         // 避免在没有变化时频繁触发更新，并打破与 props 的循环依赖
         if (finalPrompt !== lastSyncedPromptRef.current) {
             if (finalPrompt) {
+                // 只有当 finalPrompt 确实不同于当前 props 中的 prompt 时才更新
                 props.setConfig(prev => {
                     if (prev.prompt === finalPrompt) return prev;
                     return { ...prev, prompt: finalPrompt };
@@ -435,11 +428,14 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                 lastSyncedPromptRef.current = finalPrompt;
             } else if (lastSyncedPromptRef.current && props.config.prompt.startsWith('根据图中的彩色标注修改图片')) {
                 // 如果所有标注都被清空了，且当前的 prompt 是由标注生成的，则清空它
-                props.setConfig(prev => ({ ...prev, prompt: '' }));
+                props.setConfig(prev => {
+                    if (!prev.prompt.startsWith('根据图中的彩色标注修改图片')) return prev;
+                    return { ...prev, prompt: '' };
+                });
                 lastSyncedPromptRef.current = "";
             }
         }
-    }, [editorState.pendingAnnotation, editorState.brushColor, editorState.referenceImages, editorState.canUndo, annotationText, getAnnotationsInfo, isInitialized, isOpen]);
+    }, [editorState.pendingAnnotation, editorState.canvasVersion, getAnnotationsInfo, isInitialized, isOpen]);
 
     const handleSave = (e?: React.MouseEvent | boolean) => {
         const shouldGenerate = typeof e === 'boolean' ? e : false;
@@ -481,18 +477,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         handleSave(true);
     };
 
-    // Auto-focus input when it appears
-    useEffect(() => {
-        if (editorState.pendingAnnotation && annotInputRef.current) {
-            annotInputRef.current.focus();
-            // 编辑模式：填充已有的标注信息
-            if (editorState.pendingAnnotation.existingText) {
-                setAnnotationText(editorState.pendingAnnotation.existingText);
-            } else {
-                setAnnotationText("");
-            }
-        }
-    }, [editorState.pendingAnnotation]);
 
     const handleSavePreset = () => {
         const canvasJson = getCanvasState();

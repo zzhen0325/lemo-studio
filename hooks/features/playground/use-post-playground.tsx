@@ -88,41 +88,59 @@ export const usePostPlayground = () => {
                 throw new Error("No response body");
             }
 
+            console.log("[usePostPlayground] Got response", response.status, response.statusText);
             const reader = response.body.getReader();
+            console.log("[usePostPlayground] Reader obtained");
             let buffer: Uint8Array = new Uint8Array(0);
             const output: Blob[] = [];
             const separator = new TextEncoder().encode('--BLOB_SEPARATOR--');
 
             while (true) {
+                console.log("[usePostPlayground] Reading chunk...");
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    console.log("[usePostPlayground] Stream done");
+                    break;
+                }
+
+                console.log("[usePostPlayground] Received chunk size:", value.length);
+                const firstBytes = Array.from(value.slice(0, 100)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                console.log("[usePostPlayground] Raw chunk start (hex):", firstBytes);
+                const firstText = new TextDecoder().decode(value.slice(0, 100));
+                console.log("[usePostPlayground] Raw chunk start (text):", firstText);
 
                 buffer = concatUint8Arrays(buffer, value);
 
                 let separatorIndex: number;
-                // biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
                 while ((separatorIndex = findSubarray(buffer, separator)) !== -1) {
                     const outputPart = buffer.slice(0, separatorIndex);
                     buffer = buffer.slice(separatorIndex + separator.length);
 
                     const mimeEndIndex = findSubarray(outputPart, new TextEncoder().encode('\r\n\r\n'));
                     if (mimeEndIndex !== -1) {
-                        const mimeType = new TextDecoder().decode(outputPart.slice(0, mimeEndIndex)).split(': ')[1];
+                        const mimeHeader = new TextDecoder().decode(outputPart.slice(0, mimeEndIndex));
+                        const mimeType = mimeHeader.split(': ')[1]?.trim() || "application/octet-stream";
                         const outputData = outputPart.slice(mimeEndIndex + 4);
                         const blob = new Blob([outputData], { type: mimeType });
+                        console.log("[usePostPlayground] Extracted blob:", mimeType, "size:", blob.size);
                         output.push(blob);
+                    } else {
+                        console.warn("[usePostPlayground] Found separator but no mime header end");
                     }
-                }
-
-                if (output.length > 0) {
-                    onSuccess(output);
                 }
             }
 
+            console.log("[usePostPlayground] Total blobs extracted:", output.length);
+            if (output.length > 0) {
+                onSuccess(output);
+            }
+
         } catch (error) {
+            console.error("[usePostPlayground] Error:", error);
             onError(error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [appId]);
 
     return { doPost, loading };

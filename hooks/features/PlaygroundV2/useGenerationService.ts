@@ -100,9 +100,8 @@ export function useGenerationService() {
         const taskId = options.taskId || configOverride?.taskId || freshConfig.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
 
         const finalConfig = {
-            ...(configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
-                ? configOverride
-                : freshConfig),
+            ...freshConfig,
+            ...(configOverride && typeof configOverride === 'object' ? configOverride : {}),
             loras: currentLoras,
             presetName: selectedPresetName,
             editConfig, // Ensure it's part of finalConfig
@@ -118,8 +117,10 @@ export function useGenerationService() {
         const firstImage = currentUploadedImages[0];
         const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
 
+        const uniqueId = Math.random().toString(36).substring(2, 11) + Date.now().toString().slice(-4);
+
         const loadingGen: Generation = {
-            id: taskId,
+            id: uniqueId,
             userId: userStore.currentUser?.id || 'anonymous',
             projectId: projectStore.currentProjectId || 'default',
             outputUrl: "",
@@ -136,12 +137,12 @@ export function useGenerationService() {
         // Use standard state update for history
         setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
 
-        if (isBackground) return taskId;
+        if (isBackground) return uniqueId;
 
-        return executeGeneration(taskId, finalConfig, generationTime, sourceImageUrl);
+        return executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl);
     };
 
-    const executeGeneration = async (taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+    const executeGeneration = async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         try {
             if (isMockMode) {
@@ -177,9 +178,9 @@ export function useGenerationService() {
                 effectiveModel?.includes('safetensors');
 
             if (isWorkflowModel) {
-                await handleWorkflow(taskId, finalConfig, generationTime, sourceImageUrl);
+                await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl);
             } else {
-                await handleUnifiedImageGen(taskId, finalConfig, generationTime, sourceImageUrl);
+                await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl);
             }
         } catch (err) {
             console.error("Generation failed:", err);
@@ -193,8 +194,8 @@ export function useGenerationService() {
         }
     };
 
-    const updateHistoryAndSave = (taskId: string, result: Generation) => {
-        setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === taskId ? {
+    const updateHistoryAndSave = (uniqueId: string, result: Generation) => {
+        setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
             ...item,
             ...result,
             config: { ...item.config, ...result.config, taskId: result.taskId || item.taskId }
@@ -205,7 +206,7 @@ export function useGenerationService() {
         usePlaygroundStore.getState().addGalleryItem(result);
     };
 
-    const handleUnifiedImageGen = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+    const handleUnifiedImageGen = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
 
         // Calculate effective source URL preferring path (uploaded URL) over base64
@@ -215,9 +216,10 @@ export function useGenerationService() {
         const unified = toUnifiedConfigFromLegacy(currentConfig);
 
         // 使用统一模型配置进行映射，优先使用 config 中的模型 ID
+        // 如果 config 中没有模型 ID，则使用全局选中的模型 ID
         const modelId = unified.model || selectedModel || "gemini-3-pro-image-preview";
 
-        console.log(`[useGenerationService] selectedModel: ${selectedModel}, mapping to modelId: ${modelId}`);
+        console.log(`[useGenerationService] selectedModel: ${selectedModel}, configModel: ${currentConfig.model}, unifiedModel: ${unified.model}, final mapping to modelId: ${modelId}`);
 
         // Validation for Seed 4.2 dimensions
         if (modelId === "seed4_2_lemo") {
@@ -251,7 +253,7 @@ export function useGenerationService() {
             console.log(`[useGenerationService] Received stream chunk:`, chunk);
             if (chunk.text) {
                 setGenerationHistory((prev: Generation[]) => prev.map(item =>
-                    item.id === taskId
+                    item.id === uniqueId
                         ? { ...item, llmResponse: (item.llmResponse || "") + chunk.text }
                         : item
                 ));
@@ -281,8 +283,8 @@ export function useGenerationService() {
                         lastSavedPath = savedPath;
                         console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
                         setGenerationHistory((prev: Generation[]) => prev.map(item =>
-                            item.id === taskId
-                                ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId }
+                            item.id === uniqueId
+                                ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId }
                                 : item
                         ));
                     } catch (err) {
@@ -298,7 +300,7 @@ export function useGenerationService() {
             console.log(`[useGenerationService] Coze stream call finished. lastSavedPath: ${lastSavedPath}`);
             // Wait for a small delay to ensure all state updates and async tasks are settled
             await new Promise(resolve => setTimeout(resolve, 500));
-            const finalItemInState = usePlaygroundStore.getState().generationHistory.find(h => h.id === taskId);
+            const finalItemInState = usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
 
             if (finalItemInState) {
                 const finalOutputUrl = lastSavedPath || finalItemInState.outputUrl;
@@ -313,7 +315,7 @@ export function useGenerationService() {
                 } as Generation;
 
                 console.log(`[useGenerationService] Finalizing Coze history with outputUrl: ${itemToSave.outputUrl}`);
-                updateHistoryAndSave(taskId, itemToSave);
+                updateHistoryAndSave(uniqueId, itemToSave);
             }
         } else if (res?.images && res.images.length > 0) {
             const dataUrl = res.images[0];
@@ -334,7 +336,7 @@ export function useGenerationService() {
                 }
             );
             const gen: Generation = {
-                id: taskId,
+                id: uniqueId,
                 userId: userStore.currentUser?.id || 'anonymous',
                 projectId: projectStore.currentProjectId || 'default',
                 outputUrl: savedPath,
@@ -345,15 +347,15 @@ export function useGenerationService() {
                 editConfig: currentConfig.editConfig,
                 isEdit: currentConfig.isEdit,
                 parentId: currentConfig.parentId,
-                taskId: currentConfig.taskId,
+                taskId: currentConfig.taskId || taskId,
             };
-            updateHistoryAndSave(taskId, gen);
+            updateHistoryAndSave(uniqueId, gen);
         } else {
             throw new Error(`${selectedModel} returned empty result`);
         }
     };
 
-    const handleWorkflow = async (taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+    const handleWorkflow = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
 
         // Calculate effective source URL preferring path (uploaded URL) over base64
@@ -435,12 +437,14 @@ export function useGenerationService() {
             workflow: selectedWorkflowConfig.workflowApiJSON || undefined,
             viewcomfyEndpoint: selectedWorkflowConfig.viewComfyJSON.viewcomfyEndpoint || null,
             onSuccess: async (outputs) => {
+                console.log("[useGenerationService] handleWorkflow onSuccess", outputs.length);
                 if (outputs.length > 0) {
                     const dataUrl = await blobToDataURL(outputs[0]);
                     const unified = toUnifiedConfigFromLegacy({
                         ...currentConfig,
                         model: extractModelFromMapping(),
                     });
+                    console.log("[useGenerationService] Saving generated image...");
                     const savedPath = await saveImageToOutputs(
                         dataUrl,
                         {
@@ -453,7 +457,7 @@ export function useGenerationService() {
                         }
                     );
                     const gen: Generation = {
-                        id: taskId,
+                        id: uniqueId,
                         userId: userStore.currentUser?.id || 'anonymous',
                         projectId: projectStore.currentProjectId || 'default',
                         outputUrl: savedPath,
@@ -468,13 +472,13 @@ export function useGenerationService() {
                         editConfig: currentConfig.editConfig,
                         isEdit: currentConfig.isEdit,
                         parentId: currentConfig.parentId,
-                        taskId: currentConfig.taskId
+                        taskId: currentConfig.taskId || taskId
                     };
-                    updateHistoryAndSave(taskId, gen);
+                    updateHistoryAndSave(uniqueId, gen);
                 }
             },
             onError: (err) => {
-                setGenerationHistory(prev => prev.filter(item => item.id !== taskId));
+                setGenerationHistory(prev => prev.filter(item => item.id !== uniqueId));
                 toast({ title: "生成失败", description: err?.message || "工作流执行失败", variant: "destructive" });
             }
         });
