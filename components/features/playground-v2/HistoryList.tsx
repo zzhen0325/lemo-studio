@@ -102,6 +102,7 @@ const HistoryList = observer(function HistoryList({
       const cfg = result.config;
       const isText = !!result.sourceImageUrl && (result.outputUrl === result.sourceImageUrl);
       const type: 'image' | 'text' = isText ? 'text' : 'image';
+      const taskId = result.taskId || cfg?.taskId;
       const prompt = cfg?.prompt || "";
       const model = cfg?.model || "";
       const width = cfg?.width || 0;
@@ -109,9 +110,14 @@ const HistoryList = observer(function HistoryList({
       const lora = cfg?.lora || "";
       const startMs = new Date(result.createdAt).getTime();
       const startBucket = Math.floor(startMs / 60000); // minute-level bucket
-      const key = type === 'text'
-        ? `text|${startBucket}`
-        : `image|${startBucket}|${prompt}|${model}|${width}|${height}|${lora}`;
+
+      // Priority: Group by taskId. If missing (legacy), use heuristic.
+      const key = taskId
+        ? `task|${taskId}`
+        : (type === 'text'
+          ? `text|${startBucket}`
+          : `image|${startBucket}|${prompt}|${model}|${width}|${height}|${lora}`);
+
       const existing = map.get(key);
       if (existing) {
         existing.items.push(result);
@@ -854,20 +860,6 @@ function HistoryCard({
                             }}
                           />
 
-                          {res.editConfig && (
-                            <TooltipButton
-                              icon={<HistoryIcon className="w-4 h-4" />}
-                              label="Edit Again"
-                              tooltipContent="恢复原图和标注再次编辑"
-                              tooltipSide="top"
-                              className="w-8 h-8 rounded-xl text-primary hover:text-primary hover:bg-primary/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit?.(res, true);
-                              }}
-                            />
-                          )}
-
                           <TooltipButton
                             icon={<Download className="w-4 h-4" />}
                             label="Download"
@@ -928,6 +920,20 @@ function HistoryCard({
               >
                 <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Use All</span>
               </Button>
+
+              {result.editConfig && (
+                <Button
+                  size="sm"
+                  className="h-8 rounded-sm border-white/10 bg-black/20 text-primary hover:bg-black/10 hover:text-primary gap-1.5 px-3"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit?.(result, true);
+                  }}
+                >
+                  <HistoryIcon className="w-3.5 h-3.5" />
+                  <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Edit Again</span>
+                </Button>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>
@@ -1021,7 +1027,10 @@ function HistoryCard({
             tooltipContent="Use Prompt"
             tooltipSide="top"
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => applyPrompt(result.config?.prompt || '')}
+            onClick={(e) => {
+              e.stopPropagation();
+              applyPrompt(result.config?.prompt || '');
+            }}
           />
           <TooltipButton
             icon={<ImageIcon className="w-4 h-4" />}
@@ -1029,7 +1038,10 @@ function HistoryCard({
             tooltipContent="Use Image"
             tooltipSide="top"
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => mainImage && applyImage(mainImage)}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (mainImage) applyImage(mainImage);
+            }}
           />
           <TooltipButton
             icon={<Box className="w-4 h-4" />}
@@ -1037,14 +1049,19 @@ function HistoryCard({
             tooltipContent="Use Model"
             tooltipSide="top"
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => result.config && applyModel(result.config.model, {
-              prompt: result.config.prompt,
-              width: result.config.width,
-              height: result.config.height,
-              model: result.config.model,
-              lora: result.config.lora,
-              loras: result.config.loras,
-            })}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (result.config) {
+                applyModel(result.config.model, {
+                  prompt: result.config.prompt,
+                  width: result.config.width,
+                  height: result.config.height,
+                  model: result.config.model,
+                  lora: result.config.lora,
+                  loras: result.config.loras,
+                });
+              }
+            }}
           />
           <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
           <TooltipButton
@@ -1053,25 +1070,21 @@ function HistoryCard({
             tooltipContent="以结果图开始新编辑"
             tooltipSide="top"
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => onEdit?.(result, false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(result, false);
+            }}
           />
-          {result.editConfig && (
-            <TooltipButton
-              icon={<HistoryIcon className="w-4 h-4" />}
-              label="Edit Again"
-              tooltipContent="恢复原图和标注再次编辑"
-              tooltipSide="top"
-              className="w-8 h-8 rounded-xl text-primary hover:text-primary hover:bg-primary/10"
-              onClick={() => onEdit?.(result, true)}
-            />
-          )}
           <TooltipButton
             icon={<RefreshCw className="w-4 h-4" />}
             label="Remix"
             tooltipContent="Recreate"
             tooltipSide="top"
             className="w-8 h-8 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-            onClick={() => onRegenerate(result)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRegenerate(result);
+            }}
           />
           <TooltipButton
             icon={<Download className="w-4 h-4" />}
@@ -1079,7 +1092,10 @@ function HistoryCard({
             tooltipContent="Download"
             tooltipSide="top"
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => mainImage && onDownload(mainImage)}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (mainImage) onDownload(mainImage);
+            }}
           />
         </div>
       )}

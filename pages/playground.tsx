@@ -27,7 +27,7 @@ import { VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-
 import type { Generation } from "@/types/database";
 
 import { cn } from "@/lib/utils";
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { History, Image as ImageIcon, Edit2, Sparkles, Palette } from "lucide-react";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import dynamic from "next/dynamic";
@@ -390,8 +390,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setActiveTab('history');
     setShowHistory(true); // Explicitly set for immediate effect
 
-    // Create a unified timestamp for the entire batch to ensure grouping
+    // Create a unified timestamp and taskId for the entire batch to ensure grouping
     const startTime = new Date().toISOString();
+    const batchTaskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
 
     // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
     const effectiveBatchSize = configOverride ? 1 : batchSize;
@@ -414,7 +415,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
 
       // 1. Immediately create and show the pending card
-      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig }).then((taskId) => {
+      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId }).then((taskId) => {
         // 2. Schedule the actual backend execution with a staggered delay
         if (taskId) {
           setTimeout(() => {
@@ -546,7 +547,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
 
   const handleEditUploadedImage = () => {
-    setEditingImageUrl(uploadedImages[0]?.previewUrl || "");
+    setEditingImageUrl(formatImageUrl(uploadedImages[0]?.previewUrl || "", true));
     setIsEditorOpen(true);
   };
 
@@ -559,7 +560,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const presetName = (preset as PresetExtended & { title?: string; name?: string }).title || (preset as PresetExtended & { title?: string; name?: string }).name || effectiveConfig.workflowName || 'Preset';
 
     if (preset.editConfig) {
-      setEditingImageUrl(preset.editConfig.originalImageUrl);
+      setEditingImageUrl(formatImageUrl(preset.editConfig.originalImageUrl, true));
       setEditingPresetConfig(preset.editConfig);
       setIsEditorOpen(true);
     } else {
@@ -768,13 +769,18 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const handleEditImage = (result: import('@/types/database').Generation, isAgain?: boolean) => {
     const editConfig = result.editConfig;
-    const url = (isAgain && editConfig) ? editConfig.originalImageUrl : (result.outputUrl || "");
+    const url = formatImageUrl((isAgain && editConfig) ? editConfig.originalImageUrl : (result.outputUrl || ""), true);
 
     if (url) {
       setEditingImageUrl(url);
       setEditingPresetConfig(isAgain ? editConfig : undefined);
       // 同时同步到全局配置中，确保 handleGenerate 能获取到
-      updateConfig({ editConfig: isAgain ? editConfig : undefined });
+      updateConfig({
+        editConfig: isAgain ? editConfig : undefined,
+        isEdit: true,
+        parentId: result.id,
+        taskId: result.taskId || result.config?.taskId
+      });
       setIsEditorOpen(true);
       setIsImageModalOpen(false);
     } else {
@@ -795,7 +801,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       setConfig(prev => ({
         ...prev,
         prompt: prompt || prev.prompt,
-        editConfig
+        editConfig,
+        isEdit: true,
+        parentId: prev.parentId
       }));
 
       // 准备所有要添加的图片
@@ -1326,6 +1334,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               initialState={editingPresetConfig}
               workflows={workflows}
               inputSectionProps={inputSectionProps}
+              taskId={config.taskId}
             />
           )
         }

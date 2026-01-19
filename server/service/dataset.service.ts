@@ -36,10 +36,10 @@ export interface DatasetUpdateBody {
   collection: string;
   filename?: string;
   prompt?: string;
-  prompts?: Record<string, unknown>;
+  prompts?: Record<string, string>;
   systemPrompt?: string;
   order?: string[];
-  mode?: 'batchRename';
+  mode?: 'batchRename' | 'renameCollection';
   prefix?: string;
   newCollectionName?: string;
 }

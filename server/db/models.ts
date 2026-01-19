@@ -105,6 +105,12 @@ export class Generation {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public editConfig?: Record<string, any>;
 
+  @Prop({ default: false })
+  public isEdit?: boolean;
+
+  @Prop()
+  public parentId?: string;
+
   @Prop()
   public createdAt?: string;
 }

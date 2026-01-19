@@ -65,6 +65,8 @@ export class HistoryService {
           progressStage: item.progressStage,
           llmResponse: item.llmResponse,
           editConfig: item.editConfig,
+          isEdit: item.isEdit,
+          parentId: item.parentId,
         } as Generation;
       });
 
@@ -117,6 +119,9 @@ export class HistoryService {
         projectId: item.projectId || 'default',
         llmResponse: item.llmResponse,
         config: item.config,
+        editConfig: item.editConfig,
+        isEdit: item.isEdit,
+        parentId: item.parentId,
         createdAt: item.createdAt || new Date().toISOString(),
         outputUrl: item.outputUrl,
       };
@@ -146,13 +151,7 @@ export class HistoryService {
         }
       }
 
-      // 如果有 editConfig，同步保存到记录中
-      if (item.editConfig) {
-        await this.generationModel.updateOne(
-          { _id: item.id && isValidObjectId(item.id) ? item.id : undefined }, // 这里可能需要更稳妥的定位方式，但 saveHistory 内部已有逻辑
-          { $set: { editConfig: item.editConfig } }
-        );
-      }
+      // 移除原有的在末尾单独更新 editConfig 的逻辑，因为上面已经整合进 record 了
 
       return { success: true };
     } catch (error) {

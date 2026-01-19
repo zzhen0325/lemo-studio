@@ -121,7 +121,9 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
         height: 768,
         model: 'gemini-3-pro-image-preview',
         resolution: '1K',
-        lora: ''
+        lora: '',
+        isEdit: false,
+        parentId: undefined
     },
     uploadedImages: [],
     describeImages: [],
@@ -321,7 +323,9 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
                 resolution: '1K',
                 aspectRatio: '16:9',
                 lora: '',
-                editConfig: undefined
+                editConfig: undefined,
+                isEdit: false,
+                parentId: undefined
             },
             uploadedImages: [],
             describeImages: [],

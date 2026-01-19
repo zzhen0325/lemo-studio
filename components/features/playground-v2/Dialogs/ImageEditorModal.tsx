@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import NextImage from "next/image";
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,6 +15,7 @@ import {
     Palette,
     Layers,
     SlidersHorizontal,
+    History as HistoryIcon,
     X,
     LucideIcon,
     ImagePlus,
@@ -33,11 +35,14 @@ import {
 
 import { useImageEditor, EDITOR_COLORS, EditorColor, FabricObject } from '@/hooks/features/PlaygroundV2/useImageEditor';
 import { cn } from '@/lib/utils';
+import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { formatImageUrl } from '@/lib/api-base';
 
 import { PresetManagerDialog } from './PresetManagerDialog';
 import { EditPresetConfig } from '../types';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { PlaygroundInputSection, PlaygroundInputSectionProps } from '../PlaygroundInputSection';
+import { Generation } from '@/types/database';
 
 interface ImageEditorModalProps {
     isOpen: boolean;
@@ -47,9 +52,10 @@ interface ImageEditorModalProps {
     initialState?: EditPresetConfig;
     workflows: IViewComfy[];
     inputSectionProps?: PlaygroundInputSectionProps;
+    taskId?: string;
 }
 
-export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows, inputSectionProps }: ImageEditorModalProps) {
+export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows, inputSectionProps, taskId }: ImageEditorModalProps) {
     const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
     const [currentEditConfig, setCurrentEditConfig] = useState<EditPresetConfig | undefined>(undefined);
     const [mounted, setMounted] = useState(false);
@@ -87,8 +93,36 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         isInitialized,
         initCanvas,
         initCanvasWithImage,
-        setZoomEnabled
+        setZoomEnabled,
+        resetState
     } = useImageEditor(imageUrl);
+
+    // 获取全局历史并过滤相关快照
+    const { generationHistory } = usePlaygroundStore();
+    const relatedSnapshots = React.useMemo(() => {
+        // 找出所有包含 editConfig 且 taskId 匹配的历史记录
+        if (!taskId) return [];
+        return (generationHistory as Generation[])
+            .filter((gen: Generation) => gen.editConfig && gen.taskId === taskId)
+            .sort((a: Generation, b: Generation) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [generationHistory, taskId]);
+
+    const handleSwitchSnapshot = useCallback((snapshot: import('@/types/database').EditPresetConfig) => {
+        if (!snapshot.canvasJson) return;
+
+        console.log("Switching to snapshot:", snapshot);
+        loadCanvasState(snapshot.canvasJson);
+
+        // 同步其他状态
+        setEditorState(prev => ({
+            ...prev,
+            referenceImages: snapshot.referenceImages || [],
+            backgroundColor: snapshot.backgroundColor || prev.backgroundColor,
+            canvasWidth: snapshot.canvasSize?.width || prev.canvasWidth,
+            canvasHeight: snapshot.canvasSize?.height || prev.canvasHeight,
+            zoom: 1
+        }));
+    }, [loadCanvasState, setEditorState]);
 
     useEffect(() => {
         // Disable canvas zoom when preset manager is open to prevent scroll interference
@@ -105,29 +139,64 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     // 恢复初始状态
     useEffect(() => {
         if (isOpen && isInitialized && initialState && !hasLoadedInitialState.current) {
-            console.log("Restoring initial state from editConfig");
+            console.log("Restoring initial state from editConfig", initialState);
             if (initialState.canvasJson) {
                 loadCanvasState(initialState.canvasJson);
             }
-            if (initialState.referenceImages) {
-                setEditorState(prev => ({
-                    ...prev,
-                    referenceImages: initialState.referenceImages || []
-                }));
-            }
-            if (initialState.backgroundColor) {
-                updateCanvasBackground(initialState.backgroundColor);
-            }
+
+            // 同步其他状态
+            setEditorState(prev => ({
+                ...prev,
+                referenceImages: initialState.referenceImages || [],
+                backgroundColor: initialState.backgroundColor || prev.backgroundColor,
+                canvasWidth: initialState.canvasSize?.width || prev.canvasWidth,
+                canvasHeight: initialState.canvasSize?.height || prev.canvasHeight,
+                zoom: 1
+            }));
+
             hasLoadedInitialState.current = true;
         }
-    }, [isOpen, isInitialized, initialState, loadCanvasState, setEditorState, updateCanvasBackground]);
+    }, [isOpen, isInitialized, initialState, loadCanvasState, setEditorState]);
 
     // 当 Modal 关闭或 imageUrl 变化时重置加载标志
     useEffect(() => {
         if (!isOpen) {
             hasLoadedInitialState.current = false;
+            // 显式清理 hook 内部状态，防止闪烁旧内容
+            resetState();
         }
-    }, [isOpen, imageUrl]);
+    }, [isOpen, resetState]);
+
+    // 自动初始化逻辑：处理 Canvas 环境开启
+    useEffect(() => {
+        if (isOpen && !isInitialized) {
+            if (initialState) {
+                // 如果有初始状态，使用其尺寸初始化一个空画布，以便 loadCanvasState 运行
+                console.log("Initializing canvas for state restoration with size:", initialState.canvasSize);
+                const { width = 1024, height = 1024 } = initialState.canvasSize || {};
+                const timer = setTimeout(() => {
+                    initCanvas(width, height);
+                }, 100);
+                return () => clearTimeout(timer);
+            } else if (imageUrl) {
+                // 如果没有初始状态但有 URL，加载该图
+                console.log("Auto-initializing canvas with imageUrl:", imageUrl);
+                const timer = setTimeout(() => {
+                    initCanvasWithImage(imageUrl);
+                }, 100);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [isOpen, imageUrl, initialState, isInitialized, initCanvasWithImage, initCanvas]);
+
+    // 处理 imageUrl 变化时的重置
+    useEffect(() => {
+        if (isOpen && imageUrl) {
+            // 如果 imageUrl 变化，且不是因为恢复初始状态引起的，则重置
+            // 注意：这里需要谨慎处理，避免与 loadCanvasState 冲突
+            // 目前采用闭包或特定标志来区分
+        }
+    }, [imageUrl, isOpen]);
 
     // 渲染带有徽章的标注文本（用于输入框预览）
     const renderAnnotTextWithBadges = useCallback((text: string) => {
@@ -151,7 +220,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     const insertRefImageTag = useCallback((label: string) => {
         const input = annotInputRef.current;
         if (!input) {
-            setAnnotationText(prev => prev + ` [${label}]`);
             return;
         }
 
@@ -186,7 +254,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                 if (dataUrl) {
                     addReferenceImage(dataUrl);
                     // 生成新标签并插入
-                    const newLabel = `Image ${editorState.referenceImages.length + index + 1}`;
+                    const newLabel = `Image ${editorState.referenceImages.length + index + 1} `;
                     insertRefImageTag(newLabel);
                 }
             };
@@ -328,6 +396,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     // 实时同步标注信息到下方 Prompt 输入框
     const lastSyncedPromptRef = useRef<string>("");
     useEffect(() => {
+        if (!isOpen || !isInitialized) return;
         const props = inputSectionPropsRef.current;
         if (!props?.setConfig) return;
 
@@ -343,17 +412,17 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             return true;
         });
 
-        const descriptions = filteredAnnotations.map(ann => `${ann.annotationName}: ${ann.text}`);
+        const descriptions = filteredAnnotations.map(ann => `${ann.annotationName}: ${ann.text} `);
 
         // 如果有正在编辑的标注且有文字内容，也加入实时同步
         if (pendingText && pendingAnnotation) {
             const annName = (pendingAnnotation.rect as FabricObject).annotationName || '新标注';
-            descriptions.push(`${annName}: ${pendingText}`);
+            descriptions.push(`${annName}: ${pendingText} `);
         }
 
         let finalPrompt = "";
         if (descriptions.length > 0) {
-            finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：${descriptions.join('\n')}`;
+            finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：${descriptions.join('\n')} `;
         }
 
         // 避免在没有变化时频繁触发更新，并打破与 props 的循环依赖
@@ -370,7 +439,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                 lastSyncedPromptRef.current = "";
             }
         }
-    }, [editorState.pendingAnnotation, editorState.brushColor, editorState.referenceImages, editorState.canUndo, annotationText, getAnnotationsInfo]);
+    }, [editorState.pendingAnnotation, editorState.brushColor, editorState.referenceImages, editorState.canUndo, annotationText, getAnnotationsInfo, isInitialized, isOpen]);
 
     const handleSave = (e?: React.MouseEvent | boolean) => {
         const shouldGenerate = typeof e === 'boolean' ? e : false;
@@ -385,10 +454,10 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             if (annotations.length > 0) {
                 // 构建详细的提示词，包含颜色标注信息
                 const annotationDescriptions = annotations.map(ann => {
-                    return `${ann.annotationName}: ${ann.text}`;
+                    return `${ann.annotationName}: ${ann.text} `;
                 });
 
-                finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：\n${annotationDescriptions.join('\n')}`;
+                finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：\n${annotationDescriptions.join('\n')} `;
             }
 
             // 提取参考图的 dataUrl 列表
@@ -448,24 +517,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         setIsPresetManagerOpen(true);
     };
 
-    useEffect(() => {
-        if (isOpen && initialState) {
-            const timer = setTimeout(() => {
-                if (initialState.canvasJson) {
-                    loadCanvasState(initialState.canvasJson);
-                }
-                setEditorState(prev => ({
-                    ...prev,
-                    referenceImages: initialState.referenceImages || [],
-                    backgroundColor: initialState.backgroundColor || '#eeeeee',
-                    canvasWidth: initialState.canvasSize?.width || 1024,
-                    canvasHeight: initialState.canvasSize?.height || 1024,
-                    zoom: 1
-                }));
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [isOpen, initialState, loadCanvasState, setEditorState]);
+    // 已移除冗余的状态恢复逻辑，统一放在上方的 useEffect 中
 
     if (!isOpen || !mounted) return null;
 
@@ -652,7 +704,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                     >
                                         {/* 参考图展示区域 - 始终渲染容器避免 DOM 插入冲突 */}
                                         <div
-                                            className="absolute top-4 left-4 z-[100] flex flex-col gap-2"
+                                            className="absolute top-20 left-8 z-[100] flex flex-col gap-2"
                                             style={{ display: editorState.referenceImages.length > 0 ? 'flex' : 'none' }}
                                         >
                                             <div className="text-white/40 text-[10px] uppercase font-mono tracking-wider mb-1">
@@ -695,53 +747,61 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                         </div>
                                         <canvas ref={canvasRef} className={cn("max-w-full max-h-full transition-all duration-300", !isInitialized && "opacity-0")} />
 
-                                        {/* Empty State Overlay */}
+                                        {/* Empty or Loading State Overlay */}
                                         {!isInitialized && (
                                             <div className="absolute inset-0 -mt-20 flex flex-col items-center justify-center z-50 pointer-events-auto">
-                                                <div className="bg-black/0 p-12 rounded-[40px] flex flex-col items-center gap-8 pointer-events-auto">
-                                                    <div className="flex flex-col items-center gap-3 text-center">
-                                                        <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
-                                                            <ImagePlus className="w-8 h-8 text-primary" />
+                                                {imageUrl ? (
+                                                    // 如果有 imageUrl，显示加载中，而不是“开始编辑”
+                                                    <div className="flex flex-col items-center gap-4">
+                                                        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                                                        <span className="text-white/40 text-sm font-medium">Loading Image...</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-black/0 p-12 rounded-[40px] flex flex-col items-center gap-8 pointer-events-auto">
+                                                        <div className="flex flex-col items-center gap-3 text-center">
+                                                            <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
+                                                                <ImagePlus className="w-8 h-8 text-primary" />
+                                                            </div>
+                                                            <h3 className="text-xl font-medium text-white">开始编辑</h3>
+                                                            <p className="text-sm text-white/40 max-w-[240px]">
+                                                                上传一张图片开始，或者创建一个空白画框进行自由创作
+                                                            </p>
                                                         </div>
-                                                        <h3 className="text-xl font-medium text-white">开始编辑</h3>
-                                                        <p className="text-sm text-white/40 max-w-[240px]">
-                                                            上传一张图片开始，或者创建一个空白画框进行自由创作
-                                                        </p>
-                                                    </div>
 
-                                                    <div className="flex flex-col w-full gap-3">
-                                                        <Button
-                                                            variant="act"
-                                                            className="h-12 w-full rounded-2xl gap-2 text-base font-medium shadow-[0_0_20px_oklch(var(--primary)/0.2)] pointer-events-auto"
-                                                            onClick={(e) => {
-                                                                console.log("Upload button clicked");
-                                                                e.stopPropagation();
-                                                                fileInputRef.current?.click();
-                                                            }}
-                                                        >
-                                                            <Upload className="w-5 h-5" />
-                                                            上传图片
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            className="h-12 w-full rounded-2xl gap-2 text-base font-medium bg-white/5 border border-white/5 hover:bg-white/10 text-white/80 pointer-events-auto"
-                                                            onClick={(e) => {
-                                                                console.log("New canvas button clicked");
-                                                                e.stopPropagation();
-                                                                initCanvas(1024, 1024);
-                                                            }}
-                                                        >
-                                                            <Plus className="w-5 h-5" />
-                                                            新建空白画框
-                                                        </Button>
-                                                    </div>
+                                                        <div className="flex flex-col w-full gap-3">
+                                                            <Button
+                                                                variant="act"
+                                                                className="h-12 w-full rounded-2xl gap-2 text-base font-medium shadow-[0_0_20px_oklch(var(--primary)/0.2)] pointer-events-auto"
+                                                                onClick={(e) => {
+                                                                    console.log("Upload button clicked");
+                                                                    e.stopPropagation();
+                                                                    fileInputRef.current?.click();
+                                                                }}
+                                                            >
+                                                                <Upload className="w-5 h-5" />
+                                                                上传图片
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                className="h-12 w-full rounded-2xl gap-2 text-base font-medium bg-white/5 border border-white/5 hover:bg-white/10 text-white/80 pointer-events-auto"
+                                                                onClick={(e) => {
+                                                                    console.log("New canvas button clicked");
+                                                                    e.stopPropagation();
+                                                                    initCanvas(1024, 1024);
+                                                                }}
+                                                            >
+                                                                <Plus className="w-5 h-5" />
+                                                                新建空白画框
+                                                            </Button>
+                                                        </div>
 
-                                                    <div className="flex items-center gap-2 text-[11px] text-white/20 uppercase font-mono tracking-widest">
-                                                        <div className="w-8 h-px bg-white/5" />
-                                                        或者直接拖拽图片到此处
-                                                        <div className="w-8 h-px bg-white/5" />
+                                                        <div className="flex items-center gap-2 text-[11px] text-white/20 uppercase font-mono tracking-widest">
+                                                            <div className="w-8 h-px bg-white/5" />
+                                                            或者直接拖拽图片到此处
+                                                            <div className="w-8 h-px bg-white/5" />
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
                                         )}
 
@@ -1077,16 +1137,47 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                             </Button>
                                         </div>
 
-                                        {/* History Info */}
-                                        <div className="space-y-3">
+                                        {/* History Info / Snapshots */}
+                                        <div className="space-y-4">
                                             <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
-                                                <Layers className="w-3 h-3" /> History
+                                                <Layers className="w-3 h-3" /> Historical Snapshots
                                             </div>
-                                            <p className="text-white/40 text-[10px] font-mono opacity-60">
-                                                {editorState.canvasWidth} x {editorState.canvasHeight} px
-                                            </p>
-                                            <p className="text-white/40 text-xs leading-relaxed">
-                                                Use Ctrl+Z / Ctrl+Y to undo/redo changes.
+
+                                            {relatedSnapshots.length > 0 ? (
+                                                <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+                                                    {(relatedSnapshots as Generation[]).map((item: Generation, idx: number) => (
+                                                        <button
+                                                            key={item.id}
+                                                            onClick={() => item.editConfig && handleSwitchSnapshot(item.editConfig)}
+                                                            className="flex flex-col gap-2 p-2 rounded-xl bg-white/5 border border-white/5 hover:border-primary/40 hover:bg-white/10 transition-all text-left group"
+                                                        >
+                                                            <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-black/40 border border-white/5">
+                                                                <NextImage
+                                                                    src={formatImageUrl(item.outputUrl)}
+                                                                    alt={`Snapshot ${relatedSnapshots.length - idx} `}
+                                                                    fill
+                                                                    className="object-cover transition-transform group-hover:scale-110"
+                                                                />
+                                                                <div className="absolute top-1 right-1 bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] text-white/60 font-mono">
+                                                                    v{relatedSnapshots.length - idx}
+                                                                </div>
+                                                            </div>
+                                                            <div className="px-1">
+                                                                <div className="text-[10px] text-white/80 truncate font-medium">Snapshot {relatedSnapshots.length - idx}</div>
+                                                                <div className="text-[9px] text-white/30 font-mono">{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="py-8 px-4 border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center gap-2">
+                                                    <HistoryIcon className="w-5 h-5 text-white/10" />
+                                                    <div className="text-[10px] text-white/20 uppercase font-mono">No edits yet</div>
+                                                </div>
+                                            )}
+
+                                            <p className="text-white/20 text-[9px] leading-relaxed pt-2">
+                                                Select a snapshot to restore the previous editor state. Use Ctrl+Z / Ctrl+Y to undo changes within a session.
                                             </p>
                                         </div>
                                     </motion.div>

@@ -36,11 +36,36 @@ export interface FabricObject extends fabric.Object {
     annotationMetaLabel?: string;
     id?: string;
     _prevEvented?: boolean;
+    nameLabelId?: string;  // 属性名
+    textLabelId?: string;  // 属性名
+    parentRectId?: string; // 属性名
 }
 
 export interface FabricCanvas extends fabric.Canvas {
     _wasDrawingMode?: boolean;
 }
+
+// 需要在序列化时保留的自定义属性列表
+export const CUSTOM_PROPS = [
+    'id',
+    'name',
+    'annotationMeta',
+    'annotationName',
+    'selectable',
+    'evented',
+    'lockMovementX',
+    'lockMovementY',
+    'strokeDashArray',
+    'nameLabelId',  // 关联的名称标签 ID
+    'textLabelId',  // 关联的内容标签 ID
+    'parentRectId', // 关联的父标注框 ID
+    'shadow'
+];
+
+/**
+ * 生成简易 UUID
+ */
+const generateId = () => Math.random().toString(36).substring(2, 9);
 
 // 参考图数据结构
 export interface ReferenceImage {
@@ -111,6 +136,33 @@ export const useImageEditor = (imageUrl: string) => {
 
     const [isInitialized, setIsInitialized] = useState(false);
 
+    const resetState = useCallback(() => {
+        setIsInitialized(false);
+        setEditorState({
+            brushColor: '#ef4444',
+            brushWidth: 2,
+            fontSize: 32,
+            activeTool: 'select',
+            canUndo: false,
+            canRedo: false,
+            zoom: 1,
+            pendingAnnotation: null,
+            referenceImages: [],
+            canvasWidth: 1024,
+            canvasHeight: 1024,
+            backgroundColor: '#eeeeee',
+        });
+        setImageObj(null);
+        canvasBackgroundRef.current = null;
+        historyRef.current = [];
+        historyIndexRef.current = -1;
+        annotationCountRef.current = 0;
+        isDrawingRef.current = false;
+        activeObjectRef.current = null;
+        startPointRef.current = null;
+        hasMovedRef.current = false;
+    }, []);
+
     const editorStateRef = useRef(editorState);
     editorStateRef.current = editorState;
 
@@ -126,7 +178,7 @@ export const useImageEditor = (imageUrl: string) => {
 
     const saveHistory = useCallback(() => {
         if (!fabricCanvasRef.current) return;
-        const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+        const json = JSON.stringify(fabricCanvasRef.current.toObject(CUSTOM_PROPS));
 
         if (historyIndexRef.current < historyRef.current.length - 1) {
             historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -169,7 +221,8 @@ export const useImageEditor = (imageUrl: string) => {
                     canvas.hoverCursor = 'grab';
                     // 暂时禁用所有对象的事件，防止它们改变光标
                     canvas.getObjects().forEach(obj => {
-                        if (obj !== imageObj && obj !== canvasBackgroundRef.current) {
+                        const isBg = (obj as FabricObject).name === 'canvas-background' || obj instanceof fabric.FabricImage;
+                        if (!isBg) {
                             (obj as FabricObject)._prevEvented = obj.evented;
                             obj.evented = false;
                         }
@@ -191,15 +244,14 @@ export const useImageEditor = (imageUrl: string) => {
                     canvas.hoverCursor = 'move';
                     // 恢复对象的事件响应
                     canvas.getObjects().forEach(obj => {
-                        if (obj !== imageObj && obj !== canvasBackgroundRef.current) {
+                        const isBg = (obj as FabricObject).name === 'canvas-background' || obj instanceof fabric.FabricImage;
+                        if (!isBg) {
                             if ((obj as FabricObject)._prevEvented !== undefined) {
                                 obj.evented = (obj as FabricObject)._prevEvented!;
                                 delete (obj as FabricObject)._prevEvented;
                             }
                         } else {
                             // 默认逻辑
-                            const skip: (fabric.Object | null)[] = [imageObj, canvasBackgroundRef.current];
-                            const isBg = skip.includes(obj);
                             const isNameLabel = obj instanceof fabric.IText && obj.selectable === false && (obj as FabricObject).backgroundColor !== undefined;
                             obj.evented = !isBg && !isNameLabel;
                         }
@@ -228,7 +280,7 @@ export const useImageEditor = (imageUrl: string) => {
             window.removeEventListener('keyup', handleKeyUp);
             window.removeEventListener('blur', handleBlur);
         };
-    }, [imageObj]);
+    }, []);
 
     const handleMouseWheel = useCallback((opt: fabric.TPointerEventInfo<WheelEvent>) => {
         if (!isZoomEnabledRef.current) return;
@@ -604,6 +656,8 @@ export const useImageEditor = (imageUrl: string) => {
             stopContextMenu: true,
         });
 
+        // 在正式开始 setup 前，先重置所有业务状态
+
         fabric.Object.prototype.transparentCorners = false;
         fabric.Object.prototype.cornerSize = 4;
         fabric.Object.prototype.cornerStyle = 'circle';
@@ -680,7 +734,8 @@ export const useImageEditor = (imageUrl: string) => {
         canvas.on('path:created', () => callbackRefs.current.saveHistory());
         canvas.on('object:added', (o) => {
             const t = o.target;
-            if (t && t !== imageObj && t !== canvasBackgroundRef.current) {
+            const isBg = (t as FabricObject).name === 'canvas-background' || t instanceof fabric.FabricImage;
+            if (t && !isBg) {
                 t.set({ borderColor: '#ffffff', borderScaleFactor: 2, cornerColor: '#1079BB', cornerStrokeColor: '#ffffff', transparentCorners: false, cornerSize: 8, cornerStyle: 'circle' });
                 // 使用内部定义的 renderCircle
                 if (t.controls) Object.keys(t.controls).forEach(k => t.controls[k]!.render = renderCircle);
@@ -708,7 +763,7 @@ export const useImageEditor = (imageUrl: string) => {
         });
 
         return canvas;
-    }, [imageUrl, imageObj]);
+    }, [imageUrl]);
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -843,17 +898,56 @@ export const useImageEditor = (imageUrl: string) => {
 
     const confirmAnnotation = useCallback((t: string, rL?: string) => {
         const c = fabricCanvasRef.current, a = editorState.pendingAnnotation; if (!c || !a) return;
-        const r = a.rect, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1), col = a.color;
-        if (a.existingLabel) c.remove(a.existingLabel); if ((r as FabricObject).nameLabel) c.remove((r as FabricObject).nameLabel!);
-        let n: string; if (!a.existingLabel && !a.existingText) { annotationCountRef.current++; n = `标注${annotationCountRef.current}`; } else n = (r as FabricObject).annotationName || `标注${annotationCountRef.current}`;
-        (r as FabricObject).annotationName = n;
-        const nL = new fabric.IText(n, { left: rl, top: rt - 18, fontFamily: 'sans-serif', fontSize: 12, fill: '#ffffff', backgroundColor: col, padding: 2, selectable: false, evented: false });
-        c.add(nL); (r as FabricObject).nameLabel = nL; (nL as FabricObject).parentRect = r;
+        const r = a.rect as FabricObject, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1), col = a.color;
+        if (a.existingLabel) c.remove(a.existingLabel); if (r.nameLabel) c.remove(r.nameLabel!);
+
+        // 确保 rect 有个唯一 ID
+        if (!r.id) r.id = `rect-${generateId()}`;
+
+        let n: string; if (!a.existingLabel && !a.existingText) { annotationCountRef.current++; n = `标注${annotationCountRef.current}`; } else n = r.annotationName || `标注${annotationCountRef.current}`;
+        r.annotationName = n;
+
+        const nL = new fabric.IText(n, {
+            id: `name-${generateId()}`,
+            left: rl,
+            top: rt - 18,
+            fontFamily: 'sans-serif',
+            fontSize: 12,
+            fill: '#ffffff',
+            backgroundColor: col,
+            padding: 2,
+            selectable: false,
+            evented: false
+        }) as FabricObject;
+
+        c.add(nL);
+        r.nameLabel = nL as unknown as fabric.IText;
+        r.nameLabelId = nL.id;
+        nL.parentRect = r as unknown as fabric.Rect;
+        nL.parentRectId = r.id;
+
         let lT = t.trim(); if (rL) lT = lT ? `${lT} (${rL})` : rL;
         if (lT) {
-            const l = new fabric.IText(lT, { left: rl + 5, top: rt + rh + 5, fontFamily: 'sans-serif', fontSize: 14, fill: col, backgroundColor: 'rgba(0,0,0,0.7)', padding: 4, selectable: true, evented: true, editable: false });
-            (l as FabricObject).annotationMeta = { colorName: EDITOR_COLORS.find(c => c.hex === col)?.name || 'Red', text: t.trim(), referenceImageLabel: rL, annotationName: n };
-            c.add(l); (r as FabricObject).textLabel = l; (l as FabricObject).parentRect = r;
+            const l = new fabric.IText(lT, {
+                id: `text-${generateId()}`,
+                left: rl + 5,
+                top: rt + rh + 5,
+                fontFamily: 'sans-serif',
+                fontSize: 14,
+                fill: col,
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: 4,
+                selectable: true,
+                evented: true,
+                editable: false
+            }) as FabricObject;
+
+            l.annotationMeta = { colorName: EDITOR_COLORS.find(c => c.hex === col)?.name || 'Red', text: t.trim(), referenceImageLabel: rL, annotationName: n };
+            c.add(l);
+            r.textLabel = l as unknown as fabric.IText;
+            r.textLabelId = l.id;
+            l.parentRect = r as unknown as fabric.Rect;
+            l.parentRectId = r.id;
         }
         r.set({ selectable: true, evented: true, lockMovementX: false, lockMovementY: false }); c.setActiveObject(r); c.renderAll(); callbackRefs.current.saveHistory();
         setEditorState(p => ({ ...p, pendingAnnotation: null }));
@@ -905,26 +999,72 @@ export const useImageEditor = (imageUrl: string) => {
 
     const getCanvasState = useCallback(() => {
         if (!fabricCanvasRef.current) return null;
-        return fabricCanvasRef.current.toJSON();
+        return fabricCanvasRef.current.toObject(CUSTOM_PROPS);
     }, []);
 
     const loadCanvasState = useCallback((json: unknown) => {
         if (!fabricCanvasRef.current || !json) return;
         if (typeof json === 'string' || typeof json === 'object') {
             fabricCanvasRef.current.loadFromJSON(json as string | Record<string, unknown>).then(() => {
-                const obs = fabricCanvasRef.current?.getObjects() || [];
-                canvasBackgroundRef.current = obs.find(o => (o as FabricObject).name === 'canvas-background') as fabric.Rect || null;
+                const canvas = fabricCanvasRef.current;
+                if (!canvas) return;
 
-                // Attempt to restore imageObj reference
-                // Assuming the main image is the first FabricImage that is not the background (background is Rect)
+                const obs = canvas.getObjects() as (fabric.Object & FabricObject)[];
+                canvasBackgroundRef.current = obs.find(o => o.name === 'canvas-background') as fabric.Rect || null;
+
+                // 恢复对象引用关系
+                const objMap = new Map<string, fabric.Object & FabricObject>();
+                obs.forEach(obj => {
+                    if (obj.id) objMap.set(obj.id, obj);
+                });
+
+                let maxAnnotNum = 0;
+                obs.forEach(obj => {
+                    // 重建父子引用
+                    if (obj.nameLabelId && objMap.has(obj.nameLabelId)) {
+                        obj.nameLabel = objMap.get(obj.nameLabelId) as unknown as fabric.IText;
+                    }
+                    if (obj.textLabelId && objMap.has(obj.textLabelId)) {
+                        obj.textLabel = objMap.get(obj.textLabelId) as unknown as fabric.IText;
+                    }
+                    if (obj.parentRectId && objMap.has(obj.parentRectId)) {
+                        obj.parentRect = objMap.get(obj.parentRectId) as unknown as fabric.Rect;
+                    }
+
+                    // 重新应用控件样式
+                    if (obj.name !== 'canvas-background' && !(obj instanceof fabric.FabricImage)) {
+                        obj.set({
+                            borderColor: '#ffffff',
+                            borderScaleFactor: 2,
+                            cornerColor: '#1079BB',
+                            cornerStrokeColor: '#ffffff',
+                            transparentCorners: false,
+                            cornerSize: 8,
+                            cornerStyle: 'circle'
+                        });
+                        // 关联 renderCircle (由 initFabric 环境提供，这里仅标记属性)
+                    }
+
+                    // 更新标注计数器
+                    if (obj.annotationName) {
+                        const match = obj.annotationName.match(/标注(\d+)/);
+                        if (match) {
+                            const num = parseInt(match[1]);
+                            if (num > maxAnnotNum) maxAnnotNum = num;
+                        }
+                    }
+                });
+
+                annotationCountRef.current = maxAnnotNum;
+
                 const mainImg = obs.find(o => o instanceof fabric.FabricImage) as fabric.FabricImage | null;
                 if (mainImg) {
                     setImageObj(mainImg);
                 }
 
-                fabricCanvasRef.current?.renderAll();
-                // Update history with the loaded state
-                const jsonStr = JSON.stringify(fabricCanvasRef.current?.toJSON());
+                canvas.renderAll();
+
+                const jsonStr = JSON.stringify(canvas.toObject(CUSTOM_PROPS));
                 historyRef.current = [jsonStr];
                 historyIndexRef.current = 0;
                 setEditorState(prev => ({ ...prev, canUndo: false, canRedo: false }));
@@ -933,7 +1073,7 @@ export const useImageEditor = (imageUrl: string) => {
         }
     }, []);
 
-    const initCanvas = useCallback((w: number, h: number) => {
+    const initCanvas = useCallback(async (w: number, h: number) => {
         let canvas = fabricCanvasRef.current;
 
         // 如果 canvas 还没初始化，尝试手动触发一次初始化
@@ -947,10 +1087,32 @@ export const useImageEditor = (imageUrl: string) => {
             }
         }
 
+        // 如果还是 null，尝试异步重试几次（可能在动画中或尚未挂载）
         if (!canvas) {
-            console.error("Canvas not initialized");
+            console.warn("fabricCanvasRef is null during initCanvas, waiting a bit...");
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                canvas = fabricCanvasRef.current;
+
+                // 每次重试时也尝试再探测一次 DOM
+                if (!canvas && canvasRef.current) {
+                    const container = canvasRef.current.parentElement;
+                    const rect = container?.getBoundingClientRect();
+                    if (rect && rect.width > 0 && rect.height > 0) {
+                        canvas = initFabric(rect.width, rect.height);
+                    }
+                }
+
+                if (canvas) break;
+            }
+        }
+
+        if (!canvas) {
+            console.error("Canvas not initialized after retries");
             return;
         }
+
+        resetState();
 
         const cw = canvas.width || 800, ch = canvas.height || 600;
         const initialZoom = Math.min(cw / w, ch / h) * 0.7;
@@ -975,7 +1137,7 @@ export const useImageEditor = (imageUrl: string) => {
 
         canvas.requestRenderAll();
         setIsInitialized(true);
-    }, [initFabric]);
+    }, [initFabric, resetState]);
 
     const initCanvasWithImage = useCallback(async (url: string) => {
         let canvas = fabricCanvasRef.current;
@@ -992,14 +1154,19 @@ export const useImageEditor = (imageUrl: string) => {
         if (!canvas) {
             console.warn("fabricCanvasRef is null during initCanvasWithImage, waiting a bit...");
             // 尝试等待一帧，给 ResizeObserver 机会
-            await new Promise(resolve => setTimeout(resolve, 50));
-            canvas = fabricCanvasRef.current;
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+                canvas = fabricCanvasRef.current;
+                if (canvas) break;
+            }
         }
 
         if (!canvas) {
-            console.error("Canvas not initialized for image");
+            console.error("Canvas not initialized for image after retries");
             return;
         }
+
+        resetState();
 
         const cw = canvas.width || 800, ch = canvas.height || 600;
 
@@ -1040,12 +1207,12 @@ export const useImageEditor = (imageUrl: string) => {
         } catch (err) {
             console.error("Failed to load image:", err);
         }
-    }, [saveHistory, initFabric]);
+    }, [saveHistory, initFabric, resetState]);
 
     return {
         canvasRef, editorState, setTool, addText, addShape, addImage, undo, redo, rotateCanvas, applyFilter, exportImage,
         updateBrushColor, updateBrushWidth, deleteSelected, confirmAnnotation, cancelAnnotation, addReferenceImage,
         removeReferenceImage, getAnnotationsInfo, updateCanvasBackground, updateCanvasSize, fabricCanvasRef,
-        getCanvasState, loadCanvasState, setEditorState, isInitialized, initCanvas, initCanvasWithImage, setZoomEnabled
+        getCanvasState, loadCanvasState, setEditorState, isInitialized, initCanvas, initCanvasWithImage, setZoomEnabled, resetState
     };
 };

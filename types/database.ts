@@ -39,6 +39,9 @@ export interface GenerationConfig {
   sourceImageUrl?: string;
   presetName?: string;
   editConfig?: EditPresetConfig;
+  isEdit?: boolean;
+  parentId?: string;
+  taskId?: string;
 }
 
 export interface Generation {
@@ -50,10 +53,13 @@ export interface Generation {
   status: 'pending' | 'completed' | 'failed';
   sourceImageUrl?: string;
   editConfig?: EditPresetConfig;
+  isEdit?: boolean;
+  parentId?: string;
   llmResponse?: string;
   progress?: number;
   progressStage?: string;
   createdAt: string;
+  taskId?: string;
 }
 
 export interface AnnotationInfo {

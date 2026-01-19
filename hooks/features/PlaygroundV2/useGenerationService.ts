@@ -34,6 +34,9 @@ export interface GenerateOptions {
     fixedCreatedAt?: string;
     isBackground?: boolean;
     editConfig?: EditPresetConfig;
+    isEdit?: boolean;
+    parentId?: string;
+    taskId?: string;
 }
 
 export function useGenerationService() {
@@ -92,6 +95,9 @@ export function useGenerationService() {
 
         // Prioritize editConfig from options, then configOverride, then current config
         const editConfig = options.editConfig || configOverride?.editConfig || freshConfig.editConfig;
+        const isEdit = options.isEdit !== undefined ? options.isEdit : (configOverride?.isEdit || freshConfig.isEdit || !!editConfig);
+        const parentId = options.parentId || configOverride?.parentId || freshConfig.parentId;
+        const taskId = options.taskId || configOverride?.taskId || freshConfig.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
 
         const finalConfig = {
             ...(configOverride && typeof configOverride === 'object' && 'prompt' in configOverride
@@ -99,12 +105,13 @@ export function useGenerationService() {
                 : freshConfig),
             loras: currentLoras,
             presetName: selectedPresetName,
-            editConfig // Ensure it's part of finalConfig
+            editConfig, // Ensure it's part of finalConfig
+            isEdit,
+            parentId,
         };
 
         // Set state to indicate generation has started
         setHasGenerated(true);
-        const taskId = Date.now().toString() + Math.random().toString(36).substring(2, 7);
 
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
@@ -120,6 +127,9 @@ export function useGenerationService() {
             status: 'pending',
             sourceImageUrl: sourceImageUrl,
             editConfig: editConfig,
+            isEdit: isEdit,
+            parentId: parentId,
+            taskId: taskId,
             createdAt: generationTime,
         };
 
@@ -154,6 +164,7 @@ export function useGenerationService() {
                     status: 'completed',
                     sourceImageUrl: undefined,
                     createdAt: new Date().toISOString(),
+                    taskId: taskId,
                 };
                 updateHistoryAndSave(taskId, result);
                 return;
@@ -183,7 +194,7 @@ export function useGenerationService() {
         setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === taskId ? {
             ...item,
             ...result,
-            config: { ...item.config, ...result.config }
+            config: { ...item.config, ...result.config, taskId: result.taskId || item.taskId }
         } : item));
         saveHistoryToBackend(result);
 
@@ -268,7 +279,7 @@ export function useGenerationService() {
                         console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
                         setGenerationHistory((prev: Generation[]) => prev.map(item =>
                             item.id === taskId
-                                ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: currentConfig.editConfig }
+                                ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId }
                                 : item
                         ));
                     } catch (err) {
@@ -329,6 +340,9 @@ export function useGenerationService() {
                 sourceImageUrl: effectiveSourceUrl,
                 createdAt: generationTime,
                 editConfig: currentConfig.editConfig,
+                isEdit: currentConfig.isEdit,
+                parentId: currentConfig.parentId,
+                taskId: currentConfig.taskId,
             };
             updateHistoryAndSave(taskId, gen);
         } else {
@@ -448,7 +462,10 @@ export function useGenerationService() {
                         status: 'completed',
                         sourceImageUrl: effectiveSourceUrl,
                         createdAt: generationTime,
-                        editConfig: currentConfig.editConfig
+                        editConfig: currentConfig.editConfig,
+                        isEdit: currentConfig.isEdit,
+                        parentId: currentConfig.parentId,
+                        taskId: currentConfig.taskId
                     };
                     updateHistoryAndSave(taskId, gen);
                 }
