@@ -34,7 +34,7 @@ const PROVIDER_ENV_MAP: Record<string, string> = {
 // 根据modelId查找对应的provider配置
 function findProviderConfigForModel(modelId: string): { apiKey: string; baseURL?: string; providerType: string } | null {
     const providers = readProvidersConfig();
-    
+
     for (const provider of providers) {
         if (!provider.isEnabled) continue;
         for (const model of provider.models) {
@@ -123,6 +123,14 @@ export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfi
             }
         }
 
+        if (modelId.endsWith('.safetensors') || modelId.includes('safetensors')) {
+            console.log(`[getProvider] Detected safetensors model: ${modelId}, returning dummy provider.`);
+            return {
+                generateImage: async () => ({ images: [] })
+            } as any;
+        }
+
+        console.error(`[getProvider] Model not found in registry: ${modelId}`);
         throw new Error(`Model ${modelId} not found in registry`);
     }
 

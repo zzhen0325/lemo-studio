@@ -172,8 +172,11 @@ export function useGenerationService() {
 
             // 优先使用 config 中的模型 ID
             const effectiveModel = unifiedCfg.model || selectedModel;
+            const isWorkflowModel = effectiveModel === "Workflow" ||
+                effectiveModel?.endsWith('.safetensors') ||
+                effectiveModel?.includes('safetensors');
 
-            if (effectiveModel === "Workflow") {
+            if (isWorkflowModel) {
                 await handleWorkflow(taskId, finalConfig, generationTime, sourceImageUrl);
             } else {
                 await handleUnifiedImageGen(taskId, finalConfig, generationTime, sourceImageUrl);

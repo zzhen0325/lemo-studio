@@ -73,7 +73,6 @@ export interface PlaygroundV2PageProps {
 
 }
 
-type DockTab = 'history' | 'gallery' | 'describe' | 'style';
 
 export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   onEditMapping,
@@ -152,8 +151,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [batchSize, setBatchSize] = useState(4); // Default batch size
 
-  // New View Mode State
-  const [activeTab, setActiveTab] = useState<DockTab>('history');
 
   const {
     showHistory,
@@ -163,6 +160,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setSelectedPresetName,
     viewMode,
     setViewMode,
+    activeTab,
+    setActiveTab,
     previewImageUrl,
     previewLayoutId,
     setPreviewImage,
@@ -950,7 +949,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults,
     setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
-    setIsDraggingOverPanel, setViewMode, setSelectedPresetName
+    setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab
   ]);
 
   return (

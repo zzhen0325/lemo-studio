@@ -105,7 +105,7 @@ const SortableImage = ({ img, gridColumns, onDelete, isSelected, onSelect }: Sor
             }}
             className={`group relative aspect-square bg-card border rounded-xl overflow-hidden transition-all select-none touch-none ${isSelected
                 ? 'ring-2 ring-primary border-primary shadow-[0_0_15px_oklch(var(--primary)/0.3)]'
-                : 'border-border hover:ring-2 hover:ring-primary/50'
+                : 'border-white/10 hover:ring-2 hover:ring-primary/50'
                 }`}
         >
             <Image
@@ -631,26 +631,85 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         if (files.length === 0) return;
 
         setIsProcessing(true);
-        let successCount = 0;
         setProgress({ current: 0, total: files.length });
 
         try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
+            // 1. 分类文件并读取 txt 内容
+            const imageFiles: File[] = [];
+            const promptMap: Record<string, string> = {};
+            const txtFiles = files.filter(f => f.name.toLowerCase().endsWith('.txt'));
+
+            // 读取所有 txt 文件内容
+            await Promise.all(txtFiles.map(async (file) => {
+                const text = await file.text();
+                const baseName = file.name.replace(/\.txt$/i, '');
+                promptMap[baseName] = text.trim();
+            }));
+
+            // 获取图片文件
+            files.forEach(file => {
+                const ext = file.name.split('.').pop()?.toLowerCase();
+                if (ext && ['jpg', 'jpeg', 'png', 'webp', 'bmp'].includes(ext)) {
+                    imageFiles.push(file);
+                }
+            });
+
+            if (imageFiles.length === 0) {
+                toast({ title: "No images found", description: "Only .txt files were provided.", variant: "destructive" });
+                return;
+            }
+
+            let successCount = 0;
+            setProgress({ current: 0, total: imageFiles.length });
+
+            // 2. 遍历上传图片
+            for (let i = 0; i < imageFiles.length; i++) {
+                const file = imageFiles[i];
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('collection', collection.name);
 
+                // 上传图片资产
                 const res = await fetch(`${getApiBase()}/dataset`, {
                     method: 'POST',
                     body: formData
                 });
 
-                if (res.ok) successCount++;
-                setProgress({ current: i + 1, total: files.length });
+                if (res.ok) {
+                    successCount++;
+                    const data = await res.json();
+
+                    // 获取文件名用于后续关联或本地展示
+                    const uploadedFileName = data.path.split('/').pop() || file.name;
+                    const baseName = file.name.replace(/\.[^/.]+$/, "");
+                    const promptText = promptMap[baseName] || '';
+
+                    // 3. 关联 Prompt (如果存在同名 txt)
+                    if (promptText) {
+                        await fetch(`${getApiBase()}/dataset`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                collection: collection.name,
+                                filename: uploadedFileName,
+                                prompt: promptText
+                            })
+                        });
+                    }
+
+                    // 4. 立即更新本地状态以展示
+                    const newImage: DatasetImage = {
+                        id: uploadedFileName,
+                        filename: uploadedFileName,
+                        url: data.path,
+                        prompt: promptText
+                    };
+                    setImages(prev => [...prev, newImage]);
+                }
+                setProgress({ current: i + 1, total: imageFiles.length });
             }
 
-            toast({ title: "Upload complete", description: `Uploaded ${successCount}/${files.length} files.` });
+            toast({ title: "Upload complete", description: `Uploaded ${successCount}/${imageFiles.length} images with associated prompts.` });
             fetchImages();
         } catch (error) {
             console.error('Upload failed', error);
@@ -1282,7 +1341,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 </div>
             )}
             {/* Sticky Header Section */}
-            <div className="sticky top-0 z-30 bg-[#1E1E1E]/95 backdrop-blur-sm -mx-4 px-4 p-6 pb-4 border-b border-white/5">
+            <div className="sticky top-0 z-30 bg-[#1E1E1E00] backdrop-blur-sm -mx-4 px-4 p-6 pb-4 border-b border-white/5">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button variant="ghost" size="icon" onClick={onBack} className="text-white border   border-white/10 hover:text-primary hover:bg-white/10 h-10 px-4 rounded-lg">
@@ -1426,7 +1485,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                         <Label className="text-xs">Crop Mode</Label>
                                         <div className="flex gap-2">
                                             <Select value={cropMode} onValueChange={(v: 'center' | 'longest') => setCropMode(v)}>
-                                                <SelectTrigger className="w-full h-9 bg-background border-border text-xs">
+                                                <SelectTrigger className="w-full h-9 bg-background border-white/10 text-xs">
                                                     <SelectValue placeholder="Mode" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -1440,7 +1499,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                     <div className="space-y-2">
                                         <Label className="text-xs">Target Size</Label>
                                         <Select value={targetSize} onValueChange={setTargetSize}>
-                                            <SelectTrigger className="w-full h-9 bg-background border-border text-xs">
+                                            <SelectTrigger className="w-full h-9 bg-background border-white/10 text-xs">
                                                 <SelectValue placeholder="Size" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -1632,7 +1691,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
                 {
                     isPromptPanelOpen && (
-                        <div className="p-5 bg-card border border-border rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="p-5 bg-card border border-white/10 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                                     <Wand2 className="h-4 w-4 text-primary" />
@@ -1655,7 +1714,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                     setSystemPrompt(e.target.value);
                                     setIsSystemPromptDirty(true);
                                 }}
-                                className="w-full bg-background border-border text-foreground text-sm p-4 focus:border-primary/50 rounded-xl min-h-[80px]"
+                                className="w-full bg-background border-white/10 text-foreground text-sm p-4 focus:border-primary/50 rounded-xl min-h-[80px]"
                                 placeholder="What is in this image? Describe the main objects and context."
                             />
 
@@ -1685,7 +1744,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                 * This prompt will be used for all images in this collection when clicking &quot;Optimize&quot;. Changes are auto-saved.
                             </p>
 
-                            <div className="border-t border-border my-4"></div>
+                            <div className="border-t border-white/10 my-4"></div>
 
 
                         </div>
@@ -1698,7 +1757,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
             {/* 前缀 */}
 
             <div className="flex  gap-3">
-                <div className="flex   w-full flex-wrap h-12 min-h-[40px] p-2 border border-border rounded-xl bg-background">
+                <div className="flex   w-full flex-wrap h-12 min-h-[40px] p-2 border border-white/10 rounded-xl bg-background">
                     {activeTags.map((tag) => (
                         <div key={tag} className="flex items-center gap-1  bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-sm text-xs font-medium animate-in fade-in zoom-in-95 duration-200">
                             {tag}
@@ -1728,7 +1787,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     variant="secondary"
                     onClick={handleAddPrefix}
                     disabled={!batchPrefix.trim()}
-                    className="w-auto h-12 bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border"
+                    className="w-auto h-12 bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-white/10"
                 >
                     <Plus className="h-4 w-4 " />
                     Add Prefix
@@ -1788,7 +1847,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
                     {isProcessing && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/20 backdrop-blur-[2px] rounded-2xl">
-                            <div className="bg-card p-4 rounded-2xl border border-border flex items-center gap-3 shadow-xl">
+                            <div className="bg-card p-4 rounded-2xl border border-white/10 flex items-center gap-3 shadow-xl">
                                 <LoadingSpinner size={20} className="text-primary" />
                                 <span className="text-sm font-medium text-foreground">
                                     {progress ? `Processing... (${progress.current}/${progress.total})` : "Processing..."}
@@ -1798,7 +1857,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     )}
 
                     {/* Add Image Button as a card */}
-                    <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-border bg-card/40 rounded-2xl p-10 hover:border-primary/50 hover:bg-primary/5 transition-all group min-h-[300px]">
+                    <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-white/10 bg-card/40 rounded-2xl p-10 hover:border-primary/50 hover:bg-primary/5 transition-all group min-h-[300px]">
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center group-hover:scale-110 group-hover:bg-primary/20 transition-all">
                             <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary" />
                         </div>
@@ -1811,10 +1870,10 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     {images.map((img: DatasetImage) => (
                         <div key={img.id} className={`flex flex-col sm:flex-row bg-card border rounded-2xl overflow-hidden group transition-all duration-100 ${selectedIds.has(img.id)
                             ? 'border-primary ring-1 ring-primary shadow-[0_0_15px_oklch(var(--primary)/0.2)]'
-                            : 'border-border hover:border-primary/30'}`}>
+                            : 'border-white/10 hover:border-primary/30'}`}>
                             {/* Image Section */}
                             <div
-                                className={`w-[300px] relative bg-muted/30 min-h-[300px] max-h-[600px] border-b sm:border-b-0 sm:border-r border-border flex items-center justify-center p-4 cursor-pointer transition-colors ${selectedIds.has(img.id) ? 'bg-primary/5' : ''}`}
+                                className={`w-[300px] relative bg-muted/30 min-h-[300px] max-h-[600px] border-b sm:border-b-0 sm:border-r border-white/10 flex items-center justify-center p-4 cursor-pointer transition-colors ${selectedIds.has(img.id) ? 'bg-primary/5' : ''}`}
                                 onClick={(e) => {
                                     // Only toggle selection if clicking the background or image area, not the zoom button
                                     if ((e.target as HTMLElement).closest('.image-zoom-trigger')) return;
@@ -1909,7 +1968,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                                     <div className="space-y-2">
                                                         <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Crop Mode</Label>
                                                         <Select value={cropMode} onValueChange={(v: 'center' | 'longest') => setCropMode(v)}>
-                                                            <SelectTrigger className="w-full h-8 bg-background border-border text-xs">
+                                                            <SelectTrigger className="w-full h-8 bg-background border-white/10 text-xs">
                                                                 <SelectValue placeholder="Mode" />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -1922,7 +1981,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                                     <div className="space-y-2">
                                                         <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Target Size</Label>
                                                         <Select value={targetSize} onValueChange={setTargetSize}>
-                                                            <SelectTrigger className="w-full h-8 bg-background border-border text-xs">
+                                                            <SelectTrigger className="w-full h-8 bg-background border-white/10 text-xs">
                                                                 <SelectValue placeholder="Size" />
                                                             </SelectTrigger>
                                                             <SelectContent>
@@ -1963,7 +2022,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                 <Textarea
                                     value={img.prompt}
                                     onChange={(e) => handlePromptChange(img.id, e.target.value)}
-                                    className="w-full placeholder:text-muted-foreground/50 bg-background border-border text-foreground text-sm leading-relaxed p-2 focus:border-primary/50 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none transition-all duration-200 rounded-xl custom-scrollbar h-[200px]"
+                                    className="w-full placeholder:text-muted-foreground/50 bg-background border-white/10 text-foreground text-sm leading-relaxed p-2 focus:border-primary/50 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none transition-all duration-200 rounded-xl custom-scrollbar h-[200px]"
                                     placeholder="Write image description here..."
                                     disabled={img.isOptimizing}
                                 />
@@ -1984,7 +2043,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                             style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
                         >
                             {/* Add Image Button in Grid */}
-                            <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-border bg-card/40 rounded-xl aspect-square hover:border-primary/50 hover:bg-primary/5 transition-all group relative overflow-hidden">
+                            <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-white/10 bg-card/40 rounded-xl aspect-square hover:border-primary/50 hover:bg-primary/5 transition-all group relative overflow-hidden">
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                                     <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-2" />
                                     <span className="text-xs text-muted-foreground font-medium">Add Image</span>
@@ -2010,7 +2069,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                         <DragOverlay>
                             {draggedId && draggedSize ? (
                                 <div
-                                    className="aspect-square bg-card border border-border rounded-xl overflow-hidden opacity-80 shadow-2xl cursor-grabbing pointer-events-none"
+                                    className="aspect-square bg-card border border-white/10 rounded-xl overflow-hidden opacity-80 shadow-2xl cursor-grabbing pointer-events-none"
                                     style={{
                                         width: draggedSize.width,
                                         height: draggedSize.height

@@ -26,6 +26,7 @@ interface PlaygroundState {
     showProjectSidebar: boolean;
     selectedPresetName: string | undefined;
     viewMode: 'home' | 'dock';
+    activeTab: 'history' | 'gallery' | 'describe' | 'style';
     editConfig?: import('@/types/database').EditPresetConfig;
 
     // Selection Mode
@@ -49,7 +50,7 @@ interface PlaygroundState {
     setShowProjectSidebar: (val: boolean) => void;
     setSelectedPresetName: (name: string | undefined) => void;
     setViewMode: (mode: 'home' | 'dock') => void;
-    setActiveTab: (tab: string) => void;
+    setActiveTab: (tab: 'history' | 'gallery' | 'describe' | 'style') => void;
     updateUploadedImage: (id: string, updates: Partial<UploadedImage>) => void;
     updateDescribeImage: (id: string, updates: Partial<UploadedImage>) => void;
     updateHistorySourceUrl: (oldUrl: string, newUrl: string) => void;
@@ -153,8 +154,14 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     setSelectorExpanded: (expanded) => set({ isSelectorExpanded: expanded }),
     selectedPresetName: undefined,
     viewMode: 'home',
+    activeTab: 'history',
     setSelectedPresetName: (name) => set({ selectedPresetName: name }),
-    setViewMode: (mode) => set({ viewMode: mode }),
+    setViewMode: (mode) => set((state) => ({
+        viewMode: mode,
+        // When going home, always show history/input
+        activeTab: mode === 'home' ? 'history' : state.activeTab
+    })),
+    setActiveTab: (tab) => set({ activeTab: tab }),
 
     previewImageUrl: null,
     previewLayoutId: null,
@@ -181,9 +188,6 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
     setShowHistory: (val) => set({ showHistory: val }),
     setShowGallery: (val) => set({ showGallery: val }),
     setShowProjectSidebar: (val) => set({ showProjectSidebar: val }),
-    setActiveTab: () => {
-        // Placeholder
-    },
 
     updateUploadedImage: (id, updates) => set((state) => ({
         uploadedImages: state.uploadedImages.map(img => img.id === id ? { ...img, ...updates } : img)
@@ -341,6 +345,7 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             isSelectorExpanded: false,
             selectedPresetName: undefined,
             viewMode: 'home',
+            activeTab: 'history',
             editConfig: undefined,
             isSelectionMode: false,
             selectedHistoryIds: new Set(),
