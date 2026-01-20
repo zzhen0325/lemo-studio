@@ -10,6 +10,7 @@ import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
+import { useImageSource } from '@/hooks/common/use-image-source';
 import { Generation } from '@/types/database';
 import {
     DropdownMenu,
@@ -37,7 +38,6 @@ export default function GalleryView() {
     const galleryPage = usePlaygroundStore(s => s.galleryPage);
     const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
     const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
-    const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
     // Responsive column count
@@ -48,11 +48,11 @@ export default function GalleryView() {
     const is2Xl = useMediaQuery("(min-width: 1536px)");
 
     const columnsCount = React.useMemo(() => {
-        if (is2Xl) return 6;
-        if (isXl) return 5;
-        if (isLg) return 4;
-        if (isMd) return 3;
-        if (isSm) return 2;
+        if (is2Xl) return 8;
+        if (isXl) return 7;
+        if (isLg) return 6;
+        if (isMd) return 5;
+        if (isSm) return 3;
         return 1;
     }, [isSm, isMd, isLg, isXl, is2Xl]);
 
@@ -122,19 +122,16 @@ export default function GalleryView() {
     };
 
     const handleRefresh = useCallback(async () => {
-        setLoading(true);
         try {
             await fetchGallery();
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.error("Failed to refresh gallery:", error);
         }
     }, [fetchGallery]);
 
     useEffect(() => {
-        if (galleryItems.length === 0) {
-            handleRefresh();
-        }
-    }, [galleryItems.length, handleRefresh]);
+        handleRefresh();
+    }, [handleRefresh]);
 
     const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -230,13 +227,9 @@ export default function GalleryView() {
     );
 
     return (
-        <div className="w-[90%] h-full mt-1 0 mx-auto  bg-transparent flex flex-col overflow-hidden">
+        <div className="w-[95%] h-full mt-10 mx-auto  bg-transparent flex flex-col overflow-hidden">
 
-            <div className="flex flex-row z-20 pb-4 bg-transparent shrink-0">
-                {/* 搜索框 */}
-
-            </div>
-
+       
 
             <div className="flex flex-1 overflow-hidden min-h-0">
 
@@ -245,24 +238,16 @@ export default function GalleryView() {
 
 
                     {sortedHistory.length === 0 ? (
-                        
-                    
-                        
-                            
-                        <div className="flex w-64 flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-1 py-32">
-                            <div className="p-6 bg-white/5 rounded-full">
-                                <Search className="w-12 h-12 text-white/20" />
-                            </div>
-                            <div className="text-center space-y-2">
-                                <p className="text-white/60 text-xl font-medium">No masterpieces found yet</p>
-                                <p className="text-white/30">Your generated images will appear here once you start creating.</p>
-                            </div>
-                        
-
-
+                        <div className="flex w-full flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-4 py-32 mt-10">
+                            {isFetchingGallery ? (
+                                <>
+                                    <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    <span className="text-sm text-white/40 animate-pulse">Loading gallery...</span>
+                                </>
+                            ) : (
+                                <span className="text-sm text-white/20">No items found</span>
+                            )}
                         </div>
-
-                       
                     ) : (
                         <div className="flex flex-col space-y-4  overflow-hidden">
 
@@ -297,7 +282,7 @@ export default function GalleryView() {
                             </div>
 
 
-                            <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-3xl">
+                            <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-t-xl">
 
                                 <MasonryGrid
                                     items={sortedHistory}
@@ -525,6 +510,9 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
     const styles = usePlaygroundStore(s => s.styles);
     const addImageToStyle = usePlaygroundStore(s => s.addImageToStyle);
     const { toast } = useToast();
+
+    const sourceImage = useImageSource(item.sourceImageUrl || undefined, item.config?.localSourceId);
+
     const performDownload = () => {
         if (!item.outputUrl) return;
         const fakeEvent = { stopPropagation: () => void 0 } as unknown as React.MouseEvent;
@@ -534,7 +522,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
     return (
         <div
             ref={ref}
-            className="group relative bg-black border border-black overflow-hidden  hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
+            className="group relative bg-black/20 border-[0.8px] border-black overflow-hidden  hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
             onClick={onClick}
             onMouseEnter={() => setIsHover(true)}
             onMouseLeave={() => setIsHover(false)}
@@ -571,14 +559,15 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                 )}
 
                 {/* Reference Image Thumbnail */}
-                {item.sourceImageUrl && (
+                {sourceImage && (
                     <div className="absolute top-3 left-3 z-10 w-12 h-12 rounded-lg border border-white overflow-hidden shadow-2xl transition-transform duration-300 group-hover:scale-110">
                         <Image
-                            src={formatImageUrl(item.sourceImageUrl)}
+                            src={sourceImage}
                             alt="Reference image"
                             fill
                             className="object-cover"
                             sizes="48px"
+                            unoptimized
                         />
                     </div>
                 )}

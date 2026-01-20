@@ -57,7 +57,7 @@ async function saveHistory(history: Generation[]) {
 
         // Deep sanitize config if needed
         if (newItem.config) {
-            const config = newItem.config as any;
+            const config = newItem.config as GenerationConfig;
             if (config.sourceImageUrl && config.sourceImageUrl.length > 5000) {
                 if (config.sourceImageUrl.startsWith('data:')) {
                     config.sourceImageUrl = "(large base64 data truncated)";
@@ -327,14 +327,47 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
         
+        // Handle sync-image
+        if (body.action === 'sync-image' && body.localId && body.path) {
+            const { localId, path: serverPath } = body;
+            const history = (await readHistory() || []) as Generation[];
+            let updatedCount = 0;
+
+            const updatedHistory = history.map(h => {
+                let updated = false;
+                const newItem = { ...h };
+
+                // Update sourceImageUrl if localId matches
+                if (newItem.localSourceId === localId) {
+                    newItem.sourceImageUrl = serverPath;
+                    updated = true;
+                }
+
+                // Update config as well
+                if (newItem.config && newItem.config.localSourceId === localId) {
+                    newItem.config = { ...newItem.config, sourceImageUrl: serverPath };
+                    updated = true;
+                }
+
+                if (updated) updatedCount++;
+                return newItem;
+            });
+
+            if (updatedCount > 0) {
+                await saveHistory(updatedHistory);
+            }
+
+            return NextResponse.json({ success: true, updatedCount });
+        }
+
         // Handle batch update
         if (body.action === 'batch-update' && Array.isArray(body.items)) {
             const items = body.items as Generation[];
             await ensureOutputsDir();
             
-            // 1. Update individual metadata files
-            for (const item of items) {
-                if (!item.outputUrl) continue;
+            // 1. Update individual metadata files (Parallelized)
+            await Promise.all(items.map(async (item) => {
+                if (!item.outputUrl) return;
                 const baseName = path.basename(item.outputUrl, path.extname(item.outputUrl));
                 const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
                 
@@ -355,7 +388,7 @@ export async function POST(request: Request) {
                 } catch (e) {
                     console.warn(`Failed to update metadata for ${baseName}`, e);
                 }
-            }
+            }));
             
             // 2. Update global history.json
             const history = (await readHistory() || []) as Generation[];
@@ -380,7 +413,7 @@ export async function POST(request: Request) {
             item.sourceImageUrl = "(large base64 data truncated)";
         }
         if (item.config) {
-            const config = item.config as any;
+            const config = item.config as GenerationConfig;
             if (config.sourceImageUrl && config.sourceImageUrl.length > 5000 && config.sourceImageUrl.startsWith('data:')) {
                 config.sourceImageUrl = "(large base64 data truncated)";
             }

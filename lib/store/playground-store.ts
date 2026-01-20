@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { GenerationConfig, UploadedImage, Preset, StyleStack } from '@/components/features/playground-v2/types';
 import { Generation } from '@/types/database';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
@@ -54,6 +55,7 @@ interface PlaygroundState {
     updateUploadedImage: (id: string, updates: Partial<UploadedImage>) => void;
     updateDescribeImage: (id: string, updates: Partial<UploadedImage>) => void;
     updateHistorySourceUrl: (oldUrl: string, newUrl: string) => void;
+    syncLocalImageToHistory: (localId: string, serverPath: string) => Promise<void>;
 
     // UI States
     isAspectRatioLocked: boolean;
@@ -115,7 +117,9 @@ interface PlaygroundState {
     deleteHistory: (ids: string[]) => Promise<void>;
 }
 
-export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
+export const usePlaygroundStore = create<PlaygroundState>()(
+    persist(
+        (set, get) => ({
     config: {
         prompt: '',
         width: 1376,
@@ -229,6 +233,38 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             return updated ? newItem : item;
         })
     })),
+
+    syncLocalImageToHistory: async (localId, serverPath) => {
+        // 1. Update local state
+        set((state) => ({
+            generationHistory: state.generationHistory.map(item => {
+                let updated = false;
+                const newItem = { ...item };
+
+                if (newItem.localSourceId === localId) {
+                    newItem.sourceImageUrl = serverPath;
+                    updated = true;
+                }
+                if (newItem.config?.localSourceId === localId) {
+                    newItem.config = { ...newItem.config, sourceImageUrl: serverPath };
+                    updated = true;
+                }
+
+                return updated ? newItem : item;
+            })
+        }));
+
+        // 2. Sync to backend
+        try {
+            await fetch(`${getApiBase()}/history`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'sync-image', localId, path: serverPath })
+            });
+        } catch (e) {
+            console.error("Failed to sync image path to history backend", e);
+        }
+    },
 
     applyPrompt: (prompt) => {
         set((state) => ({ config: { ...state.config, prompt } }));
@@ -720,4 +756,10 @@ export const usePlaygroundStore = create<PlaygroundState>()((set, get) => ({
             return { styles: newStyles };
         });
     },
+}), {
+    name: 'playground-storage',
+    partialize: (state) => ({
+        galleryItems: state.galleryItems,
+        generationHistory: state.generationHistory,
+    }),
 }));

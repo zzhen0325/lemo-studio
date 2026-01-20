@@ -45,6 +45,7 @@ import { PlaygroundInputSection } from "@/components/features/playground-v2/Play
 import { AR_MAP } from "@/components/features/playground-v2/constants/aspect-ratio";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { v4 as uuidv4 } from 'uuid';
+import { localImageStorage } from "@/lib/local-image-storage";
 
 import gsap from "gsap";
 import { Flip } from "gsap/all";
@@ -410,15 +411,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         taskId: batchTaskId
       };
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-      const firstImage = currentUploadedImages[0];
-      const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
+      const sourceImageUrls = currentUploadedImages.map(img => img.path || img.previewUrl);
+      const localSourceId = currentUploadedImages[0]?.localId; // Keep first for backward compatibility
 
       // 1. Immediately create and show the pending card
       singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId }).then((uniqueId) => {
         // 2. Schedule the actual backend execution with a staggered delay
         if (uniqueId) {
           setTimeout(() => {
-            executeGeneration(uniqueId, batchTaskId, finalConfig, startTime, sourceImageUrl);
+            executeGeneration(uniqueId, batchTaskId, { ...finalConfig, localSourceId }, startTime, sourceImageUrls);
           }, i * 1100);
         }
       });
@@ -432,6 +433,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     const setImages = target === 'describe' ? setDescribeImages : setUploadedImages;
     const updateImage = target === 'describe' ? updateDescribeImage : updateUploadedImage;
+    const { syncLocalImageToHistory } = usePlaygroundStore.getState();
 
     for (const file of uploads) {
       const tempId = uuidv4(); // Use uuid for better ID management
@@ -451,9 +453,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         img.src = dataUrl;
       });
 
-      // 3. Add to UI immediately (prepend to show on top)
+      // 3. Persistent local storage immediately
+      await localImageStorage.storeImage(tempId, file);
+
+      // 4. Add to UI immediately (prepend to show on top)
       setImages((prev: UploadedImage[]) => [{
         id: tempId,
+        localId: tempId,
         file,
         base64: base64Data,
         previewUrl: dataUrl,
@@ -462,7 +468,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         height: dimensions.height
       }, ...prev]);
 
-      // 4. Update config for 'auto' mode if it's the first image in reference
+      // 5. Update config for 'auto' mode if it's the first image in reference
       if (target === 'reference' && usePlaygroundStore.getState().config.aspectRatio === 'auto') {
         let { width, height } = dimensions;
         const minSide = Math.min(width, height);
@@ -474,7 +480,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         updateConfig({ width, height });
       }
 
-      // 5. Start background upload (NO await)
+      // 6. Start background upload (NO await)
       (async () => {
         const form = new FormData();
         form.append('file', file);
@@ -489,9 +495,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           // Update the specific image with its CDN path
           updateImage(tempId, { path, isUploading: false });
 
-          // Also update history records that were using this local URL
+          // Also update history records that were using this local URL or localId
           if (path) {
             updateHistorySourceUrl(originalUrl, path);
+            await syncLocalImageToHistory(tempId, path);
           }
         } catch (err) {
           console.error("Upload failed in background", err);
@@ -963,7 +970,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       onDragEnd={handleDragEnd}
     >
       <div
-        className="flex-1 relative p-12 pt-16 h-full flex flex-col overflow-hidden"
+        className="flex-1 relative p-6 pt-16 h-full flex flex-col overflow-hidden"
         onDragEnter={(e) => {
           e.preventDefault();
           e.stopPropagation();

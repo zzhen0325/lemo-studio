@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/common/use-toast';
 import { cn } from '@/lib/utils';
 import { formatImageUrl } from '@/lib/api-base';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { useImageSource } from '@/hooks/common/use-image-source';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
@@ -24,6 +25,8 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
   const { toast } = useToast();
   const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
   const [mounted, setMounted] = useState(false);
+
+  const sourceImage = useImageSource(result?.sourceImageUrl || undefined, result?.config?.localSourceId);
 
   useEffect(() => {
     setMounted(true);
@@ -194,11 +197,11 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                     className="w-20 h-20 rounded-xl border-2  border-white overflow-hidden shadow-2xl cursor-zoom-in transition-transform duration-300 hover:scale-110 active:scale-95"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setPreviewImage(result.sourceImageUrl || null, `ref-${result.id}`);
+                      setPreviewImage(sourceImage || result.sourceImageUrl || null, `ref-${result.id}`);
                     }}
                   >
                     <Image
-                      src={formatImageUrl(result.sourceImageUrl)}
+                      src={sourceImage || formatImageUrl(result.sourceImageUrl)}
                       alt="Reference"
                       fill
                       className="object-cover"

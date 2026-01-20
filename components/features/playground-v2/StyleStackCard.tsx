@@ -117,7 +117,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
 
             {/* Image Stack Container */}
             <div className={cn(
-                "relative w-full flex items-center justify-center perspective-1000 transition-all duration-300",
+                "relative w-full flex items-center justify-center perspective-1000",
                 isSmall ? "h-[140px] [@media(max-height:850px)]:h-[100px] [@media(max-height:750px)]:h-[80px]" : "h-[200px]",
                 isGridLg && "h-[220px]"
             )}>
@@ -126,20 +126,25 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                         <motion.div
                             key={path}
                             className={cn(
-                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900 shadow-xl transition-all duration-300",
+                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900 shadow-xl",
                                 isSmall ? "w-28 h-[140px] [@media(max-height:850px)]:h-[100px] [@media(max-height:850px)]:w-20 [@media(max-height:750px)]:h-[80px] [@media(max-height:750px)]:w-16" : "w-40 h-[200px]",
                                 isGridLg && "w-[180px] h-[220px]"
                             )}
                             initial={false}
                             animate={{
                                 x: isExpanded
-                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? (isExpanded ? 100 : 30) : isGridLg ? 110 : 160)
+                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : isGridLg ? 110 : 160)
                                     : (index - (displayImages.length - 1) / 2) * (isSmall ? 30 : isGridLg ? 35 : 50),
                                 y: isExpanded ? (isSmall ? -10 : -20) : index * -4,
                                 rotate: isExpanded ? (index - (displayImages.length - 1) / 2) * 10 : (index - (displayImages.length - 1) / 2) * 5,
                                 zIndex: 10 - index,
                             }}
-                            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                            transition={{ 
+                                type: 'spring', 
+                                stiffness: 400, 
+                                damping: 25,
+                                mass: 1.2
+                            }}
                         >
                             <NextImage
                                 src={path}

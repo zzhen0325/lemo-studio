@@ -116,6 +116,7 @@ export function useGenerationService() {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
         const firstImage = currentUploadedImages[0];
         const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
+        const localSourceId = firstImage?.localId;
 
         const uniqueId = Math.random().toString(36).substring(2, 11) + Date.now().toString().slice(-4);
 
@@ -124,9 +125,13 @@ export function useGenerationService() {
             userId: userStore.currentUser?.id || 'anonymous',
             projectId: projectStore.currentProjectId || 'default',
             outputUrl: "",
-            config: unifiedCfg,
+            config: {
+                ...unifiedCfg,
+                localSourceId,
+            },
             status: 'pending',
             sourceImageUrl: sourceImageUrl,
+            localSourceId: localSourceId,
             editConfig: editConfig,
             isEdit: isEdit,
             parentId: parentId,
@@ -139,10 +144,10 @@ export function useGenerationService() {
 
         if (isBackground) return uniqueId;
 
-        return executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl);
+        return executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl ? [sourceImageUrl] : [], localSourceId);
     };
 
-    const executeGeneration = async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+    const executeGeneration = async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         try {
             if (isMockMode) {
@@ -161,9 +166,12 @@ export function useGenerationService() {
                         lora: unifiedCfg.lora,
                         loras: usePlaygroundStore.getState().selectedLoras,
                         workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                        localSourceId: localSourceId,
                     },
                     status: 'completed',
-                    sourceImageUrl: undefined,
+                    sourceImageUrl: sourceImageUrls[0],
+                    sourceImageUrls: sourceImageUrls,
+                    localSourceId: localSourceId,
                     createdAt: new Date().toISOString(),
                     taskId: taskId,
                 };
@@ -178,9 +186,9 @@ export function useGenerationService() {
                 effectiveModel?.includes('safetensors');
 
             if (isWorkflowModel) {
-                await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl);
+                await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId);
             } else {
-                await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl);
+                await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId);
             }
         } catch (err) {
             console.error("Generation failed:", err);
@@ -198,20 +206,29 @@ export function useGenerationService() {
         setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
             ...item,
             ...result,
+            // 确保 editConfig 被完整保留，优先使用 result 中的（新生成的），否则保留 item 中的（初始化的）
+            editConfig: result.editConfig || item.editConfig,
             config: { ...item.config, ...result.config, taskId: result.taskId || item.taskId }
         } : item));
         saveHistoryToBackend(result);
 
         // Also sync to Gallery if it's visible or being cached
-        usePlaygroundStore.getState().addGalleryItem(result);
+        usePlaygroundStore.getState().addGalleryItem({
+            ...result,
+            // 同步到画廊时也确保带上 editConfig
+            editConfig: result.editConfig || usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId)?.editConfig
+        });
     };
 
-    const handleUnifiedImageGen = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+    const handleUnifiedImageGen = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string) => {
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
 
-        // Calculate effective source URL preferring path (uploaded URL) over base64
-        const firstImage = currentUploadedImages[0];
-        const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : sourceImageUrl;
+        // Calculate effective source URLs
+        const effectiveSourceUrls = currentUploadedImages.length > 0
+            ? currentUploadedImages.map(img => img.path || img.previewUrl)
+            : sourceImageUrls;
+        const effectiveSourceUrl = effectiveSourceUrls[0];
+        const effectiveLocalId = currentUploadedImages[0]?.localId || localSourceId;
 
         const unified = toUnifiedConfigFromLegacy(currentConfig);
 
@@ -237,6 +254,22 @@ export function useGenerationService() {
         const processedImages = new Set<string>();
         let lastSavedPath = "";
 
+        // 为历史记录构造成组的参考图信息 (editConfig)
+        // 如果当前没有从编辑器传来的 editConfig，则根据上传列表自动生成一个
+
+        const effectiveEditConfig: EditPresetConfig | undefined = currentConfig.editConfig || (effectiveSourceUrls.length > 0 ? {
+            canvasJson: {},
+            referenceImages: effectiveSourceUrls.map((url, idx) => ({
+                id: `ref-${idx}`,
+                dataUrl: url,
+                label: `Image ${idx + 1}`
+            })),
+            originalImageUrl: effectiveSourceUrl || '',
+            annotations: [],
+            backgroundColor: 'transparent',
+            canvasSize: { width: Number(unified.width), height: Number(unified.height) }
+        } : undefined);
+
         const res = await callImage({
             model: modelId,
             prompt: unified.prompt,
@@ -244,7 +277,9 @@ export function useGenerationService() {
             height: Number(unified.height),
             aspectRatio: unified.aspectRatio === 'auto' ? undefined : unified.aspectRatio,
             batchSize: 1, // Single task per call now
-            image: currentUploadedImages.length > 0 ? currentUploadedImages[0].previewUrl : undefined,
+            image: effectiveSourceUrl,
+            // 传递所有收集到的图片作为参考图
+            images: effectiveSourceUrls.length > 0 ? effectiveSourceUrls : undefined,
             options: {
                 seed: Math.floor(Math.random() * 2147483647),
                 stream: isCoze
@@ -259,38 +294,41 @@ export function useGenerationService() {
                 ));
             }
             if (chunk.images && chunk.images.length > 0) {
-                for (const imgUrl of chunk.images) {
-                    if (processedImages.has(imgUrl)) continue;
-                    processedImages.add(imgUrl);
-
-                    try {
-                        console.log(`[useGenerationService] Saving streamed image: ${imgUrl}`);
-                        const savedPath = await saveImageToOutputs(
-                            imgUrl,
-                            {
-                                config: {
-                                    prompt: unified.prompt,
-                                    width: Number(unified.width),
-                                    height: Number(unified.height),
-                                    model: unified.model || selectedModel,
-                                    loras: usePlaygroundStore.getState().selectedLoras,
-                                    workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
-                                },
-                                createdAt: generationTime,
-                                sourceImageUrl: effectiveSourceUrl,
-                            }
-                        );
-                        lastSavedPath = savedPath;
-                        console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
-                        setGenerationHistory((prev: Generation[]) => prev.map(item =>
-                            item.id === uniqueId
-                                ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId }
-                                : item
-                        ));
-                    } catch (err) {
-                        console.error("Failed to save streamed image:", err);
-                    }
-                }
+                const savePromises = chunk.images
+                    .filter(imgUrl => !processedImages.has(imgUrl))
+                    .map(async (imgUrl) => {
+                        processedImages.add(imgUrl);
+                        try {
+                            console.log(`[useGenerationService] Saving streamed image: ${imgUrl}`);
+                            const savedPath = await saveImageToOutputs(
+                                imgUrl,
+                                {
+                                    config: {
+                                        prompt: unified.prompt,
+                                        width: Number(unified.width),
+                                        height: Number(unified.height),
+                                        model: unified.model || selectedModel,
+                                        loras: usePlaygroundStore.getState().selectedLoras,
+                                        workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                                        localSourceId: effectiveLocalId,
+                                    },
+                                    createdAt: generationTime,
+                                    sourceImageUrl: effectiveSourceUrl,
+                                    localSourceId: effectiveLocalId,
+                                }
+                            );
+                            lastSavedPath = savedPath;
+                            console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
+                            setGenerationHistory((prev: Generation[]) => prev.map(item =>
+                                item.id === uniqueId
+                                    ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId }
+                                    : item
+                            ));
+                        } catch (err) {
+                            console.error("Failed to save streamed image:", err);
+                        }
+                    });
+                await Promise.all(savePromises);
             }
         } : undefined);
 
@@ -344,7 +382,7 @@ export function useGenerationService() {
                 status: 'completed',
                 sourceImageUrl: effectiveSourceUrl,
                 createdAt: generationTime,
-                editConfig: currentConfig.editConfig,
+                editConfig: effectiveEditConfig,
                 isEdit: currentConfig.isEdit,
                 parentId: currentConfig.parentId,
                 taskId: currentConfig.taskId || taskId,
@@ -355,13 +393,16 @@ export function useGenerationService() {
         }
     };
 
-    const handleWorkflow = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrl?: string) => {
+    const handleWorkflow = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
 
-        // Calculate effective source URL preferring path (uploaded URL) over base64
+        // Calculate effective source URL
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-        const firstImage = currentUploadedImages[0];
-        const effectiveSourceUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : sourceImageUrl;
+        const effectiveSourceUrls = currentUploadedImages.length > 0
+            ? currentUploadedImages.map(img => img.path || img.previewUrl)
+            : sourceImageUrls;
+        const effectiveSourceUrl = effectiveSourceUrls[0];
+        const effectiveLocalId = currentUploadedImages[0]?.localId || localSourceId;
 
         const flattenInputs = (arr: IMultiValueInput[]) => arr.flatMap(g => g.inputs.map(i => ({ key: i.key, value: i.value, valueType: i.valueType, title: i.title })));
         const allInputs = [...flattenInputs(selectedWorkflowConfig.viewComfyJSON.inputs), ...flattenInputs(selectedWorkflowConfig.viewComfyJSON.advancedInputs)];
@@ -451,9 +492,11 @@ export function useGenerationService() {
                             config: {
                                 ...unified,
                                 loras: usePlaygroundStore.getState().selectedLoras,
+                                localSourceId: effectiveLocalId,
                             },
                             createdAt: generationTime,
                             sourceImageUrl: effectiveSourceUrl,
+                            localSourceId: effectiveLocalId,
                         }
                     );
                     const gen: Generation = {
@@ -465,9 +508,11 @@ export function useGenerationService() {
                             ...unified,
                             loras: usePlaygroundStore.getState().selectedLoras,
                             workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                            localSourceId: effectiveLocalId,
                         },
                         status: 'completed',
                         sourceImageUrl: effectiveSourceUrl,
+                        localSourceId: effectiveLocalId,
                         createdAt: generationTime,
                         editConfig: currentConfig.editConfig,
                         isEdit: currentConfig.isEdit,

@@ -23,6 +23,7 @@ export const ImageRequestSchema = z.object({
   batchSize: z.number().int().positive().optional(),
   aspectRatio: z.string().optional(),
   image: z.string().optional(),
+  images: z.array(z.string()).optional(), // 支持多张参考图
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options: z.any().optional(),
 });

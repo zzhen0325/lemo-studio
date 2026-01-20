@@ -10,6 +10,7 @@ import { Generation } from '@/types/database';
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { useImageSource } from '@/hooks/common/use-image-source';
 import { cn } from "@/lib/utils";
 import { formatImageUrl } from '@/lib/api-base';
 import { useToast } from "@/hooks/common/use-toast";
@@ -369,24 +370,12 @@ const HistoryList = observer(function HistoryList({
                       <div className="relative bg-transparent grid grid-cols-[minmax(0,1.8fr)_minmax(0,4fr)] gap-2 items-stretch content-start">
                         <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
                           {group.sourceImage ? (
-                            <motion.div
-                              layoutId={`img-ref-${group.items[0].id}`}
-                              className="w-full"
-                            >
-                              <Image
-                                src={formatImageUrl(group.sourceImage)}
-                                alt="Source for describe"
-                                width={1024}
-                                height={1024}
-                                className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (group.sourceImage) {
-                                    setPreviewImage(group.sourceImage, `img-ref-${group.items[0].id}`);
-                                  }
-                                }}
-                              />
-                            </motion.div>
+                            <DescribeSourceImage
+                              sourceImage={group.sourceImage}
+                              localId={group.items[0].config?.localSourceId}
+                              generationId={group.items[0].id}
+                              onPreview={setPreviewImage}
+                            />
                           ) : (
                             <div className="w-full h-full bg-white/5 flex items-center justify-center">
                               <ImageIcon className="w-6 h-6 text-white/10" />
@@ -508,6 +497,46 @@ const HistoryList = observer(function HistoryList({
 
 export default HistoryList;
 
+function DescribeSourceImage({
+  sourceImage,
+  localId,
+  generationId,
+  onPreview
+}: {
+  sourceImage: string;
+  localId?: string;
+  generationId: string;
+  onPreview: (url: string, id: string) => void;
+}) {
+  const src = useImageSource(sourceImage, localId);
+
+  if (!src) return (
+    <div className="w-full h-full bg-white/5 flex items-center justify-center">
+      <ImageIcon className="w-6 h-6 text-white/10" />
+    </div>
+  );
+
+  return (
+    <motion.div
+      layoutId={`img-ref-${generationId}`}
+      className="w-full"
+    >
+      <Image
+        src={src}
+        alt="Source for describe"
+        width={1024}
+        height={1024}
+        className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPreview(src, `img-ref-${generationId}`);
+        }}
+        unoptimized
+      />
+    </motion.div>
+  );
+}
+
 function DraggableHistoryCard({
   result,
   selectedIds,
@@ -585,6 +614,8 @@ function HistoryCard({
   const [isHover, setIsHover] = React.useState(false);
   const { applyPrompt, applyModel, applyImage, styles, addImageToStyle } = usePlaygroundStore();
   const { toast } = useToast();
+
+  const sourceImage = useImageSource(result.sourceImageUrl || undefined, result.config?.localSourceId);
   const mainImage = formatImageUrl(result.outputUrl);
 
   const config = result.config;
@@ -706,18 +737,47 @@ function HistoryCard({
 
 
 
-                  {result.sourceImageUrl && (
+                  {/* 显示参考图：优先显示 editConfig.referenceImages 多图，否则显示 sourceImageUrl 单图 */}
+                  {(result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0) ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {result.editConfig.referenceImages.map((img, idx) => (
+                        <div key={img.id || idx} className="group/ref relative">
+                          <motion.div
+                            layoutId={`img-ref-${result.id}-${idx}`}
+                            className="relative w-12 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRefImageClick(img.dataUrl, `img-ref-${result.id}-${idx}`);
+                            }}
+                          >
+                            <Image
+                              src={img.dataUrl}
+                              alt={img.label || `Ref ${idx + 1}`}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                            <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-black/60 backdrop-blur-[2px] rounded text-[7px] text-white/70 uppercase font-bold border border-white/5">
+                              {idx + 1}
+                            </div>
+                          </motion.div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : result.sourceImageUrl && (
                     <div className="mt-3 group/ref relative w-fit">
                       <motion.div
                         layoutId={`img-ref-${result.id}`}
                         className="relative w-14 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onRefImageClick(result.sourceImageUrl!, `img-ref-${result.id}`)
+                          if (sourceImage) {
+                            onRefImageClick(sourceImage, `img-ref-${result.id}`)
+                          }
                         }}
                       >
                         <Image
-                          src={formatImageUrl(result.sourceImageUrl)}
+                          src={sourceImage || ''}
                           alt="Reference"
                           fill
                           className="object-cover"
@@ -907,8 +967,8 @@ function HistoryCard({
                     });
                     applyPrompt(prompt);
 
-                    if (result.sourceImageUrl) {
-                      applyImage(result.sourceImageUrl);
+                    if (sourceImage) {
+                      applyImage(sourceImage);
                     }
 
                     toast({

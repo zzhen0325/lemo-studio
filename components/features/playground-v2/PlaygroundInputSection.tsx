@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { X, Plus, Sparkles } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatImageUrl } from "@/lib/api-base";
+import { useImageSource } from "@/hooks/common/use-image-source";
 
 import PromptInput from "@/components/features/playground-v2/PromptInput";
 import ControlToolbar from "@/components/features/playground-v2/ControlToolbar";
@@ -202,53 +203,17 @@ export function PlaygroundInputSection({
                                 onMouseLeave={() => setIsStackHovered(false)}
                             >
                                 {/* 图片堆栈 */}
-                                {uploadedImages.map((image, index) => {
-                                    const rotations = [-6, 4, -2, 3];
-                                    return (
-                                        <motion.div
-                                            key={image.id || index}
-                                            initial={false}
-                                            animate={{
-                                                marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
-                                                rotate: isStackHovered ? 0 : rotations[index % rotations.length],
-                                                scale: 1
-                                            }}
-                                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                            style={{
-                                                zIndex: (uploadedImages.length - index) + 100,
-                                                position: 'relative'
-                                            }}
-                                        >
-                                            <div className="relative group cursor-pointer" onClick={() => !image.isUploading && setPreviewImage(formatImageUrl(image.path || image.previewUrl), `stack-img-${image.id || index}`)}>
-                                                <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
-                                                    <Image
-                                                        src={formatImageUrl(image.path || image.previewUrl)}
-                                                        alt={`Uploaded ${index + 1}`}
-                                                        width={56}
-                                                        height={56}
-                                                        className={cn(
-                                                            "w-14 h-14 object-cover rounded-2xl bg-black border border-primary shadow-xl",
-                                                            image.isUploading && "opacity-50 grayscale blur-[1px]"
-                                                        )}
-                                                    />
-                                                    {image.isUploading && (
-                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                            <LoadingSpinner size={16} className="text-white" />
-                                                        </div>
-                                                    )}
-                                                </motion.div>
-                                                {!image.isUploading && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); removeImage(index); }}
-                                                        className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
-                                                    >
-                                                        <X className="w-2 h-2" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </motion.div>
-                                    );
-                                })}
+                                {uploadedImages.map((image, index) => (
+                                    <StackImage
+                                        key={image.id || index}
+                                        image={image}
+                                        index={index}
+                                        isStackHovered={isStackHovered}
+                                        uploadedImagesCount={uploadedImages.length}
+                                        onPreview={setPreviewImage}
+                                        onRemove={removeImage}
+                                    />
+                                ))}
 
                                 {/* 上传按钮 - 作为堆栈的最后一个元素 */}
                                 <motion.button
@@ -420,30 +385,94 @@ export function PlaygroundInputSection({
                         onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
                         isPresetGridOpen={isPresetGridOpen}
                         onClearPreset={onClearPreset}
-                        variant={variant}
-                        customAspectRatioLabel={customAspectRatioLabel}
-                        uploadedImages={uploadedImages}
-                    />
-                </div>
-            </div>
-
-            {variant !== 'edit' && isDescribeMode && (
-                <DescribePanel
-                    open={isDescribeMode}
-                    panelRef={describePanelRef}
-                    describeImages={describeImages}
-                    isDraggingOverPanel={isDraggingOverPanel}
-                    setIsDraggingOverPanel={setIsDraggingOverPanel}
-                    setIsDraggingOver={setIsDraggingOver}
-                    onUploadClick={() => fileInputRef.current?.click()}
-                    onDropFiles={(files) => handleFilesUpload(files, 'describe')}
-                    onClose={() => setIsDescribeMode(false)}
-                    onRemoveImage={(idx) => setDescribeImages(prev => prev.filter((_, i) => i !== idx))}
-                    isDescribing={isDescribing}
-                    isGenerating={isGenerating}
-                    onDescribe={handleDescribe}
+                    variant={variant}
+                    customAspectRatioLabel={customAspectRatioLabel}
+                    uploadedImages={uploadedImages}
                 />
+            </div>
+        </div>
+
+        {variant !== 'edit' && isDescribeMode && (
+            <DescribePanel
+                open={isDescribeMode}
+                panelRef={describePanelRef}
+                describeImages={describeImages}
+                isDraggingOverPanel={isDraggingOverPanel}
+                setIsDraggingOverPanel={setIsDraggingOverPanel}
+                setIsDraggingOver={setIsDraggingOver}
+                onUploadClick={() => fileInputRef.current?.click()}
+                onDropFiles={(files) => handleFilesUpload(files, 'describe')}
+                onClose={() => setIsDescribeMode(false)}
+                onRemoveImage={(idx) => setDescribeImages(prev => prev.filter((_, i) => i !== idx))}
+                isDescribing={isDescribing}
+                isGenerating={isGenerating}
+                onDescribe={handleDescribe}
+            />
+        )}
+    </div>
+);
+}
+
+function StackImage({
+image,
+index,
+isStackHovered,
+uploadedImagesCount,
+onPreview,
+onRemove
+}: {
+image: UploadedImage;
+index: number;
+isStackHovered: boolean;
+uploadedImagesCount: number;
+onPreview: (url: string, id: string) => void;
+onRemove: (index: number) => void;
+}) {
+const src = useImageSource(image.path || image.previewUrl, image.localId);
+const rotations = [-6, 4, -2, 3];
+
+return (
+    <motion.div
+        initial={false}
+        animate={{
+            marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
+            rotate: isStackHovered ? 0 : rotations[index % rotations.length],
+            scale: 1
+        }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        style={{
+            zIndex: (uploadedImagesCount - index) + 100,
+            position: 'relative'
+        }}
+    >
+        <div className="relative group cursor-pointer" onClick={() => !image.isUploading && src && onPreview(src, `stack-img-${image.id || index}`)}>
+            <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
+                <Image
+                    src={src || image.previewUrl}
+                    alt={`Uploaded ${index + 1}`}
+                    width={56}
+                    height={56}
+                    className={cn(
+                        "w-14 h-14 object-cover rounded-2xl bg-black border border-primary shadow-xl",
+                        image.isUploading && "opacity-50 grayscale blur-[1px]"
+                    )}
+                    unoptimized
+                />
+                {image.isUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <LoadingSpinner size={16} className="text-white" />
+                    </div>
+                )}
+            </motion.div>
+            {!image.isUploading && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onRemove(index); }}
+                    className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
+                >
+                    <X className="w-2 h-2" />
+                </button>
             )}
         </div>
-    );
+    </motion.div>
+);
 }

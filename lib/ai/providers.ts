@@ -352,12 +352,30 @@ export class GoogleGenAIProvider
       const imageList = image ? [image] : params.images || [];
       for (const img of imageList) {
         let base64Data = img;
+        let mimeType = "image/png";
+
         if (img.startsWith("data:")) {
-          base64Data = img.split(",")[1];
+          const parts = img.split(",");
+          mimeType = parts[0].split(":")[1].split(";")[0];
+          base64Data = parts[1];
+        } else if (img.startsWith("http")) {
+          // 下载并转换为 base64
+          try {
+            const resp = await fetch(img);
+            if (!resp.ok) throw new Error(`Fetch image failed: ${resp.status}`);
+            const buffer = await resp.arrayBuffer();
+            base64Data = Buffer.from(buffer).toString('base64');
+            const contentType = resp.headers.get('content-type');
+            if (contentType) mimeType = contentType;
+          } catch (err) {
+            console.error(`[GoogleGenAIProvider] Error fetching remote image: ${img}`, err);
+            throw new Error(`无法获取远程图片进行生成: ${img}`);
+          }
         }
+
         parts.push({
           inlineData: {
-            mimeType: "image/png",
+            mimeType,
             data: base64Data,
           },
         });

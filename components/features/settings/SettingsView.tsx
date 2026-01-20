@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Settings as SettingsIcon,
     ChevronRight,
     ChevronDown,
     Key,
@@ -27,7 +26,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/common/use-toast";
 import MappingEditorPage from "@/pages/mapping-editor-page";
-import { AuroraBackground } from "@/components/ui/aurora-background";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 

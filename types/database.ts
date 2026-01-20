@@ -37,6 +37,8 @@ export interface GenerationConfig {
   aspectRatio?: AspectRatio;
   sizeFrom?: SizeFrom;
   sourceImageUrl?: string;
+  sourceImageUrls?: string[];
+  localSourceId?: string; // Track local image ID for sync
   presetName?: string;
   editConfig?: EditPresetConfig;
   isEdit?: boolean;
@@ -52,6 +54,8 @@ export interface Generation {
   config: GenerationConfig;
   status: 'pending' | 'completed' | 'failed';
   sourceImageUrl?: string;
+  sourceImageUrls?: string[];
+  localSourceId?: string; // Track local image ID for sync
   editConfig?: EditPresetConfig;
   isEdit?: boolean;
   parentId?: string;

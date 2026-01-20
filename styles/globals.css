@@ -15,8 +15,12 @@
   font-style: normal;
 }
 
-
-
+@font-face {
+  font-family: 'GoogleSansFlex';
+  src: url('/Font/GoogleSansFlex-VariableFont_GRAD,ROND,opsz,slnt,wdth,wght.ttf') format('truetype');
+  font-weight: 100 1000;
+  font-style: normal;
+}
 
 :root {
   --background: 0 0% 14.5%;
@@ -53,8 +57,8 @@
   --sidebar-border: 220 13% 91%;
   --sidebar-ring: 217.2 91.2% 59.8%;
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui;
-  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-sans: 'GoogleSansFlex', var(--font-inter), ui-sans-serif, system-ui;
+  --font-serif: 'InstrumentSerif', ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
@@ -110,7 +114,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-inter), sans-serif;
+    font-family: var(--font-sans), sans-serif;
     font-weight: 400;
   }
 

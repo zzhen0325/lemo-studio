@@ -89,7 +89,6 @@ export default function ControlToolbar({
   onImageSizeChange,
 
   isSelectorExpanded = false,
-  onSelectorExpandedChange,
   isPresetGridOpen = false,
   onTogglePresetGrid,
   batchSize = 1,

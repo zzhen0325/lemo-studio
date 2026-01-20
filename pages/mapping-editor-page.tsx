@@ -216,10 +216,8 @@ export function MappingEditorPage() {
   }, [editorState.currentConfig, workflows, fetchWorkflows]);
 
   useEffect(() => {
-    // 初始化编辑器
-    initializeEditor();
-    // 加载工作流列表
-    fetchWorkflows();
+    // 并行初始化编辑器和加载工作流列表
+    Promise.all([initializeEditor(), fetchWorkflows()]);
   }, [initializeEditor, fetchWorkflows]);
 
   // Auto-save effect

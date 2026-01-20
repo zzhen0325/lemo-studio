@@ -58,6 +58,50 @@ export default function Page() {
         return () => window.removeEventListener('hashchange', handler);
     }, []);
 
+    useEffect(() => {
+        // 在空闲时间预加载组件和数据
+        const preload = () => {
+            console.log("[Performance] Starting background preloading...");
+            
+            // 1. 预加载核心数据
+            const store = usePlaygroundStore.getState();
+            if (store.initPresets) store.initPresets();
+            if (store.initStyles) store.initStyles();
+            if (store.initCategories) store.initCategories();
+            if (store.fetchHistory) store.fetchHistory();
+            if (store.fetchGallery) store.fetchGallery();
+
+            // 2. 预加载动态导入的组件
+            // 注意：Next.js 的 dynamic 导入组件可以通过这种方式触发预加载
+            const components = [
+                PlaygroundV2Page,
+                GalleryView,
+                DatasetManagerView,
+                SettingsView,
+                ToolsView
+            ];
+
+            components.forEach((Comp: unknown) => {
+                if (Comp && typeof Comp === 'object' && 'render' in Comp && typeof (Comp as { render: unknown }).render === 'function') {
+                    try {
+                        // 访问 render 方法通常会触发内部导入
+                        (Comp as { render: () => void }).render();
+                    } catch {
+                        // 忽略渲染错误，因为我们只是想触发导入
+                    }
+                }
+            });
+        };
+
+        if (typeof window !== 'undefined') {
+            if ('requestIdleCallback' in window) {
+                (window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(preload);
+            } else {
+                setTimeout(preload, 2000);
+            }
+        }
+    }, []);
+
     const setHasGenerated = usePlaygroundStore(s => s.setHasGenerated);
     const hasGenerated = usePlaygroundStore(s => s.hasGenerated);
 

@@ -62,7 +62,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
     }
 
     return (
-        <div className="w-full h-full p-8 pt-16 bg-transparent flex flex-col relative">
+        <div className="w-full h-full p-8  bg-transparent flex flex-col relative">
             <AnimatePresence>
                 {isDraggingProp && (
                     <motion.div
@@ -101,7 +101,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                         placeholder="搜索风格或提示词..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-64 bg-white/5 border-white/10 rounded-full pl-6 pr-10 focus:bg-white/10 focus:border-purple-500/50 transition-all text-sm h-10"
+                                        className="w-64 bg-white/5 border-white/10 rounded-2xl pl-4 pr-10 focus:bg-white/10 focus:border-purple-500/50 transition-all text-sm h-10"
                                     />
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-purple-400 transition-colors">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
@@ -109,10 +109,10 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                 </div>
                                 <Button
                                     onClick={() => setIsCreating(true)}
-                                    className="rounded-full px-6 bg-primary hover:bg-white text-black gap-2 h-10 shadow-lg shadow-purple-900/20 border border-purple-400/20"
+                                    className="rounded-2xl px-4 bg-primary hover:bg-white text-black gap-2 h-10  border border-white/10"
                                 >
                                     <Plus size={18} />
-                                    创建新风格
+                                    Add New
                                 </Button>
                             </div>
                         </div>

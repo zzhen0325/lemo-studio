@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
             batchSize,
             aspectRatio,
             image, // for i2i
+            images, // multiple reference images
             options
         } = parsed.data;
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
         }
 
         console.log(`[API] /api/ai/image request body options:`, JSON.stringify(options));
-        
+
         const params: ImageGenerationInput = {
             prompt: prompt ?? '',
             width,
@@ -41,11 +42,12 @@ export async function POST(req: NextRequest) {
             batchSize,
             aspectRatio,
             image,
+            images, // 传递多图数组
             options: {
-                 ...options,
-                 // Ensure stream is true for coze-image models if we are expecting a stream
-                 stream: options?.stream === true || model === 'coze_seed4'
-             }
+                ...options,
+                // Ensure stream is true for coze-image models if we are expecting a stream
+                stream: options?.stream === true || model === 'coze_seed4'
+            }
         };
 
         console.log(`[API] /api/ai/image params.options.stream:`, params.options?.stream);
