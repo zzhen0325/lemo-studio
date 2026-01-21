@@ -122,6 +122,13 @@ export class PresetsService {
         presetData.coverUrl = dataUrl;
       }
 
+      // 如果客户端直接传了 URL (比如已经是 CDN 地址)，但不是 DataURL，也不是 local:
+      // 则直接保存
+      const formDataCoverUrl = formData.get('coverUrl') as string | null;
+      if (formDataCoverUrl && !formDataCoverUrl.startsWith('local:') && !formDataCoverUrl.startsWith('data:')) {
+          presetData.coverUrl = formDataCoverUrl;
+      }
+
       await this.presetModel.findOneAndUpdate(
         { _id: presetData.id },
         {

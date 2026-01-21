@@ -31,6 +31,7 @@ export interface ClientImageParams {
     height?: number;
     batchSize?: number;
     aspectRatio?: string;
+    imageSize?: string;
     image?: string; // for i2i
     images?: string[]; // Multiple images support
     options?: ProviderOptions & {
@@ -120,7 +121,7 @@ export async function generateImage(
 
         while (true) {
             const { done, value } = await reader.read();
-            
+
             if (value) {
                 const chunkText = decoder.decode(value, { stream: true });
                 console.log(`[ai-client] received chunk (${value.length} bytes)`);

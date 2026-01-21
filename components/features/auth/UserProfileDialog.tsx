@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Upload, User as UserIcon } from "lucide-react";
 import Image from "next/image";
+import { useImageUpload } from "@/hooks/common/use-image-upload";
+import { useImageSource } from "@/hooks/common/use-image-source";
 
 interface UserProfileDialogProps {
     open: boolean;
@@ -27,12 +29,19 @@ const PRESET_AVATARS = [
     '/avatars/5.png',
 ];
 
+const AvatarImage = ({ src, alt, width, height, className }: { src: string; alt: string; width: number; height: number; className?: string }) => {
+    const source = useImageSource(src);
+    return <Image src={source} alt={alt} width={width} height={height} className={className} />;
+};
+
 export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDialogProps) => {
     const user = userStore.currentUser;
     const [name, setName] = useState(user?.name || "");
     const [avatar, setAvatar] = useState(user?.avatar || "");
     const [loading, setLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { uploadFile } = useImageUpload();
 
     const handleSave = async () => {
         setLoading(true);
@@ -47,13 +56,20 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Simple base64 conversion for demo
-        // In prod, use upload API
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setAvatar(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        setIsUploading(true);
+        const uploaded = await uploadFile(file, {
+            onSuccess: (url) => {
+                setAvatar(url);
+                setIsUploading(false);
+            },
+            onError: () => {
+                setIsUploading(false);
+            }
+        });
+
+        if (uploaded) {
+            setAvatar(uploaded.path);
+        }
     };
 
     if (!user) return null;
@@ -70,7 +86,7 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
                         <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                             <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-neutral-700 group-hover:border-indigo-500 transition-colors">
                                 {avatar ? (
-                                    <Image src={avatar} alt="Avatar" width={96} height={96} className="w-full h-full object-cover" />
+                                    <AvatarImage src={avatar} alt="Avatar" width={96} height={96} className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
                                         <UserIcon className="w-10 h-10 text-neutral-500" />
@@ -97,7 +113,7 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
                                     onClick={() => setAvatar(src)}
                                     className={`w-8 h-8 rounded-full overflow-hidden border-2 transition-colors ${avatar === src ? 'border-indigo-500' : 'border-transparent hover:border-neutral-600'}`}
                                 >
-                                    <Image src={src} alt={`Preset ${i}`} width={32} height={32} className="w-full h-full object-cover" />
+                                    <AvatarImage src={src} alt={`Preset ${i}`} width={32} height={32} className="w-full h-full object-cover" />
                                 </button>
                             ))}
                         </div>
@@ -120,11 +136,11 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
                     </Button>
                     <Button 
                         onClick={handleSave} 
-                        disabled={loading}
+                        disabled={loading || isUploading}
                         className="bg-white hover:bg-primary text-black"
                     >
-                        {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                        Save Changes
+                        {(loading || isUploading) && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                        {isUploading ? 'Uploading...' : 'Save Changes'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

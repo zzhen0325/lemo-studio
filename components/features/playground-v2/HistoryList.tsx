@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/common/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { HistoryLoadingSkeleton } from './HistoryLoadingSkeleton';
 import { useDraggable } from "@dnd-kit/core";
 import {
   DropdownMenu,
@@ -96,32 +97,32 @@ const HistoryList = observer(function HistoryList({
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
 
 
-  // Group history by start time (createdAt) and parameters to reflect single-click aggregation
+  // Group history by taskId
   const groupedHistory = React.useMemo(() => {
     const map = new Map<string, GroupedHistoryItem>();
     history.forEach((result) => {
       const cfg = result.config;
-      const isText = !!result.sourceImageUrl && (result.outputUrl === result.sourceImageUrl);
+      // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
+      const sourceUrls = result.sourceImageUrls && result.sourceImageUrls.length > 0
+        ? result.sourceImageUrls
+        : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
+          ? result.editConfig.referenceImages.map(img => img.dataUrl)
+          : (result.sourceImageUrl ? [result.sourceImageUrl] : []));
+      const firstSourceUrl = sourceUrls[0];
+      const isText = !!firstSourceUrl && (result.outputUrl === firstSourceUrl);
       const type: 'image' | 'text' = isText ? 'text' : 'image';
+      
+      // Use taskId as the primary grouping key. If taskId is missing, fallback to item id.
+      // This ensures that batch generations (sharing same taskId) are grouped together.
       const taskId = result.taskId || cfg?.taskId;
-      const prompt = cfg?.prompt || "";
-      const model = cfg?.model || "";
-      const width = cfg?.width || 0;
-      const height = cfg?.height || 0;
-      const lora = cfg?.lora || "";
-      const startMs = new Date(result.createdAt).getTime();
-      const startBucket = Math.floor(startMs / 60000); // minute-level bucket
-
-      // Priority: Group by taskId. If missing (legacy), use heuristic.
       const key = taskId
         ? `task|${taskId}`
-        : (type === 'text'
-          ? `text|${startBucket}`
-          : `image|${startBucket}|${prompt}|${model}|${width}|${height}|${lora}`);
+        : `item|${result.id}`;
 
       const existing = map.get(key);
       if (existing) {
         existing.items.push(result);
+        // Ensure startAt is the earliest creation time in the group
         if (new Date(result.createdAt).getTime() < new Date(existing.startAt).getTime()) {
           existing.startAt = result.createdAt;
         }
@@ -130,7 +131,7 @@ const HistoryList = observer(function HistoryList({
           type,
           key,
           items: [result],
-          sourceImage: type === 'text' ? result.sourceImageUrl : undefined,
+          sourceImage: type === 'text' ? firstSourceUrl : undefined,
           startAt: result.createdAt,
         });
       }
@@ -156,7 +157,13 @@ const HistoryList = observer(function HistoryList({
     return history.filter(item => selectedIds.has(item.id));
   };
 
-  if (history.length === 0) return null;
+  if (history.length === 0) {
+    if (isFetchingHistory) {
+      return <HistoryLoadingSkeleton layoutMode={layoutMode} />;
+    }
+    return null;
+  }
+
 
 
   //主容器
@@ -284,14 +291,21 @@ const HistoryList = observer(function HistoryList({
         )}>
           {layoutMode === 'grid' ? (
             history.map((result, idx) => {
-              const isText = !!result.sourceImageUrl && (result.outputUrl === result.sourceImageUrl);
+              // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
+              const sourceUrls = result.sourceImageUrls && result.sourceImageUrls.length > 0
+                ? result.sourceImageUrls
+                : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
+                  ? result.editConfig.referenceImages.map(img => img.dataUrl)
+                  : (result.sourceImageUrl ? [result.sourceImageUrl] : []));
+              const firstSourceUrl = sourceUrls[0];
+              const isText = !!firstSourceUrl && (result.outputUrl === firstSourceUrl);
 
               if (isText) {
                 return null;
               }
 
               return (
-                <div key={result.id || result.outputUrl || `img-${idx}`} className="break-inside-avoid mb-4">
+                <div key={`${result.id}-${idx}`} className="break-inside-avoid mb-4">
                   <DraggableHistoryCard
                     result={result}
                     selectedIds={selectedIds}
@@ -384,9 +398,9 @@ const HistoryList = observer(function HistoryList({
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                          {group.items.map((item) => (
+                          {group.items.map((item, itemIdx) => (
                             <DraggableHistoryCard
-                              key={item.id}
+                              key={`${item.id}-${itemIdx}`}
                               result={item}
                               selectedIds={selectedIds}
                               isSelectionMode={isSelectionMode}
@@ -537,6 +551,50 @@ function DescribeSourceImage({
   );
 }
 
+function HistoryReferenceImage({
+  url,
+  localId,
+  idx,
+  resultId,
+  onRefImageClick
+}: {
+  url: string;
+  localId?: string;
+  idx: number;
+  resultId: string;
+  onRefImageClick: (url: string, id: string) => void
+}) {
+  const src = useImageSource(url, localId);
+  const displayUrl = src || formatImageUrl(url);
+  const layoutId = `img-ref-${resultId}-${idx}`;
+
+  return (
+    <div className="group/ref relative">
+      <motion.div
+        layoutId={layoutId}
+        className="relative w-12 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRefImageClick(displayUrl, layoutId);
+        }}
+      >
+        {displayUrl ? (
+          <Image
+            src={displayUrl}
+            alt={`Ref ${idx + 1}`}
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        ) : null}
+        <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-black/60 backdrop-blur-[2px] rounded text-[7px] text-white/70 uppercase font-bold border border-white/5">
+          {idx + 1}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function DraggableHistoryCard({
   result,
   selectedIds,
@@ -612,10 +670,19 @@ function HistoryCard({
   onToggleSelect?: () => void;
 }) {
   const [isHover, setIsHover] = React.useState(false);
-  const { applyPrompt, applyModel, applyImage, styles, addImageToStyle } = usePlaygroundStore();
+  const { applyPrompt, applyModel, applyImage, applyImages, styles, addImageToStyle, setSelectedPresetName } = usePlaygroundStore();
   const { toast } = useToast();
 
-  const sourceImage = useImageSource(result.sourceImageUrl || undefined, result.config?.localSourceId);
+  // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
+  const sourceUrls = React.useMemo(() => {
+    if (result.sourceImageUrls && result.sourceImageUrls.length > 0) {
+      return result.sourceImageUrls;
+    }
+    return result.sourceImageUrl ? [result.sourceImageUrl] : [];
+  }, [result.sourceImageUrls, result.sourceImageUrl]);
+
+  const firstSourceUrl = sourceUrls[0];
+  const sourceImage = useImageSource(firstSourceUrl || undefined, result.config?.localSourceId);
   const mainImage = formatImageUrl(result.outputUrl);
 
   const config = result.config;
@@ -646,15 +713,15 @@ function HistoryCard({
       >
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
           <div className="flex items-center gap-4">
-            {config?.presetName && (
-              <span className="text-white text-md bg-[#b4cdbf22] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
+            {(config?.presetName || config?.workflowName) && (
+              <span className="text-white text-md bg-[#b4cdbf22] px-2 py-0.5 rounded border border-white/10"> {config.presetName || config.workflowName}</span>
             )}
             <span className="text-white/80">{modelDisplayName}</span>
 
             <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
 
-            {result.editConfig && (
+            {result.isEdit && (
               <>
                 <span className="opacity-40">/</span>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
@@ -722,7 +789,7 @@ function HistoryCard({
                 </div>
                 <motion.div className="flex-1 max-h-[70%] pr-1">
                   <p
-                    className="text-[12px] text-white/90 leading-relaxed line-clamp-6 cursor-pointer hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all"
+                    className="text-[12px] text-white/90 leading-relaxed line-clamp-4 cursor-pointer hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all"
                     onClick={(e) => {
                       e.stopPropagation();
                       applyPrompt(prompt);
@@ -737,56 +804,24 @@ function HistoryCard({
 
 
 
-                  {/* 显示参考图：优先显示 editConfig.referenceImages 多图，否则显示 sourceImageUrl 单图 */}
-                  {(result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0) ? (
+                  {/* 显示参考图 */}
+                  {sourceUrls.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {result.editConfig.referenceImages.map((img, idx) => (
-                        <div key={img.id || idx} className="group/ref relative">
-                          <motion.div
-                            layoutId={`img-ref-${result.id}-${idx}`}
-                            className="relative w-12 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRefImageClick(img.dataUrl, `img-ref-${result.id}-${idx}`);
-                            }}
-                          >
-                            <Image
-                              src={img.dataUrl}
-                              alt={img.label || `Ref ${idx + 1}`}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                            <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-black/60 backdrop-blur-[2px] rounded text-[7px] text-white/70 uppercase font-bold border border-white/5">
-                              {idx + 1}
-                            </div>
-                          </motion.div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : result.sourceImageUrl && (
-                    <div className="mt-3 group/ref relative w-fit">
-                      <motion.div
-                        layoutId={`img-ref-${result.id}`}
-                        className="relative w-14 aspect-square rounded-lg border border-white/10 overflow-hidden cursor-pointer hover:border-white/30 transition-all shadow-lg"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (sourceImage) {
-                            onRefImageClick(sourceImage, `img-ref-${result.id}`)
-                          }
-                        }}
-                      >
-                        <Image
-                          src={sourceImage || ''}
-                          alt="Reference"
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                        <div className="absolute top-1 left-1 px-1 py-0.5 bg-black/60 backdrop-blur-[2px] rounded text-[8px] text-white/70 uppercase font-bold border border-white/5">
-                          Ref
-                        </div>
-                      </motion.div>
+                      {sourceUrls.map((url, idx) => {
+                        const localSourceIds = result.localSourceIds || result.config?.localSourceIds || [];
+                        const localId = localSourceIds[idx] || (idx === 0 ? (result.localSourceId || result.config?.localSourceId) : undefined);
+                        
+                        return (
+                          <HistoryReferenceImage
+                            key={idx}
+                            url={url}
+                            localId={localId}
+                            idx={idx}
+                            resultId={result.id}
+                            onRefImageClick={onRefImageClick}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </motion.div>
@@ -904,7 +939,7 @@ function HistoryCard({
                             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                             onClick={() => {
                               applyImage(img);
-                              toast({ title: "Image Applied", description: "图片已应用为参考图" });
+                              toast({ title: "Image Added", description: "图片已添加为参考图" });
                             }}
                           />
 
@@ -956,7 +991,9 @@ function HistoryCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (config) {
+                    // 1. 回填模型和参数
                     applyModel(config.model || '', {
+                      ...config,
                       prompt: config.prompt,
                       width: config.width,
                       height: config.height,
@@ -964,16 +1001,28 @@ function HistoryCard({
                       lora: config.lora,
                       loras: config.loras,
                       presetName: config.presetName,
+                      seed: config.seed,
+                      aspectRatio: config.aspectRatio,
+                      imageSize: config.imageSize,
                     });
+
+                    setSelectedPresetName(config.presetName);
+                    
+                    // 2. 回填 Prompt
                     applyPrompt(prompt);
 
-                    if (sourceImage) {
-                      applyImage(sourceImage);
+                    // 3. 回填参考图（使用 applyImages 处理 local/remote 逻辑，若无图片则清空）
+                    const sourceImages = sourceUrls;
+                    if (sourceImages.length > 0) {
+                      applyImages(sourceImages);
+                    } else {
+                      // 显式清空当前参考图，实现完全覆盖
+                      usePlaygroundStore.getState().setUploadedImages([]);
                     }
 
                     toast({
                       title: "参数已回填",
-                      description: "生成参数已应用到当前配置",
+                      description: "所有参数已覆盖当前配置",
                     });
                   }
                 }}
@@ -981,7 +1030,7 @@ function HistoryCard({
                 <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Use All</span>
               </Button>
 
-              {result.editConfig && (
+              {result.isEdit && result.editConfig && (
                 <Button
                   size="sm"
                   className="h-8 rounded-sm border-white/10 bg-black/20 text-primary hover:bg-black/10 hover:text-primary gap-1.5 px-3"
@@ -1100,7 +1149,10 @@ function HistoryCard({
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
-              if (mainImage) applyImage(mainImage);
+              if (mainImage) {
+                applyImage(mainImage);
+                toast({ title: "Image Added", description: "图片已添加为参考图" });
+              }
             }}
           />
           <TooltipButton

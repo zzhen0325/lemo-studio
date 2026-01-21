@@ -9,6 +9,7 @@ import { usePromptOptimization, AIModel } from "@/hooks/features/PlaygroundV2/us
 
 
 import { useGenerationService, type GenerateOptions } from "@/hooks/features/PlaygroundV2/useGenerationService";
+import { useAIService as useAIServiceV1 } from "@/hooks/ai/useAIService";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { GoogleApiStatus } from "@/components/features/playground-v2/GoogleApiStatus";
 import SimpleImagePreview from "@/components/features/playground-v2/SimpleImagePreview";
@@ -22,9 +23,9 @@ import { PresetManagerDialog } from "@/components/features/playground-v2/Dialogs
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
-import type { GenerationConfig, UploadedImage, PresetExtended, EditPresetConfig } from "@/components/features/playground-v2/types";
-import { VISION_DESCRIBE_SYSTEM_PROMPT } from "@/components/features/playground-v2/types";
+import { VISION_DESCRIBE_SYSTEM_PROMPT, type GenerationConfig, type UploadedImage, type PresetExtended, type EditPresetConfig } from "@/components/features/playground-v2/types";
 import type { Generation } from "@/types/database";
+import { downloadImage } from '@/lib/utils/download';
 
 import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
@@ -46,6 +47,7 @@ import { AR_MAP } from "@/components/features/playground-v2/constants/aspect-rat
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { v4 as uuidv4 } from 'uuid';
 import { localImageStorage } from "@/lib/local-image-storage";
+import { useImageUpload } from "@/hooks/common/use-image-upload";
 
 import gsap from "gsap";
 import { Flip } from "gsap/all";
@@ -93,10 +95,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const selectedLoras = usePlaygroundStore(s => s.selectedLoras);
   const setSelectedLoras = usePlaygroundStore(s => s.setSelectedLoras);
   const initPresets = usePlaygroundStore(s => s.initPresets);
+  const presets = usePlaygroundStore(s => s.presets);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
   const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
+  const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
   const applyModel = usePlaygroundStore(s => s.applyModel);
+  const applyImages = usePlaygroundStore(s => s.applyImages);
   const addStyle = usePlaygroundStore(s => s.addStyle);
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
@@ -128,8 +133,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const mobxProjectId = projectStore.currentProjectId;
 
   useEffect(() => {
+    // 预加载历史记录
     fetchHistory(1, mobxProjectId || undefined);
-  }, [fetchHistory, mobxProjectId]);
+    // 预加载图库 (之前图库只有在切换到图库标签且组件挂载后才加载)
+    fetchGallery(1);
+  }, [fetchHistory, fetchGallery, mobxProjectId]);
 
   const filteredHistory = useMemo(() => {
     if (!mobxProjectId) return generationHistory;
@@ -266,6 +274,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         config: item.config,
         status: item.status || 'completed',
         sourceImageUrl: item.sourceImageUrl,
+        sourceImageUrls: item.sourceImageUrls,
         createdAt: item.createdAt || new Date().toISOString(),
       };
       await fetch(`${getApiBase()}/history`, {
@@ -369,7 +378,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         }
       });
     }
-    setConfig({ ...newConfig, loras: newLoras });
+    setConfig({ ...newConfig, loras: newLoras, presetName: workflow.viewComfyJSON.title });
     if (selectedModel !== 'Workflow') setSelectedModel('Workflow');
     setSelectedLoras(newLoras);
   }, [config, setConfig, selectedModel, setSelectedModel, setSelectedLoras]);
@@ -384,7 +393,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
-    const { configOverride, editConfig } = options;
+    const { configOverride, editConfig, useCurrentBatchSize } = options;
     // Switch to Dock Mode and History Tab
     setViewMode('dock');
     setActiveTab('history');
@@ -394,8 +403,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const startTime = new Date().toISOString();
     const batchTaskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
 
-    // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
-    const effectiveBatchSize = configOverride ? 1 : batchSize;
+    // Determine the effective batch size: 1 if overriding config (e.g. regenerate) AND not explicitly asking for batch, otherwise current batchSize
+    const effectiveBatchSize = (configOverride && !useCurrentBatchSize) ? 1 : batchSize;
 
     // Launch generation tasks
     // Frontend logic: call singleGenerate for each task immediately to show loading cards
@@ -412,22 +421,32 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       };
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
       const sourceImageUrls = currentUploadedImages.map(img => img.path || img.previewUrl);
-      const localSourceId = currentUploadedImages[0]?.localId; // Keep first for backward compatibility
+      const localSourceIds = currentUploadedImages.map(img => img.localId).filter((id): id is string => !!id);
+      const localSourceId = localSourceIds[0]; // Keep first for backward compatibility
 
       // 1. Immediately create and show the pending card
-      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId }).then((uniqueId) => {
+      singleGenerate({ 
+        configOverride, 
+        fixedCreatedAt: startTime, 
+        isBackground: true, 
+        editConfig, 
+        taskId: batchTaskId,
+        sourceImageUrls,
+        localSourceIds
+      }).then((uniqueId) => {
         // 2. Schedule the actual backend execution with a staggered delay
         if (uniqueId) {
           setTimeout(() => {
-            executeGeneration(uniqueId, batchTaskId, { ...finalConfig, localSourceId }, startTime, sourceImageUrls);
+            executeGeneration(uniqueId, batchTaskId, { ...finalConfig, localSourceId, localSourceIds }, startTime, sourceImageUrls, localSourceId, localSourceIds);
           }, i * 1100);
         }
       });
     }
   }, [batchSize, singleGenerate, executeGeneration, setViewMode, setActiveTab, setShowHistory]);
 
-  const { optimizePrompt, isOptimizing } = usePromptOptimization(); // 使用settings中的配置
-  const { callVision } = useAIService();
+  const { optimizePrompt, isOptimizing } = usePromptOptimization();
+  const { callVision } = useAIServiceV1();
+  const { uploadFile } = useImageUpload();
 
   const handleFilesUpload = React.useCallback(async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -436,118 +455,122 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const { syncLocalImageToHistory } = usePlaygroundStore.getState();
 
     for (const file of uploads) {
-      const tempId = uuidv4(); // Use uuid for better ID management
+      await uploadFile(file, {
+        onLocalPreview: (image) => {
+          // 4. Add to UI immediately (prepend to show on top)
+          setImages((prev: UploadedImage[]) => [image, ...prev]);
 
-      // 1. Generate local preview and base64 immediately
-      const dataUrl: string = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(String(e.target?.result));
-        reader.readAsDataURL(file);
-      });
-      const base64Data = dataUrl.split(',')[1];
-
-      // 2. Get image dimensions
-      const dimensions: { width: number; height: number } = await new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        img.src = dataUrl;
-      });
-
-      // 3. Persistent local storage immediately
-      await localImageStorage.storeImage(tempId, file);
-
-      // 4. Add to UI immediately (prepend to show on top)
-      setImages((prev: UploadedImage[]) => [{
-        id: tempId,
-        localId: tempId,
-        file,
-        base64: base64Data,
-        previewUrl: dataUrl,
-        isUploading: true,
-        width: dimensions.width,
-        height: dimensions.height
-      }, ...prev]);
-
-      // 5. Update config for 'auto' mode if it's the first image in reference
-      if (target === 'reference' && usePlaygroundStore.getState().config.aspectRatio === 'auto') {
-        let { width, height } = dimensions;
-        const minSide = Math.min(width, height);
-        if (minSide < 1024) {
-          const scale = 1024 / minSide;
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-        }
-        updateConfig({ width, height });
-      }
-
-      // 6. Start background upload (NO await)
-      (async () => {
-        const form = new FormData();
-        form.append('file', file);
-
-        const originalUrl = dataUrl; // Keep track of the local URL
-
-        try {
-          const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: form });
-          const json = await resp.ok ? await resp.json() : null;
-          const path = json?.path ? String(json.path) : undefined;
-
+          // 5. Update config for 'auto' mode if it's the first image in reference
+          if (target === 'reference' && usePlaygroundStore.getState().config.aspectRatio === 'auto') {
+            let { width, height } = image;
+            if (width && height) {
+              const minSide = Math.min(width, height);
+              if (minSide < 1024) {
+                const scale = 1024 / minSide;
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+              }
+              updateConfig({ width, height });
+            }
+          }
+        },
+        onSuccess: async (tempId, path) => {
           // Update the specific image with its CDN path
           updateImage(tempId, { path, isUploading: false });
 
           // Also update history records that were using this local URL or localId
           if (path) {
-            updateHistorySourceUrl(originalUrl, path);
+            // Find the image to get its originalUrl (previewUrl)
+            setImages((prev) => {
+              const img = prev.find(i => i.id === tempId);
+              if (img?.previewUrl) {
+                updateHistorySourceUrl(img.previewUrl, path);
+              }
+              return prev;
+            });
             await syncLocalImageToHistory(tempId, path);
           }
-        } catch (err) {
-          console.error("Upload failed in background", err);
+        },
+        onError: (tempId) => {
           updateImage(tempId, { isUploading: false });
         }
-      })();
+      });
     }
-  }, [setDescribeImages, setUploadedImages, updateDescribeImage, updateUploadedImage, updateHistorySourceUrl, updateConfig]);
+  }, [uploadFile, setDescribeImages, setUploadedImages, updateDescribeImage, updateUploadedImage, updateHistorySourceUrl, updateConfig]);
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files; if (!files) return;
     // 默认通过 input 上传的归为参考图，除非有特殊逻辑
     await handleFilesUpload(files, activeTab === 'describe' ? 'describe' : 'reference');
   };
-  const removeImage = React.useCallback((index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); }, [setUploadedImages]);
+  const removeImage = React.useCallback((index: number) => { 
+    setUploadedImages(prev => {
+      const newImages = prev.filter((_, i) => i !== index);
+      // 如果图片被清空，重置编辑状态，防止残留参考图
+      if (newImages.length === 0) {
+        // 使用 setTimeout 确保在渲染周期外更新 config，避免潜在的冲突
+        setTimeout(() => {
+          usePlaygroundStore.getState().updateConfig({
+            isEdit: false,
+            editConfig: undefined,
+            parentId: undefined
+          });
+        }, 0);
+      }
+      return newImages;
+    }); 
+  }, [setUploadedImages]);
 
   const handleStyleUpload = async (files: File[] | FileList) => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (uploads.length === 0) return;
 
-    toast({ title: "正在上传图片", description: `正在为新风格处理 ${uploads.length} 张图片...` });
+    const styleId = uuidv4();
+    const newStyle = {
+      id: styleId,
+      name: `新风格 ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      prompt: '',
+      imagePaths: [] as string[],
+      updatedAt: new Date().toISOString()
+    };
 
-    try {
-      const uploadPromises = uploads.map(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: formData });
-        if (!resp.ok) throw new Error('Upload failed');
-        const data = await resp.json();
-        return data.path;
-      });
+    // 1. 先创建空风格，以便用户立即看到
+    await addStyle(newStyle);
+    toast({ title: "正在处理新风格", description: `正在处理 ${uploads.length} 张图片...` });
 
-      const imagePaths = await Promise.all(uploadPromises);
-
-      const newStyle = {
-        id: uuidv4(),
-        name: `新风格 ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        prompt: '',
-        imagePaths,
-        updatedAt: new Date().toISOString()
-      };
-
-      await addStyle(newStyle);
-      toast({ title: "风格创建成功", description: `已成功创建新风格并包含 ${uploads.length} 张图片` });
-    } catch (error) {
-      console.error("Failed to upload images for new style", error);
-      toast({
-        title: "创建失败",
-        description: "上传图片过程中出现错误，请重试",
-        variant: "destructive"
+    // 2. 逐个处理上传
+    for (const file of uploads) {
+      await uploadFile(file, {
+        onLocalPreview: (image) => {
+          // 使用 local: 前缀表示本地存储的图片
+          const localPath = `local:${image.id}`;
+          usePlaygroundStore.getState().addImageToStyle(styleId, localPath);
+        },
+        onSuccess: (tempId, path) => {
+          // 上传成功后，替换本地路径为 CDN 路径
+          const localPath = `local:${tempId}`;
+          usePlaygroundStore.setState(state => ({
+            styles: state.styles.map(s => {
+              if (s.id === styleId) {
+                return {
+                  ...s,
+                  imagePaths: s.imagePaths.map(p => p === localPath ? path : p),
+                  updatedAt: new Date().toISOString()
+                };
+              }
+              return s;
+            })
+          }));
+          
+          // 同步到后端
+          const updatedStyle = usePlaygroundStore.getState().styles.find(s => s.id === styleId);
+          if (updatedStyle) {
+            fetch(`${getApiBase()}/styles`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatedStyle)
+            }).catch(e => console.error("Failed to sync style image upload", e));
+          }
+        }
       });
     }
   };
@@ -581,7 +604,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         setSelectedModel('Workflow');
 
         // 比例和尺寸处理
-        const resSize = effectiveConfig.resolution || '1K';
+        const resSize = effectiveConfig.imageSize || '1K';
         const arName = effectiveConfig.aspectRatio || '1:1';
         const dims = AR_MAP[arName]?.[resSize] || { w: effectiveConfig.width || 1024, h: effectiveConfig.height || 1024 };
 
@@ -592,7 +615,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           width: dims.w,
           height: dims.h,
           model: effectiveConfig.model || 'Workflow',
-          resolution: resSize,
+          imageSize: resSize,
           aspectRatio: arName as GenerationConfig['aspectRatio']
         });
         // Then apply remaining defaults from workflow (loras, etc)
@@ -601,7 +624,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } else {
       // Regular preset
       const modelToSet = effectiveConfig.model || 'Nano banana';
-      const resSize = effectiveConfig.resolution || '1K';
+      const resSize = effectiveConfig.imageSize || '1K';
       const arName = effectiveConfig.aspectRatio || '1:1';
       const dims = AR_MAP[arName]?.[resSize] || { w: effectiveConfig.width || 1024, h: effectiveConfig.height || 1024 };
 
@@ -612,7 +635,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         model: modelToSet,
         width: dims.w,
         height: dims.h,
-        resolution: resSize,
+        imageSize: resSize,
         aspectRatio: arName as GenerationConfig['aspectRatio']
       });
       setSelectedWorkflowConfig(undefined);
@@ -662,6 +685,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       },
       status: 'pending',
       sourceImageUrl: imageUrl,
+      sourceImageUrls: [imageUrl],
       createdAt: startTime,
     };
 
@@ -708,6 +732,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           },
           status: 'completed',
           sourceImageUrl: imageUrl,
+          sourceImageUrls: [imageUrl],
           createdAt: startTime,
         }));
 
@@ -746,17 +771,42 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
   const handleRegenerate = async (result: Generation) => {
+    if (!result.config) return;
+
+    // 1. 同步参考图到 Store，确保生成时能够读取到
+    const sourceUrls = result.sourceImageUrls ||
+      (result.editConfig?.referenceImages?.map(img => img.dataUrl)) ||
+      (result.sourceImageUrl ? [result.sourceImageUrl] : []);
+
+    if (sourceUrls.length > 0) {
+      await applyImages(sourceUrls);
+    } else {
+      setUploadedImages([]);
+    }
+
+    // 2. 构造完整配置
     const fullConfig: GenerationConfig = {
       ...config,
-      prompt: result.config?.prompt || '',
-      width: result.config?.width || config.width,
-      height: result.config?.height || config.height,
-      model: result.config?.model || config.model,
+      ...result.config,
+      taskId: Date.now().toString() + Math.random().toString(36).substring(2, 7), // 重新生成 taskId，避免归入旧组
+      prompt: result.config.prompt || '',
+      width: result.config.width || config.width,
+      height: result.config.height || config.height,
+      model: result.config.model || config.model,
+      // 同步原始记录的编辑状态
+      isEdit: result.isEdit,
+      editConfig: result.editConfig,
+      parentId: result.parentId,
+      sourceImageUrls: sourceUrls,
     };
-    await handleGenerate({ configOverride: fullConfig });
+
+    // 3. 触发生成
+    await handleGenerate({ configOverride: fullConfig, useCurrentBatchSize: true });
   };
 
-  const handleDownload = (imageUrl: string) => { const link = document.createElement("a"); link.href = imageUrl; link.download = `PlaygroundV2-${Date.now()}.png`; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
+  const handleDownload = (imageUrl: string) => {
+    downloadImage(imageUrl, `PlaygroundV2-${Date.now()}.png`);
+  };
 
   const openImageModal = (result: Generation) => {
     setSelectedResult(result);
@@ -872,7 +922,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       toast({ title: "图片已保存", description: message });
 
       if (shouldGenerate) {
-        handleGenerate({ editConfig });
+        handleGenerate({ editConfig, isEdit: true });
+        // 生成后重置编辑状态
+        updateConfig({ isEdit: false, editConfig: undefined });
       }
     } catch (error) {
       console.error("Failed to save edited image:", error);
@@ -884,6 +936,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
   // Input UI Helper to avoid duplication
+  const selectedPreset = useMemo(() => {
+    if (!selectedPresetName) return undefined;
+    return presets.find(p => p.name === selectedPresetName || (p as unknown as PresetExtended).title === selectedPresetName);
+  }, [presets, selectedPresetName]);
+
   const inputSectionProps = useMemo(() => ({
     showHistory: viewMode === 'dock', // Map dock mode to showHistory for layout adaptation
     config,
@@ -948,6 +1005,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setDescribeImages,
     setIsDraggingOver,
     setIsDraggingOverPanel,
+    disableImageUpload: selectedPreset?.disableImageUpload,
+    disableModelSelection: selectedPreset?.disableModelSelection,
   }), [
     viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused,
     isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver,
@@ -960,7 +1019,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults,
     setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
-    setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab
+    setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab,
+    selectedPreset
   ]);
 
   return (
@@ -1249,16 +1309,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         <HistoryList
                           variant="sidebar"
                           history={filteredHistory}
-                          onRegenerate={(res) => {
-                            if (res.config) {
-                              applyModel(res.config.model, {
-                                ...res.config,
-                                loras: res.config.loras || [],
-                                presetName: res.config.presetName,
-                              });
-                            }
-                            handleRegenerate(res);
-                          }}
+                          onRegenerate={handleRegenerate}
                           onDownload={handleDownload}
                           onEdit={handleEditImage}
                           onImageClick={openImageModal}
@@ -1339,7 +1390,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             <ImageEditorModal
               isOpen={isEditorOpen}
               imageUrl={editingImageUrl}
-              onClose={() => setIsEditorOpen(false)}
+              onClose={() => {
+                setIsEditorOpen(false);
+                // 关闭编辑器时重置编辑状态
+                updateConfig({ isEdit: false, editConfig: undefined, parentId: undefined });
+              }}
               onSave={handleSaveEditedImage}
               initialState={editingPresetConfig}
               workflows={workflows}

@@ -21,6 +21,7 @@ export const ImageRequestSchema = z.object({
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   batchSize: z.number().int().positive().optional(),
+  imageSize: z.string().optional(),
   aspectRatio: z.string().optional(),
   image: z.string().optional(),
   images: z.array(z.string()).optional(), // 支持多张参考图

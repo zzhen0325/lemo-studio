@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { projectStore } from "@/lib/store/project-store";
 import { userStore } from "@/lib/store/user-store";
@@ -37,10 +38,14 @@ export interface GenerateOptions {
     isEdit?: boolean;
     parentId?: string;
     taskId?: string;
+    useCurrentBatchSize?: boolean;
+    sourceImageUrls?: string[];
+    localSourceIds?: string[];
 }
 
 export function useGenerationService() {
     const { toast } = useToast();
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const selectedModel = usePlaygroundStore(s => s.selectedModel);
     const selectedWorkflowConfig = usePlaygroundStore(s => s.selectedWorkflowConfig);
@@ -62,7 +67,6 @@ export function useGenerationService() {
     // Helper: Save to outputs
     const saveImageToOutputs = async (dataUrl: string, metadata?: Record<string, unknown>) => {
         const resp = await fetch(`${getApiBase()}/save-image`, {
-
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'outputs', metadata })
@@ -75,7 +79,6 @@ export function useGenerationService() {
     const saveHistoryToBackend = async (item: Generation) => {
         try {
             await fetch(`${getApiBase()}/history`, {
-
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(item),
@@ -86,150 +89,39 @@ export function useGenerationService() {
         }
     };
 
-
-    const handleGenerate = async (options: GenerateOptions = {}) => {
-        const { configOverride, fixedCreatedAt, isBackground } = options;
-        const generationTime = fixedCreatedAt || new Date().toISOString();
-        const freshConfig = usePlaygroundStore.getState().config;
-        const currentLoras = usePlaygroundStore.getState().selectedLoras;
-
-        // Prioritize editConfig from options, then configOverride, then current config
-        const editConfig = options.editConfig || configOverride?.editConfig || freshConfig.editConfig;
-        const isEdit = options.isEdit !== undefined ? options.isEdit : (configOverride?.isEdit || freshConfig.isEdit || !!editConfig);
-        const parentId = options.parentId || configOverride?.parentId || freshConfig.parentId;
-        const taskId = options.taskId || configOverride?.taskId || freshConfig.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
-
-        const finalConfig = {
-            ...freshConfig,
-            ...(configOverride && typeof configOverride === 'object' ? configOverride : {}),
-            loras: currentLoras,
-            presetName: selectedPresetName,
-            editConfig, // Ensure it's part of finalConfig
-            isEdit,
-            parentId,
-        };
-
-        // Set state to indicate generation has started
-        setHasGenerated(true);
-
-        const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
-        const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-        const firstImage = currentUploadedImages[0];
-        const sourceImageUrl = firstImage ? (firstImage.path || firstImage.previewUrl) : undefined;
-        const localSourceId = firstImage?.localId;
-
-        const uniqueId = Math.random().toString(36).substring(2, 11) + Date.now().toString().slice(-4);
-
-        const loadingGen: Generation = {
-            id: uniqueId,
-            userId: userStore.currentUser?.id || 'anonymous',
-            projectId: projectStore.currentProjectId || 'default',
-            outputUrl: "",
-            config: {
-                ...unifiedCfg,
-                localSourceId,
-            },
-            status: 'pending',
-            sourceImageUrl: sourceImageUrl,
-            localSourceId: localSourceId,
-            editConfig: editConfig,
-            isEdit: isEdit,
-            parentId: parentId,
-            taskId: taskId,
-            createdAt: generationTime,
-        };
-
-        // Use standard state update for history
-        setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
-
-        if (isBackground) return uniqueId;
-
-        return executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrl ? [sourceImageUrl] : [], localSourceId);
-    };
-
-    const executeGeneration = async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string) => {
-        const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
-        try {
-            if (isMockMode) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
-                const result: Generation = {
-                    id: taskId,
-                    userId: userStore.currentUser?.id || 'anonymous',
-                    projectId: projectStore.currentProjectId || 'default',
-                    outputUrl: mockImageUrl,
-                    config: {
-                        prompt: unifiedCfg.prompt,
-                        width: unifiedCfg.width,
-                        height: unifiedCfg.height,
-                        model: unifiedCfg.model,
-                        lora: unifiedCfg.lora,
-                        loras: usePlaygroundStore.getState().selectedLoras,
-                        workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
-                        localSourceId: localSourceId,
-                    },
-                    status: 'completed',
-                    sourceImageUrl: sourceImageUrls[0],
-                    sourceImageUrls: sourceImageUrls,
-                    localSourceId: localSourceId,
-                    createdAt: new Date().toISOString(),
-                    taskId: taskId,
-                };
-                updateHistoryAndSave(taskId, result);
-                return;
-            }
-
-            // 优先使用 config 中的模型 ID
-            const effectiveModel = unifiedCfg.model || selectedModel;
-            const isWorkflowModel = effectiveModel === "Workflow" ||
-                effectiveModel?.endsWith('.safetensors') ||
-                effectiveModel?.includes('safetensors');
-
-            if (isWorkflowModel) {
-                await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId);
-            } else {
-                await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId);
-            }
-        } catch (err) {
-            console.error("Generation failed:", err);
-            // Cleanup on failure
-            setGenerationHistory(prev => prev.filter(item => item.id !== taskId));
-            toast({
-                title: "生成失败",
-                description: err instanceof Error ? err.message : "未知错误",
-                variant: "destructive"
-            });
-        }
-    };
-
-    const updateHistoryAndSave = (uniqueId: string, result: Generation) => {
+    const updateHistoryAndSave = useCallback((uniqueId: string, result: Generation) => {
         setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
             ...item,
             ...result,
-            // 确保 editConfig 被完整保留，优先使用 result 中的（新生成的），否则保留 item 中的（初始化的）
-            editConfig: result.editConfig || item.editConfig,
-            config: { ...item.config, ...result.config, taskId: result.taskId || item.taskId }
+            // 确保保持原始 ID 和基础字段
+            id: uniqueId,
+            userId: item.userId,
+            projectId: item.projectId,
+            createdAt: item.createdAt,
         } : item));
         saveHistoryToBackend(result);
 
-        // Also sync to Gallery if it's visible or being cached
-        usePlaygroundStore.getState().addGalleryItem({
-            ...result,
-            // 同步到画廊时也确保带上 editConfig
-            editConfig: result.editConfig || usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId)?.editConfig
-        });
-    };
+        // 如果成功生成，清除正在生成的标志
+        if (result.status === 'completed') {
+            setIsGenerating(false);
+        }
+    }, [setGenerationHistory, saveHistoryToBackend]);
 
-    const handleUnifiedImageGen = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string) => {
-        const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
+    const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
+        // Calculate effective source URLs - prioritize passed parameter
+        // 如果传入了 sourceImageUrls，则严格使用它，否则才回退到 Store 状态
+        // 关键：在批量生成或重新生成时，sourceImageUrls 不为空，不应受 Store 状态影响
+        const effectiveSourceUrls = sourceImageUrls.length > 0 
+            ? sourceImageUrls 
+            : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
+        
+        // 同样逻辑应用于 Local IDs
+        const effectiveLocalId = localSourceId || (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages[0]?.localId : undefined);
+        const effectiveLocalIds = localSourceIds.length > 0 
+            ? localSourceIds 
+            : (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages.map(img => img.localId).filter((id): id is string => !!id) : []);
 
-        // Calculate effective source URLs
-        const effectiveSourceUrls = currentUploadedImages.length > 0
-            ? currentUploadedImages.map(img => img.path || img.previewUrl)
-            : sourceImageUrls;
         const effectiveSourceUrl = effectiveSourceUrls[0];
-        const effectiveLocalId = currentUploadedImages[0]?.localId || localSourceId;
-
         const unified = toUnifiedConfigFromLegacy(currentConfig);
 
         // 使用统一模型配置进行映射，优先使用 config 中的模型 ID
@@ -276,6 +168,7 @@ export function useGenerationService() {
             width: Number(unified.width),
             height: Number(unified.height),
             aspectRatio: unified.aspectRatio === 'auto' ? undefined : unified.aspectRatio,
+            imageSize: unified.imageSize,
             batchSize: 1, // Single task per call now
             image: effectiveSourceUrl,
             // 传递所有收集到的图片作为参考图
@@ -308,20 +201,21 @@ export function useGenerationService() {
                                         width: Number(unified.width),
                                         height: Number(unified.height),
                                         model: unified.model || selectedModel,
-                                        loras: usePlaygroundStore.getState().selectedLoras,
-                                        workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
                                         localSourceId: effectiveLocalId,
+                                        localSourceIds: effectiveLocalIds,
                                     },
                                     createdAt: generationTime,
                                     sourceImageUrl: effectiveSourceUrl,
+                                    sourceImageUrls: effectiveSourceUrls,
                                     localSourceId: effectiveLocalId,
+                                    localSourceIds: effectiveLocalIds,
                                 }
                             );
                             lastSavedPath = savedPath;
                             console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
                             setGenerationHistory((prev: Generation[]) => prev.map(item =>
                                 item.id === uniqueId
-                                    ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId }
+                                    ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId, sourceImageUrls: effectiveSourceUrls }
                                     : item
                             ));
                         } catch (err) {
@@ -348,6 +242,11 @@ export function useGenerationService() {
 
                 const itemToSave = {
                     ...finalItemInState,
+                    config: {
+                        ...finalItemInState.config,
+                        loras: undefined,
+                        workflowName: undefined
+                    },
                     outputUrl: finalOutputUrl,
                     status: finalOutputUrl ? 'completed' : finalItemInState.status
                 } as Generation;
@@ -366,11 +265,14 @@ export function useGenerationService() {
                         height: Number(unified.height),
                         model: unified.model || selectedModel,
                         lora: unified.lora,
-                        loras: usePlaygroundStore.getState().selectedLoras,
-                        workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
+                        localSourceId: effectiveLocalId,
+                        localSourceIds: effectiveLocalIds,
                     },
                     createdAt: generationTime,
                     sourceImageUrl: effectiveSourceUrl,
+                    sourceImageUrls: effectiveSourceUrls,
+                    localSourceId: effectiveLocalId,
+                    localSourceIds: effectiveLocalIds,
                 }
             );
             const gen: Generation = {
@@ -378,9 +280,14 @@ export function useGenerationService() {
                 userId: userStore.currentUser?.id || 'anonymous',
                 projectId: projectStore.currentProjectId || 'default',
                 outputUrl: savedPath,
-                config: unified,
+                config: {
+                    ...unified,
+                    loras: undefined,
+                    workflowName: undefined
+                },
                 status: 'completed',
                 sourceImageUrl: effectiveSourceUrl,
+                sourceImageUrls: effectiveSourceUrls,
                 createdAt: generationTime,
                 editConfig: effectiveEditConfig,
                 isEdit: currentConfig.isEdit,
@@ -391,19 +298,23 @@ export function useGenerationService() {
         } else {
             throw new Error(`${selectedModel} returned empty result`);
         }
-    };
+    }, [selectedModel, setGenerationHistory, updateHistoryAndSave, callImage, toast]);
 
-    const handleWorkflow = async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string) => {
+    const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
 
-        // Calculate effective source URL
-        const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-        const effectiveSourceUrls = currentUploadedImages.length > 0
-            ? currentUploadedImages.map(img => img.path || img.previewUrl)
-            : sourceImageUrls;
-        const effectiveSourceUrl = effectiveSourceUrls[0];
-        const effectiveLocalId = currentUploadedImages[0]?.localId || localSourceId;
+        // Calculate effective source URL - prioritize passed parameter
+        const effectiveSourceUrls = sourceImageUrls.length > 0
+            ? sourceImageUrls
+            : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
+            
+        // 同样逻辑应用于 Local IDs
+        const effectiveLocalId = localSourceId || (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages[0]?.localId : undefined);
+        const effectiveLocalIds = localSourceIds.length > 0 
+            ? localSourceIds 
+            : (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages.map(img => img.localId).filter((id): id is string => !!id) : []);
 
+        const effectiveSourceUrl = effectiveSourceUrls[0];
         const flattenInputs = (arr: IMultiValueInput[]) => arr.flatMap(g => g.inputs.map(i => ({ key: i.key, value: i.value, valueType: i.valueType, title: i.title })));
         const allInputs = [...flattenInputs(selectedWorkflowConfig.viewComfyJSON.inputs), ...flattenInputs(selectedWorkflowConfig.viewComfyJSON.advancedInputs)];
         const mappingConfig = selectedWorkflowConfig.viewComfyJSON.mappingConfig as { components: UIComponent[] } | undefined;
@@ -430,109 +341,246 @@ export function useGenerationService() {
             });
         }
 
-        const getWorkflowValue = (path: string[]) => {
-            if (!selectedWorkflowConfig?.workflowApiJSON) return undefined;
-            const [nodeId, section, key] = path;
-            const wf: Record<string, { inputs?: Record<string, unknown> }> = selectedWorkflowConfig.workflowApiJSON as unknown as Record<string, { inputs?: Record<string, unknown> }>;
-            const node = wf[nodeId];
-            if (!node || section !== 'inputs') return undefined;
-            return node.inputs?.[key];
-        };
-        const extractModelFromMapping = () => {
-            const comps = selectedWorkflowConfig.viewComfyJSON.mappingConfig?.components as { properties?: { paramName?: string }, mapping?: { workflowPath: string[] } }[] | undefined;
-            const modelComp = comps?.find(c => c.properties?.paramName === 'model');
-            if (modelComp?.mapping?.workflowPath) {
-                const val = getWorkflowValue(modelComp.mapping.workflowPath);
-                if (typeof val === 'string' && val) return val;
-            }
-            // Fallback: scan inputs by title
-            const all = [...(selectedWorkflowConfig.viewComfyJSON.inputs || []), ...(selectedWorkflowConfig.viewComfyJSON.advancedInputs || [])];
-            for (const group of all) {
-                for (const i of group.inputs) {
-                    const t = (i.title || '').toLowerCase();
-                    if (t.includes('model') || t.includes('checkpoint') || t.includes('ckpt') || t.includes('模型')) {
-                        if (typeof i.value === 'string' && i.value) return i.value;
-                    }
-                }
-            }
-            // Final fallback: scan workflowApiJSON nodes for checkpoint-like strings
-            const wf: Record<string, { class_type?: string; inputs?: Record<string, unknown> }> =
-                selectedWorkflowConfig.workflowApiJSON as unknown as Record<string, { class_type?: string; inputs?: Record<string, unknown> }>;
-            const candidates: string[] = [];
-            const isCkpt = (s: string) => /\.safetensors$/i.test(s) || s.toLowerCase().includes('safetensors');
-            const likelyKeys = new Set(['ckpt_name', 'model', 'checkpoint', 'base_model']);
-            Object.values(wf).forEach(node => {
-                const inputs = node.inputs || {};
-                Object.entries(inputs).forEach(([k, v]) => {
-                    if (typeof v === 'string') {
-                        if (isCkpt(v) || likelyKeys.has(k)) candidates.push(v);
-                    }
-                });
-            });
-            if (candidates.length) return candidates[0];
-            return 'Workflow';
-        };
+        // Fix: Use runComfyWorkflow correctly with its expected signature
+        await new Promise<void>((resolve, reject) => {
+            runComfyWorkflow({
+                viewComfy: {
+                    inputs: mappedInputs as { key: string; value: string | number | boolean | File; }[],
+                    textOutputEnabled: selectedWorkflowConfig.viewComfyJSON.textOutputEnabled ?? false
+                },
+                workflow: selectedWorkflowConfig.workflowApiJSON,
+                viewcomfyEndpoint: selectedWorkflowConfig.viewComfyJSON.viewcomfyEndpoint,
+                onSuccess: async (blobs) => {
+                    try {
+                        if (blobs && blobs.length > 0) {
+                            const dataUrl = await blobToDataURL(blobs[0]);
+                            const savedPath = await saveImageToOutputs(
+                                dataUrl,
+                                {
+                                    config: {
+                                        prompt: currentConfig.prompt,
+                                        width: Number(currentConfig.width),
+                                        height: Number(currentConfig.height),
+                                        model: "Workflow",
+                                        workflowName: selectedWorkflowConfig.viewComfyJSON.title,
+                                        loras: usePlaygroundStore.getState().selectedLoras,
+                                        localSourceId: effectiveLocalId,
+                                        localSourceIds: effectiveLocalIds,
+                                    },
+                                    createdAt: generationTime,
+                                    sourceImageUrl: effectiveSourceUrl,
+                                    sourceImageUrls: effectiveSourceUrls,
+                                    localSourceId: effectiveLocalId,
+                                    localSourceIds: effectiveLocalIds,
+                                }
+                            );
 
-        await runComfyWorkflow({
-            viewComfy: { inputs: mappedInputs, textOutputEnabled: false },
-            workflow: selectedWorkflowConfig.workflowApiJSON || undefined,
-            viewcomfyEndpoint: selectedWorkflowConfig.viewComfyJSON.viewcomfyEndpoint || null,
-            onSuccess: async (outputs) => {
-                console.log("[useGenerationService] handleWorkflow onSuccess", outputs.length);
-                if (outputs.length > 0) {
-                    const dataUrl = await blobToDataURL(outputs[0]);
-                    const unified = toUnifiedConfigFromLegacy({
-                        ...currentConfig,
-                        model: extractModelFromMapping(),
-                    });
-                    console.log("[useGenerationService] Saving generated image...");
-                    const savedPath = await saveImageToOutputs(
-                        dataUrl,
-                        {
-                            config: {
-                                ...unified,
-                                loras: usePlaygroundStore.getState().selectedLoras,
-                                localSourceId: effectiveLocalId,
-                            },
-                            createdAt: generationTime,
-                            sourceImageUrl: effectiveSourceUrl,
-                            localSourceId: effectiveLocalId,
+                            const gen: Generation = {
+                                id: uniqueId,
+                                userId: userStore.currentUser?.id || 'anonymous',
+                                projectId: projectStore.currentProjectId || 'default',
+                                outputUrl: savedPath,
+                                config: toUnifiedConfigFromLegacy(currentConfig),
+                                status: 'completed',
+                                sourceImageUrl: effectiveSourceUrl,
+                                sourceImageUrls: effectiveSourceUrls,
+                                createdAt: generationTime,
+                                editConfig: currentConfig.editConfig,
+                                isEdit: currentConfig.isEdit,
+                                parentId: currentConfig.parentId,
+                                taskId: currentConfig.taskId || taskId,
+                            };
+                            updateHistoryAndSave(uniqueId, gen);
+                            resolve();
+                        } else {
+                            reject(new Error("工作流未返回图片结果"));
                         }
-                    );
-                    const gen: Generation = {
-                        id: uniqueId,
-                        userId: userStore.currentUser?.id || 'anonymous',
-                        projectId: projectStore.currentProjectId || 'default',
-                        outputUrl: savedPath,
-                        config: {
-                            ...unified,
-                            loras: usePlaygroundStore.getState().selectedLoras,
-                            workflowName: usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined,
-                            localSourceId: effectiveLocalId,
-                        },
-                        status: 'completed',
-                        sourceImageUrl: effectiveSourceUrl,
-                        localSourceId: effectiveLocalId,
-                        createdAt: generationTime,
-                        editConfig: currentConfig.editConfig,
-                        isEdit: currentConfig.isEdit,
-                        parentId: currentConfig.parentId,
-                        taskId: currentConfig.taskId || taskId
-                    };
-                    updateHistoryAndSave(uniqueId, gen);
+                    } catch (e) {
+                        reject(e);
+                    }
+                },
+                onError: (err) => {
+                    reject(err);
                 }
-            },
-            onError: (err) => {
-                setGenerationHistory(prev => prev.filter(item => item.id !== uniqueId));
-                toast({ title: "生成失败", description: err?.message || "工作流执行失败", variant: "destructive" });
-            }
+            });
         });
-    };
+    }, [selectedWorkflowConfig, userStore.currentUser?.id, projectStore.currentProjectId, updateHistoryAndSave, runComfyWorkflow, blobToDataURL]);
 
+    const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
+        const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
+        
+        // 优先使用 config 中的模型 ID
+        const effectiveModel = unifiedCfg.model || selectedModel;
+        const isWorkflowModel = effectiveModel === "Workflow" ||
+            effectiveModel?.endsWith('.safetensors') ||
+            effectiveModel?.includes('safetensors');
+
+        try {
+            if (isMockMode) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
+                const result: Generation = {
+                    id: uniqueId,
+                    userId: userStore.currentUser?.id || 'anonymous',
+                    projectId: projectStore.currentProjectId || 'default',
+                    outputUrl: mockImageUrl,
+                    config: {
+                        prompt: unifiedCfg.prompt,
+                        width: unifiedCfg.width,
+                        height: unifiedCfg.height,
+                        model: unifiedCfg.model,
+                        lora: unifiedCfg.lora,
+                        loras: isWorkflowModel ? usePlaygroundStore.getState().selectedLoras : undefined,
+                        workflowName: isWorkflowModel ? usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined : undefined,
+                        localSourceId: localSourceId,
+                        localSourceIds: localSourceIds,
+                    },
+                    status: 'completed',
+                    sourceImageUrl: sourceImageUrls[0],
+                    sourceImageUrls: sourceImageUrls,
+                    localSourceId: localSourceId,
+                    localSourceIds: localSourceIds,
+                    createdAt: new Date().toISOString(),
+                    taskId: taskId,
+                };
+                updateHistoryAndSave(uniqueId, result);
+                return;
+            }
+
+            if (isWorkflowModel) {
+                await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
+            } else {
+                await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
+            }
+        } catch (err) {
+            console.error("Generation failed:", err);
+            // Cleanup on failure
+            setGenerationHistory(prev => prev.filter(item => item.id !== uniqueId));
+            toast({
+                title: "生成失败",
+                description: err instanceof Error ? err.message : "未知错误",
+                variant: "destructive"
+            });
+        }
+    }, [isMockMode, userStore.currentUser?.id, projectStore.currentProjectId, selectedModel, handleWorkflow, handleUnifiedImageGen, updateHistoryAndSave, setGenerationHistory, toast]);
+
+    const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
+        const { configOverride, fixedCreatedAt, isBackground } = options;
+        const generationTime = fixedCreatedAt || new Date().toISOString();
+        const freshConfig = usePlaygroundStore.getState().config;
+        const currentLoras = usePlaygroundStore.getState().selectedLoras;
+
+        console.log(`[useGenerationService] handleGenerate called, isBackground: ${isBackground}`);
+
+        // 1. Get uploaded images first - prioritize options
+        const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
+        const sourceImageUrls = options.sourceImageUrls || currentUploadedImages.map(img => img.path || img.previewUrl);
+        const localSourceIds = options.localSourceIds || currentUploadedImages.map(img => img.localId).filter((id): id is string => !!id);
+        const localSourceId = localSourceIds[0];
+
+        // 2. Get original editConfig
+        const editConfig = options.editConfig || configOverride?.editConfig || freshConfig.editConfig;
+
+        // 3. Determine isEdit BEFORE auto-generating references config
+        const isEdit = options.isEdit !== undefined ? options.isEdit : (configOverride?.isEdit || freshConfig.isEdit || false);
+
+        const sourceImageUrl = sourceImageUrls[0];
+
+        // 4. Create display/effective editConfig for history and generation
+        const width = configOverride?.width || freshConfig.width;
+        const height = configOverride?.height || freshConfig.height;
+
+        // 所有的参考图都应该存储在 sourceImageUrls，editConfig.referenceImages 也直接读 sourceImageUrls
+        // 如果 sourceImageUrls 为空，则 displayEditConfig 中的 referenceImages 必须为空
+        const displayEditConfig = editConfig ? {
+            ...editConfig,
+            referenceImages: sourceImageUrls.map((url, idx) => ({
+                id: editConfig.referenceImages?.[idx]?.id || `ref-${idx}`,
+                dataUrl: url,
+                label: editConfig.referenceImages?.[idx]?.label || `Image ${idx + 1}`
+            })),
+            originalImageUrl: sourceImageUrl || editConfig.originalImageUrl || '',
+        } : (sourceImageUrls.length > 0 ? {
+            canvasJson: {},
+            referenceImages: sourceImageUrls.map((url, idx) => ({
+                id: `ref-${idx}`,
+                dataUrl: url,
+                label: `Image ${idx + 1}`
+            })),
+            originalImageUrl: sourceImageUrl || '',
+            annotations: [],
+            backgroundColor: 'transparent',
+            canvasSize: { width: Number(width), height: Number(height) }
+        } : undefined);
+
+        const parentId = options.parentId || configOverride?.parentId || freshConfig.parentId;
+        const taskId = options.taskId || configOverride?.taskId || freshConfig.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
+
+        const finalConfig = {
+            ...freshConfig,
+            ...(configOverride && typeof configOverride === 'object' ? configOverride : {}),
+            loras: currentLoras,
+            presetName: selectedPresetName,
+            editConfig: displayEditConfig, // Ensure it's part of finalConfig
+            isEdit,
+            parentId,
+        };
+
+        // Set state to indicate generation has started
+        setHasGenerated(true);
+
+        const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
+        
+        // Check if it is a workflow model to determine if LoRAs should be kept
+        const effectiveModel = unifiedCfg.model || usePlaygroundStore.getState().selectedModel;
+        const isWorkflowModel = effectiveModel === "Workflow" ||
+            effectiveModel?.endsWith('.safetensors') ||
+            effectiveModel?.includes('safetensors');
+
+        const configForHistory = { ...unifiedCfg };
+        if (!isWorkflowModel) {
+            configForHistory.loras = undefined;
+            configForHistory.workflowName = undefined;
+        }
+
+        const uniqueId = `gen-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+
+        const loadingGen: Generation = {
+            id: uniqueId,
+            userId: userStore.currentUser?.id || 'anonymous',
+            projectId: projectStore.currentProjectId || 'default',
+            outputUrl: "",
+            config: {
+                ...configForHistory,
+                localSourceId,
+                localSourceIds,
+            },
+            status: 'pending',
+            sourceImageUrl: sourceImageUrl,
+            sourceImageUrls: sourceImageUrls,
+            localSourceId: localSourceId,
+            localSourceIds: localSourceIds,
+            editConfig: displayEditConfig,
+            isEdit: isEdit,
+            parentId: parentId,
+            taskId: taskId,
+            createdAt: generationTime,
+        };
+
+        console.log(`[useGenerationService] Adding loading item to history: ${uniqueId}, taskId: ${taskId}`);
+
+        // Use standard state update for history
+        setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
+
+        if (isBackground) return uniqueId;
+
+        return executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
+    }, [selectedPresetName, setHasGenerated, userStore.currentUser?.id, projectStore.currentProjectId, setGenerationHistory, executeGeneration]);
 
     return {
         handleGenerate,
         executeGeneration,
-        isGenerating: isAIProcessing || isWorkflowProcessing
+        isGenerating: isGenerating || isAIProcessing || isWorkflowProcessing,
+        isLoading: isAIProcessing || isWorkflowProcessing
     };
 }

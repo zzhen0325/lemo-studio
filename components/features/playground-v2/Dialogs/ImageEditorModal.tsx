@@ -37,6 +37,7 @@ import { useImageEditor, EDITOR_COLORS, EditorColor } from '@/hooks/features/Pla
 import { cn } from '@/lib/utils';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { formatImageUrl } from '@/lib/api-base';
+import { useImageUpload } from '@/hooks/common/use-image-upload';
 
 import { PresetManagerDialog } from './PresetManagerDialog';
 import { EditPresetConfig } from '../types';
@@ -216,6 +217,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         });
     }, []);
 
+    const { uploadFile } = useImageUpload();
+
     // 在光标位置插入参考图标记
     const insertRefImageTag = useCallback((label: string) => {
         const input = annotInputRef.current;
@@ -242,25 +245,34 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     const [isDragging, setIsDragging] = useState(false);
 
     // 处理参考图上传 - 上传后自动在光标处插入标记
-    const handleRefImageUpload = useCallback((files: FileList | null) => {
+    const handleRefImageUpload = useCallback(async (files: FileList | null) => {
         if (!files || files.length === 0) return;
 
-        Array.from(files).forEach((file, index) => {
-            if (!file.type.startsWith('image/')) return;
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const dataUrl = e.target?.result as string;
-                if (dataUrl) {
-                    addReferenceImage(dataUrl);
+        const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
+        for (const file of uploads) {
+            await uploadFile(file, {
+                onLocalPreview: (image) => {
+                    // 先用本地预览图展示
+                    addReferenceImage(image.previewUrl);
                     // 生成新标签并插入
-                    const newLabel = `Image ${editorState.referenceImages.length + index + 1} `;
+                    const newLabel = `Image ${editorState.referenceImages.length + 1} `;
                     insertRefImageTag(newLabel);
+                },
+                onSuccess: (tempId, path) => {
+                    // 上传成功后，将 referenceImages 中的 previewUrl 替换为 CDN path
+                    // 这样在最终提交时，我们就有了 CDN URL
+                    setEditorState(prev => ({
+                        ...prev,
+                        referenceImages: prev.referenceImages.map(imgUrl => 
+                            // 简单的替换逻辑，如果 imgUrl 是对应的 previewUrl，则替换为 path
+                            // 注意：这里可能需要更精确的匹配，但目前 previewUrl 是唯一的 DataURL
+                            imgUrl.startsWith('data:') ? path : imgUrl
+                        )
+                    }));
                 }
-            };
-            reader.readAsDataURL(file);
-        });
-    }, [addReferenceImage, editorState.referenceImages.length, insertRefImageTag]);
+            });
+        }
+    }, [uploadFile, addReferenceImage, editorState.referenceImages.length, insertRefImageTag, setEditorState]);
 
     // 处理文字选择，实现“原子化”标记：防止光标落入 [Image X] 内部
     const handleTextSelect = useCallback(() => {
@@ -291,22 +303,22 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     const [isAutoAspectRatio, setIsAutoAspectRatio] = useState(false);
 
     // 处理文件上传
-    const handleFileUpload = useCallback((files: FileList | null) => {
+    const handleFileUpload = useCallback(async (files: FileList | null) => {
         console.log("handleFileUpload called", files?.length);
         if (!files || files.length === 0) return;
 
-        Array.from(files).forEach((file, index) => {
-            if (!file.type.startsWith('image/')) return;
+        const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
+        for (let i = 0; i < uploads.length; i++) {
+            const file = uploads[i];
+            const index = i;
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const dataUrl = e.target?.result as string;
-                if (dataUrl) {
+            await uploadFile(file, {
+                onLocalPreview: (image) => {
+                    const dataUrl = image.previewUrl;
                     // 如果是第一张图且未初始化，同步尺寸到输入框配置
                     if (!isInitialized && index === 0 && inputSectionProps?.setConfig) {
-                        const img = new Image();
-                        img.onload = () => {
-                            let { width, height } = img;
+                        let { width, height } = image;
+                        if (width && height) {
                             const minSide = Math.min(width, height);
                             if (minSide < 1024) {
                                 const scale = 1024 / minSide;
@@ -319,8 +331,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                 height,
                             }));
                             setIsAutoAspectRatio(true);
-                        };
-                        img.src = dataUrl;
+                        }
                     }
 
                     if (!isInitialized && index === 0) {
@@ -330,11 +341,15 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                         console.log("Adding image to existing canvas");
                         addImage(dataUrl);
                     }
+                },
+                onSuccess: (tempId, path) => {
+                    // 对于画布内的图片，目前主要使用本地 DataURL 进行编辑
+                    // 上传成功后可以在这里做些记录，或者如果 fabric.js 支持替换源
+                    console.log("Canvas image uploaded to CDN:", path);
                 }
-            };
-            reader.readAsDataURL(file);
-        });
-    }, [addImage, isInitialized, initCanvasWithImage, inputSectionProps]);
+            });
+        }
+    }, [uploadFile, addImage, isInitialized, initCanvasWithImage, inputSectionProps]);
 
     // Consolidate editing text synchronization and focus
     useEffect(() => {
@@ -936,7 +951,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                                     // Update auto aspect ratio state
                                                     if (next.aspectRatio === 'auto') {
                                                         setIsAutoAspectRatio(true);
-                                                    } else if (next.aspectRatio !== prev.aspectRatio || next.resolution !== prev.resolution) {
+                                                    } else if (next.aspectRatio !== prev.aspectRatio || next.imageSize !== prev.imageSize) {
                                                         setIsAutoAspectRatio(false);
                                                     }
                                                     return next;

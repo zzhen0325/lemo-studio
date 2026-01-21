@@ -7,7 +7,7 @@
     "model": "Nano banana",
     "width": 1024,
     "height": 1024,
-    "resolution": "2K"
+    "imageSize": "2K"
   },
   "id": "f3aa617a-0a5d-4daa-b4e0-78dea1e685a2",
   "createdAt": "2026-01-11T13:28:33.376Z"

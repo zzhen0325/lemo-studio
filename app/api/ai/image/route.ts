@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
             height,
             batchSize,
             aspectRatio,
+            imageSize: parsed.data.imageSize,
             image,
             images, // 传递多图数组
             options: {

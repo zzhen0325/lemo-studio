@@ -1,10 +1,10 @@
 import {
   AspectRatio,
-  Resolution,
+  ImageSize,
   GenerationConfig,
 } from '@/types/database';
 
-const AR_MAP: Record<Exclude<AspectRatio, 'auto'>, Record<Resolution, { w: number; h: number }>> = {
+const AR_MAP: Record<Exclude<AspectRatio, 'auto'>, Record<ImageSize, { w: number; h: number }>> = {
   '1:1': { '1K': { w: 1024, h: 1024 }, '2K': { w: 2048, h: 2048 }, '4K': { w: 4096, h: 4096 } },
   '2:3': { '1K': { w: 848, h: 1264 }, '2K': { w: 1696, h: 2528 }, '4K': { w: 3392, h: 5056 } },
   '3:2': { '1K': { w: 1264, h: 848 }, '2K': { w: 2528, h: 1696 }, '4K': { w: 5056, h: 3392 } },
@@ -19,25 +19,29 @@ const AR_MAP: Record<Exclude<AspectRatio, 'auto'>, Record<Resolution, { w: numbe
 
 export const RATIO_BASED_MODELS = new Set<string>(['gemini-3-pro-image-preview', 'seed4_2_lemo', 'coze_seed4']);
 
-export function deriveSize(aspectRatio: Exclude<AspectRatio, 'auto'>, resolution: Resolution) {
-  const pair = AR_MAP[aspectRatio][resolution];
+export function deriveSize(aspectRatio: Exclude<AspectRatio, 'auto'>, imageSize: ImageSize) {
+  const pair = AR_MAP[aspectRatio][imageSize];
   return { width: pair.w, height: pair.h };
 }
 
-export function inferRatioResolution(width: number, height: number) {
-  let best: { aspectRatio: Exclude<AspectRatio, 'auto'>; resolution: Resolution; w: number; h: number; diff: number } | null = null;
-  const resolutions: Resolution[] = ['1K', '2K', '4K'];
+export function inferRatioImageSize(width: number, height: number) {
+  let best: { aspectRatio: Exclude<AspectRatio, 'auto'>; imageSize: ImageSize; w: number; h: number; diff: number } | null = null;
+  const resolutions: ImageSize[] = ['1K', '2K', '4K'];
   const ratios = Object.keys(AR_MAP) as Exclude<AspectRatio, 'auto'>[];
+
   for (const ar of ratios) {
     for (const res of resolutions) {
       if (!AR_MAP[ar] || !AR_MAP[ar][res]) continue;
       const { w, h } = AR_MAP[ar][res];
       const diff = Math.abs(w - width) + Math.abs(h - height);
-      if (!best || diff < best.diff) best = { aspectRatio: ar, resolution: res, w, h, diff };
+      if (!best || diff < best.diff) {
+        best = { aspectRatio: ar, imageSize: res, w, h, diff };
+      }
     }
   }
+
   if (!best) return null;
-  return { aspectRatio: best.aspectRatio, resolution: best.resolution };
+  return { aspectRatio: best.aspectRatio, imageSize: best.imageSize };
 }
 
 export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationConfig {
@@ -59,12 +63,12 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
   }
 
   if (model && RATIO_BASED_MODELS.has(model)) {
-    const inferred = inferRatioResolution(width, height);
-    let resolution = input.resolution || inferred?.resolution;
+    const inferred = inferRatioImageSize(width, height);
+    let imageSize = input.imageSize || inferred?.imageSize;
 
     // Default to 2K for Seed 4.2 if no resolution specified
-    if (model === 'seed4_2_lemo' && !input.resolution) {
-      resolution = '2K';
+    if (model === 'seed4_2_lemo' && !input.imageSize) {
+      imageSize = '2K';
     }
 
     const aspectRatio: AspectRatio = input.aspectRatio || inferred?.aspectRatio || '1:1';
@@ -75,25 +79,26 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
         width,
         height,
         model,
-        resolution: resolution || '1K',
+        imageSize: imageSize || '1K',
         aspectRatio: 'auto',
         sizeFrom: 'custom',
       };
     }
 
-    if (resolution && aspectRatio) {
-      const size = deriveSize(aspectRatio as Exclude<AspectRatio, 'auto'>, resolution);
+    if (imageSize && aspectRatio) {
+      const size = deriveSize(aspectRatio as Exclude<AspectRatio, 'auto'>, imageSize);
       return {
         ...input,
         prompt: input.prompt,
         width: size.width,
         height: size.height,
         model,
-        resolution,
+        imageSize,
         aspectRatio,
-        sizeFrom: 'ratioResolution',
+        sizeFrom: 'ratioImageSize',
       };
     }
+
     return {
       ...input,
       prompt: input.prompt,
@@ -103,6 +108,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
       sizeFrom: 'custom',
     };
   }
+
   return {
     ...input,
     prompt: input.prompt,
@@ -111,4 +117,3 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
     model,
   };
 }
-

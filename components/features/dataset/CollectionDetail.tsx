@@ -1325,7 +1325,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
     return (
         <div
-            className="flex flex-col pb-20 space-y-6 relative"
+            className="flex flex-col pb-20 pt-10 space-y-6 relative"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -1443,7 +1443,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                             </div>
                         )}
 
-                        <div className="w-[1px] h-6 bg-border mx-2" />
+                        <div className="w-[1px] h-6 bg-white/20 mx-2" />
                         <Button
                             variant="outline"
                             size="sm"
@@ -1463,7 +1463,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                             AI Settings
                             <Wand2 className="ml-2 h-4 w-4" />
                         </Button>
-                        <div className="w-[1px] h-6 bg-border ml-2 mb-2" />
+                        <div className="w-[1px] h-6 bg-white/20 ml-2 " />
                         <label className="cursor-pointer">
 
                             <input type="file" multiple accept="image/*,.txt" className="hidden" onChange={handleUpload} />
@@ -1608,7 +1608,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                 >
                                     Deselect
                                 </Button>
-                                <div className="w-[1px] h-4 bg-primary/20 mx-1" />
+                                <div className="w-[1px] h-6 bg-white/20 mx-1" />
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -1676,13 +1676,16 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
-                        <div className="w-[1px] h-6 bg-border mx-2 mb-2" />
+                        <div className="w-[1px] h-6 bg-white/20 ml-2 "></div>
+
+
                         <Button
                             variant="outline"
                             disabled={isProcessing}
                             onClick={handleExport}
-                            className="text-foreground"
-                        >
+                            className="text-foreground"  
+                            >
+                      
                             {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 " />}
                             Export
                         </Button>

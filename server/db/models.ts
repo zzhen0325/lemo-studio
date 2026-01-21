@@ -1,5 +1,5 @@
-import { Database, Prop, Ref, getModelForClass, modelOptions } from '@gulux/gulux/typegoose';
-import type { Resolution, AspectRatio, SizeFrom } from '../../types/database';
+import { Database, Prop, Ref, getModelForClass, modelOptions, index } from '@gulux/gulux/typegoose';
+import type { ImageSize, AspectRatio, SizeFrom } from '../../types/database';
 
 @Database('default')
 @modelOptions({ schemaOptions: { timestamps: true } })
@@ -32,6 +32,7 @@ export class ImageAsset {
 
 @Database('default')
 @modelOptions({ schemaOptions: { timestamps: true } })
+@index({ createdAt: -1 }) // 为排序字段添加索引，避免内存超限
 export class Generation {
   @Prop({ required: true })
   public prompt!: string;
@@ -59,7 +60,7 @@ export class Generation {
   public seed?: number;
 
   @Prop()
-  public resolution?: Resolution;
+  public imageSize?: ImageSize;
 
   @Prop()
   public aspectRatio?: AspectRatio;

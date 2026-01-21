@@ -9,17 +9,36 @@ import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/common/use-toast';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { getApiBase, formatImageUrl } from '@/lib/api-base';
+import { useImageUpload } from '@/hooks/common/use-image-upload';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import SimpleImagePreview from './SimpleImagePreview';
 import { cn } from '@/lib/utils';
 import { TooltipButton } from '@/components/ui/tooltip-button';
+import { useImageSource } from '@/hooks/common/use-image-source';
 
 interface StyleDetailViewProps {
     style: StyleStack;
     onBack: () => void;
     onApply: (prompt: string) => void;
 }
+
+const StyleImage = ({ path, index, isManaging, isSelected }: { path: string, index: number, isManaging: boolean, isSelected: boolean }) => {
+    const src = useImageSource(path);
+    return (
+        <NextImage
+            src={src || formatImageUrl(path)}
+            alt={`Style image ${index}`}
+            fill
+            className={cn(
+                "object-cover pointer-events-none transition-opacity",
+                isManaging && isSelected ? "opacity-60" : "opacity-100"
+            )}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
+            unoptimized={path.startsWith('local:')}
+        />
+    );
+};
 
 export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
     style,
@@ -143,37 +162,46 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         }
     };
 
+    const { uploadFile } = useImageUpload();
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        setIsUploading(true);
-        toast({ title: "正在上传", description: `正在上传 ${files.length} 张图片到该风格...` });
+        const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
+        if (uploads.length === 0) return;
 
-        try {
-            const uploadPromises = Array.from(files).map(async (file) => {
-                const formData = new FormData();
-                formData.append('file', file);
-                const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: formData });
-                if (!resp.ok) throw new Error('Upload failed');
-                const data = await resp.json();
-                return data.path;
-            });
+        toast({ title: "正在处理", description: `正在处理 ${uploads.length} 张图片...` });
 
-            const newPaths = await Promise.all(uploadPromises);
-            await updateStyle({
-                ...style,
-                imagePaths: [...style.imagePaths, ...newPaths],
-                updatedAt: new Date().toISOString()
+        for (const file of uploads) {
+            await uploadFile(file, {
+                onLocalPreview: (image) => {
+                    // 使用 local: 前缀表示本地存储的图片，立即更新 UI
+                    const localPath = `local:${image.id}`;
+                    updateStyle({
+                        ...style,
+                        imagePaths: [...style.imagePaths, localPath],
+                        updatedAt: new Date().toISOString()
+                    });
+                },
+                onSuccess: (tempId, path) => {
+                    // 上传成功后，将 style 中的 localPath 替换为 CDN path
+                    const localPath = `local:${tempId}`;
+                    // 注意：这里需要从 store 中获取最新的 style 状态，因为 style prop 可能不是最新的
+                    const currentStyle = usePlaygroundStore.getState().styles.find(s => s.id === style.id);
+                    if (currentStyle) {
+                        const updatedStyle = {
+                            ...currentStyle,
+                            imagePaths: currentStyle.imagePaths.map(p => p === localPath ? path : p),
+                            updatedAt: new Date().toISOString()
+                        };
+                        updateStyle(updatedStyle);
+                    }
+                }
             });
-            toast({ title: "上传成功", description: `已成功添加 ${newPaths.length} 张图片` });
-        } catch (error) {
-            console.error("Upload failed", error);
-            toast({ title: "上传失败", description: "部分或全部图片上传失败", variant: "destructive" });
-        } finally {
-            setIsUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
         }
+
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     return (
@@ -403,15 +431,11 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                                             mass: 1
                                         }}
                                     >
-                                        <NextImage
-                                            src={formatImageUrl(path)}
-                                            alt={`Style image ${index}`}
-                                            fill
-                                            className={cn(
-                                                "object-cover pointer-events-none transition-opacity",
-                                                isManaging && isSelected ? "opacity-60" : "opacity-100"
-                                            )}
-                                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
+                                        <StyleImage 
+                                            path={path}
+                                            index={index}
+                                            isManaging={isManaging}
+                                            isSelected={isSelected}
                                         />
 
                                         {isManaging && (

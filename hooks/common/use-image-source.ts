@@ -11,13 +11,7 @@ export function useImageSource(url?: string, localId?: string) {
         let objectUrl: string | null = null;
 
         async function resolveSource() {
-            // 1. Priority: Server path
-            if (url && !url.startsWith('data:') && !url.startsWith('blob:') && !url.startsWith('local:')) {
-                if (isMounted) setSource(formatImageUrl(url));
-                return;
-            }
-
-            // 2. Secondary: Local IndexedDB via localId
+            // 1. Priority: Local IndexedDB via localId
             if (localId) {
                 const blob = await localImageStorage.getImage(localId);
                 if (blob && isMounted) {
@@ -27,7 +21,7 @@ export function useImageSource(url?: string, localId?: string) {
                 }
             }
 
-            // 3. Fallback: Local IndexedDB via local: prefix in url
+            // 2. Secondary: Local IndexedDB via local: prefix in url
             if (url?.startsWith('local:')) {
                 const id = url.slice(6);
                 const blob = await localImageStorage.getImage(id);
@@ -36,6 +30,12 @@ export function useImageSource(url?: string, localId?: string) {
                     setSource(objectUrl);
                     return;
                 }
+            }
+
+            // 3. Third: Server path (if not local/blob/data)
+            if (url && !url.startsWith('data:') && !url.startsWith('blob:') && !url.startsWith('local:')) {
+                if (isMounted) setSource(formatImageUrl(url));
+                return;
             }
 
             // 4. Last resort: Original URL (blob/base64)

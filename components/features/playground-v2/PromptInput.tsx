@@ -117,7 +117,7 @@ export default function PromptInput({
           }
         }}
         className={cn(
-          "w-full placeholder:text-white/40 bg-transparent leading-relaxed tracking-wide p-2 pl-4 pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none",
+          "w-full placeholder:text-white/40 bg-transparent max-h-[400px] leading-relaxed tracking-wide p-2 pl-4 pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none ",
           isOptimizing ? "text-transparent" : "text-white"
         )}
       />

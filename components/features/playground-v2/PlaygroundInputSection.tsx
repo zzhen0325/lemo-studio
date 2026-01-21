@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { X, Plus, Sparkles } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { formatImageUrl } from "@/lib/api-base";
 import { useImageSource } from "@/hooks/common/use-image-source";
 
 import PromptInput from "@/components/features/playground-v2/PromptInput";
@@ -16,9 +15,9 @@ import { DescribePanel } from "@/components/features/playground-v2/DescribePanel
 import SplitText from "@/components/ui/split-text";
 
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
-import type { GenerationConfig, UploadedImage } from "@/components/features/playground-v2/types";
+import type { UploadedImage } from "@/components/features/playground-v2/types";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
-import type { Resolution } from "@/types/database";
+import { GenerationConfig, ImageSize } from '@/types/database';
 import { AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
 import { AR_MAP, getAspectRatioPresets, getAspectRatioByDimensions } from "./constants/aspect-ratio";
 
@@ -79,6 +78,8 @@ export interface PlaygroundInputSectionProps {
     variant?: 'default' | 'edit';
     width?: string | number;
     customAspectRatioLabel?: string;
+    disableImageUpload?: boolean;
+    disableModelSelection?: boolean;
 }
 
 export function PlaygroundInputSection({
@@ -133,6 +134,8 @@ export function PlaygroundInputSection({
     variant = 'default',
     width,
     customAspectRatioLabel,
+    disableImageUpload = false,
+    disableModelSelection = false,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
 
@@ -216,27 +219,29 @@ export function PlaygroundInputSection({
                                 ))}
 
                                 {/* 上传按钮 - 作为堆栈的最后一个元素 */}
-                                <motion.button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    initial={false}
-                                    animate={{
-                                        rotate: 3,
-                                        marginLeft: uploadedImages.length > 0 ? (isStackHovered ? 8 : -36) : 0,
-                                        scale: 1
-                                    }}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    transition={{ type: "tween", duration: 0.05 }}
-                                    style={{
-                                        zIndex: 0,
-                                        position: 'relative'
-                                    }}
-                                    className={cn(
-                                        "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
-                                    )}
-                                >
-                                    <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                </motion.button>
+                                {!disableImageUpload && (
+                                    <motion.button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        initial={false}
+                                        animate={{
+                                            rotate: 3,
+                                            marginLeft: uploadedImages.length > 0 ? (isStackHovered ? 8 : -36) : 0,
+                                            scale: 1
+                                        }}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        transition={{ type: "tween", duration: 0.05 }}
+                                        style={{
+                                            zIndex: 0,
+                                            position: 'relative'
+                                        }}
+                                        className={cn(
+                                            "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
+                                        )}
+                                    >
+                                        <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                    </motion.button>
+                                )}
                             </div>
                         )}
 
@@ -334,32 +339,32 @@ export function PlaygroundInputSection({
                                 }));
                                 return;
                             }
-                            // Keep the current resolution setting when changing aspect ratio
+                            // Keep the current imageSize setting when changing aspect ratio
                             setConfig(prev => {
-                                const currentSize = (prev.resolution as '1K' | '2K' | '4K') || '1K';
-                                const resolution = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
-                                if (resolution) {
+                                const currentSize = (prev.imageSize as '1K' | '2K' | '4K') || '1K';
+                                const dimensions = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
+                                if (dimensions) {
                                     return {
                                         ...prev,
-                                        width: resolution.w,
-                                        height: resolution.h,
+                                        width: dimensions.w,
+                                        height: dimensions.h,
                                         aspectRatio: ar as GenerationConfig['aspectRatio']
                                     };
                                 }
                                 return prev;
                             });
                         }}
-                        currentImageSize={(config.resolution as '1K' | '2K' | '4K') || '1K'}
-                        onImageSizeChange={(size: string) => {
+                        currentImageSize={config.imageSize || '1K'}
+                        onImageSizeChange={(size: ImageSize) => {
                             setConfig(prev => {
                                 const ar = prev.aspectRatio || getAspectRatioByDimensions(prev.width, prev.height);
-                                const resolution = AR_MAP[ar]?.[size as '1K' | '2K' | '4K'] || AR_MAP[ar]?.['1K'];
-                                if (resolution) {
+                                const dimensions = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
+                                if (dimensions) {
                                     return {
                                         ...prev,
-                                        width: resolution.w,
-                                        height: resolution.h,
-                                        resolution: size as Resolution,
+                                        width: dimensions.w,
+                                        height: dimensions.h,
+                                        imageSize: size,
                                         aspectRatio: ar as GenerationConfig['aspectRatio']
                                     };
                                 }
@@ -385,94 +390,100 @@ export function PlaygroundInputSection({
                         onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
                         isPresetGridOpen={isPresetGridOpen}
                         onClearPreset={onClearPreset}
-                    variant={variant}
-                    customAspectRatioLabel={customAspectRatioLabel}
-                    uploadedImages={uploadedImages}
-                />
+                        variant={variant}
+                        customAspectRatioLabel={customAspectRatioLabel}
+                        uploadedImages={uploadedImages}
+                        disableModelSelection={disableModelSelection}
+                    />
+                </div>
             </div>
-        </div>
 
-        {variant !== 'edit' && isDescribeMode && (
-            <DescribePanel
-                open={isDescribeMode}
-                panelRef={describePanelRef}
-                describeImages={describeImages}
-                isDraggingOverPanel={isDraggingOverPanel}
-                setIsDraggingOverPanel={setIsDraggingOverPanel}
-                setIsDraggingOver={setIsDraggingOver}
-                onUploadClick={() => fileInputRef.current?.click()}
-                onDropFiles={(files) => handleFilesUpload(files, 'describe')}
-                onClose={() => setIsDescribeMode(false)}
-                onRemoveImage={(idx) => setDescribeImages(prev => prev.filter((_, i) => i !== idx))}
-                isDescribing={isDescribing}
-                isGenerating={isGenerating}
-                onDescribe={handleDescribe}
-            />
-        )}
-    </div>
-);
+            {variant !== 'edit' && isDescribeMode && (
+                <DescribePanel
+                    open={isDescribeMode}
+                    panelRef={describePanelRef}
+                    describeImages={describeImages}
+                    isDraggingOverPanel={isDraggingOverPanel}
+                    setIsDraggingOverPanel={setIsDraggingOverPanel}
+                    setIsDraggingOver={setIsDraggingOver}
+                    onUploadClick={() => fileInputRef.current?.click()}
+                    onDropFiles={(files) => handleFilesUpload(files, 'describe')}
+                    onClose={() => setIsDescribeMode(false)}
+                    onRemoveImage={(idx) => setDescribeImages(prev => prev.filter((_, i) => i !== idx))}
+                    isDescribing={isDescribing}
+                    isGenerating={isGenerating}
+                    onDescribe={handleDescribe}
+                />
+            )}
+        </div>
+    );
 }
 
 function StackImage({
-image,
-index,
-isStackHovered,
-uploadedImagesCount,
-onPreview,
-onRemove
+    image,
+    index,
+    isStackHovered,
+    uploadedImagesCount,
+    onPreview,
+    onRemove
 }: {
-image: UploadedImage;
-index: number;
-isStackHovered: boolean;
-uploadedImagesCount: number;
-onPreview: (url: string, id: string) => void;
-onRemove: (index: number) => void;
+    image: UploadedImage;
+    index: number;
+    isStackHovered: boolean;
+    uploadedImagesCount: number;
+    onPreview: (url: string, id: string) => void;
+    onRemove: (index: number) => void;
 }) {
-const src = useImageSource(image.path || image.previewUrl, image.localId);
-const rotations = [-6, 4, -2, 3];
+    const src = useImageSource(image.path || image.previewUrl, image.localId);
+    const rotations = [-6, 4, -2, 3];
+    const finalSrc = src || image.previewUrl;
 
-return (
-    <motion.div
-        initial={false}
-        animate={{
-            marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
-            rotate: isStackHovered ? 0 : rotations[index % rotations.length],
-            scale: 1
-        }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        style={{
-            zIndex: (uploadedImagesCount - index) + 100,
-            position: 'relative'
-        }}
-    >
-        <div className="relative group cursor-pointer" onClick={() => !image.isUploading && src && onPreview(src, `stack-img-${image.id || index}`)}>
-            <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
-                <Image
-                    src={src || image.previewUrl}
-                    alt={`Uploaded ${index + 1}`}
-                    width={56}
-                    height={56}
-                    className={cn(
-                        "w-14 h-14 object-cover rounded-2xl bg-black border border-primary shadow-xl",
-                        image.isUploading && "opacity-50 grayscale blur-[1px]"
+    return (
+        <motion.div
+            initial={false}
+            animate={{
+                marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
+                rotate: isStackHovered ? 0 : rotations[index % rotations.length],
+                scale: 1
+            }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            style={{
+                zIndex: (uploadedImagesCount - index) + 100,
+                position: 'relative'
+            }}
+        >
+            <div className="relative group cursor-pointer" onClick={() => !image.isUploading && finalSrc && onPreview(finalSrc, `stack-img-${image.id || index}`)}>
+                <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
+                    {finalSrc ? (
+                        <Image
+                            src={finalSrc}
+                            alt={`Uploaded ${index + 1}`}
+                            width={56}
+                            height={56}
+                            className={cn(
+                                "w-14 h-14 object-cover rounded-2xl bg-black border border-primary shadow-xl",
+                                image.isUploading && "opacity-100 "
+                            )}
+                            unoptimized
+                        />
+                    ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/10" />
                     )}
-                    unoptimized
-                />
-                {image.isUploading && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <LoadingSpinner size={16} className="text-white" />
-                    </div>
+                    {image.isUploading && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <LoadingSpinner size={16} className="text-white" />
+                        </div>
+                    )}
+                </motion.div>
+                {!image.isUploading && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onRemove(index); }}
+                        className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
+                    >
+                        <X className="w-2 h-2" />
+                    </button>
                 )}
-            </motion.div>
-            {!image.isUploading && (
-                <button
-                    onClick={(e) => { e.stopPropagation(); onRemove(index); }}
-                    className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
-                >
-                    <X className="w-2 h-2" />
-                </button>
-            )}
-        </div>
-    </motion.div>
-);
+            </div>
+        </motion.div>
+    );
 }

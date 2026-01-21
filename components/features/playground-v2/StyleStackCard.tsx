@@ -8,6 +8,9 @@ import NextImage from 'next/image';
 import { cn } from '@/lib/utils';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/common/use-toast';
+import { formatImageUrl } from '@/lib/api-base';
+import { useImageSource } from '@/hooks/common/use-image-source';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,12 +24,26 @@ interface StyleStackCardProps {
     size?: 'sm' | 'md' | 'grid-lg';
 }
 
+const StyleCardImage = ({ path }: { path: string }) => {
+    const src = useImageSource(path);
+    return (
+        <NextImage
+            src={src || formatImageUrl(path)}
+            alt="Style image"
+            fill
+            className="object-cover group-hover:scale-110 transition-transform duration-700"
+            unoptimized={path.startsWith('local:')}
+        />
+    );
+};
+
 export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     style,
     onClick,
     size = 'md'
 }) => {
     const { applyPrompt, applyImage, deleteStyle } = usePlaygroundStore();
+    const { toast } = useToast();
     const isSmall = size === 'sm';
     const isGridLg = size === 'grid-lg';
     const [isExpanded, setIsExpanded] = useState(false);
@@ -67,6 +84,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                         onClick={(e) => {
                             e.stopPropagation();
                             applyImage(style.imagePaths[0]);
+                            toast({ title: "Image Added", description: "图片已添加为参考图" });
                         }}
                     >
                         <ImageIcon size={14} className="text-blue-400 group-hover/btn:scale-110 transition-transform" />
@@ -146,13 +164,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                                 mass: 1.2
                             }}
                         >
-                            <NextImage
-                                src={path}
-                                alt={`Style thumb ${index}`}
-                                fill
-                                className="object-cover"
-                                sizes="200px"
-                            />
+                            <StyleCardImage path={path} />
                         </motion.div>
                     ))
                 ) : (

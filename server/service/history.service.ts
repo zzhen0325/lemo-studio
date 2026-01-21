@@ -52,6 +52,12 @@ export class HistoryService {
       const history = items.map((item) => {
         const outputImage = item.outputImageId as unknown as { url?: string } | undefined;
         const sourceImage = item.sourceImageId as unknown as { url?: string } | undefined;
+        // Build sourceImageUrls: prefer stored array, fallback to single sourceImageUrl
+        const storedSourceUrls = (item as { sourceImageUrls?: string[] }).sourceImageUrls;
+        const singleSourceUrl = sourceImage?.url || item.config?.sourceImageUrl;
+        const sourceImageUrls = storedSourceUrls && storedSourceUrls.length > 0
+          ? storedSourceUrls
+          : (singleSourceUrl ? [singleSourceUrl] : undefined);
         return {
           id: String(item._id),
           userId: item.userId || 'anonymous',
@@ -59,7 +65,8 @@ export class HistoryService {
           outputUrl: outputImage?.url || item.outputUrl,
           config: item.config,
           status: item.status || 'completed',
-          sourceImageUrl: sourceImage?.url || item.config?.sourceImageUrl,
+          sourceImageUrl: singleSourceUrl,
+          sourceImageUrls,
           createdAt: String(item.createdAt || new Date().toISOString()),
           progress: item.progress,
           progressStage: item.progressStage,
@@ -93,6 +100,23 @@ export class HistoryService {
         return { success: true };
       }
 
+      if (body.action === 'sync-image' && body.localId && body.path) {
+        // 更新所有匹配 localSourceId 的记录
+        await this.generationModel.updateMany(
+          { 'config.localSourceId': body.localId },
+          {
+            $set: { 'config.sourceImageUrl': body.path },
+            // Also update first element of sourceImageUrls if it exists
+          }
+        );
+        // Update sourceImageUrls array - replace first element
+        await this.generationModel.updateMany(
+          { 'config.localSourceId': body.localId, 'config.sourceImageUrls.0': { $exists: true } },
+          { $set: { 'config.sourceImageUrls.0': body.path } }
+        );
+        return { success: true };
+      }
+
       const item = body as Generation;
       if (!item || (!item.outputUrl && !item.id)) {
         throw new HttpError(400, 'Invalid item');
@@ -108,7 +132,7 @@ export class HistoryService {
         lora: cfg.lora,
         loras: cfg.loras,
         seed: cfg.seed,
-        resolution: cfg.resolution,
+        imageSize: cfg.imageSize,
         aspectRatio: cfg.aspectRatio,
         sizeFrom: cfg.sizeFrom,
         presetName: cfg.presetName,

@@ -291,21 +291,16 @@ export class GoogleGenAIProvider
   async describeImage(params: VisionGenerationInput): Promise<TextResult> {
     const { image, prompt, systemPrompt } = params;
 
-    let base64Data = image;
-    let mimeType = "image/png";
+    const parts: any[] = [];
 
-    if (image.startsWith("data:")) {
-      const matches = image.match(/^data:(.+);base64,(.+)$/);
-      if (matches) {
-        mimeType = matches[1];
-        base64Data = matches[2];
-      }
+    // Handle image
+    try {
+      const imagePart = await this.prepareImagePart(image);
+      parts.push(imagePart);
+    } catch (err) {
+      console.error(`[GoogleGenAIProvider] Error preparing image:`, err);
+      throw new Error(`无法处理图片: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    const parts: {
-      text?: string;
-      inlineData?: { mimeType: string; data: string };
-    }[] = [{ inlineData: { mimeType, data: base64Data } }];
 
     if (systemPrompt) parts.push({ text: systemPrompt });
     if (prompt) parts.push({ text: prompt });
@@ -341,51 +336,70 @@ export class GoogleGenAIProvider
     }
   }
 
-  async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
-    const { prompt, aspectRatio, imageSize, image } = params;
-    const parts: {
-      text?: string;
-      inlineData?: { mimeType: string; data: string };
-    }[] = [];
+  private async prepareImagePart(img: string): Promise<{ inline_data: { mime_type: string; data: string } }> {
+    let base64Data = img;
+    let mimeType = "image/png";
 
-    if (image || (params.images && params.images.length > 0)) {
-      const imageList = image ? [image] : params.images || [];
-      for (const img of imageList) {
-        let base64Data = img;
-        let mimeType = "image/png";
-
-        if (img.startsWith("data:")) {
-          const parts = img.split(",");
+    if (img.startsWith("data:")) {
+      const matches = img.match(/^data:(.+);base64,(.+)$/);
+      if (matches) {
+        mimeType = matches[1];
+        base64Data = matches[2];
+      } else {
+        const parts = img.split(",");
+        if (parts.length > 1) {
           mimeType = parts[0].split(":")[1].split(";")[0];
           base64Data = parts[1];
-        } else if (img.startsWith("http")) {
-          // 下载并转换为 base64
-          try {
-            const resp = await fetch(img);
-            if (!resp.ok) throw new Error(`Fetch image failed: ${resp.status}`);
-            const buffer = await resp.arrayBuffer();
-            base64Data = Buffer.from(buffer).toString('base64');
-            const contentType = resp.headers.get('content-type');
-            if (contentType) mimeType = contentType;
-          } catch (err) {
-            console.error(`[GoogleGenAIProvider] Error fetching remote image: ${img}`, err);
-            throw new Error(`无法获取远程图片进行生成: ${img}`);
-          }
         }
+      }
+    } else if (img.startsWith("http")) {
+      // 下载并转换为 base64
+      const agent = getProxyAgent();
+      const fetchOptions: RequestInit & { agent?: unknown } = {};
+      if (agent) {
+        fetchOptions.agent = agent;
+      }
 
-        parts.push({
-          inlineData: {
-            mimeType,
-            data: base64Data,
-          },
-        });
+      const resp = await fetch(img, fetchOptions);
+      if (!resp.ok) throw new Error(`Fetch image failed: ${resp.status}`);
+      const buffer = await resp.arrayBuffer();
+      base64Data = Buffer.from(buffer).toString('base64');
+      const contentType = resp.headers.get('content-type');
+      if (contentType) mimeType = contentType;
+    }
+
+    return {
+      inline_data: {
+        mime_type: mimeType,
+        data: base64Data,
+      },
+    };
+  }
+
+  async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
+    const { prompt, aspectRatio, imageSize, image, images } = params;
+    const parts: any[] = [];
+
+    // 优先使用 images 数组，回退到单个 image
+    const imageList = (images && images.length > 0) ? images : (image ? [image] : []);
+
+    if (imageList.length > 0) {
+    
+      for (const img of imageList) {
+        try {
+          const imagePart = await this.prepareImagePart(img);
+          parts.push(imagePart);
+        } catch (err) {
+          console.error(`[GoogleGenAIProvider] Error fetching remote image: ${img}`, err);
+          throw new Error(`无法获取远程图片进行生成: ${img}`);
+        }
       }
     }
 
     parts.push({ text: prompt });
 
-    const configParams: Record<string, unknown> = {
-      responseModalities: ["IMAGE"],
+    const configParams: Record<string, any> = {
+      responseModalities: ["Image"], // 官方 REST 文档使用 "Image"
     };
 
     if (aspectRatio || imageSize) {
@@ -397,13 +411,16 @@ export class GoogleGenAIProvider
 
     const url = `${this.baseURL}/models/gemini-3-pro-image-preview:generateContent?key=${this.apiKey}`;
     const agent = getProxyAgent();
+    const body = JSON.stringify({
+      contents: [{ role: "user", parts }],
+      generationConfig: configParams,
+    });
+    console.log(`[GoogleGenAIProvider] Sending request to: ${url}`);
+    // console.log(`[GoogleGenAIProvider] Request body: ${body}`);
     const fetchOptions: RequestInit & { agent?: unknown } = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: configParams,
-      }),
+      body,
     };
 
     if (agent) {
@@ -428,9 +445,11 @@ export class GoogleGenAIProvider
         throw new Error("No image data returned from Google GenAI");
 
       for (const part of resParts) {
-        if (part.inlineData && part.inlineData.data) {
-          const dataUrl = `data:${part.inlineData.mimeType || "image/png"
-            };base64,${part.inlineData.data}`;
+        // Handle both snake_case and camelCase response from Google (they sometimes vary)
+        const inlineData = part.inline_data || part.inlineData;
+        if (inlineData && inlineData.data) {
+          const dataUrl = `data:${inlineData.mime_type || inlineData.mimeType || "image/png"
+            };base64,${inlineData.data}`;
           return { images: [dataUrl] };
         }
       }
@@ -541,7 +560,7 @@ export class BytedanceAfrProvider implements ImageProvider {
       data.data?.algo_status_code === 0;
 
     if (!success) {
-      console.error("==================", url, fetchOptions);
+      // console.error("==================", url, fetchOptions);
       throw new Error(
         `ByteArtist Generation Failed: ${data.message || data.algo_status_message
         } `
@@ -667,9 +686,9 @@ export class CozeImageProvider implements ImageProvider {
     }
 
     const url = `${this.config.baseURL}`;
-    console.log(
-      `[CozeImageProvider] Sending request to: ${url} (stream: ${isStream})`
-    );
+    // console.log(
+    //   `[CozeImageProvider] Sending request to: ${url} (stream: ${isStream})`
+    // );
 
     if (!isStream) {
       const response = await fetch(url, fetchOptions);
@@ -742,7 +761,7 @@ export class CozeImageProvider implements ImageProvider {
                           console.log(`[CozeImageProvider] Found image URL in stream: ${img}`);
                           // Push to stream immediately for better UX
                           const imgSseData = `data: ${JSON.stringify({ images: [img] })}\n\n`;
-                          console.log(`[CozeImageProvider] Enqueueing image SSE: ${imgSseData.substring(0, 100)}...`);
+                          // console.log(`[CozeImageProvider] Enqueueing image SSE: ${imgSseData.substring(0, 100)}...`);
                           controller.enqueue(textEncoder.encode(imgSseData));
                         }
                       });
@@ -886,15 +905,15 @@ export class CozeImageProvider implements ImageProvider {
   }
 
   private async uploadToCoze(imageUrl: string): Promise<string> {
-    console.log(`[CozeImageProvider] Uploading file to Coze...`);
+    // console.log(`[CozeImageProvider] Uploading file to Coze...`);
     try {
       let blob: Blob;
 
       if (imageUrl.startsWith("data:")) {
         // 1. Handle Data URL (Base64)
-        console.log(
-          `[CozeImageProvider] Processing image from Data URL (Base64)`
-        );
+        // console.log(
+        //   `[CozeImageProvider] Processing image from Data URL (Base64)`
+        // );
         const [header, base64Data] = imageUrl.split(",");
         const mimeMatch = header.match(/:(.*?);/);
         const mime = mimeMatch ? mimeMatch[1] : "image/png";
@@ -904,9 +923,9 @@ export class CozeImageProvider implements ImageProvider {
         // 2. Handle local file paths (with sanity check on length to avoid misidentifying long base64)
         const truncatedUrl =
           imageUrl.length > 100 ? `${imageUrl.substring(0, 100)}...` : imageUrl;
-        console.log(
-          `[CozeImageProvider] Processing image from local path: ${truncatedUrl}`
-        );
+        // console.log(
+        //   `[CozeImageProvider] Processing image from local path: ${truncatedUrl}`
+        // );
         try {
           const publicPath = path.join(process.cwd(), "public", imageUrl);
           const buffer = await fs.readFile(publicPath);
@@ -914,10 +933,10 @@ export class CozeImageProvider implements ImageProvider {
           const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
           blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
         } catch (readErr) {
-          console.error(
-            `[CozeImageProvider] Failed to read local file, falling back to fetch`,
-            readErr
-          );
+          // console.error(
+          //   `[CozeImageProvider] Failed to read local file, falling back to fetch`,
+          //   readErr
+          // );
           // Fallback to fetch if local read fails (e.g. running in a restricted env)
           const baseUrl =
             process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
@@ -933,9 +952,9 @@ export class CozeImageProvider implements ImageProvider {
         // 3. Handle external URLs
         const truncatedUrl =
           imageUrl.length > 100 ? `${imageUrl.substring(0, 100)}...` : imageUrl;
-        console.log(
-          `[CozeImageProvider] Processing image from external URL: ${truncatedUrl}`
-        );
+        // console.log(
+        //   `[CozeImageProvider] Processing image from external URL: ${truncatedUrl}`
+        // );
         const response = await fetch(imageUrl);
         if (!response.ok)
           throw new Error(
@@ -946,9 +965,9 @@ export class CozeImageProvider implements ImageProvider {
         blob = new Blob([arrayBuffer], { type: contentType });
       } else {
         // 4. Handle raw Base64 (without data prefix)
-        console.log(
-          `[CozeImageProvider] Processing image from raw Base64 string`
-        );
+        // console.log(
+        //   `[CozeImageProvider] Processing image from raw Base64 string`
+        // );
         const buffer = Buffer.from(imageUrl, "base64");
         // Simple magic bytes check
         let mime = "image/png";
@@ -1012,12 +1031,12 @@ export class CozeImageProvider implements ImageProvider {
         throw new Error(`Coze File Upload API error: ${result.msg}`);
       }
 
-      console.log(
-        `[CozeImageProvider] File uploaded successfully, ID: ${result.data.id}`
-      );
+      // console.log(
+      //   `[CozeImageProvider] File uploaded successfully, ID: ${result.data.id}`
+      // );
       return result.data.id;
     } catch (error) {
-      console.error(`[CozeImageProvider] Error in uploadToCoze:`, error);
+      // console.error(`[CozeImageProvider] Error in uploadToCoze:`, error);
       throw error;
     }
   }

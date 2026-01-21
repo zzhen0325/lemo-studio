@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
@@ -11,7 +11,9 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
 import { useImageSource } from '@/hooks/common/use-image-source';
-import { Generation } from '@/types/database';
+import { useImageUpload } from '@/hooks/common/use-image-upload';
+import { useGenerationService } from '@/hooks/features/PlaygroundV2/useGenerationService';
+import { Generation, GenerationConfig } from '@/types/database';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -20,6 +22,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
+import { HistoryLoadingSkeleton } from './HistoryLoadingSkeleton';
 
 
 
@@ -39,6 +42,7 @@ export default function GalleryView() {
     const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
     const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
     const { toast } = useToast();
+    const { uploadFile } = useImageUpload();
 
     // Responsive column count
     const isSm = useMediaQuery("(min-width: 640px)");
@@ -121,17 +125,8 @@ export default function GalleryView() {
         );
     };
 
-    const handleRefresh = useCallback(async () => {
-        try {
-            await fetchGallery();
-        } catch (error) {
-            console.error("Failed to refresh gallery:", error);
-        }
-    }, [fetchGallery]);
-
-    useEffect(() => {
-        handleRefresh();
-    }, [handleRefresh]);
+    // 初始数据加载现在由 pages/playground.tsx 在页面初始化时统一处理，确保预加载
+    // 这里不再需要 useEffect 初始加载
 
     const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -183,29 +178,21 @@ export default function GalleryView() {
             const blob = await response.blob();
             const file = new File([blob], `edited-${Date.now()}.png`, { type: 'image/png' });
 
-            // 2. Upload to server
-            const formData = new FormData();
-            formData.append('file', file);
-            const uploadRes = await fetch(`${getApiBase()}/upload`, {
-                method: 'POST',
-                body: formData
+            // 2. Use unified upload logic
+            await uploadFile(file, {
+                onLocalPreview: (image) => {
+                    setUploadedImages(prev => [image, ...prev]);
+                    setIsEditorOpen(false);
+                    toast({ title: "图片已保存", description: "编辑后的图片已添加到输入框，正在同步到 CDN..." });
+                },
+                onSuccess: (tempId, path) => {
+                    // Update path in store
+                    usePlaygroundStore.getState().updateUploadedImage(tempId, { path, isUploading: false });
+                }
             });
-
-            if (!uploadRes.ok) throw new Error("Upload failed");
-            const { path } = await uploadRes.json();
-
-            // 3. Add to playground state
-            const base64Data = dataUrl.split(',')[1];
-            setUploadedImages(prev => [
-                ...prev,
-                { file, base64: base64Data, previewUrl: dataUrl, path }
-            ]);
-
-            setIsEditorOpen(false);
-            toast({ title: "Image Saved", description: "The edited image has been added to your playground uploads." });
         } catch (error) {
             console.error("Failed to save edited image:", error);
-            toast({ title: "Error", description: "Failed to save edited image", variant: "destructive" });
+            toast({ title: "保存失败", description: "无法处理编辑后的图片", variant: "destructive" });
         }
     };
 
@@ -229,7 +216,7 @@ export default function GalleryView() {
     return (
         <div className="w-[95%] h-full mt-10 mx-auto  bg-transparent flex flex-col overflow-hidden">
 
-       
+
 
             <div className="flex flex-1 overflow-hidden min-h-0">
 
@@ -237,87 +224,76 @@ export default function GalleryView() {
                 <div className=" w-full min-w-0 flex flex-col flex-1 overflow-hidden">
 
 
-                    {sortedHistory.length === 0 ? (
-                        <div className="flex w-full flex-col items-center justify-center bg-white/5 rounded-2xl border border-white/10 border-dashed space-y-4 py-32 mt-10">
-                            {isFetchingGallery ? (
-                                <>
-                                    <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                    <span className="text-sm text-white/40 animate-pulse">Loading gallery...</span>
-                                </>
-                            ) : (
-                                <span className="text-sm text-white/20">No items found</span>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-col space-y-4  overflow-hidden">
 
-                            <div className="flex flex-row items-center h-14 mt-4 justify-between ">
-                                <div className="flex mb-0">
-                                    <span className="text-3xl font-instrument-sans text-white flex items-center "
+                    <div className="flex flex-col space-y-4  overflow-hidden">
+
+                        <div className="flex flex-row items-center h-14 mt-4 justify-between ">
+                            <div className="flex mb-0">
+                                <span className="text-3xl font-instrument-sans text-white flex items-center "
                                     style={{ fontFamily: "'InstrumentSerif', serif" }}>
                                     Gallery
-                                    </span>
-                                </div>
+                                </span>
+                            </div>
 
 
-                                <div className="relative flex items-center group w-64  ">
-                                    <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 " />
-                                    <input
+                            <div className="relative flex items-center group w-64  ">
+                                <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 " />
+                                <input
                                     type="text"
                                     placeholder="Search prompts..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 "
-                                     />
-                                      {searchQuery && (
+                                />
+                                {searchQuery && (
                                     <button
                                         onClick={() => setSearchQuery("")}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
                                     >
                                         <X className="w-3.5 h-3.5" />
                                     </button>
-                                        )}
+                                )}
 
-                                </div>
                             </div>
-
-
-                            <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-t-xl">
-
-                                <MasonryGrid
-                                    items={sortedHistory}
-                                    columnsCount={columnsCount}
-                                    renderItem={(item) => (
-                                        <GalleryCard
-                                            key={item.id || item.createdAt}
-                                            item={item}
-                                            onClick={() => item.status !== 'pending' && setSelectedItem(item)}
-                                            onDownload={handleDownload}
-                                        />
-                                    )}
-                                />
-
-                                {/* Load More Indicator */}
-                                <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
-                                    {isFetchingGallery ? (
-                                        <div className="flex flex-col items-center gap-2">
-                                            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                            <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
-                                        </div>
-                                    ) : hasMoreGallery ? (
-                                        <div className="h-4" />
-                                    ) : galleryItems.length > 0 && (
-                                        <div className="flex flex-col items-center gap-2 opacity-20">
-                                            <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
-                                            <span className="text-[10px] text-white font-mono uppercase tracking-widest">End of Gallery</span>
-                                            <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
                         </div>
-                    )}
+
+
+                        <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-t-xl">
+
+                            <MasonryGrid
+                                items={sortedHistory}
+                                columnsCount={columnsCount}
+                                renderItem={(item, index) => (
+                                    <GalleryCard
+                                        key={`${item.id}-${index}`}
+                                        item={item}
+                                        onClick={() => item.status !== 'pending' && setSelectedItem(item)}
+                                        onDownload={handleDownload}
+                                    />
+                                )}
+                            />
+
+                            {/* Load More Indicator */}
+                            <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
+                                {isFetchingGallery ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                        <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
+                                    </div>
+                                ) : hasMoreGallery ? (
+                                    <div className="h-4" />
+                                ) : galleryItems.length > 0 && (
+                                    <div className="flex flex-col items-center gap-2 opacity-20">
+                                        <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
+                                        <span className="text-[10px] text-white font-mono uppercase tracking-widest">End of Gallery</span>
+                                        <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+
                 </div>
                 {/* Sidebar Filters - Only visible in full gallery mode */}
                 <div className="w-0 flex-none  pb-2 pl-6 flex flex-col min-h-0">
@@ -425,7 +401,7 @@ export default function GalleryView() {
 interface MasonryGridProps<T> {
     items: T[];
     columnsCount: number;
-    renderItem: (item: T) => React.ReactNode;
+    renderItem: (item: T, index: number) => React.ReactNode;
 }
 
 function MasonryGrid<T extends Generation>({
@@ -433,12 +409,12 @@ function MasonryGrid<T extends Generation>({
     columnsCount,
     renderItem
 }: MasonryGridProps<T>) {
-    // Distribute items into columns
+    // Distribute items into columns with their original index
     const columns = useMemo(() => {
-        const cols: T[][] = Array.from({ length: columnsCount }, () => []);
+        const cols: { item: T; index: number }[][] = Array.from({ length: columnsCount }, () => []);
         const colHeights = new Array(columnsCount).fill(0);
 
-        items.forEach((item) => {
+        items.forEach((item, index) => {
             // Find the shortest column
             let targetColIndex = 0;
             let minHeight = colHeights[0];
@@ -455,7 +431,7 @@ function MasonryGrid<T extends Generation>({
             // Use aspect ratio as proxy for height since width is fixed per column
             const aspectRatio = imgHeight / imgWidth;
 
-            cols[targetColIndex].push(item);
+            cols[targetColIndex].push({ item, index });
             colHeights[targetColIndex] += aspectRatio;
         });
 
@@ -467,9 +443,9 @@ function MasonryGrid<T extends Generation>({
     return (
 
         <div className="flex gap-0 w-full ">
-            {columns.map((colItems, colIndex) => (
+            {columns.map((col, colIndex) => (
                 <div key={colIndex} className="flex flex-col gap-0 flex-1 min-w-0">
-                    {colItems.map((item) => renderItem(item))}
+                    {col.map(({ item, index }) => renderItem(item, index))}
                 </div>
             ))}
         </div>
@@ -504,14 +480,14 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const { ref, isInView } = useInView({ rootMargin: '200px' });
-    const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
-    const remix = usePlaygroundStore(s => s.remix);
-    const applyImage = usePlaygroundStore(s => s.applyImage);
-    const styles = usePlaygroundStore(s => s.styles);
-    const addImageToStyle = usePlaygroundStore(s => s.addImageToStyle);
+    const { applyPrompt, applyModel, applyImages, setUploadedImages, config, setViewMode, setActiveTab, styles, addImageToStyle, applyImage, setSelectedPresetName } = usePlaygroundStore();
+    const { handleGenerate } = useGenerationService();
     const { toast } = useToast();
 
-    const sourceImage = useImageSource(item.sourceImageUrl || undefined, item.config?.localSourceId);
+    // Prefer sourceImageUrls array, fallback to sourceImageUrl
+    const sourceUrls = item.sourceImageUrls || (item.sourceImageUrl ? [item.sourceImageUrl] : []);
+    const firstSourceUrl = sourceUrls[0];
+    const sourceImage = useImageSource(firstSourceUrl || undefined, item.config?.localSourceId);
 
     const performDownload = () => {
         if (!item.outputUrl) return;
@@ -560,7 +536,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
 
                 {/* Reference Image Thumbnail */}
                 {sourceImage && (
-                    <div className="absolute top-3 left-3 z-10 w-12 h-12 rounded-lg border border-white overflow-hidden shadow-2xl transition-transform duration-300 group-hover:scale-110">
+                    <div className="absolute top-3 left-3 z-10 w-12 h-12 rounded-lg border border-white overflow-hidden shadow-2xl transition-all duration-300 opacity-0 group-hover:opacity-100 group-hover:scale-110">
                         <Image
                             src={sourceImage}
                             alt="Reference image"
@@ -648,7 +624,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         onClick={() => {
                             if (item.outputUrl) {
                                 applyImage(item.outputUrl);
-                                toast({ title: "Image Applied", description: "图片已应用为参考图" });
+                                toast({ title: "Image Added", description: "图片已添加为参考图" });
                             }
                         }}
                     />
@@ -672,20 +648,41 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         tooltipContent="Rerun"
                         tooltipSide="top"
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                        onClick={() => {
-                            remix({
-                                ...item,
-                                config: {
-                                    prompt: item.config?.prompt || '',
-                                    model: item.config?.model || 'Nano banana',
-                                    lora: item.config?.lora || '',
-                                    loras: item.config?.loras || [],
-                                    width: item.config?.width || 1376,
-                                    height: item.config?.height || 768,
-                                    resolution: item.config?.resolution || '1K'
-                                }
-                            });
-                            toast({ title: "Remixing", description: "正在根据此图片重新生成..." });
+                        onClick={async () => {
+                            if (!item.config) return;
+
+                            // 1. 同步参考图
+                            const sourceUrls = item.sourceImageUrls || (item.sourceImageUrl ? [item.sourceImageUrl] : []);
+                            if (sourceUrls.length > 0) {
+                                await applyImages(sourceUrls);
+                            } else {
+                                setUploadedImages([]);
+                            }
+
+                            // 2. 应用模型和参数
+                            const fullConfig: GenerationConfig = {
+                                ...config,
+                                ...item.config,
+                                prompt: item.config.prompt || '',
+                                width: item.config.width || config.width,
+                                height: item.config.height || config.height,
+                                model: item.config.model || config.model,
+                                isEdit: item.isEdit,
+                                editConfig: item.editConfig,
+                                parentId: item.parentId,
+                                sourceImageUrls: sourceUrls,
+                            };
+
+                            applyModel(fullConfig.model, fullConfig);
+                            applyPrompt(fullConfig.prompt);
+                            setSelectedPresetName(item.config.presetName);
+
+                            // 3. 切换视图并触发生成
+                            setViewMode('dock');
+                            setActiveTab('history');
+                            await handleGenerate({ configOverride: fullConfig });
+
+                            toast({ title: "Rerunning", description: "正在根据此图片重新生成..." });
                         }}
                     />
                     <TooltipButton

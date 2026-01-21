@@ -44,6 +44,7 @@ export class ToolsPresetsService {
       const name = formData.get('name') as string | null;
       const valuesStr = formData.get('values') as string | null;
       const screenshot = formData.get('screenshot') as unknown as { arrayBuffer: () => Promise<ArrayBuffer> } | null;
+      const screenshotUrl = formData.get('screenshotUrl') as string | null;
 
       if (!toolId || !name || !valuesStr) {
         throw new HttpError(400, 'Missing required fields');
@@ -54,7 +55,9 @@ export class ToolsPresetsService {
       const values = JSON.parse(valuesStr);
 
       let thumbnailPath = '';
-      if (screenshot) {
+      if (screenshotUrl) {
+        thumbnailPath = screenshotUrl;
+      } else if (screenshot) {
         const buffer = Buffer.from(await screenshot.arrayBuffer());
         const dataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
         thumbnailPath = dataUrl;

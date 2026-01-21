@@ -16,7 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { GenerationConfig, UploadedImage } from '@/components/features/playground-v2/types';
+import { GenerationConfig, ImageSize } from "@/types/database";
+import type { UploadedImage } from "@/components/features/playground-v2/types";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
@@ -46,8 +47,8 @@ interface ControlToolbarProps {
   workflows?: IViewComfy[];
   onWorkflowSelect?: (wf: IViewComfy) => void;
   onAspectRatioChange: (ar: string) => void;
-  currentImageSize: '1K' | '2K' | '4K';
-  onImageSizeChange: (size: '1K' | '2K' | '4K') => void;
+  currentImageSize: ImageSize;
+  onImageSizeChange: (size: ImageSize) => void;
   isMockMode?: boolean;
   onMockModeChange?: (val: boolean) => void;
   isSelectorExpanded?: boolean;
@@ -60,6 +61,7 @@ interface ControlToolbarProps {
   variant?: 'default' | 'edit';
   customAspectRatioLabel?: string;
   uploadedImages?: UploadedImage[];
+  disableModelSelection?: boolean;
 }
 
 
@@ -97,6 +99,7 @@ export default function ControlToolbar({
   variant = 'default',
   customAspectRatioLabel,
   uploadedImages = [],
+  disableModelSelection = false,
 }: ControlToolbarProps) {
 
 
@@ -132,7 +135,7 @@ export default function ControlToolbar({
       onConfigChange?.({ model: cfg.id });
 
       // Coze Seed 4 默认设置 2K
-      if (val === 'coze_seed4') {
+      if (val === 'coze_seed4' || val === 'seed4_2_lemo' || val === 'gemini-3-pro-image-preview') {
         onImageSizeChange('2K');
       }
     } else if (val.startsWith('wf:')) {
@@ -161,12 +164,41 @@ export default function ControlToolbar({
   })();
 
 
-  // const BASE_MODEL_LIST = [
-  //   { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
-  //   { name: 'flux1-dev-fp8.safetensors', cover: '/basemodels/flux1-dev-fp8.safetensors.jpg' },
-  //   { name: 'Zimage', cover: '/basemodels/Zimage.jpg' },
-  //   { name: 'qwen', cover: '/basemodels/qwen.jpg' },
-  // ];
+  const BASE_MODEL_LIST = [
+    { name: 'FLUX_fill', cover: '/basemodels/FLUX_fill.jpg' },
+    { name: 'flux1-dev-fp8.safetensors', cover: '/basemodels/flux1-dev-fp8.safetensors.jpg' },
+    { name: 'Zimage', cover: '/basemodels/Zimage.jpg' },
+    { name: 'qwen', cover: '/basemodels/qwen.jpg' },
+  ];
+
+  const handleBaseModelSelect = (modelName: string) => {
+    onConfigChange?.({ model: modelName });
+  };
+
+  const BaseModelDropdown = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          className={cn(Inputbutton2)}
+        >
+          {selectedBaseModelName || 'Base Model'}
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[180px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+        {BASE_MODEL_LIST.map((model) => (
+          <DropdownMenuItem
+            key={model.name}
+            className="text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 py-2"
+            onClick={() => handleBaseModelSelect(model.name)}
+          >
+            <span className={`w-2 h-2 rounded-full ${selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
+            <span className="truncate">{model.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const ModelDropdown = () => (
     <DropdownMenu>
@@ -189,18 +221,6 @@ export default function ControlToolbar({
             {model.displayName}
           </DropdownMenuItem>
         ))}
-
-        {/* workflow模型 */}
-        {/* {BASE_MODEL_LIST.map((model) => (
-          <DropdownMenuItem
-            key={model.name}
-            className="text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 py-2"
-            onClick={() => handleBaseModelSelect(model.name)}
-          >
-            <span className={`w-2 h-2 rounded-full ${selectedModel === 'Workflow' && selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
-            <span className="truncate">{model.name}</span>
-          </DropdownMenuItem>
-        ))} */}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -239,10 +259,12 @@ export default function ControlToolbar({
                 )}
               </Button>
             )}
-            <ModelDropdown />
-
-
-
+            {!disableModelSelection && (
+              <>
+                {selectedModel !== 'Workflow' && <ModelDropdown />}
+                {selectedModel === 'Workflow' && <BaseModelDropdown />}
+              </>
+            )}
             {selectedModel === 'Workflow' && (
               <div className="flex items-center gap-2">
                 <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
@@ -285,7 +307,7 @@ export default function ControlToolbar({
               <div className="space-y-4">
                 {(selectedModel === 'gemini-3-pro-image-preview' || selectedModel === 'seed4_2_lemo' || selectedModel === 'coze_seed4') && (
                   <div className="space-y-4">
-                    <div className="text-xs text-white/70">Resolution</div>
+                    <div className="text-xs text-white/70">Image Size</div>
                     <div className="flex gap-2">
                       {(['1K', '2K', '4K'] as const).map(size => (
                         <Button

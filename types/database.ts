@@ -1,4 +1,4 @@
-export type Resolution = '1K' | '2K' | '4K';
+export type ImageSize = '1K' | '2K' | '4K';
 export type AspectRatio =
   | '1:1'
   | '2:3'
@@ -11,7 +11,7 @@ export type AspectRatio =
   | '16:9'
   | '21:9'
   | 'auto';
-export type SizeFrom = 'ratioResolution' | 'custom';
+export type SizeFrom = 'ratioImageSize' | 'custom';
 export interface SelectedLora {
   model_name: string;
   strength: number;
@@ -33,12 +33,13 @@ export interface GenerationConfig {
   lora?: string;
   loras?: SelectedLora[];
   seed?: number;
-  resolution?: Resolution;
+  imageSize?: ImageSize;
   aspectRatio?: AspectRatio;
   sizeFrom?: SizeFrom;
   sourceImageUrl?: string;
   sourceImageUrls?: string[];
   localSourceId?: string; // Track local image ID for sync
+  localSourceIds?: string[]; // Track multiple local image IDs for sync
   presetName?: string;
   editConfig?: EditPresetConfig;
   isEdit?: boolean;
@@ -56,6 +57,7 @@ export interface Generation {
   sourceImageUrl?: string;
   sourceImageUrls?: string[];
   localSourceId?: string; // Track local image ID for sync
+  localSourceIds?: string[]; // Track multiple local image IDs for sync
   editConfig?: EditPresetConfig;
   isEdit?: boolean;
   parentId?: string;
@@ -92,6 +94,8 @@ export interface Preset {
   projectId?: string;
   createdAt: string;
   type?: 'generation' | 'edit';
+  disableModelSelection?: boolean;
+  disableImageUpload?: boolean;
 }
 
 export interface Style {

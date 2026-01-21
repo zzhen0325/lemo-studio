@@ -7,10 +7,11 @@ import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Generation } from '@/types/database';
 import { useToast } from '@/hooks/common/use-toast';
-import { cn } from '@/lib/utils';
+
 import { formatImageUrl } from '@/lib/api-base';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useImageSource } from '@/hooks/common/use-image-source';
+import { downloadImage } from '@/lib/utils/download';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
@@ -23,10 +24,10 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
   const [scale, setScale] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
   const { toast } = useToast();
-  const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
   const [mounted, setMounted] = useState(false);
 
-  const sourceImage = useImageSource(result?.sourceImageUrl || undefined, result?.config?.localSourceId);
+  // Prefer sourceImageUrls array, fallback to sourceImageUrl
+  const sourceUrls = result?.sourceImageUrls || (result?.sourceImageUrl ? [result.sourceImageUrl] : []);
 
   useEffect(() => {
     setMounted(true);
@@ -76,12 +77,7 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
 
   const handleDownload = () => {
     if (imageUrl) {
-      const link = document.createElement('a');
-      link.href = imageUrl;
-      link.download = `image-${result.id || Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadImage(imageUrl, `image-${result.id || Date.now()}.png`);
     }
   };
 
@@ -103,134 +99,91 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
           />
 
           {/* Main Content Area */}
+          {/* Main Content Area */}
           <div className="relative flex flex-1 h-full overflow-hidden">
 
-            {/* Image Viewport - 占据剩余空间 */}
-            <div className={cn(
-              "relative flex-1 h-full flex items-center justify-center overflow-hidden transition-all duration-300",
-              showSidebar ? "mr-0" : "mr-0"
-            )}>
-              <div
-                className="w-full h-full flex flex-col items-center justify-center"
-                onWheel={handleWheel}
-                onClick={handleBackgroundClick}
-              >
-                <motion.div
-                  layoutId={`image-${result.id}`}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  style={{
-                    scale: scale,
-                  }}
-                  className="relative"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Image
-                    src={imageUrl}
-                    alt="Preview"
-                    width={1200}
-                    height={1200}
-                    unoptimized
-                    className="max-w-[95%] select-none w-auto h-auto max-h-[75vh] rounded-2xl shadow-2xl border border-white/10"
-                    style={{ pointerEvents: 'auto' }}
-                    draggable={false}
-                  />
-
-
-                  {/* Control Bar - 底部居中 */}
-                  <div className='flex justify-center w-full mt-10'>
-
-
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 20 }}
-                      transition={{ delay: 0.2 }}
-                      className=" flex  w-fit  items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleZoomOut}>
-                        <ZoomOut className="w-4 h-4" />
-                      </Button>
-                      <span className="text-xs text-white/40 font-mono min-w-[3rem] text-center">{Math.round(scale * 100)}%</span>
-                      <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleZoomIn}>
-                        <ZoomIn className="w-4 h-4" />
-                      </Button>
-                      <div className="w-px h-4 bg-white/10 mx-1" />
-                      <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleReset}>
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
-                      <div className="w-px h-4 bg-white/10 mx-1" />
-                      <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleDownload}>
-                        <Download className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="act"
-                        size="sm"
-                        className="h-9 px-4 rounded-full transition-all font-medium gap-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit?.(result);
-                        }}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Edit
-                      </Button>
-                    </motion.div>
-                  </div>
-
-                </motion.div>
-
-
-              </div>
-
-
-
-
-              {/* Reference Image Thumbnail */}
-              {result.sourceImageUrl && (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="absolute top-4 left-4 z-[110] group/ref"
-                >
-                  <div
-                    className="w-20 h-20 rounded-xl border-2  border-white overflow-hidden shadow-2xl cursor-zoom-in transition-transform duration-300 hover:scale-110 active:scale-95"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPreviewImage(sourceImage || result.sourceImageUrl || null, `ref-${result.id}`);
-                    }}
-                  >
-                    <Image
-                      src={sourceImage || formatImageUrl(result.sourceImageUrl)}
-                      alt="Reference"
-                      fill
-                      className="object-cover"
-                      sizes="80px"
-                    />
-                    <div className="absolute inset-0 bg-black/20 group-hover/ref:bg-transparent transition-colors flex items-center justify-center">
-                      <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover/ref:opacity-100 transition-opacity" />
-                    </div>
-                  </div>
-                  <div className="mt-2 px-2 py-0.5 rounded-md bg-black/40 backdrop-blur-md border border-white/10 text-[9px] text-white/50 uppercase tracking-tighter text-center">
-                    Reference
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ESC 提示 */}
+            {/* Image Viewport - Container for scaling image and fixed control bar */}
+            <div
+              className="relative flex-1 h-full flex flex-col items-center justify-center overflow-auto p-12 transition-all duration-300"
+              onWheel={handleWheel}
+              onClick={handleBackgroundClick}
+            >
+              {/* Scalable Image Container */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className={cn(
-                  "absolute left-4 z-[100] px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 text-white/30 text-[10px] font-mono uppercase tracking-wider",
-                  result.sourceImageUrl ? "top-32" : "top-4"
-                )}
+                layoutId={`image-${result.id}`}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                style={{ scale: scale }}
+                className="relative shrink-0"
+                onClick={(e) => e.stopPropagation()}
               >
-                ESC to close
+                <Image
+                  src={imageUrl}
+                  alt="Preview"
+                  width={1200}
+                  height={1200}
+                  unoptimized
+                  className="max-w-[95%] select-none w-auto h-auto max-h-[75vh] rounded-2xl shadow-2xl border border-white/10"
+                  style={{ pointerEvents: 'auto' }}
+                  draggable={false}
+                />
               </motion.div>
 
-              {/* 侧边栏切换按钮 */}
+              {/* Fixed Control Bar - sibling to scaled image */}
+              <div className='flex justify-center w-full mt-10 shrink-0'>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  transition={{ delay: 0.2 }}
+                  className="flex w-fit items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleZoomOut}>
+                    <ZoomOut className="w-4 h-4" />
+                  </Button>
+                  <span className="text-xs text-white/40 font-mono min-w-[3rem] text-center">{Math.round(scale * 100)}%</span>
+                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleZoomIn}>
+                    <ZoomIn className="w-4 h-4" />
+                  </Button>
+                  <div className="w-px h-4 bg-white/10 mx-1" />
+                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleReset}>
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                  <div className="w-px h-4 bg-white/10 mx-1" />
+                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleDownload}>
+                    <Download className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="act"
+                    size="sm"
+                    className="h-9 px-4 rounded-full transition-all font-medium gap-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit?.(result);
+                    }}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit
+                  </Button>
+                </motion.div>
+              </div>
+
+              {/* Reference Image Thumbnails - absolute to Viewport */}
+              {sourceUrls.length > 0 && (
+                <div className="absolute top-10 left-6 z-[110] flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+                  {sourceUrls.map((url, idx) => (
+                    <ReferenceImageItem
+                      key={`${result.id}-${idx}`}
+                      url={url}
+                      localId={idx === 0 ? result.config?.localSourceId : undefined}
+                      generationId={result.id}
+                      index={idx}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Sidebar toggle */}
               <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -241,7 +194,9 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
               </motion.button>
             </div>
 
-            {/* Sidebar - 固定宽度，不会超出屏幕 */}
+            {/* Sidebar */}
+
+            {/* Sidebar */}
             <AnimatePresence>
               {showSidebar && (
                 <motion.div
@@ -252,7 +207,6 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                   className="relative w-[20vw] shrink-0 h-full bg-black/60 backdrop-blur-2xl border-l border-white/10 flex flex-col z-50 overflow-hidden"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Header */}
                   <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
                     <h3 className="text-lg text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Details</h3>
                     <Button
@@ -265,17 +219,14 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                     </Button>
                   </div>
 
-                  {/* Content - 可滚动区域 */}
                   <ScrollArea className="flex-1 min-h-0">
                     <div className="p-4 space-y-6">
-                      {/* Prompt Section */}
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-white/30 uppercase font-mono tracking-wider">Prompt</span>
                           <button
                             onClick={handleCopyPrompt}
                             className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/10 transition-all"
-                            title="复制提示词"
                           >
                             <Copy className="w-3 h-3" />
                           </button>
@@ -287,27 +238,20 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                         </div>
                       </div>
 
-                      {/* Model Section */}
                       <div className="space-y-3">
                         <span className="text-[10px] text-white/30 uppercase font-mono tracking-wider">Model</span>
                         <div className="flex flex-wrap gap-2">
                           <span className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-full border border-primary/20">
                             {config?.model || "Standard"}
                           </span>
-                          {config?.loras && config.loras.length > 0 && (
-                            config.loras.map((l, idx) => (
-                              <span
-                                key={idx}
-                                className="px-3 py-1.5 bg-white/5 text-white/60 text-xs font-medium rounded-full border border-white/10 truncate max-w-full"
-                              >
-                                {l.model_name.replace('.safetensors', '')} ({l.strength})
-                              </span>
-                            ))
-                          )}
+                          {config?.loras?.map((l, idx) => (
+                            <span key={idx} className="px-3 py-1.5 bg-white/5 text-white/60 text-xs font-medium rounded-full border border-white/10 truncate max-w-full">
+                              {l.model_name.replace('.safetensors', '')} ({l.strength})
+                            </span>
+                          ))}
                         </div>
                       </div>
 
-                      {/* Parameters Section */}
                       <div className="space-y-3">
                         <span className="text-[10px] text-white/30 uppercase font-mono tracking-wider">Parameters</span>
                         <div className="grid grid-cols-2 gap-2">
@@ -322,7 +266,6 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                         </div>
                       </div>
 
-                      {/* Preset Section */}
                       {config?.presetName && (
                         <div className="space-y-3">
                           <span className="text-[10px] text-white/30 uppercase font-mono tracking-wider">Preset</span>
@@ -332,7 +275,6 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                         </div>
                       )}
 
-                      {/* Timestamp */}
                       {result.createdAt && (
                         <div className="space-y-3">
                           <span className="text-[10px] text-white/30 uppercase font-mono tracking-wider">Created</span>
@@ -351,5 +293,59 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
       )}
     </AnimatePresence>,
     document.body
+  );
+}
+
+function ReferenceImageItem({
+  url,
+  localId,
+  generationId,
+  index
+}: {
+  url: string;
+  localId?: string;
+  generationId: string;
+  index: number;
+}) {
+  const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
+  const sourceImage = useImageSource(url, localId);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{
+        delay: index * 0.1,
+        type: "spring",
+        stiffness: 400,
+        damping: 25
+      }}
+      className="group/ref relative flex flex-col items-center"
+    >
+      <div
+        className="w-20 h-20 rounded-xl border-2 border-white overflow-hidden shadow-2xl cursor-zoom-in relative"
+        onClick={(e) => {
+          e.stopPropagation();
+          setPreviewImage(sourceImage || url || null, `ref-${generationId}-${index}`);
+        }}
+      >
+        <Image
+          src={sourceImage || formatImageUrl(url)}
+          alt={`Reference ${index + 1}`}
+          fill
+          className="object-cover"
+          sizes="80px"
+          unoptimized
+        />
+        <div className="absolute inset-0 bg-black/20 group-hover/ref:bg-transparent transition-colors flex items-center justify-center">
+          <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover/ref:opacity-100 transition-opacity" />
+        </div>
+      </div>
+      <div className="mt-2 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-[9px] text-white/90 uppercase font-bold tracking-tight text-center shadow-lg">
+        Ref {index + 1}
+      </div>
+    </motion.div>
   );
 }

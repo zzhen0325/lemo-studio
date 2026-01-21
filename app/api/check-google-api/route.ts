@@ -3,6 +3,7 @@ import { getGoogleApiKey } from '@/lib/ai/modelRegistry';
 import { getProxyAgent } from '@/lib/ai/utils';
 
 export async function GET() {
+    // 检查 Google API 连通性
     const apiKey = getGoogleApiKey();
 
     if (!apiKey) {

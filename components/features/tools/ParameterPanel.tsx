@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { getApiBase } from "@/lib/api-base";
 
+import { useImageUpload } from '@/hooks/common/use-image-upload';
+
 interface ParameterPanelProps {
     config: WebGLToolConfig;
     values: Record<string, number | string | boolean>;
@@ -98,6 +100,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [newPresetName, setNewPresetName] = useState('');
+    const { uploadFile } = useImageUpload();
 
     const fetchPresets = React.useCallback(async () => {
         try {
@@ -122,18 +125,43 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
         setIsUploading(true);
 
         try {
-            const formData = new FormData();
-            formData.append('toolId', config.id);
-            formData.append('name', newPresetName.trim());
-            formData.append('values', JSON.stringify(values));
+            let screenshotPath = '';
 
             // Capture screenshot if available
             if (onCaptureScreenshot) {
                 const dataUrl = await onCaptureScreenshot();
                 if (dataUrl) {
-                    const blob = await (await fetch(dataUrl)).blob();
-                    formData.append('screenshot', blob, 'screenshot.png');
+                    const response = await fetch(dataUrl);
+                    const blob = await response.blob();
+                    const file = new File([blob], 'screenshot.png', { type: 'image/png' });
+
+                    // 使用统一上传逻辑
+                    const uploaded = await uploadFile(file, {
+                        onSuccess: (tempId, path) => {
+                            screenshotPath = path;
+                        }
+                    });
+
+                    // 等待上传完成（因为这里是保存 Preset，需要路径）
+                    // 虽然 useImageUpload 是后台上传，但对于 Preset 保存这种需要路径的操作，我们可以稍微等待
+                    // 或者修改 useImageUpload 支持同步返回 Promise
+                    if (uploaded) {
+                        // 轮询或者等待 path
+                        let attempts = 0;
+                        while (!screenshotPath && attempts < 10) {
+                            await new Promise(r => setTimeout(r, 500));
+                            attempts++;
+                        }
+                    }
                 }
+            }
+
+            const formData = new FormData();
+            formData.append('toolId', config.id);
+            formData.append('name', newPresetName.trim());
+            formData.append('values', JSON.stringify(values));
+            if (screenshotPath) {
+                formData.append('screenshotUrl', screenshotPath);
             }
 
             const res = await fetch(`${getApiBase()}/tools/presets`, {

@@ -44,7 +44,9 @@ export default function CollectionList({
         );
     }
     return (
-        <div className={`space-y-6 w-full p-8 max-w-8xl ${className || ''}`}>
+       
+        <div className={`space-y-6 w-[80%] p-8 pt-14  ${className || ''}`}
+        >
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-foreground">Datasets</h1>
                 <div className="flex gap-2">
@@ -65,11 +67,11 @@ export default function CollectionList({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 {collections.map((col) => (
                     <Card
                         key={col.id}
-                        className="bg-card border-border overflow-hidden hover:border-primary/50 transition-all cursor-pointer group"
+                        className="bg-card border-white/10 overflow-hidden hover:border-white/20 transition-all cursor-pointer group"
                         onClick={() => onSelect(col.id)}
                     >
                         <CardContent className="p-0 aspect-square relative">
@@ -84,7 +86,7 @@ export default function CollectionList({
                                                 className="object-cover"
                                             />
                                         ) : (
-                                            <div className="w-8 h-8 rounded bg-muted border border-border" />
+                                            <div className="w-8 h-8 rounded bg-muted border border-white/10" />
                                         )}
                                     </div>
                                 ))}
@@ -98,7 +100,7 @@ export default function CollectionList({
 
                             </div>
 
-                            <div className="border border-transparent hover:border-white/20 rounded-lg">
+                            <div className="border border-white/10 hover:border-white/20 rounded-lg">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button
@@ -110,7 +112,7 @@ export default function CollectionList({
                                             <MoreVertical className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-40">
+                                    <DropdownMenuContent align="end" className="w-40 border border-white/10 rounded-2xl">
                                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onExport?.(col.id, col.name); }}>
                                             <Download className="mr-2 h-4 w-4" />
                                             <span>Export</span>

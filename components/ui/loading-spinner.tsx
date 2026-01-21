@@ -23,8 +23,8 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         style={{ width: size, height: size }}
       >
         <svg 
-          width="100%" 
-          height="100%" 
+          width="140%" 
+          height="140%" 
           viewBox="0 0 200 200" 
           fill="none" 
           xmlns="http://www.w3.org/2000/svg"

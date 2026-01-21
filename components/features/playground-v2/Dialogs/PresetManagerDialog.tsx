@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Preset, GenerationConfig, EditPresetConfig } from '../types';
 import { AspectRatio } from '@/types/database';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -15,6 +16,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { AVAILABLE_MODELS } from '@/hooks/features/PlaygroundV2/useGenerationService';
+import { useImageUpload } from "@/hooks/common/use-image-upload";
+import { useImageSource } from "@/hooks/common/use-image-source";
 import {
     DndContext,
     closestCenter,
@@ -46,7 +49,7 @@ const DEFAULT_CONFIG: GenerationConfig = {
     model: 'gemini-3-pro-image-preview',
     width: 1024,
     height: 1024,
-    resolution: '1K',
+    imageSize: '1K',
     aspectRatio: '1:1'
 };
 
@@ -119,6 +122,11 @@ const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
     );
 };
 
+const PresetImage = ({ src, alt, fill, className }: { src: string; alt: string; fill?: boolean; className?: string }) => {
+    const source = useImageSource(src);
+    return <NextImage src={source} alt={alt} fill={fill} className={className} />;
+};
+
 export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows, currentConfig, currentEditConfig }) => {
     const presets = usePlaygroundStore(s => s.presets);
     const presetCategories = usePlaygroundStore(s => s.presetCategories);
@@ -150,7 +158,8 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         config: DEFAULT_CONFIG
     });
     const [coverFile, setCoverFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string>('');
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const { uploadFile } = useImageUpload();
 
     const resetForm = () => {
         // Use current category if not "All", otherwise default to "General"
@@ -200,11 +209,22 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
         }
     }, [open, currentEditConfig, handleCreate]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setCoverFile(file);
-            setPreviewUrl(URL.createObjectURL(file));
+        if (!file) return;
+
+        setCoverFile(file); // Keep file for fallback upload if backend needs it
+
+        const uploaded = await uploadFile(file, {
+            onSuccess: (url) => {
+                setFormData(prev => ({ ...prev, coverUrl: url }));
+                setPreviewUrl(url);
+            }
+        });
+
+        if (uploaded) {
+            setFormData(prev => ({ ...prev, coverUrl: uploaded.path }));
+            setPreviewUrl(uploaded.path);
         }
     };
 
@@ -398,7 +418,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                     >
                                         <div className="w-12 h-12 rounded-xl bg-white/5 relative overflow-hidden flex-shrink-0 border border-white/10">
                                             {preset.coverUrl ? (
-                                                <NextImage src={preset.coverUrl} alt={preset.name} fill className="object-cover" />
+                                                <PresetImage src={preset.coverUrl} alt={preset.name} fill className="object-cover" />
                                             ) : (
                                                 <ImageIcon className="w-5 h-5 m-auto text-white/20" />
                                             )}
@@ -583,12 +603,12 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                         <Label className="text-xs font-bold uppercase tracking-wider text-white/50 ml-1">Generation Config</Label>
                                                         <div className="grid grid-cols-2 gap-4 mt-2">
                                                             <div className="space-y-2">
-                                                                <Label className="text-sm">Target Resolution</Label>
+                                                                <Label className="text-sm">Target Image Size</Label>
                                                                 <Select
-                                                                    value={formData.config?.resolution || '1K'}
+                                                                    value={formData.config?.imageSize || '1K'}
                                                                     onValueChange={(val: '1K' | '2K' | '4K') => setFormData({
                                                                         ...formData,
-                                                                        config: { ...(formData.config || DEFAULT_CONFIG), resolution: val }
+                                                                        config: { ...(formData.config || DEFAULT_CONFIG), imageSize: val }
                                                                     })}
                                                                 >
                                                                     <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
@@ -647,6 +667,24 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 </div>
                                                             )}
                                                         </div>
+                                                        <div className="flex items-center gap-8 mt-4">
+                                                            <div className="flex items-center space-x-2">
+                                                                <Switch
+                                                                    id="disable-model"
+                                                                    checked={formData.disableModelSelection || false}
+                                                                    onCheckedChange={(checked) => setFormData({ ...formData, disableModelSelection: checked })}
+                                                                />
+                                                                <Label htmlFor="disable-model" className="text-sm font-normal text-white/70">Disable Model Selection</Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Switch
+                                                                    id="disable-upload"
+                                                                    checked={formData.disableImageUpload || false}
+                                                                    onCheckedChange={(checked) => setFormData({ ...formData, disableImageUpload: checked })}
+                                                                />
+                                                                <Label htmlFor="disable-upload" className="text-sm font-normal text-white/70">Disable Image Upload</Label>
+                                                            </div>
+                                                        </div>
                                                     </div>
 
                                                     <div className="space-y-2 col-span-2">
@@ -673,7 +711,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <div className="space-y-2 flex-1">
                                                                     <span className="text-xs text-white/40">Original Image</span>
                                                                     <div className="aspect-video rounded-xl border border-white/10 overflow-hidden relative bg-black/40">
-                                                                        <NextImage
+                                                                        <PresetImage
                                                                             src={(formData.editConfig || currentEditConfig)?.originalImageUrl || ''}
                                                                             alt="Original"
                                                                             fill
@@ -699,7 +737,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <div className="flex flex-wrap gap-2">
                                                                     {(formData.editConfig || currentEditConfig)?.referenceImages.map((img) => (
                                                                         <div key={img.id} className="w-12 h-12 rounded-lg border border-white/10 overflow-hidden relative group/img">
-                                                                            <NextImage src={img.dataUrl} alt={img.label} fill className="object-cover" />
+                                                                            <PresetImage src={img.dataUrl} alt={img.label} fill className="object-cover" />
                                                                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
                                                                                 <span className="text-[8px] text-white truncate px-1">{img.label}</span>
                                                                             </div>

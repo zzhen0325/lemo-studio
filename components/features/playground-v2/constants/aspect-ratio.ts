@@ -3,14 +3,14 @@
  * 定义了各种宽高比在不同分辨率下的具体尺寸
  */
 
-export type ResolutionSize = '1K' | '2K' | '4K';
+export type ImageSize = '1K' | '2K' | '4K';
 
 export interface SizeDimensions {
     w: number;
     h: number;
 }
 
-export type AspectRatioMap = Record<string, Record<ResolutionSize, SizeDimensions>>;
+export type AspectRatioMap = Record<string, Record<ImageSize, SizeDimensions>>;
 
 export const AR_MAP: AspectRatioMap = {
     '1:1': { '1K': { w: 1024, h: 1024 }, '2K': { w: 2048, h: 2048 }, '4K': { w: 4096, h: 4096 } },
@@ -46,7 +46,7 @@ export const getAspectRatioPresets = (): AspectRatioPreset[] => {
  * 根据当前宽高获取对应的宽高比名称
  */
 export const getAspectRatioByDimensions = (width: number, height: number): string => {
-    const sizeKeys: ResolutionSize[] = ['1K', '2K', '4K'];
+    const sizeKeys: ImageSize[] = ['1K', '2K', '4K'];
     for (const [ar, sizes] of Object.entries(AR_MAP)) {
         for (const size of sizeKeys) {
             if (sizes[size].w === width && sizes[size].h === height) return ar;
@@ -56,11 +56,11 @@ export const getAspectRatioByDimensions = (width: number, height: number): strin
 };
 
 /**
- * 根据宽高比和分辨率获取具体尺寸
+ * 根据宽高比和图片尺寸获取具体大小
  */
 export const getDimensionsByAspectRatio = (
     aspectRatio: string,
-    resolution: ResolutionSize = '1K'
+    imageSize: ImageSize = '1K'
 ): SizeDimensions | undefined => {
-    return AR_MAP[aspectRatio]?.[resolution];
+    return AR_MAP[aspectRatio]?.[imageSize];
 };

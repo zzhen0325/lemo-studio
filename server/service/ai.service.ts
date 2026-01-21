@@ -27,7 +27,9 @@ export interface ImageRequestBody {
   height?: number;
   batchSize?: number;
   aspectRatio?: string;
+  imageSize?: string;
   image?: string;
+  images?: string[]; // 多张参考图支持
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options?: any;
 }
@@ -84,7 +86,7 @@ export class AiService {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public async generateImage(body: ImageRequestBody): Promise<any> {
-    const { prompt, model, width, height, batchSize, aspectRatio, image, options } = body;
+    const { prompt, model, width, height, batchSize, aspectRatio, image, images, options } = body;
 
     if (!model) {
       throw new HttpError(400, 'Missing model ID');
@@ -102,7 +104,9 @@ export class AiService {
       height,
       batchSize,
       aspectRatio,
+      imageSize: body.imageSize, // 使用 imageSize
       image,
+      images, // 传递多张参考图
       options: {
         ...options,
         // Ensure stream is true for coze-image models if we are expecting a stream
