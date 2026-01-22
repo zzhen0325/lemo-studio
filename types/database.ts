@@ -30,18 +30,15 @@ export interface GenerationConfig {
   height: number;
   model: string;
   baseModel?: string; // Real base model ID
-  workflowName?: string; // Legacy: use presetName instead
-  lora?: string; // Legacy: use loras instead
   loras?: SelectedLora[];
   seed?: number;
   imageSize?: ImageSize;
   aspectRatio?: AspectRatio;
   sizeFrom?: SizeFrom;
-  sourceImageUrl?: string; // Legacy: use sourceImageUrls instead
   sourceImageUrls?: string[];
-  localSourceId?: string; // Legacy: use localSourceIds instead
   localSourceIds?: string[]; // Track multiple local image IDs for sync
   presetName?: string; // Contains readable label (workflowName + loras summary)
+  isPreset?: boolean; // Flag to indicate if the generation was from a preset
   editConfig?: EditPresetConfig;
   isEdit?: boolean;
   parentId?: string;
@@ -55,20 +52,13 @@ export interface Generation {
   outputUrl: string;
   config: GenerationConfig;
   status: 'pending' | 'completed' | 'failed';
-  sourceImageUrl?: string; // Legacy: use sourceImageUrls instead
-  sourceImageUrls?: string[];
-  localSourceId?: string; // Legacy: use localSourceIds instead
-  localSourceIds?: string[]; // Track multiple local image IDs for sync
-  baseModel?: string; // Real base model ID
-  editConfig?: EditPresetConfig;
-  isEdit?: boolean;
-  parentId?: string;
   llmResponse?: string;
+
   progress?: number;
   progressStage?: string;
   createdAt: string;
-  taskId?: string;
 }
+
 
 export interface AnnotationInfo {
   colorName: string;

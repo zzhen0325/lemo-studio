@@ -3,42 +3,23 @@
 import React from 'react';
 import { StyleStack } from './types';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Play, Copy, ExternalLink, Trash2, Edit2, Check, X, Upload, Settings2, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, Copy, Trash2, Edit2, Check, X, Upload, Settings2, Image as ImageIcon } from 'lucide-react';
 import NextImage from 'next/image';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/common/use-toast';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { getApiBase, formatImageUrl } from '@/lib/api-base';
-import { useImageUpload } from '@/hooks/common/use-image-upload';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import SimpleImagePreview from './SimpleImagePreview';
 import { cn } from '@/lib/utils';
 import { TooltipButton } from '@/components/ui/tooltip-button';
-import { useImageSource } from '@/hooks/common/use-image-source';
 
 interface StyleDetailViewProps {
     style: StyleStack;
     onBack: () => void;
     onApply: (prompt: string) => void;
 }
-
-const StyleImage = ({ path, index, isManaging, isSelected }: { path: string, index: number, isManaging: boolean, isSelected: boolean }) => {
-    const src = useImageSource(path);
-    return (
-        <NextImage
-            src={src || formatImageUrl(path)}
-            alt={`Style image ${index}`}
-            fill
-            className={cn(
-                "object-cover pointer-events-none transition-opacity",
-                isManaging && isSelected ? "opacity-60" : "opacity-100"
-            )}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
-            unoptimized={path.startsWith('local:')}
-        />
-    );
-};
 
 export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
     style,
@@ -162,47 +143,37 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         }
     };
 
-    const { uploadFile } = useImageUpload();
-
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
-        if (uploads.length === 0) return;
+        setIsUploading(true);
+        toast({ title: "正在上传", description: `正在上传 ${files.length} 张图片到该风格...` });
 
-        toast({ title: "正在处理", description: `正在处理 ${uploads.length} 张图片...` });
-
-        for (const file of uploads) {
-            let tempPreviewUrl = '';
-            await uploadFile(file, {
-                onLocalPreview: (image) => {
-                    tempPreviewUrl = image.previewUrl;
-                    const currentStyle = usePlaygroundStore.getState().styles.find(s => s.id === style.id);
-                    if (currentStyle) {
-                        updateStyle({
-                            ...currentStyle,
-                            imagePaths: [...currentStyle.imagePaths, tempPreviewUrl],
-                            updatedAt: new Date().toISOString()
-                        });
-                    }
-                },
-                onSuccess: (tempId, path) => {
-                    // 上传成功后，将 style 中的 tempPreviewUrl 替换为 CDN path
-                    const currentStyle = usePlaygroundStore.getState().styles.find(s => s.id === style.id);
-                    if (currentStyle && tempPreviewUrl) {
-                        const updatedStyle = {
-                            ...currentStyle,
-                            imagePaths: currentStyle.imagePaths.map(p => p === tempPreviewUrl ? path : p),
-                            updatedAt: new Date().toISOString()
-                        };
-                        updateStyle(updatedStyle);
-                    }
-                }
+        try {
+            const uploadPromises = Array.from(files).map(async (file) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: formData });
+                if (!resp.ok) throw new Error('Upload failed');
+                const data = await resp.json();
+                return data.path;
             });
-        }
 
-        if (fileInputRef.current) fileInputRef.current.value = '';
+            const newPaths = await Promise.all(uploadPromises);
+            await updateStyle({
+                ...style,
+                imagePaths: [...style.imagePaths, ...newPaths],
+                updatedAt: new Date().toISOString()
+            });
+            toast({ title: "上传成功", description: `已成功添加 ${newPaths.length} 张图片` });
+        } catch (error) {
+            console.error("Upload failed", error);
+            toast({ title: "上传失败", description: "部分或全部图片上传失败", variant: "destructive" });
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     return (
@@ -432,11 +403,15 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                                             mass: 1
                                         }}
                                     >
-                                        <StyleImage 
-                                            path={path}
-                                            index={index}
-                                            isManaging={isManaging}
-                                            isSelected={isSelected}
+                                        <NextImage
+                                            src={formatImageUrl(path)}
+                                            alt={`Style image ${index}`}
+                                            fill
+                                            className={cn(
+                                                "object-cover pointer-events-none transition-opacity",
+                                                isManaging && isSelected ? "opacity-60" : "opacity-100"
+                                            )}
+                                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
                                         />
 
                                         {isManaging && (

@@ -4,6 +4,7 @@ export type GenerationResult = Generation;
 
 export interface UploadedImage {
   id?: string;
+  localId?: string; // 本地临时 ID，用于追踪上传状态
   file: File;
   base64: string;
   previewUrl: string;
@@ -12,6 +13,7 @@ export interface UploadedImage {
   width?: number;
   height?: number;
 }
+
 
 export interface PresetExtended extends Omit<Preset, 'coverUrl'> {
   category?: string;

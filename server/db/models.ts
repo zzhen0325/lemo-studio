@@ -1,5 +1,6 @@
 import { Database, Prop, Ref, getModelForClass, modelOptions, index } from '@gulux/gulux/typegoose';
-import type { ImageSize, AspectRatio, SizeFrom } from '../../types/database';
+// 移除未使用的类型导入以修复 ESLint 警告
+
 
 @Database('default')
 @modelOptions({ schemaOptions: { timestamps: true } })
@@ -34,48 +35,9 @@ export class ImageAsset {
 @modelOptions({ schemaOptions: { timestamps: true } })
 @index({ createdAt: -1 }) // 为排序字段添加索引，避免内存超限
 export class Generation {
-  @Prop({ required: true })
-  public prompt!: string;
-
-  @Prop()
-  public width?: number;
-
-  @Prop()
-  public height?: number;
-
-  @Prop()
-  public model?: string;
-
-  @Prop()
-  public baseModel?: string;
-
-  @Prop()
-  public workflowName?: string;
-
-  @Prop()
-  public lora?: string;
-
-  @Prop({ type: () => [Object] })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public loras?: any[];
-
-  @Prop()
-  public seed?: number;
-
-  @Prop()
-  public imageSize?: ImageSize;
-
-  @Prop()
-  public aspectRatio?: AspectRatio;
-
-  @Prop()
-  public sizeFrom?: SizeFrom;
-
-  @Prop()
-  public presetName?: string;
-
   @Prop()
   public status?: 'pending' | 'completed' | 'failed';
+
 
   @Prop()
   public progress?: number;
@@ -104,16 +66,6 @@ export class Generation {
   @Prop({ type: () => Object })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public config?: Record<string, any>;
-
-  @Prop({ type: () => Object })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public editConfig?: Record<string, any>;
-
-  @Prop({ default: false })
-  public isEdit?: boolean;
-
-  @Prop()
-  public parentId?: string;
 
   @Prop()
   public createdAt?: string;

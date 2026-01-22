@@ -52,31 +52,40 @@ export class HistoryService {
       const history = items.map((item) => {
         const outputImage = item.outputImageId as unknown as { url?: string } | undefined;
         const sourceImage = item.sourceImageId as unknown as { url?: string } | undefined;
-        // Build sourceImageUrls: prefer stored array, fallback to single sourceImageUrl
         const storedSourceUrls = (item as { sourceImageUrls?: string[] }).sourceImageUrls;
         const singleSourceUrl = sourceImage?.url || item.config?.sourceImageUrl;
-        const sourceImageUrls = storedSourceUrls && storedSourceUrls.length > 0
-          ? storedSourceUrls
-          : (singleSourceUrl ? [singleSourceUrl] : undefined);
+
+        // 规范化 sourceImageUrls：统一到 config 内
+        const sourceImageUrls = (item.config?.sourceImageUrls && item.config.sourceImageUrls.length > 0)
+          ? item.config.sourceImageUrls
+          : storedSourceUrls && storedSourceUrls.length > 0
+            ? storedSourceUrls
+            : (singleSourceUrl ? [singleSourceUrl] : []);
+
+        // 规范化 localSourceIds：统一到 config 内
+        const localSourceIds = (item.config?.localSourceIds && item.config.localSourceIds.length > 0)
+          ? item.config.localSourceIds
+          : (item as { localSourceIds?: string[] }).localSourceIds ||
+          (item.config?.localSourceId ? [item.config.localSourceId] : []);
+
         return {
           id: String(item._id),
           userId: item.userId || 'anonymous',
           projectId: item.projectId || 'default',
           outputUrl: outputImage?.url || item.outputUrl,
-          config: item.config,
+          config: {
+            ...item.config,
+            sourceImageUrls,
+            localSourceIds,
+          },
           status: item.status || 'completed',
-          sourceImageUrl: singleSourceUrl,
-          sourceImageUrls,
-          baseModel: item.baseModel || item.config?.baseModel,
           createdAt: String(item.createdAt || new Date().toISOString()),
           progress: item.progress,
           progressStage: item.progressStage,
           llmResponse: item.llmResponse,
-          editConfig: item.editConfig,
-          isEdit: item.isEdit,
-          parentId: item.parentId,
         } as Generation;
       });
+
 
       return {
         history,
@@ -125,37 +134,28 @@ export class HistoryService {
 
       const cfg = (item.config || {}) as GenerationConfig;
 
+      // 优先从 config 中读取 sourceImageUrls，兼容旧数据结构
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const effectiveSourceImageUrls = cfg.sourceImageUrls || (item as any).sourceImageUrls || [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const effectiveLocalSourceIds = cfg.localSourceIds || (item as any).localSourceIds || [];
+
       const record = {
-        prompt: cfg.prompt || '',
-        width: cfg.width,
-        height: cfg.height,
-        model: cfg.model,
-        baseModel: cfg.baseModel || item.baseModel,
-        lora: cfg.lora,
-        loras: cfg.loras,
-        seed: cfg.seed,
-        imageSize: cfg.imageSize,
-        aspectRatio: cfg.aspectRatio,
-        sizeFrom: cfg.sizeFrom,
-        presetName: cfg.presetName,
+        userId: item.userId || 'anonymous',
+        projectId: item.projectId || 'default',
+        outputUrl: item.outputUrl,
+        config: {
+          ...cfg,
+          sourceImageUrls: effectiveSourceImageUrls,
+          localSourceIds: effectiveLocalSourceIds,
+        },
         status: item.status || 'completed',
         progress: item.progress,
         progressStage: item.progressStage,
-        userId: item.userId || 'anonymous',
-        projectId: item.projectId || 'default',
         llmResponse: item.llmResponse,
-        config: item.config,
-        editConfig: item.editConfig,
-        isEdit: item.isEdit,
-        parentId: item.parentId,
         createdAt: item.createdAt || new Date().toISOString(),
-        outputUrl: item.outputUrl,
-        sourceImageUrl: item.sourceImageUrl,
-        sourceImageUrls: item.sourceImageUrls,
-        localSourceId: item.localSourceId,
-        localSourceIds: item.localSourceIds,
-        taskId: item.taskId,
       };
+
 
       const existing =
         item.id && isValidObjectId(item.id)

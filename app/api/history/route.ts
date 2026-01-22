@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Generation, GenerationConfig } from '@/types/database';
+import { normalizeGeneration } from '@/lib/adapters/data-mapping';
+
 
 const OUTPUTS_DIR = path.join(process.cwd(), 'public', 'outputs');
 const HISTORY_FILE = path.join(OUTPUTS_DIR, 'history.json');
@@ -39,7 +41,7 @@ async function readHistory() {
 // Atomic write helper with backup
 async function saveHistory(history: Generation[]) {
     const tmpFile = `${HISTORY_FILE}.tmp`;
-    
+
     // 1. Sanitize history to prevent RangeError: Invalid string length
     // Keep only the last 1000 items in the global index to keep it manageable
     const MAX_HISTORY_ITEMS = 1000;
@@ -47,22 +49,10 @@ async function saveHistory(history: Generation[]) {
 
     const sanitizedHistory = itemsToSave.map(item => {
         const newItem = { ...item };
-        
-        // Remove extremely large fields in the global history index
-        if (newItem.sourceImageUrl && newItem.sourceImageUrl.length > 5000) {
-            if (newItem.sourceImageUrl.startsWith('data:')) {
-                newItem.sourceImageUrl = "(large base64 data truncated)";
-            }
-        }
 
-        // Deep sanitize config if needed
+        // Deep sanitize config
         if (newItem.config) {
             const config = newItem.config as GenerationConfig;
-            if (config.sourceImageUrl && config.sourceImageUrl.length > 5000) {
-                if (config.sourceImageUrl.startsWith('data:')) {
-                    config.sourceImageUrl = "(large base64 data truncated)";
-                }
-            }
             if (config.sourceImageUrls && config.sourceImageUrls.length > 0) {
                 config.sourceImageUrls = config.sourceImageUrls.map(url => {
                     if (url && url.length > 5000 && url.startsWith('data:')) {
@@ -71,15 +61,6 @@ async function saveHistory(history: Generation[]) {
                     return url;
                 });
             }
-        }
-
-        if (newItem.sourceImageUrls && newItem.sourceImageUrls.length > 0) {
-            newItem.sourceImageUrls = newItem.sourceImageUrls.map(url => {
-                if (url && url.length > 5000 && url.startsWith('data:')) {
-                    return "(large base64 data truncated)";
-                }
-                return url;
-            });
         }
 
         return newItem;
@@ -160,28 +141,15 @@ async function readHistoryFromDisk() {
                 }
 
                 const config: GenerationConfig = (() => {
-                    if (metadata?.config && typeof metadata.config === 'object') {
-                        return {
-                            prompt: metadata.config.prompt || '',
-                            width: Number(metadata.config.width || 1024),
-                            height: Number(metadata.config.height || 1024),
-                            model: metadata.config.model || '',
-                            baseModel: metadata.config.baseModel || metadata.config.model || '',
-                            loras: metadata.config.loras || [],
-                            presetName: metadata.config.presetName || '',
-                            sourceImageUrls: metadata.config.sourceImageUrls || [],
-                            localSourceIds: metadata.config.localSourceIds || [],
-                        };
-                    }
+                    const baseConfig = metadata?.config || metadata?.metadata || {};
                     return {
-                        prompt: metadata?.prompt || metadata?.metadata?.prompt || '',
-                        width: Number(metadata?.img_width || metadata?.metadata?.img_width || 1024),
-                        height: Number(metadata?.img_height || metadata?.metadata?.img_height || 1024),
-                        model: metadata?.base_model || metadata?.metadata?.base_model || '',
-                        baseModel: metadata?.base_model || metadata?.metadata?.base_model || '',
-                        loras: metadata?.loras || metadata?.metadata?.loras || [],
-                        presetName: metadata?.presetName || metadata?.metadata?.presetName || '',
-                        sourceImageUrls: metadata?.sourceImageUrls || [],
+                        ...baseConfig,
+                        prompt: baseConfig.prompt || metadata?.prompt || '',
+                        width: Number(baseConfig.width || metadata?.img_width || 1024),
+                        height: Number(baseConfig.height || metadata?.img_height || 1024),
+                        model: baseConfig.model || metadata?.base_model || '',
+                        baseModel: baseConfig.baseModel || baseConfig.model || metadata?.base_model || '',
+                        sourceImageUrls: baseConfig.sourceImageUrls || metadata?.sourceImageUrls || [],
                     };
                 })();
 
@@ -192,11 +160,6 @@ async function readHistoryFromDisk() {
                     outputUrl,
                     config,
                     status: 'completed',
-                    sourceImageUrl: metadata?.sourceImageUrl || metadata?.sourceImage || metadata?.metadata?.sourceImage,
-                    sourceImageUrls: metadata?.sourceImageUrls || (metadata?.sourceImageUrl ? [metadata.sourceImageUrl] : []),
-                    localSourceId: metadata?.localSourceId,
-                    localSourceIds: metadata?.localSourceIds,
-                    baseModel: config.baseModel,
                     createdAt: String(metadata?.createdAt || createdAt),
                 };
                 return gen;
@@ -222,7 +185,7 @@ export async function GET(request: Request) {
 
         // 1. 优先读取统一的历史记录文件 (快)
         let history = await readHistory();
-        
+
         // 2. 如果没有历史记录文件，或者有新文件未被索引，则执行同步
         // 快速检查磁盘上的图片文件，看是否都在 history 中
         let hasChanges = false;
@@ -235,7 +198,7 @@ export async function GET(request: Request) {
                 await ensureOutputsDir();
                 const files = await fs.readdir(OUTPUTS_DIR);
                 const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
-                
+
                 // 构建现有历史记录的快速查找集合
                 const existingFiles = new Set(history.map((h: Generation) => {
                     const url = h.outputUrl || '';
@@ -274,28 +237,15 @@ export async function GET(request: Request) {
                             }
 
                             const config: GenerationConfig = (() => {
-                                if (metadata?.config && typeof metadata.config === 'object') {
-                                    return {
-                                        prompt: metadata.config.prompt || '',
-                                        width: Number(metadata.config.width || 1024),
-                                        height: Number(metadata.config.height || 1024),
-                                        model: metadata.config.model || '',
-                                        baseModel: metadata.config.baseModel || metadata.config.model || '',
-                                        loras: metadata.config.loras || [],
-                                        presetName: metadata.config.presetName || '',
-                                        sourceImageUrls: metadata.config.sourceImageUrls || [],
-                                        localSourceIds: metadata.config.localSourceIds || [],
-                                    };
-                                }
+                                const baseConfig = metadata?.config || metadata?.metadata || {};
                                 return {
-                                    prompt: metadata?.prompt || metadata?.metadata?.prompt || '',
-                                    width: Number(metadata?.img_width || metadata?.metadata?.img_width || 1024),
-                                    height: Number(metadata?.img_height || metadata?.metadata?.img_height || 1024),
-                                    model: metadata?.base_model || metadata?.metadata?.base_model || '',
-                                    baseModel: metadata?.base_model || metadata?.metadata?.base_model || '',
-                                    loras: metadata?.loras || metadata?.metadata?.loras || [],
-                                    presetName: metadata?.presetName || metadata?.metadata?.presetName || '',
-                                    sourceImageUrls: metadata?.sourceImageUrls || [],
+                                    ...baseConfig,
+                                    prompt: baseConfig.prompt || metadata?.prompt || '',
+                                    width: Number(baseConfig.width || metadata?.img_width || 1024),
+                                    height: Number(baseConfig.height || metadata?.img_height || 1024),
+                                    model: baseConfig.model || metadata?.base_model || '',
+                                    baseModel: baseConfig.baseModel || baseConfig.model || metadata?.base_model || '',
+                                    sourceImageUrls: baseConfig.sourceImageUrls || metadata?.sourceImageUrls || [],
                                 };
                             })();
 
@@ -306,11 +256,6 @@ export async function GET(request: Request) {
                                 outputUrl,
                                 config,
                                 status: 'completed',
-                                sourceImageUrl: metadata?.sourceImageUrl || metadata?.sourceImage || metadata?.metadata?.sourceImage,
-                                sourceImageUrls: metadata?.sourceImageUrls || (metadata?.sourceImageUrl ? [metadata.sourceImageUrl] : []),
-                                localSourceId: metadata?.localSourceId,
-                                localSourceIds: metadata?.localSourceIds,
-                                baseModel: config.baseModel,
                                 createdAt: String(metadata?.createdAt || createdAt),
                             };
                             return gen;
@@ -347,8 +292,11 @@ export async function GET(request: Request) {
         const startIndex = (page - 1) * limit;
         const paginatedHistory = history.slice(startIndex, startIndex + limit);
 
-        return NextResponse.json({ 
-            history: paginatedHistory,
+        // 6. 规范化数据，将旧格式的顶层字段合并到 config 内
+        const normalizedHistory = paginatedHistory.map(normalizeGeneration);
+
+        return NextResponse.json({
+            history: normalizedHistory,
             total,
             hasMore: startIndex + limit < total
         });
@@ -361,7 +309,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        
+
         // Handle sync-image
         if (body.action === 'sync-image' && body.localId && body.path) {
             const { localId, path: serverPath } = body;
@@ -369,45 +317,23 @@ export async function POST(request: Request) {
             let updatedCount = 0;
 
             const updatedHistory = history.map(h => {
-                let updated = false;
-                const newItem = { ...h };
+                const config = h.config;
+                if (!config) return h;
 
-                // Update sourceImageUrl if localId matches
-                if (newItem.localSourceId === localId) {
-                    newItem.sourceImageUrl = serverPath;
-                    updated = true;
-                }
-                
-                // Update sourceImageUrls array
-                if (newItem.localSourceIds?.includes(localId)) {
-                    const idx = newItem.localSourceIds.indexOf(localId);
-                    if (newItem.sourceImageUrls && newItem.sourceImageUrls[idx]) {
-                        const newUrls = [...newItem.sourceImageUrls];
+                if (config.localSourceIds?.includes(localId)) {
+                    const idx = config.localSourceIds.indexOf(localId);
+                    const sourceUrls = config.sourceImageUrls || [];
+                    if (sourceUrls[idx] !== undefined) {
+                        const newUrls = [...sourceUrls];
                         newUrls[idx] = serverPath;
-                        newItem.sourceImageUrls = newUrls;
-                        updated = true;
+                        updatedCount++;
+                        return {
+                            ...h,
+                            config: { ...config, sourceImageUrls: newUrls }
+                        };
                     }
                 }
-
-                // Update config as well
-                if (newItem.config) {
-                    if (newItem.config.localSourceId === localId) {
-                        newItem.config = { ...newItem.config, sourceImageUrl: serverPath };
-                        updated = true;
-                    }
-                    if (newItem.config.localSourceIds?.includes(localId)) {
-                        const idx = newItem.config.localSourceIds.indexOf(localId);
-                        if (newItem.config.sourceImageUrls && newItem.config.sourceImageUrls[idx]) {
-                            const newUrls = [...newItem.config.sourceImageUrls];
-                            newUrls[idx] = serverPath;
-                            newItem.config = { ...newItem.config, sourceImageUrls: newUrls };
-                            updated = true;
-                        }
-                    }
-                }
-
-                if (updated) updatedCount++;
-                return newItem;
+                return h;
             });
 
             if (updatedCount > 0) {
@@ -421,33 +347,31 @@ export async function POST(request: Request) {
         if (body.action === 'batch-update' && Array.isArray(body.items)) {
             const items = body.items as Generation[];
             await ensureOutputsDir();
-            
-            // 1. Update individual metadata files (Parallelized)
+
             await Promise.all(items.map(async (item) => {
                 if (!item.outputUrl) return;
                 const baseName = path.basename(item.outputUrl, path.extname(item.outputUrl));
                 const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
-                
+
                 try {
-                    let metadata = {};
+                    let metadata: any = {};
                     try {
                         const content = await fs.readFile(jsonPath, 'utf-8');
                         metadata = JSON.parse(content);
                     } catch { /* ignore */ }
-                    
+
                     const updatedMetadata = {
                         ...metadata,
                         projectId: item.projectId,
                         config: item.config,
                     };
-                    
+
                     await fs.writeFile(jsonPath, JSON.stringify(updatedMetadata, null, 2));
                 } catch (e) {
                     console.warn(`Failed to update metadata for ${baseName}`, e);
                 }
             }));
-            
-            // 2. Update global history.json
+
             const history = (await readHistory() || []) as Generation[];
             for (const item of items) {
                 const idx = history.findIndex(h => h.id === item.id || h.outputUrl === item.outputUrl);
@@ -456,32 +380,19 @@ export async function POST(request: Request) {
                 }
             }
             await saveHistory(history);
-            
+
             return NextResponse.json({ success: true });
         }
 
+        // Handle single item save
         const item = body as Generation;
         if (!item || (!item.outputUrl && !item.id)) {
             return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
         }
 
         // Sanitize incoming item to prevent bloat
-        if (item.sourceImageUrl && item.sourceImageUrl.length > 5000 && item.sourceImageUrl.startsWith('data:')) {
-            item.sourceImageUrl = "(large base64 data truncated)";
-        }
-        if (item.sourceImageUrls && item.sourceImageUrls.length > 0) {
-            item.sourceImageUrls = item.sourceImageUrls.map(url => {
-                if (url && url.length > 5000 && url.startsWith('data:')) {
-                    return "(large base64 data truncated)";
-                }
-                return url;
-            });
-        }
         if (item.config) {
             const config = item.config as GenerationConfig;
-            if (config.sourceImageUrl && config.sourceImageUrl.length > 5000 && config.sourceImageUrl.startsWith('data:')) {
-                config.sourceImageUrl = "(large base64 data truncated)";
-            }
             if (config.sourceImageUrls && config.sourceImageUrls.length > 0) {
                 config.sourceImageUrls = config.sourceImageUrls.map(url => {
                     if (url && url.length > 5000 && url.startsWith('data:')) {
@@ -489,6 +400,10 @@ export async function POST(request: Request) {
                     }
                     return url;
                 });
+            }
+            // Set isPreset flag if not present
+            if (config.isPreset === undefined) {
+                config.isPreset = !!(config.presetName);
             }
         }
 
@@ -502,11 +417,6 @@ export async function POST(request: Request) {
             outputUrl,
             config: item.config,
             status: item.status || 'completed',
-            sourceImageUrl: item.sourceImageUrl,
-            sourceImageUrls: item.sourceImageUrls,
-            localSourceId: item.localSourceId,
-            localSourceIds: item.localSourceIds,
-            taskId: item.taskId,
             createdAt: item.createdAt || new Date().toISOString(),
         };
 

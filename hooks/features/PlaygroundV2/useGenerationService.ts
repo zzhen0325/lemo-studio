@@ -7,12 +7,14 @@ import { userStore } from "@/lib/store/user-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
 import { GenerationConfig, EditPresetConfig } from "@/components/features/playground-v2/types";
-import { Generation, SelectedLora } from "@/types/database";
+import { Generation } from "@/types/database";
 import { IMultiValueInput } from "@/lib/workflow-api-parser";
 import { UIComponent } from "@/types/features/mapping-editor";
 import { usePostPlayground } from "@/hooks/features/playground/use-post-playground";
 import { toUnifiedConfigFromLegacy } from "@/lib/adapters/data-mapping";
 import { getApiBase } from "@/lib/api-base";
+import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
+import { isWorkflowModel } from "@/lib/utils/model-utils";
 
 export interface UnifiedModelConfig {
     id: string;
@@ -110,14 +112,14 @@ export function useGenerationService() {
         // Calculate effective source URLs - prioritize passed parameter
         // 如果传入了 sourceImageUrls，则严格使用它，否则才回退到 Store 状态
         // 关键：在批量生成或重新生成时，sourceImageUrls 不为空，不应受 Store 状态影响
-        const effectiveSourceUrls = sourceImageUrls.length > 0 
-            ? sourceImageUrls 
+        const effectiveSourceUrls = sourceImageUrls.length > 0
+            ? sourceImageUrls
             : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
-        
+
         // 同样逻辑应用于 Local IDs
         const effectiveLocalId = localSourceId || (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages[0]?.id : undefined);
-        const effectiveLocalIds = localSourceIds.length > 0 
-            ? localSourceIds 
+        const effectiveLocalIds = localSourceIds.length > 0
+            ? localSourceIds
             : (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages.map(img => img.id).filter((id): id is string => !!id) : []);
 
         const effectiveSourceUrl = effectiveSourceUrls[0];
@@ -215,9 +217,22 @@ export function useGenerationService() {
                             console.log(`[useGenerationService] Streamed image saved to: ${savedPath}`);
                             setGenerationHistory((prev: Generation[]) => prev.map(item =>
                                 item.id === uniqueId
-                                    ? { ...item, outputUrl: savedPath, status: 'completed', editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId, sourceImageUrls: effectiveSourceUrls }
+                                    ? {
+                                        ...item,
+                                        outputUrl: savedPath,
+                                        status: 'completed',
+                                        config: {
+                                            ...item.config,
+                                            editConfig: effectiveEditConfig,
+                                            isEdit: currentConfig.isEdit,
+                                            parentId: currentConfig.parentId,
+                                            taskId: currentConfig.taskId || taskId,
+                                            sourceImageUrls: effectiveSourceUrls,
+                                        }
+                                    }
                                     : item
                             ));
+
                         } catch (err) {
                             console.error("Failed to save streamed image:", err);
                         }
@@ -288,18 +303,15 @@ export function useGenerationService() {
                     loras: undefined,
                     workflowName: undefined,
                     presetName: currentConfig.presetName,
+                    sourceImageUrls: effectiveSourceUrls,
+                    localSourceIds: effectiveLocalIds,
+                    editConfig: effectiveEditConfig,
+                    isEdit: currentConfig.isEdit,
+                    parentId: currentConfig.parentId,
+                    taskId: currentConfig.taskId || taskId,
                 },
                 status: 'completed',
-                sourceImageUrl: effectiveSourceUrl,
-                sourceImageUrls: effectiveSourceUrls,
-                localSourceId: effectiveLocalId,
-                localSourceIds: effectiveLocalIds,
-                baseModel: modelId,
                 createdAt: generationTime,
-                editConfig: effectiveEditConfig,
-                isEdit: currentConfig.isEdit,
-                parentId: currentConfig.parentId,
-                taskId: currentConfig.taskId || taskId,
             };
             updateHistoryAndSave(uniqueId, gen);
         } else {
@@ -314,11 +326,11 @@ export function useGenerationService() {
         const effectiveSourceUrls = sourceImageUrls.length > 0
             ? sourceImageUrls
             : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
-            
+
         // 同样逻辑应用于 Local IDs
         const effectiveLocalId = localSourceId || (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages[0]?.id : undefined);
-        const effectiveLocalIds = localSourceIds.length > 0 
-            ? localSourceIds 
+        const effectiveLocalIds = localSourceIds.length > 0
+            ? localSourceIds
             : (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages.map(img => img.id).filter((id): id is string => !!id) : []);
 
         const effectiveSourceUrl = effectiveSourceUrls[0];
@@ -366,8 +378,8 @@ export function useGenerationService() {
                                 {
                                     config: {
                                         ...currentConfig,
-                                        model: "Workflow",
-                                        baseModel: "Workflow",
+                                        model: MODEL_ID_WORKFLOW,
+                                        baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
                                         workflowName: selectedWorkflowConfig.viewComfyJSON.title,
                                         loras: usePlaygroundStore.getState().selectedLoras,
                                         localSourceId: effectiveLocalId,
@@ -379,7 +391,7 @@ export function useGenerationService() {
                                     sourceImageUrls: effectiveSourceUrls,
                                     localSourceId: effectiveLocalId,
                                     localSourceIds: effectiveLocalIds,
-                                    baseModel: "Workflow",
+                                    baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
                                 }
                             );
 
@@ -390,23 +402,20 @@ export function useGenerationService() {
                                 outputUrl: savedPath,
                                 config: {
                                     ...toUnifiedConfigFromLegacy(currentConfig),
-                                    model: "Workflow",
-                                    baseModel: "Workflow",
+                                    model: MODEL_ID_WORKFLOW,
+                                    baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
                                     workflowName: selectedWorkflowConfig.viewComfyJSON.title,
                                     loras: usePlaygroundStore.getState().selectedLoras,
                                     presetName: currentConfig.presetName,
+                                    sourceImageUrls: effectiveSourceUrls,
+                                    localSourceIds: effectiveLocalIds,
+                                    editConfig: currentConfig.editConfig,
+                                    isEdit: currentConfig.isEdit,
+                                    parentId: currentConfig.parentId,
+                                    taskId: currentConfig.taskId || taskId,
                                 },
                                 status: 'completed',
-                                sourceImageUrl: effectiveSourceUrl,
-                                sourceImageUrls: effectiveSourceUrls,
-                                localSourceId: effectiveLocalId,
-                                localSourceIds: effectiveLocalIds,
-                                baseModel: "Workflow",
                                 createdAt: generationTime,
-                                editConfig: currentConfig.editConfig,
-                                isEdit: currentConfig.isEdit,
-                                parentId: currentConfig.parentId,
-                                taskId: currentConfig.taskId || taskId,
                             };
                             updateHistoryAndSave(uniqueId, gen);
                             resolve();
@@ -426,12 +435,10 @@ export function useGenerationService() {
 
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
-        
+
         // 优先使用 config 中的模型 ID
         const effectiveModel = unifiedCfg.model || selectedModel;
-        const isWorkflowModel = effectiveModel === "Workflow" ||
-            effectiveModel?.endsWith('.safetensors') ||
-            effectiveModel?.includes('safetensors');
+        const isWorkflow = isWorkflowModel(effectiveModel);
 
         try {
             if (isMockMode) {
@@ -447,25 +454,21 @@ export function useGenerationService() {
                         width: unifiedCfg.width,
                         height: unifiedCfg.height,
                         model: unifiedCfg.model,
-                        lora: unifiedCfg.lora,
-                        loras: isWorkflowModel ? usePlaygroundStore.getState().selectedLoras : undefined,
-                        workflowName: isWorkflowModel ? usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined : undefined,
-                        localSourceId: localSourceId,
+                        loras: isWorkflow ? usePlaygroundStore.getState().selectedLoras : undefined,
+                        isPreset: !!(unifiedCfg.presetName),
+                        workflowName: isWorkflow ? usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined : undefined,
+                        sourceImageUrls: sourceImageUrls,
                         localSourceIds: localSourceIds,
+                        taskId: taskId,
                     },
                     status: 'completed',
-                    sourceImageUrl: sourceImageUrls[0],
-                    sourceImageUrls: sourceImageUrls,
-                    localSourceId: localSourceId,
-                    localSourceIds: localSourceIds,
                     createdAt: new Date().toISOString(),
-                    taskId: taskId,
                 };
                 updateHistoryAndSave(uniqueId, result);
                 return;
             }
 
-            if (isWorkflowModel) {
+            if (isWorkflow) {
                 await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
             } else {
                 await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
@@ -492,7 +495,7 @@ export function useGenerationService() {
 
         // 1. Get uploaded images first - prioritize options
         const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-        
+
         // 关键修复：如果 options 中没有提供 sourceImageUrls，则从 Store 中获取最新的图片数据
         // 这确保了手动粘贴或通过 handleFilesUpload 上传的图片能够被 handleGenerate 正确读取
         const sourceImageUrls = options.sourceImageUrls || currentUploadedImages.map(img => img.path || img.previewUrl);
@@ -535,7 +538,11 @@ export function useGenerationService() {
         } : undefined);
 
         const parentId = options.parentId || configOverride?.parentId || freshConfig.parentId;
-        const taskId = options.taskId || configOverride?.taskId || freshConfig.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
+
+        // 核心修复：重新分配 taskId 逻辑。
+        // 如果是手动通过 handleGenerate 发起的任务（比如 Rerun），我们希望有一个全新的 taskId
+        // 只有当 options 或 configOverride 显式指定了 taskId 时才使用，不要回退到 freshConfig.taskId (因为它是 Store 中的陈旧全局配置)
+        const taskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
 
         const combinedConfig = {
             ...freshConfig,
@@ -543,22 +550,20 @@ export function useGenerationService() {
         };
 
         const unifiedCfg = toUnifiedConfigFromLegacy(combinedConfig);
-        
+
         // Determine effective model and workflow status
         const effectiveModel = unifiedCfg.model || usePlaygroundStore.getState().selectedModel;
-        const isWorkflowModel = effectiveModel === "Workflow" ||
-            effectiveModel?.endsWith('.safetensors') ||
-            effectiveModel?.includes('safetensors');
+        const isWorkflow = isWorkflowModel(effectiveModel);
 
         // 优先使用 config 中的 presetName，如果是工作流则回退到 workflowName
-        const finalPresetName = combinedConfig.presetName || (isWorkflowModel ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined);
+        const finalPresetName = combinedConfig.presetName || (isWorkflow ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined);
 
         const finalConfig: GenerationConfig = {
             ...combinedConfig,
             loras: currentLoras,
             presetName: finalPresetName,
             baseModel: effectiveModel, // Store the real model ID
-            workflowName: isWorkflowModel ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined,
+            workflowName: isWorkflow ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined,
             editConfig: displayEditConfig,
             isEdit,
             parentId,
@@ -568,7 +573,7 @@ export function useGenerationService() {
         setHasGenerated(true);
 
         const configForHistory = { ...finalConfig };
-        if (!isWorkflowModel) {
+        if (!isWorkflow) {
             configForHistory.loras = undefined;
             configForHistory.workflowName = undefined;
         }
@@ -582,19 +587,15 @@ export function useGenerationService() {
             outputUrl: "",
             config: {
                 ...configForHistory,
-                localSourceId,
-                localSourceIds,
+                sourceImageUrls: sourceImageUrls,
+                localSourceIds: localSourceIds,
+                baseModel: effectiveModel,
+                editConfig: displayEditConfig,
+                isEdit: isEdit,
+                parentId: parentId,
+                taskId: taskId,
             },
             status: 'pending',
-            sourceImageUrl: sourceImageUrl,
-            sourceImageUrls: sourceImageUrls,
-            localSourceId: localSourceId,
-            localSourceIds: localSourceIds,
-            baseModel: effectiveModel,
-            editConfig: displayEditConfig,
-            isEdit: isEdit,
-            parentId: parentId,
-            taskId: taskId,
             createdAt: generationTime,
         };
 

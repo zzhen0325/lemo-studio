@@ -26,8 +26,9 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
 
-  // Prefer sourceImageUrls array, fallback to sourceImageUrl
-  const sourceUrls = result?.sourceImageUrls || (result?.sourceImageUrl ? [result.sourceImageUrl] : []);
+  // 数据已规范化，直接从 config.sourceImageUrls 读取
+  const sourceUrls = result?.config?.sourceImageUrls || [];
+
 
   useEffect(() => {
     setMounted(true);

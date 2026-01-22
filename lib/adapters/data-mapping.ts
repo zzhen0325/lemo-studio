@@ -2,7 +2,9 @@ import {
   AspectRatio,
   ImageSize,
   GenerationConfig,
+  Generation,
 } from '@/types/database';
+
 
 const AR_MAP: Record<Exclude<AspectRatio, 'auto'>, Record<ImageSize, { w: number; h: number }>> = {
   '1:1': { '1K': { w: 1024, h: 1024 }, '2K': { w: 2048, h: 2048 }, '4K': { w: 4096, h: 4096 } },
@@ -76,6 +78,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
       imageSize = '2K';
     }
 
+
     const aspectRatio: AspectRatio = input.aspectRatio || inferred?.aspectRatio || '1:1';
     if (aspectRatio === 'auto') {
       return {
@@ -126,3 +129,29 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
     baseModel,
   };
 }
+
+export function normalizeGeneration(gen: Generation): Generation {
+  const config = gen.config || {} as GenerationConfig;
+
+  // 确保 config 内包含必要的数组字段
+  const sourceImageUrls = (config.sourceImageUrls && config.sourceImageUrls.length > 0)
+    ? config.sourceImageUrls
+    : (gen as any).sourceImageUrls || [];
+
+  const localSourceIds = (config.localSourceIds && config.localSourceIds.length > 0)
+    ? config.localSourceIds
+    : (gen as any).localSourceIds || [];
+
+  return {
+    ...gen,
+    config: {
+      ...config,
+      sourceImageUrls,
+      localSourceIds,
+      baseModel: config.baseModel || (gen as any).baseModel,
+      isEdit: config.isEdit ?? (gen as any).isEdit,
+      isPreset: config.isPreset ?? !!(config.presetName),
+    }
+  };
+}
+

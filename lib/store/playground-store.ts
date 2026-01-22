@@ -7,12 +7,8 @@ import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSe
 import { userStore } from './user-store';
 import { getApiBase } from "@/lib/api-base";
 
-const BASE_MODELS = new Set([
-    'FLUX_fill',
-    'flux1-dev-fp8.safetensors',
-    'Zimage',
-    'qwen'
-]);
+import { MODEL_ID_WORKFLOW } from '../constants/models';
+import { isWorkflowModel } from '../utils/model-utils';
 
 interface PlaygroundState {
     config: GenerationConfig;
@@ -127,7 +123,6 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 height: 768,
                 model: 'gemini-3-pro-image-preview',
                 imageSize: '1K',
-                lora: '',
                 isEdit: false,
                 parentId: undefined
             },
@@ -181,7 +176,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
             setUploadedImages: (updater) => set((state) => {
                 const newImages = typeof updater === 'function' ? updater(state.uploadedImages) : updater;
-                
+
                 // 如果图片被清空，重置编辑状态，防止残留参考图
                 if (newImages.length === 0 && state.config.isEdit) {
                     return {
@@ -194,7 +189,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         }
                     };
                 }
-                
+
                 return { uploadedImages: newImages };
             }),
             setDescribeImages: (updater) => set((state) => ({
@@ -202,7 +197,10 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             })),
 
             setSelectedModel: (model) => set({ selectedModel: model }),
-            setSelectedWorkflowConfig: (workflow) => set({ selectedWorkflowConfig: workflow }),
+            setSelectedWorkflowConfig: (workflow: IViewComfy | undefined, presetName?: string) => set((state) => ({
+                selectedWorkflowConfig: workflow,
+                selectedPresetName: presetName || state.selectedPresetName
+            })),
             setSelectedLoras: (loras) => set({ selectedLoras: loras }),
             setHasGenerated: (val) => set({ hasGenerated: val }),
             setShowHistory: (val) => set({ showHistory: val }),
@@ -222,23 +220,19 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     let updated = false;
                     const newItem = { ...item };
 
-                    if (newItem.sourceImageUrl === oldUrl) {
-                        newItem.sourceImageUrl = newUrl;
-                        updated = true;
-                    }
-                    // Update sourceImageUrls array
-                    if (newItem.sourceImageUrls?.includes(oldUrl)) {
-                        newItem.sourceImageUrls = newItem.sourceImageUrls.map(url => url === oldUrl ? newUrl : url);
-                        updated = true;
-                    }
+                    // Update outputUrl
                     if (newItem.outputUrl === oldUrl) {
                         newItem.outputUrl = newUrl;
                         updated = true;
                     }
-                    if (newItem.config?.sourceImageUrl === oldUrl) {
-                        newItem.config = { ...newItem.config, sourceImageUrl: newUrl };
+
+                    // Update top-level sourceImageUrls array
+                    const itemAny = newItem as any;
+                    if (itemAny.sourceImageUrls?.includes(oldUrl)) {
+                        itemAny.sourceImageUrls = itemAny.sourceImageUrls.map((url: string) => url === oldUrl ? newUrl : url);
                         updated = true;
                     }
+
                     // Update config.sourceImageUrls array
                     if (newItem.config?.sourceImageUrls?.includes(oldUrl)) {
                         newItem.config = {
@@ -247,8 +241,10 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         };
                         updated = true;
                     }
-                    if (newItem.editConfig?.originalImageUrl === oldUrl) {
-                        newItem.editConfig = { ...newItem.editConfig, originalImageUrl: newUrl };
+
+                    // Update editConfig.originalImageUrl
+                    if (itemAny.editConfig?.originalImageUrl === oldUrl) {
+                        itemAny.editConfig = { ...itemAny.editConfig, originalImageUrl: newUrl };
                         updated = true;
                     }
                     if (newItem.config?.editConfig?.originalImageUrl === oldUrl) {
@@ -264,60 +260,32 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             })),
 
             syncLocalImageToHistory: async (localId, serverPath) => {
-                // 1. Update local state
+                // 1. Update local state - 只更新 config 内的字段
                 set((state) => ({
                     generationHistory: state.generationHistory.map(item => {
-                        let updated = false;
-                        const newItem = { ...item };
+                        const config = item.config;
+                        if (!config) return item;
 
-                        // Check main localSourceId
-                        if (newItem.localSourceId === localId) {
-                            newItem.sourceImageUrl = serverPath;
-                            updated = true;
-                        }
-                        
-                        // Check localSourceIds array
-                        if (newItem.localSourceIds?.includes(localId)) {
-                            // Find the index and update sourceImageUrls at the same index
-                            const idx = newItem.localSourceIds.indexOf(localId);
-                            if (newItem.sourceImageUrls && newItem.sourceImageUrls[idx]) {
-                                const newUrls = [...newItem.sourceImageUrls];
+                        // Check localSourceIds array in config
+                        if (config.localSourceIds?.includes(localId)) {
+                            const idx = config.localSourceIds.indexOf(localId);
+                            const sourceUrls = config.sourceImageUrls || [];
+                            if (sourceUrls[idx] !== undefined) {
+                                const newUrls = [...sourceUrls];
                                 newUrls[idx] = serverPath;
-                                newItem.sourceImageUrls = newUrls;
-                                updated = true;
-                            }
-                        } else if (newItem.localSourceId === localId && newItem.sourceImageUrls && newItem.sourceImageUrls.length > 0) {
-                            // Fallback for first image if localSourceIds is missing
-                            const newUrls = [...newItem.sourceImageUrls];
-                            newUrls[0] = serverPath;
-                            newItem.sourceImageUrls = newUrls;
-                            updated = true;
-                        }
-
-                        if (newItem.config?.localSourceId === localId) {
-                            newItem.config = {
-                                ...newItem.config,
-                                sourceImageUrl: serverPath,
-                            };
-                            updated = true;
-                        }
-                        
-                        if (newItem.config?.localSourceIds?.includes(localId)) {
-                            const idx = newItem.config.localSourceIds.indexOf(localId);
-                            if (newItem.config.sourceImageUrls && newItem.config.sourceImageUrls[idx]) {
-                                const newUrls = [...newItem.config.sourceImageUrls];
-                                newUrls[idx] = serverPath;
-                                newItem.config = {
-                                    ...newItem.config,
-                                    sourceImageUrls: newUrls
+                                return {
+                                    ...item,
+                                    config: {
+                                        ...config,
+                                        sourceImageUrls: newUrls
+                                    }
                                 };
-                                updated = true;
                             }
                         }
-
-                        return updated ? newItem : item;
+                        return item;
                     })
                 }));
+
 
                 // 2. Sync to backend
                 try {
@@ -343,9 +311,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 }
 
                 try {
-                    let blob: Blob;
                     const resp = await fetch(imageUrl);
-                    blob = await resp.blob();
+                    const blob = await resp.blob();
 
                     const file = new File([blob], `image-${Date.now()}.png`, { type: 'image/png' });
                     const reader = new FileReader();
@@ -374,9 +341,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             applyImages: async (imageUrls) => {
                 try {
                     const newImages = await Promise.all(imageUrls.map(async (url) => {
-                        let blob: Blob;
                         const resp = await fetch(url);
-                        blob = await resp.blob();
+                        const blob = await resp.blob();
 
                         const file = new File([blob], `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.png`, { type: 'image/png' });
                         const reader = new FileReader();
@@ -403,13 +369,13 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 set((state) => {
                     const finalModel = configData?.baseModel || model;
                     let uiModel = model;
-                    if (BASE_MODELS.has(finalModel)) {
-                        uiModel = 'Workflow';
+                    if (isWorkflowModel(finalModel)) {
+                        uiModel = MODEL_ID_WORKFLOW;
                     }
 
-                    const newConfig = configData 
-                        ? { ...state.config, ...configData, model: finalModel, baseModel: finalModel } 
-                        : { ...state.config, model: finalModel, baseModel: finalModel, presetName: undefined, workflowName: undefined };
+                    const newConfig = configData
+                        ? { ...state.config, ...configData, model: finalModel, baseModel: finalModel, isPreset: !!(configData.presetName) }
+                        : { ...state.config, model: finalModel, baseModel: finalModel, isPreset: false };
 
                     // Default to 2K for Seed 4.2
                     if (finalModel === 'seed4_2_lemo' && !newConfig.imageSize) {
@@ -422,7 +388,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         selectedWorkflowConfig: uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined,
                         // If configData explicitly provides loras array, use it as priority
                         selectedLoras: configData?.loras || state.config?.loras || state.selectedLoras,
-                        selectedPresetName: configData?.presetName || (configData ? state.selectedPresetName : undefined)
+                        selectedPresetName: configData?.presetName || (configData ? undefined : state.selectedPresetName)
                     };
                 });
             },
@@ -433,29 +399,21 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     const finalModel = (modelFromConfig as string) || state.selectedModel;
                     let uiModel = finalModel;
 
-                    if (BASE_MODELS.has(finalModel)) {
-                        uiModel = 'Workflow';
+                    if (isWorkflowModel(finalModel)) {
+                        uiModel = MODEL_ID_WORKFLOW;
                     }
 
                     return {
                         selectedModel: uiModel,
-                        selectedWorkflowConfig: result.config?.workflowName ? (state.presets.find(p => p.workflow_id === result.id || p.name === result.config.workflowName) as unknown as IViewComfy) : (uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined),
+                        selectedWorkflowConfig: result.config?.presetName ? (state.presets.find(p => p.id === result.id || p.name === result.config.presetName) as unknown as IViewComfy) : (uiModel === MODEL_ID_WORKFLOW ? state.selectedWorkflowConfig : undefined),
                         selectedLoras: result.config?.loras || [],
                         selectedPresetName: result.config?.presetName,
                         config: {
                             ...state.config,
-                            prompt: result.config?.prompt || state.config.prompt,
-                            width: result.config?.width || state.config.width,
-                            height: result.config?.height || state.config.height,
+                            ...result.config, // 直接合并，因为后端已通过扩散操作补全了
                             model: finalModel,
                             baseModel: finalModel,
-                            presetName: result.config?.presetName,
-                            workflowName: result.config?.workflowName,
-                            loras: result.config?.loras || [],
-                            seed: result.config?.seed,
-                            imageSize: result.config?.imageSize,
-                            aspectRatio: result.config?.aspectRatio,
-                            sizeFrom: result.config?.sizeFrom
+                            isPreset: result.config?.isPreset ?? !!(result.config?.presetName),
                         },
                         hasGenerated: true
                     };
@@ -471,7 +429,10 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         model: 'gemini-3-pro-image-preview',
                         imageSize: '2K',
                         aspectRatio: '16:9',
-                        lora: '',
+                        loras: [],
+                        sourceImageUrls: [],
+                        localSourceIds: [],
+                        isPreset: false,
                         editConfig: undefined,
                         isEdit: false,
                         parentId: undefined
@@ -535,7 +496,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                                     // Deduplicate pending items against fetched items (just in case)
                                     const fetchedIds = new Set(data.history.map((h: Generation) => h.id));
                                     const uniquePending = pendingItems.filter(item => !fetchedIds.has(item.id));
-                                    
+
                                     newHistory = [...uniquePending, ...data.history];
                                 } else {
                                     // Deduplicate when appending
@@ -783,7 +744,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     } else if (preset.coverUrl && !preset.coverUrl.startsWith('local:') && !preset.coverUrl.startsWith('data:')) {
                         formData.append('coverUrl', preset.coverUrl);
                     }
-                    
+
                     const res = await fetch(`${getApiBase()}/presets`, { method: 'POST', body: formData });
                     if (res.ok) {
                         const savedPreset = await res.json();
@@ -914,23 +875,22 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             isAspectRatioLocked: state.isAspectRatioLocked,
             isMockMode: state.isMockMode,
             viewMode: state.viewMode,
-            viewMode: state.viewMode,
             presetCategories: state.presetCategories,
+
             // Only persist the first 20 items and strip heavy data to avoid localStorage quota (5MB) issues
             generationHistory: state.generationHistory.slice(0, 20).map(item => ({
                 ...item,
-                // Strip potentially large objects that are not needed for the list view
-                editConfig: item.editConfig ? {
-                    ...item.editConfig,
-                    canvasJson: {},
-                    referenceImages: item.editConfig.referenceImages?.map(img => ({
-                        ...img,
-                        dataUrl: '' // Remove base64 data
-                    })) || []
-                } : undefined,
-                // Also ensure config doesn't carry base64 if it ever does (defensive)
                 config: {
                     ...item.config,
+                    // Strip potentially large objects from config.editConfig
+                    editConfig: item.config?.editConfig ? {
+                        ...item.config.editConfig,
+                        canvasJson: {},
+                        referenceImages: item.config.editConfig.referenceImages?.map(img => ({
+                            ...img,
+                            dataUrl: '' // Remove base64 data
+                        })) || []
+                    } : undefined,
                 }
             }))
         }),

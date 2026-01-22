@@ -21,6 +21,8 @@ import type { UploadedImage } from "@/components/features/playground-v2/types";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
+import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
+import { isWorkflowModel } from "@/lib/utils/model-utils";
 
 
 
@@ -39,7 +41,6 @@ interface ControlToolbarProps {
   isGenerating: boolean;
   loadingText?: string;
   onOpenLoraSelector?: () => void;
-  selectedWorkflowName?: string;
   selectedBaseModelName?: string;
   selectedLoras?: SelectedLora[];
   selectedLoraNames?: string[];
@@ -80,7 +81,6 @@ export default function ControlToolbar({
   isGenerating,
   loadingText = "生成中...",
   onOpenLoraSelector,
-  selectedWorkflowName,
   selectedBaseModelName,
   selectedLoras = [],
   selectedPresetName,
@@ -112,15 +112,16 @@ export default function ControlToolbar({
     const entry = AVAILABLE_MODELS.find((cfg) => cfg.id === selectedModel);
     if (entry) {
       setSelectValue(entry.id);
-    } else if (selectedModel === 'Workflow' && selectedWorkflowName) {
+    } else if (isWorkflowModel(selectedModel) && selectedPresetName) {
+      // 通过 presetName 寻找对应的 workflow
       const wf = (Array.isArray(workflows) ? workflows : []).find(
-        (w) => w.viewComfyJSON.title === selectedWorkflowName
+        (w) => w.viewComfyJSON.title === selectedPresetName
       );
       if (wf) setSelectValue(`wf:${String(wf.viewComfyJSON.id)}`);
     } else {
       setSelectValue(undefined);
     }
-  }, [selectedModel, selectedWorkflowName, workflows]);
+  }, [selectedModel, selectedPresetName, workflows]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -144,8 +145,8 @@ export default function ControlToolbar({
         (w) => String(w.viewComfyJSON.id) === id
       );
       if (wf) {
-        onModelChange('Workflow');
-        onConfigChange?.({ model: 'Workflow' });
+        onModelChange(MODEL_ID_WORKFLOW);
+        onConfigChange?.({ model: MODEL_ID_WORKFLOW });
         onWorkflowSelect?.(wf);
       }
     }
@@ -159,7 +160,7 @@ export default function ControlToolbar({
     if (activeModel) {
       return activeModel.displayName;
     }
-    if (selectedModel === 'Workflow') return selectedBaseModelName || 'Base Model';
+    if (isWorkflowModel(selectedModel)) return selectedBaseModelName || 'Base Model';
     return 'Model';
   })();
 
@@ -261,11 +262,11 @@ export default function ControlToolbar({
             )}
             {!disableModelSelection && (
               <>
-                {selectedModel !== 'Workflow' && <ModelDropdown />}
-                {selectedModel === 'Workflow' && <BaseModelDropdown />}
+                {!isWorkflowModel(selectedModel) && <ModelDropdown />}
+                {isWorkflowModel(selectedModel) && <BaseModelDropdown />}
               </>
             )}
-            {selectedModel === 'Workflow' && (
+            {isWorkflowModel(selectedModel) && (
               <div className="flex items-center gap-2">
                 <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
                   LoRA

@@ -484,8 +484,8 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
     const { handleGenerate } = useGenerationService();
     const { toast } = useToast();
 
-    // Prefer sourceImageUrls array, fallback to sourceImageUrl
-    const sourceUrls = item.sourceImageUrls || (item.sourceImageUrl ? [item.sourceImageUrl] : []);
+    // 数据已规范化，直接从 config.sourceImageUrls 读取
+    const sourceUrls = item.config?.sourceImageUrls || [];
     const firstSourceUrl = sourceUrls[0];
     const sourceImage = useImageSource(firstSourceUrl || undefined);
 
@@ -651,8 +651,8 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         onClick={async () => {
                             if (!item.config) return;
 
-                            // 1. 同步参考图
-                            const sourceUrls = item.sourceImageUrls || (item.sourceImageUrl ? [item.sourceImageUrl] : []);
+                            // 1. 同步参考图 - 数据已规范化，直接从 config.sourceImageUrls 读取
+                            const sourceUrls = item.config?.sourceImageUrls || [];
                             if (sourceUrls.length > 0) {
                                 await applyImages(sourceUrls);
                             } else {

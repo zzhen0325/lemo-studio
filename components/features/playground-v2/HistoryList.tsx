@@ -14,6 +14,7 @@ import { useImageSource } from '@/hooks/common/use-image-source';
 import { cn } from "@/lib/utils";
 import { formatImageUrl } from '@/lib/api-base';
 import { useToast } from "@/hooks/common/use-toast";
+import { isWorkflowModel } from '@/lib/utils/model-utils';
 import { motion, AnimatePresence } from "framer-motion";
 import { AddToProjectDialog } from "./Dialogs/AddToProjectDialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -101,23 +102,16 @@ const HistoryList = observer(function HistoryList({
   const groupedHistory = React.useMemo(() => {
     const map = new Map<string, GroupedHistoryItem>();
     history.forEach((result) => {
-      const cfg = result.config;
-      // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 config.sourceImageUrls 获取，
-      // 再尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
-      const sourceUrls: string[] = (result.sourceImageUrls && result.sourceImageUrls.length > 0)
-        ? result.sourceImageUrls
-        : (result.config?.sourceImageUrls && result.config.sourceImageUrls.length > 0
-          ? result.config.sourceImageUrls
-          : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
-            ? result.editConfig.referenceImages.map(img => img.dataUrl)
-            : (result.sourceImageUrl ? [result.sourceImageUrl] : (result.config?.sourceImageUrl ? [result.config.sourceImageUrl] : []))));
+      // 数据已规范化，直接从 config.sourceImageUrls 读取
+      const sourceUrls: string[] = result.config?.sourceImageUrls ||
+        (result.config?.editConfig?.referenceImages?.map(img => img.dataUrl) || []);
       const firstSourceUrl = sourceUrls[0];
       const isText = !!firstSourceUrl && (result.outputUrl === firstSourceUrl);
       const type: 'image' | 'text' = isText ? 'text' : 'image';
-      
+
       // Use taskId as the primary grouping key. If taskId is missing, fallback to item id.
       // This ensures that batch generations (sharing same taskId) are grouped together.
-      const taskId = result.taskId || cfg?.taskId;
+      const taskId = result.config?.taskId;
       const key = taskId
         ? `task|${taskId}`
         : `item|${result.id}`;
@@ -294,15 +288,9 @@ const HistoryList = observer(function HistoryList({
         )}>
           {layoutMode === 'grid' ? (
             history.map((result, idx) => {
-              // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 config.sourceImageUrls 获取，
-              // 再尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
-              const sourceUrls: string[] = (result.sourceImageUrls && result.sourceImageUrls.length > 0)
-                ? result.sourceImageUrls
-                : (result.config?.sourceImageUrls && result.config.sourceImageUrls.length > 0
-                  ? result.config.sourceImageUrls
-                  : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
-                    ? result.editConfig.referenceImages.map(img => img.dataUrl)
-                    : (result.sourceImageUrl ? [result.sourceImageUrl] : (result.config?.sourceImageUrl ? [result.config.sourceImageUrl] : []))));
+              // 数据已规范化，直接从 config.sourceImageUrls 读取
+              const sourceUrls: string[] = result.config?.sourceImageUrls ||
+                (result.config?.editConfig?.referenceImages?.map(img => img.dataUrl) || []);
               const firstSourceUrl = sourceUrls[0];
               const isText = !!firstSourceUrl && (result.outputUrl === firstSourceUrl);
 
@@ -392,7 +380,6 @@ const HistoryList = observer(function HistoryList({
                           {group.sourceImage ? (
                             <DescribeSourceImage
                               sourceImage={group.sourceImage}
-                              localId={group.items[0].config?.localSourceId}
                               generationId={group.items[0].id}
                               onPreview={setPreviewImage}
                             />
@@ -519,12 +506,10 @@ export default HistoryList;
 
 function DescribeSourceImage({
   sourceImage,
-  localId,
   generationId,
   onPreview
 }: {
   sourceImage: string;
-  localId?: string;
   generationId: string;
   onPreview: (url: string, id: string) => void;
 }) {
@@ -559,13 +544,11 @@ function DescribeSourceImage({
 
 function HistoryReferenceImage({
   url,
-  localId,
   idx,
   resultId,
   onRefImageClick
 }: {
   url: string;
-  localId?: string;
   idx: number;
   resultId: string;
   onRefImageClick: (url: string, id: string) => void
@@ -679,23 +662,15 @@ function HistoryCard({
   const { applyPrompt, applyModel, applyImage, applyImages, styles, addImageToStyle, setSelectedPresetName } = usePlaygroundStore();
   const { toast } = useToast();
 
-  // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 config.sourceImageUrls 获取，最后回退到 sourceImageUrl
+  // 数据已规范化，直接从 config.sourceImageUrls 读取
   const sourceUrls = React.useMemo<string[]>(() => {
-    if (result.sourceImageUrls && result.sourceImageUrls.length > 0) {
-      return result.sourceImageUrls;
-    }
-    if (result.config?.sourceImageUrls && result.config.sourceImageUrls.length > 0) {
-      return result.config.sourceImageUrls;
-    }
-    return result.sourceImageUrl ? [result.sourceImageUrl] : (result.config?.sourceImageUrl ? [result.config.sourceImageUrl] : []);
-  }, [result.sourceImageUrls, result.sourceImageUrl, result.config?.sourceImageUrls, result.config?.sourceImageUrl]);
+    return result.config?.sourceImageUrls || [];
+  }, [result.config?.sourceImageUrls]);
 
-  const firstSourceUrl = sourceUrls[0];
-  const sourceImage = useImageSource(firstSourceUrl || undefined);
   const mainImage = formatImageUrl(result.outputUrl);
 
   const config = result.config;
-  const isWorkflow = config?.model === 'Workflow';
+  const isWorkflow = isWorkflowModel(config?.model);
   const modelDisplayName = AVAILABLE_MODELS.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
   const baseModelDisplayName = config?.baseModel ? (AVAILABLE_MODELS.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
   const prompt = config?.prompt || '';
@@ -724,8 +699,10 @@ function HistoryCard({
       >
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
           <div className="flex items-center gap-4">
-            {config?.presetName ? (
-              <span className="text-white text-md bg-[#b4cdbf22] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
+            {config?.isPreset ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/20 text-primary border border-primary/30">
+                PRESET: {config.presetName}
+              </span>
             ) : (
               <span className="text-white/80">{modelDisplayName}</span>
             )}
@@ -752,7 +729,7 @@ function HistoryCard({
             <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
 
-            {result.isEdit && (
+            {config?.isEdit && (
               <>
                 <span className="opacity-40">/</span>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
@@ -831,14 +808,10 @@ function HistoryCard({
                   {sourceUrls.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {sourceUrls.map((url, idx) => {
-                        const localSourceIds = result.localSourceIds || result.config?.localSourceIds || [];
-                        const localId = localSourceIds[idx] || (idx === 0 ? (result.localSourceId || result.config?.localSourceId) : undefined);
-                        
                         return (
                           <HistoryReferenceImage
                             key={idx}
                             url={url}
-                            localId={localId}
                             idx={idx}
                             resultId={result.id}
                             onRefImageClick={onRefImageClick}
@@ -1023,16 +996,16 @@ function HistoryCard({
                       height: config.height,
                       model: config.model,
                       baseModel: config.baseModel,
-                      lora: config.lora,
                       loras: config.loras,
                       presetName: config.presetName,
                       seed: config.seed,
                       aspectRatio: config.aspectRatio,
                       imageSize: config.imageSize,
+                      isPreset: config.isPreset,
                     });
 
                     setSelectedPresetName(config.presetName);
-                    
+
                     // 2. 回填 Prompt
                     applyPrompt(prompt);
 
@@ -1055,7 +1028,7 @@ function HistoryCard({
                 <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Use All</span>
               </Button>
 
-              {result.isEdit && result.editConfig && (
+              {config?.isEdit && config?.editConfig && (
                 <Button
                   size="sm"
                   className="h-8 rounded-sm border-white/10 bg-black/20 text-primary hover:bg-black/10 hover:text-primary gap-1.5 px-3"
@@ -1191,13 +1164,14 @@ function HistoryCard({
               if (result.config) {
                 const effectiveModel = result.config.baseModel || result.config.model;
                 applyModel(effectiveModel, {
+                  ...result.config,
                   prompt: result.config.prompt,
                   width: result.config.width,
                   height: result.config.height,
                   model: result.config.model,
                   baseModel: result.config.baseModel,
-                  lora: result.config.lora,
                   loras: result.config.loras,
+                  isPreset: result.config.isPreset,
                 });
               }
             }}

@@ -646,10 +646,10 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <div className="space-y-2">
                                                                     <Label className="text-sm">Linked Workflow</Label>
                                                                     <Select
-                                                                        value={formData.config?.workflowName || 'default'}
+                                                                        value={(formData.config as any)?.presetName || 'default'}
                                                                         onValueChange={(val) => setFormData({
                                                                             ...formData,
-                                                                            config: { ...(formData.config || DEFAULT_CONFIG), workflowName: val === 'default' ? undefined : val }
+                                                                            config: { ...(formData.config || DEFAULT_CONFIG), presetName: val === 'default' ? undefined : val, isPreset: val !== 'default' }
                                                                         })}
                                                                     >
                                                                         <SelectTrigger className="bg-white/5 border-white/10 h-10 rounded-xl">
