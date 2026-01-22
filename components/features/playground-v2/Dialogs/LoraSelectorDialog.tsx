@@ -117,7 +117,7 @@ export default function LoraSelectorDialog({ open, onOpenChange, value, onConfir
                   <div className="aspect-[2/3] w-full relative overflow-hidden bg-black/20">
                     {item.preview_url ? (
                       <Image
-                        src={item.preview_url}
+                        src={encodeURI(item.preview_url)}
                         alt={item.model_name}
                         fill
                         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"

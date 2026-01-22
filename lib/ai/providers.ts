@@ -369,8 +369,8 @@ export class GoogleGenAIProvider
     }
 
     return {
-      inline_data: {
-        mime_type: mimeType,
+      inlineData: {
+        mimeType: mimeType,
         data: base64Data,
       },
     };
@@ -402,14 +402,14 @@ export class GoogleGenAIProvider
       responseModalities: ["Image"], // 官方 REST 文档使用 "Image"
     };
 
-    if (aspectRatio || imageSize) {
+    if (aspectRatio || (imageSize && this.modelId === 'gemini-3-pro-image-preview')) {
       configParams.imageConfig = {
         ...(aspectRatio ? { aspectRatio } : {}),
-        ...(imageSize ? { imageSize } : {}),
+        ...(imageSize && this.modelId === 'gemini-3-pro-image-preview' ? { imageSize } : {}),
       };
     }
 
-    const url = `${this.baseURL}/models/gemini-3-pro-image-preview:generateContent?key=${this.apiKey}`;
+    const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
     const agent = getProxyAgent();
     const body = JSON.stringify({
       contents: [{ role: "user", parts }],

@@ -127,7 +127,7 @@ export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfi
             console.log(`[getProvider] Detected safetensors model: ${modelId}, returning dummy provider.`);
             return {
                 generateImage: async () => ({ images: [] })
-            } as any;
+            } as ImageProvider;
         }
 
         console.error(`[getProvider] Model not found in registry: ${modelId}`);

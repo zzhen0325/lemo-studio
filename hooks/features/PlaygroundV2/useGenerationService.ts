@@ -22,8 +22,9 @@ export interface UnifiedModelConfig {
 }
 
 export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
+        { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
+    { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
 
-    { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana' },
     { id: 'coze_seed4', displayName: 'Seedream 4' },
     // { id: 'seed4_lemo1230', displayName: 'Seed 4.0' },
     { id: 'seed4_2_lemo', displayName: 'Seed4 ' },
@@ -169,7 +170,7 @@ export function useGenerationService() {
             width: Number(unified.width),
             height: Number(unified.height),
             aspectRatio: unified.aspectRatio === 'auto' ? undefined : unified.aspectRatio,
-            imageSize: unified.imageSize,
+            imageSize: modelId === 'gemini-3-pro-image-preview' ? unified.imageSize : undefined,
             batchSize: 1, // Single task per call now
             image: effectiveSourceUrl,
             // 传递所有收集到的图片作为参考图
@@ -204,6 +205,7 @@ export function useGenerationService() {
                                         localSourceId: effectiveLocalId,
                                         localSourceIds: effectiveLocalIds,
                                         presetName: currentConfig.presetName,
+                                        isPreset: !!currentConfig.presetName,
                                     },
                                     createdAt: generationTime,
                                     sourceImageUrl: effectiveSourceUrl,
@@ -228,6 +230,7 @@ export function useGenerationService() {
                                             parentId: currentConfig.parentId,
                                             taskId: currentConfig.taskId || taskId,
                                             sourceImageUrls: effectiveSourceUrls,
+                                            isPreset: !!currentConfig.presetName,
                                         }
                                     }
                                     : item
@@ -278,10 +281,10 @@ export function useGenerationService() {
                         ...unified,
                         model: modelId,
                         baseModel: modelId,
-                        lora: unified.lora,
                         localSourceId: effectiveLocalId,
                         localSourceIds: effectiveLocalIds,
                         presetName: currentConfig.presetName,
+                        isPreset: !!currentConfig.presetName,
                     },
                     createdAt: generationTime,
                     sourceImageUrl: effectiveSourceUrl,
@@ -309,6 +312,7 @@ export function useGenerationService() {
                     isEdit: currentConfig.isEdit,
                     parentId: currentConfig.parentId,
                     taskId: currentConfig.taskId || taskId,
+                    isPreset: !!currentConfig.presetName,
                 },
                 status: 'completed',
                 createdAt: generationTime,
@@ -377,15 +381,16 @@ export function useGenerationService() {
                                 dataUrl,
                                 {
                                     config: {
-                                        ...currentConfig,
-                                        model: MODEL_ID_WORKFLOW,
-                                        baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
-                                        workflowName: selectedWorkflowConfig.viewComfyJSON.title,
-                                        loras: usePlaygroundStore.getState().selectedLoras,
-                                        localSourceId: effectiveLocalId,
-                                        localSourceIds: effectiveLocalIds,
-                                        presetName: currentConfig.presetName,
-                                    },
+                                    ...currentConfig,
+                                    model: MODEL_ID_WORKFLOW,
+                                    baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
+                                    workflowName: selectedWorkflowConfig.viewComfyJSON.title,
+                                    loras: usePlaygroundStore.getState().selectedLoras,
+                                    localSourceId: effectiveLocalId,
+                                    localSourceIds: effectiveLocalIds,
+                                    presetName: currentConfig.presetName,
+                                    isPreset: !!currentConfig.presetName,
+                                },
                                     createdAt: generationTime,
                                     sourceImageUrl: effectiveSourceUrl,
                                     sourceImageUrls: effectiveSourceUrls,
@@ -556,7 +561,10 @@ export function useGenerationService() {
         const isWorkflow = isWorkflowModel(effectiveModel);
 
         // 优先使用 config 中的 presetName，如果是工作流则回退到 workflowName
-        const finalPresetName = combinedConfig.presetName || (isWorkflow ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined);
+        let finalPresetName = combinedConfig.presetName;
+        if (!finalPresetName && isWorkflow) {
+            finalPresetName = combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title;
+        }
 
         const finalConfig: GenerationConfig = {
             ...combinedConfig,
@@ -580,6 +588,8 @@ export function useGenerationService() {
 
         const uniqueId = `gen-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 
+        const isPreset = !!(finalConfig.presetName);
+
         const loadingGen: Generation = {
             id: uniqueId,
             userId: userStore.currentUser?.id || 'anonymous',
@@ -594,6 +604,7 @@ export function useGenerationService() {
                 isEdit: isEdit,
                 parentId: parentId,
                 taskId: taskId,
+                isPreset: isPreset,
             },
             status: 'pending',
             createdAt: generationTime,

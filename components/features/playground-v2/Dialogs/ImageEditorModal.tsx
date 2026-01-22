@@ -6,12 +6,12 @@ import {
     Undo2,
     Redo2,
     Type,
-    Move,
+    MousePointer2,
     Pencil,
     Square,
     Circle as CircleIcon,
     ArrowRight,
-    Check,
+
     Palette,
     Layers,
     SlidersHorizontal,
@@ -22,7 +22,8 @@ import {
     MessageSquarePlus,
     Upload,
     Save,
-    Plus
+    Plus,
+    ChevronDown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -30,10 +31,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
 import { useImageEditor, EDITOR_COLORS, EditorColor } from '@/hooks/features/PlaygroundV2/useImageEditor';
+import { AVAILABLE_MODELS } from '@/hooks/features/PlaygroundV2/useGenerationService';
 import { cn } from '@/lib/utils';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { formatImageUrl } from '@/lib/api-base';
@@ -42,7 +47,7 @@ import { useImageUpload } from '@/hooks/common/use-image-upload';
 import { PresetManagerDialog } from './PresetManagerDialog';
 import { EditPresetConfig } from '../types';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
-import { PlaygroundInputSection, PlaygroundInputSectionProps } from '../PlaygroundInputSection';
+import { PlaygroundInputSectionProps } from '../PlaygroundInputSection';
 import { Generation } from '@/types/database';
 
 interface ImageEditorModalProps {
@@ -60,6 +65,11 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
     const [currentEditConfig, setCurrentEditConfig] = useState<EditPresetConfig | undefined>(undefined);
     const [mounted, setMounted] = useState(false);
+
+    // Resizable Right Panel State
+
+
+
 
     useEffect(() => {
         setMounted(true);
@@ -81,8 +91,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         updateBrushWidth,
         deleteSelected,
         addImage,
-        confirmAnnotation,
-        cancelAnnotation,
+
         addReferenceImage,
         removeReferenceImage,
         getAnnotationsInfo,
@@ -104,7 +113,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         // 找出所有包含 editConfig 且 taskId 匹配的历史记录
         if (!taskId) return [];
         return (generationHistory as Generation[])
-            .filter((gen: Generation) => gen.editConfig && gen.taskId === taskId)
+            .filter((gen: Generation) => gen.config?.editConfig && gen.config?.taskId === taskId)
             .sort((a: Generation, b: Generation) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [generationHistory, taskId]);
 
@@ -132,9 +141,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         }
     }, [isPresetManagerOpen, setZoomEnabled]);
 
-    const [annotationText, setAnnotationText] = useState("");
-    const annotInputRef = useRef<HTMLTextAreaElement>(null);
     const canvasContainerRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const hasLoadedInitialState = useRef(false);
 
     // 恢复初始状态
@@ -199,108 +207,42 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         }
     }, [imageUrl, isOpen]);
 
-    // 渲染带有徽章的标注文本（用于输入框预览）
-    const renderAnnotTextWithBadges = useCallback((text: string) => {
-        if (!text) return null;
-        const parts = text.split(/(\[Image \d+\])/g);
-        return parts.map((part, i) => {
-            const match = part.match(/^\[(Image \d+)\]$/);
-            if (match) {
-                const label = match[1];
-                return (
-                    <span key={i} className="inline-flex items-center h-[18px] px-1 bg-primary/20 border border-primary/30 rounded text-[9px] text-primary font-bold mx-0.5 align-middle leading-none">
-                        {label}
-                    </span>
-                );
-            }
-            return <span key={i} className="whitespace-pre-wrap">{part}</span>;
-        });
-    }, []);
+
 
     const { uploadFile } = useImageUpload();
 
-    // 在光标位置插入参考图标记
-    const insertRefImageTag = useCallback((label: string) => {
-        const input = annotInputRef.current;
-        if (!input) {
-            return;
-        }
-
-        const start = input.selectionStart || 0;
-        const end = input.selectionEnd || 0;
-        const text = input.value;
-        const newText = text.substring(0, start) + `[${label}]` + text.substring(end);
-
-        setAnnotationText(newText);
-
-        setTimeout(() => {
-            input.focus();
-            const newPos = start + label.length + 2;
-            input.setSelectionRange(newPos, newPos);
-        }, 0);
-    }, []);
-
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const refImageInputRef = useRef<HTMLInputElement>(null);
-    const [isDragging, setIsDragging] = useState(false);
 
-    // 处理参考图上传 - 上传后自动在光标处插入标记
-    const handleRefImageUpload = useCallback(async (files: FileList | null) => {
+    const handleRefInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
         if (!files || files.length === 0) return;
 
         const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
         for (const file of uploads) {
             await uploadFile(file, {
                 onLocalPreview: (image) => {
-                    // 先用本地预览图展示
                     addReferenceImage(image.previewUrl);
-                    // 生成新标签并插入
-                    const newLabel = `Image ${editorState.referenceImages.length + 1} `;
-                    insertRefImageTag(newLabel);
+                    // Automatically append the new badge to prompt
+                    const newIndex = editorState.referenceImages.length + 1;
+                    inputSectionProps?.setConfig(prev => ({
+                        ...prev,
+                        prompt: (prev.prompt || '') + ` [Image ${newIndex}] `
+                    }));
                 },
                 onSuccess: (tempId, path) => {
-                    // 上传成功后，将 referenceImages 中的 previewUrl 替换为 CDN path
-                    // 这样在最终提交时，我们就有了 CDN URL
                     setEditorState(prev => ({
                         ...prev,
-                        referenceImages: prev.referenceImages.map(imgUrl => 
-                            // 简单的替换逻辑，如果 imgUrl 是对应的 previewUrl，则替换为 path
-                            // 注意：这里可能需要更精确的匹配，但目前 previewUrl 是唯一的 DataURL
-                            imgUrl.startsWith('data:') ? path : imgUrl
+                        referenceImages: prev.referenceImages.map(imgUrl =>
+                            imgUrl.dataUrl.startsWith('data:') && imgUrl.dataUrl === tempId ? { ...imgUrl, dataUrl: path } : imgUrl
                         )
                     }));
                 }
             });
         }
-    }, [uploadFile, addReferenceImage, editorState.referenceImages.length, insertRefImageTag, setEditorState]);
+        e.target.value = '';
+    }, [uploadFile, addReferenceImage, editorState.referenceImages.length, inputSectionProps, setEditorState]);
 
-    // 处理文字选择，实现“原子化”标记：防止光标落入 [Image X] 内部
-    const handleTextSelect = useCallback(() => {
-        const input = annotInputRef.current;
-        if (!input) return;
 
-        const start = input.selectionStart || 0;
-        const text = input.value;
-
-        // 正则查找所有标记的位置
-        const regex = /\[Image \d+\]/g;
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-            const matchStart = match.index;
-            const matchEnd = matchStart + match[0].length;
-
-            // 如果光标在标记中间（不包括边界），则将其移出
-            if (start > matchStart && start < matchEnd) {
-                // 距离哪头近就移到哪头
-                const newPos = (start - matchStart) < (matchEnd - start) ? matchStart : matchEnd;
-                input.setSelectionRange(newPos, newPos);
-                break;
-            }
-            // 处理范围选择穿过标记的情况（可选：这里简化为只处理单点光标）
-        }
-    }, []);
-
-    const [isAutoAspectRatio, setIsAutoAspectRatio] = useState(false);
 
     // 处理文件上传
     const handleFileUpload = useCallback(async (files: FileList | null) => {
@@ -327,10 +269,10 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                             }
                             inputSectionProps.setConfig(prev => ({
                                 ...prev,
-                                width,
-                                height,
+                                width: width || 1024,
+                                height: height || 1024,
                             }));
-                            setIsAutoAspectRatio(true);
+                            // setIsAutoAspectRatio(true); // Auto aspect ratio logic simplified/removed
                         }
                     }
 
@@ -354,17 +296,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     // Consolidate editing text synchronization and focus
     useEffect(() => {
         if (editorState.pendingAnnotation) {
-            const text = editorState.pendingAnnotation.existingText || "";
-            setAnnotationText(text);
-            // Autofocus after a short delay to ensure DOM is ready
-            const timer = setTimeout(() => {
-                if (annotInputRef.current) {
-                    annotInputRef.current.focus();
-                }
-            }, 50);
-            return () => clearTimeout(timer);
-        } else {
-            setAnnotationText("");
+
         }
     }, [editorState.pendingAnnotation]);
 
@@ -372,19 +304,19 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(true);
+        // setIsDragging(true);
     }, []);
 
     const handleDragLeave = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(false);
+        // setIsDragging(false);
     }, []);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setIsDragging(false);
+        // setIsDragging(false);
         handleFileUpload(e.dataTransfer.files);
     }, [handleFileUpload]);
 
@@ -408,49 +340,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, deleteSelected]);
 
-    // 为避免循环依赖，使用 ref 保存最新的 inputSectionProps
-    const inputSectionPropsRef = useRef(inputSectionProps);
-    useEffect(() => {
-        inputSectionPropsRef.current = inputSectionProps;
-    }, [inputSectionProps]);
+    // prompt sync effect removed - using global prompt in inputSectionProps directly
 
-    // 同步标注信息到下方 Prompt 输入框 (仅在标注确定或画布内容变化时同步，而非输入中)
-    const lastSyncedPromptRef = useRef<string>("");
-    useEffect(() => {
-        if (!isOpen || !isInitialized) return;
-        const props = inputSectionPropsRef.current;
-        if (!props?.setConfig) return;
-
-        // 获取当前所有已确定的标注信息
-        // 我们不再在此处包含 pendingAnnotation 的实时输入文字，
-        // 从而实现“只有点击确认后才同步”的需求。
-        const annotations = getAnnotationsInfo();
-        const descriptions = annotations.map(ann => `${ann.annotationName}: ${ann.text} `);
-
-        let finalPrompt = "";
-        if (descriptions.length > 0) {
-            finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：${descriptions.join('\n')} `;
-        }
-
-        // 避免在没有变化时频繁触发更新，并打破与 props 的循环依赖
-        if (finalPrompt !== lastSyncedPromptRef.current) {
-            if (finalPrompt) {
-                // 只有当 finalPrompt 确实不同于当前 props 中的 prompt 时才更新
-                props.setConfig(prev => {
-                    if (prev.prompt === finalPrompt) return prev;
-                    return { ...prev, prompt: finalPrompt };
-                });
-                lastSyncedPromptRef.current = finalPrompt;
-            } else if (lastSyncedPromptRef.current && props.config.prompt.startsWith('根据图中的彩色标注修改图片')) {
-                // 如果所有标注都被清空了，且当前的 prompt 是由标注生成的，则清空它
-                props.setConfig(prev => {
-                    if (!prev.prompt.startsWith('根据图中的彩色标注修改图片')) return prev;
-                    return { ...prev, prompt: '' };
-                });
-                lastSyncedPromptRef.current = "";
-            }
-        }
-    }, [editorState.pendingAnnotation, editorState.canvasVersion, getAnnotationsInfo, isInitialized, isOpen]);
 
     const handleSave = (e?: React.MouseEvent | boolean) => {
         const shouldGenerate = typeof e === 'boolean' ? e : false;
@@ -460,16 +351,9 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             const annotations = getAnnotationsInfo();
             const referenceImages = editorState.referenceImages;
 
-            let finalPrompt = "";
+            // Use the global prompt directly from inputSectionProps
+            const finalPrompt = inputSectionProps?.config.prompt || "";
 
-            if (annotations.length > 0) {
-                // 构建详细的提示词，包含颜色标注信息
-                const annotationDescriptions = annotations.map(ann => {
-                    return `${ann.annotationName}: ${ann.text} `;
-                });
-
-                finalPrompt = `根据图中的彩色标注修改图片，并移除所有标注，仅修改标注区域内容。标注说明：\n${annotationDescriptions.join('\n')} `;
-            }
 
             // 提取参考图的 dataUrl 列表
             const refImageUrls = referenceImages.map(img => img.dataUrl);
@@ -488,9 +372,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         }
     };
 
-    const handleModalGenerate = () => {
-        handleSave(true);
-    };
+
 
 
     const handleSavePreset = () => {
@@ -541,10 +423,10 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                     onDrop={(e) => e.stopPropagation()}
                 >
                     {/* Backdrop */}
-                    <div className="absolute inset-0 bg-[#0F0F15] " />
+                    <div className="absolute inset-0 bg-[#E5E5E5]" />
 
                     {/* Content */}
-                    <div className="relative flex flex-col h-full z-10">
+                    <div className="relative flex flex-row h-full z-10">
                         {/* Floating Exit Button */}
                         <div className="absolute top-6 left-6 z-[60]">
                             <Button
@@ -560,7 +442,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
 
 
                         {/* Main Content */}
-                        <div className="relative flex-1 flex overflow-hidden">
+                        <div className="relative h-full  flex-1 flex overflow-hidden">
 
 
 
@@ -575,7 +457,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                             />
 
                             {/* Canvas Area - 核心自适应逻辑已移入 hook，此处仅需占满空间并支持溢出滚动 */}
-                            <div className="flex-1 flex flex-col bg-[#0F0F15] relative overflow-hidden">
+                            <div className="flex-1 flex flex-col bg-[#E5E5E5] relative overflow-hidden">
                                 <div
                                     className="flex-1 flex items-center justify-center relative overflow-hidden"
                                     onDragOver={handleDragOver}
@@ -583,7 +465,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                     onDrop={handleDrop}
                                 >
                                     {/* 拖放指示器 */}
-                                    {isDragging && (
+                                    {/* isDragging && ( ... ) - Removed drag overlay for now or restore state if needed */}\
+                                    {false && (
                                         <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary z-50 flex items-center justify-center">
                                             <div className="text-primary text-lg font-medium flex items-center gap-2">
                                                 <ImagePlus className="w-6 h-6" />
@@ -623,7 +506,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                     {/* Floating Toolbar (Top) */}
                                     <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 p-2 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all duration-200 hover:bg-black/90">
                                         <ToolButton
-                                            icon={Move}
+                                            icon={MousePointer2}
                                             active={editorState.activeTool === 'select'}
                                             onClick={() => setTool('select')}
                                             label="Select"
@@ -702,47 +585,188 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                         ref={canvasContainerRef}
                                     >
                                         {/* 参考图展示区域 - 始终渲染容器避免 DOM 插入冲突 */}
-                                        <div
-                                            className="absolute top-20 left-8 z-[100] flex flex-col gap-2"
-                                            style={{ display: editorState.referenceImages.length > 0 ? 'flex' : 'none' }}
-                                        >
-                                            <div className="text-white/40 text-[10px] uppercase font-mono tracking-wider mb-1">
-                                                Reference Images
-                                            </div>
-                                            <div className="flex flex-wrap gap-2 max-w-[300px]">
-                                                {editorState.referenceImages.map((img) => (
-                                                    <div
-                                                        key={img.id}
-                                                        className="relative group cursor-pointer"
-                                                        onClick={() => insertRefImageTag(img.label)}
-                                                        title={`点击插入光标位置: [${img.label}]`}
-                                                    >
-                                                        <div className="w-36 h-36 rounded-lg overflow-hidden border border-white/20 bg-black/40 group-hover:border-primary/50 transition-colors">
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img
-                                                                src={img.dataUrl}
-                                                                alt={img.label}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        </div>
-                                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[12px] text-white/80 whitespace-nowrap group-hover:text-primary transition-colors">
-                                                            {img.label}
-                                                        </div>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                removeReferenceImage(img.id);
+                                        {/* Combined Container for Ref Images and Modification Panel */}
+                                        <div className="absolute top-20 left-8 z-[100] flex flex-row items-start gap-4 pointer-events-none">
+                                            {/* Reference Images List */}
+                                            <div
+                                                className="flex flex-col gap-2 pointer-events-auto"
+                                                style={{ display: editorState.referenceImages.length > 0 ? 'flex' : 'none' }}
+                                            >
+                                                <div className="text-white/40 text-[10px] uppercase font-mono tracking-wider mb-1">
+                                                    Reference Images
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 max-w-[300px]">
+                                                    {editorState.referenceImages.map((img) => (
+                                                        <div
+                                                            key={img.id}
+                                                            className="relative group cursor-pointer"
+                                                            onClick={() => {
+                                                                inputSectionProps?.setConfig(prev => ({
+                                                                    ...prev,
+                                                                    prompt: (prev.prompt || '') + ` [${img.label}] `
+                                                                }));
                                                             }}
-                                                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                            title={`点击插入光标位置: [${img.label}]`}
                                                         >
-                                                            <X className="w-2.5 h-2.5 text-white" />
-                                                        </button>
-                                                        <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors rounded-lg flex items-center justify-center">
-                                                            <MessageSquarePlus className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                            <div className="w-36 h-36 rounded-lg overflow-hidden border border-white/20 bg-black/40 group-hover:border-primary/50 transition-colors">
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={img.dataUrl}
+                                                                    alt={img.label}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            </div>
+                                                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[12px] text-white/80 whitespace-nowrap group-hover:text-primary transition-colors">
+                                                                {img.label}
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    removeReferenceImage(img.id);
+                                                                }}
+                                                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                            >
+                                                                <X className="w-2.5 h-2.5 text-white" />
+                                                            </button>
+                                                            <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors rounded-lg flex items-center justify-center">
+                                                                <MessageSquarePlus className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
+                                                    ))}
+                                                </div>
                                             </div>
+
+                                            {/* Modification Panel (Moved here) */}
+                                            <AnimatePresence mode="wait">
+                                                {(editorState.activeTool !== 'select' || true) && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, x: -20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        exit={{ opacity: 0, x: -20 }}
+                                                        className="w-[320px] h-[50vh] bg-white/80 backdrop-blur-2xl p-4 rounded-3xl flex flex-col gap-6 shrink-0 overflow-y-auto pointer-events-auto border border-white/20 shadow-xl"
+                                                    >
+                                                        {/* Command Center */}
+                                                        <div className="flex flex-col gap-3 p-1">
+                                                            <div className="text-sm font-semibold text-gray-900">Modification</div>
+
+                                                            {/* Prompt Input Area */}
+                                                            <div className="relative">
+                                                                <Textarea
+                                                                    value={inputSectionProps?.config.prompt || ''}
+                                                                    onChange={(e) => inputSectionProps?.setConfig(prev => ({ ...prev, prompt: e.target.value }))}
+                                                                    placeholder="Describe how to modify the image..."
+                                                                    className="min-h-[100px] w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-gray-400 resize-none"
+                                                                />
+
+                                                                {/* Badge Helpers */}
+                                                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                    {editorState.referenceImages.map((_, i) => (
+                                                                        <button
+                                                                            key={`ref-${i}`}
+                                                                            onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, prompt: (prev.prompt || '') + ` [Image ${i + 1}] ` }))}
+                                                                            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                                                                        >
+                                                                            + [Image {i + 1}]
+                                                                        </button>
+                                                                    ))}
+                                                                    <button
+                                                                        onClick={() => refImageInputRef.current?.click()}
+                                                                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 transition-colors"
+                                                                    >
+                                                                        <Upload className="w-3 h-3 mr-1" /> Add Ref
+                                                                    </button>
+                                                                </div>
+                                                                <input
+                                                                    type="file"
+                                                                    ref={refImageInputRef}
+                                                                    className="hidden"
+                                                                    accept="image/*"
+                                                                    multiple
+                                                                    onChange={handleRefInputChange}
+                                                                />
+                                                            </div>
+
+                                                            {/* Model & Size Selectors */}
+                                                            <div className="grid grid-cols-2 gap-3 mt-2">
+                                                                <div className="space-y-1.5">
+                                                                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Model</div>
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button variant="outline" className="w-full h-9 justify-start px-2 bg-white border-gray-200 text-gray-700 text-xs hover:bg-gray-50">
+                                                                                <span className="truncate flex-1 text-left">
+                                                                                    {AVAILABLE_MODELS.find(m => m.id === inputSectionProps?.config.model)?.displayName || 'Select Model'}
+                                                                                </span>
+                                                                                <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent className="w-[180px] bg-white border-gray-200">
+                                                                            {AVAILABLE_MODELS.filter(m => !m.id.includes('workflow') || true).map(m => (
+                                                                                <DropdownMenuItem
+                                                                                    key={m.id}
+                                                                                    onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, model: m.id }))}
+                                                                                    className="text-gray-700 hover:bg-gray-100 text-xs"
+                                                                                >
+                                                                                    {m.displayName}
+                                                                                </DropdownMenuItem>
+                                                                            ))}
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Size</div>
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button variant="outline" className="w-full h-9 justify-start px-2 bg-white border-gray-200 text-gray-700 text-xs hover:bg-gray-50">
+                                                                                <span className="truncate flex-1 text-left">
+                                                                                    {inputSectionProps?.config.imageSize || 'Default'}
+                                                                                </span>
+                                                                                <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent className="w-[120px] bg-white border-gray-200">
+                                                                            {['1K', '2K', '4K'].map(s => (
+                                                                                <DropdownMenuItem
+                                                                                    key={s}
+                                                                                    onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, imageSize: s as "1K" | "2K" | "4K" }))}
+                                                                                    className="text-gray-700 hover:bg-gray-100 text-xs"
+                                                                                >
+                                                                                    {s}
+                                                                                </DropdownMenuItem>
+                                                                            ))}
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
+                                                                </div>
+                                                            </div>
+                                                            <div className="h-px bg-gray-200 my-2" />
+
+                                                            <Button
+                                                                className="w-full bg-primary hover:bg-primary/90 text-black font-medium"
+                                                                onClick={() => handleSave(true)}
+                                                            >
+                                                                Generate
+                                                            </Button>
+                                                        </div>
+                                                        {/* Canvas Settings */}
+                                                        <div className="space-y-4">
+                                                            <div className="flex items-center gap-2 text-gray-400 text-[10px] uppercase font-mono tracking-wider">
+                                                                <Square className="w-3 h-3" /> Canvas Settings
+                                                            </div>
+                                                        </div>
+                                                        {/* Action Toolbar (moved from header) */}
+                                                        <div className="grid grid-cols-1 gap-2 mb-4">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 px-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 bg-white border border-gray-200 text-[10px]"
+                                                                onClick={handleSavePreset}
+                                                            >
+                                                                <Save className="w-3.5 h-3.5 mr-1.5" />
+                                                                Save Preset
+                                                            </Button>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                         <canvas ref={canvasRef} className={cn("max-w-full max-h-full transition-all duration-300", !isInitialized && "opacity-0")} />
 
@@ -805,387 +829,27 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                         )}
 
                                         {/* Annotation Input Overlay */}
-                                        {editorState.pendingAnnotation && (
-                                            <div
-                                                className="absolute z-[120] flex flex-col gap-1 p-2 bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl min-w-[300px]"
-                                                style={(() => {
-                                                    const bounds = editorState.pendingAnnotation.bounds;
-                                                    const container = canvasContainerRef.current;
-                                                    if (!container) return { left: bounds.left, top: bounds.bottom + 10, transform: 'translate(-50%, 0)' };
-
-                                                    const containerRect = container.getBoundingClientRect();
-                                                    const inputHeight = 85;
-                                                    const inputWidth = 200;
-                                                    const padding = 10;
-
-                                                    let top = bounds.bottom + padding;
-
-                                                    // 如果下方空间不足，尝试放上方
-                                                    if (top + inputHeight > containerRect.height) {
-                                                        top = bounds.top - inputHeight - padding;
-                                                    }
-
-                                                    // 确保 top 不会超出顶部边界
-                                                    top = Math.max(padding, Math.min(top, containerRect.height - inputHeight - padding));
-
-                                                    // 水平居中并限制边界
-                                                    let left = bounds.left + bounds.width / 2;
-                                                    left = Math.max(inputWidth / 2 + padding, Math.min(left, containerRect.width - inputWidth / 2 - padding));
-
-                                                    return {
-                                                        left: left,
-                                                        top: top,
-                                                        transform: 'translate(-50%, 0)',
-                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
-                                                    };
-                                                })()}
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {/* 输入框区域 - 包含视觉徽章映射 */}
-                                                <div className="relative flex flex-col gap-2 min-h-[60px] p-3 bg-white/5 border border-white/10 rounded-lg focus-within:border-primary/50 transition-colors">
-                                                    <div className="relative flex-1 min-h-[60px]">
-                                                        {/* 视觉层：解析并展示 [Image X] 为 Badge */}
-                                                        <div className="absolute inset-0 p-1 text-sm font-sans text-white/90 whitespace-pre-wrap pointer-events-none overflow-hidden leading-6">
-                                                            {renderAnnotTextWithBadges(annotationText)}
-                                                        </div>
-                                                        <Textarea
-                                                            ref={annotInputRef}
-                                                            value={annotationText}
-                                                            onChange={(e) => setAnnotationText(e.target.value)}
-                                                            onSelect={handleTextSelect}
-                                                            placeholder={annotationText ? "" : "在此输入修改说明..."}
-                                                            className="absolute inset-0 w-full h-full bg-transparent border-none text-sm font-sans focus-visible:ring-0 focus-visible:ring-offset-0 p-1 z-10 selection:bg-primary/20 caret-white resize-none leading-6"
-                                                            style={{
-                                                                color: 'transparent',
-                                                                textShadow: 'none'
-                                                            }}
-                                                            onKeyDown={(e) => {
-                                                                // Cmd+Enter 确认
-                                                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                                                                    e.preventDefault();
-                                                                    confirmAnnotation(annotationText);
-                                                                    return;
-                                                                }
-
-                                                                // Backspace 整块删除逻辑
-                                                                if (e.key === 'Backspace') {
-                                                                    const input = annotInputRef.current;
-                                                                    if (!input) return;
-
-                                                                    const start = input.selectionStart || 0;
-                                                                    const text = input.value;
-
-                                                                    // 检查光标前是否紧跟 [Image X]
-                                                                    const tagBeforeMatch = text.substring(0, start).match(/\[Image \d+\]$/);
-                                                                    if (tagBeforeMatch) {
-                                                                        e.preventDefault();
-                                                                        const tagLen = tagBeforeMatch[0].length;
-                                                                        const newText = text.substring(0, start - tagLen) + text.substring(start);
-                                                                        setAnnotationText(newText);
-                                                                        // 自动重新计算光标位置
-                                                                        setTimeout(() => input.setSelectionRange(start - tagLen, start - tagLen), 0);
-                                                                    }
-                                                                }
-                                                            }}
-                                                        />
-                                                    </div>
-
-                                                    <div className="flex items-center justify-end  pt-2">
-                                                        <button
-                                                            onClick={() => refImageInputRef.current?.click()}
-                                                            className="relative z-20 flex items-center gap-1 h-6 px-2 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] text-white/60 hover:text-white transition-colors shrink-0"
-                                                            title="上传并插入参考图"
-                                                        >
-                                                            <Upload className="w-3 h-3 text-primary" />
-                                                            <span>Ref</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* 隐藏的文件上传 input */}
-                                                <input
-                                                    ref={refImageInputRef}
-                                                    type="file"
-                                                    accept="image/*"
-                                                    multiple
-                                                    className="hidden"
-                                                    onChange={(e) => handleRefImageUpload(e.target.files)}
-                                                />
-
-                                                {/* 底部操作区 */}
-                                                <div className="flex items-center justify-between gap-3 pt-1 px-1 ">
-                                                    <div className="text-[9px] text-white/30 hidden sm:block">
-                                                        按 Enter 确认
-                                                    </div>
-                                                    <div className="flex items-center gap-2 ml-auto">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            className="h-6 px-2 rounded-md text-[10px] text-white/40 hover:text-white hover:bg-white/10"
-                                                            onClick={() => cancelAnnotation()}
-                                                        >
-                                                            取消
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="act"
-                                                            className="h-6 px-2 rounded-md text-[10px] gap-1"
-                                                            onClick={() => confirmAnnotation(annotationText)}
-                                                        >
-                                                            <Check className="w-3 h-3" />
-                                                            确认
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
-                                {inputSectionProps && (
-                                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 shadow-[0px_10px_30px_0px_rgba(0,0,0,0.20)]  bg-[#5d7b9544] rounded-[30px] ">
-                                        <PlaygroundInputSection
-                                            {...inputSectionProps}
-                                            setConfig={(val) => {
-                                                inputSectionProps.setConfig(prev => {
-                                                    const next = typeof val === 'function' ? val(prev) : val;
-                                                    // Update auto aspect ratio state
-                                                    if (next.aspectRatio === 'auto') {
-                                                        setIsAutoAspectRatio(true);
-                                                    } else if (next.aspectRatio !== prev.aspectRatio || next.imageSize !== prev.imageSize) {
-                                                        setIsAutoAspectRatio(false);
-                                                    }
-                                                    return next;
-                                                });
-                                            }}
-                                            width={inputSectionProps.width || 896}
-                                            hideTitle
-                                            variant="edit"
-                                            handleGenerate={handleModalGenerate}
-                                            customAspectRatioLabel={isAutoAspectRatio ? "auto" : undefined}
-                                        />
-                                    </div>
-                                )}
+                                {/* Bottom Input Section Removed */}
+                                {/* <div className="absolute bottom-10 left-1/2 -translate-x-1/2 shadow-[0px_10px_30px_0px_rgba(0,0,0,0.20)]  bg-[#5d7b9544] rounded-[30px] ">
+                                        <PlaygroundInputSection ... />
+                                    </div> */}
                             </div>
 
                             {/* Right Properties Panel */}
-                            <AnimatePresence>
-                                {(editorState.activeTool !== 'select' || true) && (
-                                    <motion.div
-                                        initial={{ x: 200, opacity: 0 }}
-                                        animate={{ x: 0, opacity: 1 }}
-                                        exit={{ x: 200, opacity: 0 }}
-                                        className="w-64 border-l border-white/10 bg-black/60 backdrop-blur-2xl p-4 flex flex-col gap-10 shrink-0 overflow-y-auto"
-                                    >
-                                        {/* Canvas Settings */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
-                                                <Square className="w-3 h-3" /> Canvas Settings
-                                            </div>
 
-
-
-                                            {/* Manual Size Input */}
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 space-y-1">
-                                                    <Label className="text-[10px] text-white/40">Width</Label>
-                                                    <Input
-                                                        type="number"
-                                                        value={editorState.canvasWidth}
-                                                        onChange={(e) => {
-                                                            const val = parseInt(e.target.value) || 0;
-                                                            updateCanvasSize(val, editorState.canvasHeight);
-                                                            inputSectionProps?.setConfig(prev => ({ ...prev, width: val }));
-                                                        }}
-                                                        className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
-                                                    />
-                                                </div>
-                                                <div className="flex-1 space-y-1">
-                                                    <Label className="text-[10px] text-white/40">Height</Label>
-                                                    <Input
-                                                        type="number"
-                                                        value={editorState.canvasHeight}
-                                                        onChange={(e) => {
-                                                            const val = parseInt(e.target.value) || 0;
-                                                            updateCanvasSize(editorState.canvasWidth, val);
-                                                            inputSectionProps?.setConfig(prev => ({ ...prev, height: val }));
-                                                        }}
-                                                        className="h-8 bg-white/5 border-white/10 text-xs text-white focus-visible:ring-primary/50"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Aspect Ratio Shortcuts */}
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {[
-                                                    { label: '1:1', w: 1024, h: 1024 },
-                                                    { label: '4:3', w: 1024, h: 768 },
-                                                    { label: '16:9', w: 1280, h: 720 },
-                                                    { label: '9:16', w: 720, h: 1280 }
-                                                ].map((ratio) => (
-                                                    <Button
-                                                        key={ratio.label}
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className={cn(
-                                                            "h-8 text-[10px] bg-white/5 border border-white/5 hover:bg-white/10",
-                                                            editorState.canvasWidth === ratio.w && editorState.canvasHeight === ratio.h && "border-primary/50 text-primary bg-primary/5"
-                                                        )}
-                                                        onClick={() => {
-                                                            updateCanvasSize(ratio.w, ratio.h);
-                                                            inputSectionProps?.setConfig(prev => ({ ...prev, width: ratio.w, height: ratio.h }));
-                                                        }}
-                                                    >
-                                                        {ratio.label} ({ratio.w}x{ratio.h})
-                                                    </Button>
-                                                ))}
-                                            </div>
-
-
-
-
-                                        </div>
-                                        {/* Canvas Background */}
-                                        <div className="space-y-2">
-                                            <div className="text-white/40 text-[10px]">Background Color</div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {[
-                                                    { color: '#ffffff', label: 'White' },
-                                                    { color: '#000000', label: 'Black' },
-                                                    { color: '#f8f9fa', label: 'Light' },
-                                                    { color: '#1a1a20', label: 'Dark' },
-                                                    { color: 'transparent', label: 'None' },
-                                                ].map((item) => (
-                                                    <button
-                                                        key={item.color}
-                                                        onClick={() => updateCanvasBackground(item.color)}
-                                                        className={cn(
-                                                            "w-6 h-6 rounded-md border border-white/10 transition-transform active:scale-95",
-                                                            editorState.backgroundColor === item.color ? "ring-2 ring-primary ring-offset-2 ring-offset-black" : "hover:border-white/30"
-                                                        )}
-                                                        style={{ backgroundColor: item.color === 'transparent' ? 'transparent' : item.color }}
-                                                        title={item.label}
-                                                    >
-                                                        {item.color === 'transparent' && (
-                                                            <div className="w-full h-full bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAACFJREFUGFdjZEADJgY0QCIsDAszMCADmBCIAAnAyMAEpAAZpAILuY7fXAAAAABJRU5ErkJggg==')] rounded-md" />
-                                                        )}
-                                                    </button>
-                                                ))}
-                                                {/* Custom Color Input Placeholder */}
-                                                <input
-                                                    type="color"
-                                                    className="w-6 h-6 rounded-md border border-white/10 bg-transparent cursor-pointer"
-                                                    value={editorState.backgroundColor}
-                                                    onChange={(e) => updateCanvasBackground(e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Color Picker */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
-                                                <Palette className="w-3 h-3" /> Tool Color
-                                            </div>
-                                            <div className="grid grid-cols-4 gap-2">
-                                                {EDITOR_COLORS.map(({ hex, name }) => (
-                                                    <button
-                                                        key={hex}
-                                                        className={cn(
-                                                            "w-9 h-9 rounded-full border-2 transition-all hover:scale-110",
-                                                            editorState.brushColor === hex
-                                                                ? "border-white ring-2 ring-white/20"
-                                                                : "border-transparent hover:border-white/30"
-                                                        )}
-                                                        style={{ backgroundColor: hex }}
-                                                        onClick={() => updateBrushColor(hex as EditorColor)}
-                                                        title={name}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Stroke Settings */}
-                                        {['brush', 'rect', 'circle', 'arrow', 'annotate'].includes(editorState.activeTool) && (
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
-                                                        <SlidersHorizontal className="w-3 h-3" /> Stroke Width
-                                                    </div>
-                                                    <span className="text-white/50 text-xs font-mono">{editorState.brushWidth}px</span>
-                                                </div>
-                                                <Slider
-                                                    value={[editorState.brushWidth]}
-                                                    min={1}
-                                                    max={20}
-                                                    step={1}
-                                                    onValueChange={(val) => updateBrushWidth(val[0])}
-                                                    className="py-2"
-                                                />
-                                            </div>
-
-                                        )}
-                                        {/* Action Toolbar (moved from header) */}
-                                        <div className="grid grid-cols-1 gap-2 mb-4">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 px-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 bg-white/5 border border-white/5 text-[10px]"
-                                                onClick={handleSavePreset}
-                                            >
-                                                <Save className="w-3.5 h-3.5 mr-1.5" />
-                                                Save Preset
-                                            </Button>
-                                        </div>
-
-                                        {/* History Info / Snapshots */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2 text-white/30 text-[10px] uppercase font-mono tracking-wider">
-                                                <Layers className="w-3 h-3" /> Historical Snapshots
-                                            </div>
-
-                                            {relatedSnapshots.length > 0 ? (
-                                                <div className="grid grid-cols-1 gap-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
-                                                    {(relatedSnapshots as Generation[]).map((item: Generation, idx: number) => (
-                                                        <button
-                                                            key={item.id}
-                                                            onClick={() => item.editConfig && handleSwitchSnapshot(item.editConfig)}
-                                                            className="flex flex-col gap-2 p-2 rounded-xl bg-white/5 border border-white/5 hover:border-primary/40 hover:bg-white/10 transition-all text-left group"
-                                                        >
-                                                            <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-black/40 border border-white/5">
-                                                                <NextImage
-                                                                    src={formatImageUrl(item.outputUrl)}
-                                                                    alt={`Snapshot ${relatedSnapshots.length - idx} `}
-                                                                    fill
-                                                                    className="object-cover transition-transform group-hover:scale-110"
-                                                                />
-                                                                <div className="absolute top-1 right-1 bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] text-white/60 font-mono">
-                                                                    v{relatedSnapshots.length - idx}
-                                                                </div>
-                                                            </div>
-                                                            <div className="px-1">
-                                                                <div className="text-[10px] text-white/80 truncate font-medium">Snapshot {relatedSnapshots.length - idx}</div>
-                                                                <div className="text-[9px] text-white/30 font-mono">{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="py-8 px-4 border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center text-center gap-2">
-                                                    <HistoryIcon className="w-5 h-5 text-white/10" />
-                                                    <div className="text-[10px] text-white/20 uppercase font-mono">No edits yet</div>
-                                                </div>
-                                            )}
-
-                                            <p className="text-white/20 text-[9px] leading-relaxed pt-2">
-                                                Select a snapshot to restore the previous editor state. Use Ctrl+Z / Ctrl+Y to undo changes within a session.
-                                            </p>
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
                         </div>
+
+
+
+
+
                     </div>
-                </motion.div>
-            </AnimatePresence>
+
+
+                </motion.div >
+            </AnimatePresence >
         </>,
         document.body
     );

@@ -430,7 +430,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       const sourceImageUrls = currentUploadedImages.map(img => img.path || img.previewUrl);
 
       // 1. Immediately create and show the pending card
-      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId }).then((uniqueId) => {
+      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId, sourceImageUrls }).then((uniqueId) => {
         // 2. Schedule the actual backend execution with a staggered delay
         if (uniqueId) {
           setTimeout(() => {
@@ -814,6 +814,23 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
   };
 
+  // Image Navigation Logic
+  const currentIndex = selectedResult ? filteredHistory.findIndex(h => h.id === selectedResult.id) : -1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < filteredHistory.length - 1 && currentIndex !== -1;
+
+  const handleNextImage = () => {
+    if (hasNext) {
+      setSelectedResult(filteredHistory[currentIndex + 1]);
+    }
+  };
+
+  const handlePrevImage = () => {
+    if (hasPrev) {
+      setSelectedResult(filteredHistory[currentIndex - 1]);
+    }
+  };
+
   const closeImageModal = () => {
     setIsImageModalOpen(false);
     // Don't clear selectedResult here to allow exit animation to use the data
@@ -968,7 +985,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     handleGenerate: () => handleGenerate({}),
     handleDescribe,
     setSelectedAIModel,
-    setSelectedModel,
+    setSelectedModel: (model: string) => applyModel(model),
     setIsAspectRatioLocked,
     setSelectedWorkflowConfig,
     applyWorkflowDefaults,
@@ -979,8 +996,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsPresetGridOpen,
     onClearPreset: () => {
       setSelectedPresetName(undefined);
-      setSelectedModel("");
       setSelectedWorkflowConfig(undefined);
+      updateConfig({ presetName: undefined, isPreset: false });
     },
     setIsDescribeMode: (val: boolean) => {
       if (val) {
@@ -1353,7 +1370,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               </div>
             )}
 
-            <GoogleApiStatus className="fixed bottom-4 right-4 z-[60]" />
+            <GoogleApiStatus className="fixed bottom-10 right-10 z-[60]" />
 
             {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
 
@@ -1380,6 +1397,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           onClose={closeImageModal}
           result={selectedResult}
           onEdit={handleEditImage}
+          onNext={handleNextImage}
+          onPrev={handlePrevImage}
+          hasNext={hasNext}
+          hasPrev={hasPrev}
         />
 
         {

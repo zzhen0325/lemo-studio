@@ -199,7 +199,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             setSelectedModel: (model) => set({ selectedModel: model }),
             setSelectedWorkflowConfig: (workflow: IViewComfy | undefined, presetName?: string) => set((state) => ({
                 selectedWorkflowConfig: workflow,
-                selectedPresetName: presetName || state.selectedPresetName
+                selectedPresetName: workflow ? (presetName || state.selectedPresetName) : undefined
             })),
             setSelectedLoras: (loras) => set({ selectedLoras: loras }),
             setHasGenerated: (val) => set({ hasGenerated: val }),
@@ -375,7 +375,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
                     const newConfig = configData
                         ? { ...state.config, ...configData, model: finalModel, baseModel: finalModel, isPreset: !!(configData.presetName) }
-                        : { ...state.config, model: finalModel, baseModel: finalModel, isPreset: false };
+                        : { ...state.config, model: finalModel, baseModel: finalModel, isPreset: false, presetName: undefined };
 
                     // Default to 2K for Seed 4.2
                     if (finalModel === 'seed4_2_lemo' && !newConfig.imageSize) {
@@ -388,7 +388,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         selectedWorkflowConfig: uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined,
                         // If configData explicitly provides loras array, use it as priority
                         selectedLoras: configData?.loras || state.config?.loras || state.selectedLoras,
-                        selectedPresetName: configData?.presetName || (configData ? undefined : state.selectedPresetName)
+                        selectedPresetName: configData?.presetName || (configData ? undefined : undefined)
                     };
                 });
             },

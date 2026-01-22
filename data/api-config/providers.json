@@ -55,13 +55,22 @@
   {
     "id": "provider-google",
     "name": "Google Gemini",
-    "providerType": "",
+    "providerType": "google-genai",
     "apiKey": "AIzaSyBAtO6bs0mve4AXhLyy-hJB4X2HD_dJqP0",
     "baseURL": "",
     "models": [
       {
+        "modelId": "gemini-2.5-flash-image",
+        "displayName": "nano banana",
+        "task": [
+          "text",
+          "vision",
+          "image"
+        ]
+      },
+      {
         "modelId": "gemini-3-pro-image-preview",
-        "displayName": "Gemini 3 Pro (图像生成)",
+        "displayName": "nano banana pro",
         "task": [
           "text",
           "vision",

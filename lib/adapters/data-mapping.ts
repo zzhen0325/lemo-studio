@@ -19,7 +19,7 @@ const AR_MAP: Record<Exclude<AspectRatio, 'auto'>, Record<ImageSize, { w: number
   '21:9': { '1K': { w: 1584, h: 672 }, '2K': { w: 3168, h: 1344 }, '4K': { w: 6336, h: 2688 } },
 };
 
-export const RATIO_BASED_MODELS = new Set<string>(['gemini-3-pro-image-preview', 'seed4_2_lemo', 'coze_seed4']);
+export const RATIO_BASED_MODELS = new Set<string>(['gemini-3-pro-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4']);
 
 export function deriveSize(aspectRatio: Exclude<AspectRatio, 'auto'>, imageSize: ImageSize) {
   const pair = AR_MAP[aspectRatio][imageSize];
@@ -53,8 +53,10 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
   const height = Number(input.height);
 
   // Backward compatibility for legacy model names
-  if (model === 'Nano banana' || model === 'nanobanana') {
+  if (model === 'Nano banana pro' || model === 'nano banana pro') {
     model = 'gemini-3-pro-image-preview';
+  } else if (model === 'Nano banana' || model === 'nanobanana' || model === 'nano banana') {
+    model = 'gemini-2.5-flash-image';
   } else if (model === 'Seed 4.2' || model === '3D Lemo Seed_4' || model === 'Seed4 ') {
     model = 'seed4_2_lemo';
   } else if (model === 'Seed 4.0') {

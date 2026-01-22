@@ -129,14 +129,14 @@ export default function ControlToolbar({
     setSelectValue(val);
     onClearPreset?.(); // 切换模型时清除预设选择
 
-    // 使用统一配置处理模型切换
+    // 使用统一配置处理模型切换gemini-2.5-flash-image
     const cfg = AVAILABLE_MODELS.find(m => m.id === val);
     if (cfg) {
       onModelChange(cfg.id);
       onConfigChange?.({ model: cfg.id });
 
       // Coze Seed 4 默认设置 2K
-      if (val === 'coze_seed4' || val === 'seed4_2_lemo' || val === 'gemini-3-pro-image-preview') {
+      if (['coze_seed4', 'seed4_2_lemo', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'].includes(val)) {
         onImageSizeChange('2K');
       }
     } else if (val.startsWith('wf:')) {
@@ -155,13 +155,9 @@ export default function ControlToolbar({
   const Inputbutton2 = "h-8 px-3 text-white rounded-xl bg-white/5 border border-white/10  hover:bg-white/5 hover:border-white/10 hover:border hover:text-primary    transition-colors duration-200";
 
   // 使用统一配置获取显示标签
-  const triggerLabel = (() => {
+  const modelTriggerLabel = (() => {
     const activeModel = AVAILABLE_MODELS.find(m => m.id === selectValue);
-    if (activeModel) {
-      return activeModel.displayName;
-    }
-    if (isWorkflowModel(selectedModel)) return selectedBaseModelName || 'Base Model';
-    return 'Model';
+    return activeModel ? activeModel.displayName : 'Model';
   })();
 
 
@@ -207,12 +203,12 @@ export default function ControlToolbar({
         <Button
           className={cn(Inputbutton2, isSelectorExpanded && activeTab === 'model' && "bg-white/10")}
         >
-          {triggerLabel}
+          {modelTriggerLabel}
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[180px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
-        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview'].includes(m.id)).map((model) => (
+        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'].includes(m.id)).map((model) => (
           <DropdownMenuItem
             key={model.id}
             className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
@@ -262,11 +258,11 @@ export default function ControlToolbar({
             )}
             {!disableModelSelection && (
               <>
-                {!isWorkflowModel(selectedModel) && <ModelDropdown />}
-                {isWorkflowModel(selectedModel) && <BaseModelDropdown />}
+                {(!isWorkflowModel(selectedModel) || !selectedPresetName) && <ModelDropdown />}
+                {isWorkflowModel(selectedModel) && selectedPresetName && <BaseModelDropdown />}
               </>
             )}
-            {isWorkflowModel(selectedModel) && (
+            {isWorkflowModel(selectedModel) && selectedPresetName && (
               <div className="flex items-center gap-2">
                 <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
                   LoRA
@@ -276,12 +272,13 @@ export default function ControlToolbar({
                         <div key={lora.model_name} className="relative w-6 h-6 rounded-md overflow-hidden border border-white/20" title={lora.model_name}>
                           {lora.preview_url ? (
                             <Image
-                              src={lora.preview_url}
+                              src={encodeURI(lora.preview_url)}
                               alt={lora.model_name}
                               fill
                               sizes="24px"
                               className="object-cover"
                               quality={20}
+                              unoptimized
                             />
                           ) : (
                             <div className="w-full h-full bg-white/10" />
@@ -306,7 +303,7 @@ export default function ControlToolbar({
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[320px] z-[10001] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
-                {(selectedModel === 'gemini-3-pro-image-preview' || selectedModel === 'seed4_2_lemo' || selectedModel === 'coze_seed4') && (
+                {(['gemini-3-pro-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4'].includes(selectedModel)) && (
                   <div className="space-y-4">
                     <div className="text-xs text-white/70">Image Size</div>
                     <div className="flex gap-2">

@@ -156,6 +156,22 @@ export default function GalleryView() {
         document.body.removeChild(link);
     };
 
+    const currentIndex = selectedItem ? sortedHistory.findIndex(h => h.id === selectedItem.id) : -1;
+    const hasPrev = currentIndex > 0;
+    const hasNext = currentIndex < sortedHistory.length - 1 && currentIndex !== -1;
+
+    const handleNextItem = () => {
+        if (hasNext) {
+            setSelectedItem(sortedHistory[currentIndex + 1]);
+        }
+    };
+
+    const handlePrevItem = () => {
+        if (hasPrev) {
+            setSelectedItem(sortedHistory[currentIndex - 1]);
+        }
+    };
+
     const handleEditImage = (result: Generation) => {
         const url = result.outputUrl || "";
         if (url) {
@@ -383,6 +399,10 @@ export default function GalleryView() {
                 onClose={() => setSelectedItem(null)}
                 result={selectedItem || undefined}
                 onEdit={handleEditImage}
+                onNext={handleNextItem}
+                onPrev={handlePrevItem}
+                hasNext={hasNext}
+                hasPrev={hasPrev}
             />
 
             <ImageEditorModal

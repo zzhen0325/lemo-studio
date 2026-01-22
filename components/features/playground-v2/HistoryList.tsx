@@ -4,7 +4,7 @@ import { projectStore } from '@/lib/store/project-store';
 
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Copy, FolderPlus, GripVertical, Layers, Pencil, Trash2, History as HistoryIcon } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Copy, FolderPlus, GripVertical, Bookmark, Pencil, Trash2, History as HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
@@ -891,9 +891,9 @@ function HistoryCard({
                             <DropdownMenuTrigger asChild>
                               <div>
                                 <TooltipButton
-                                  icon={<Layers className="w-4 h-4" />}
+                                  icon={<Bookmark className="w-4 h-4" />}
                                   label="Add to Style"
-                                  tooltipContent="添加到风格"
+                                  tooltipContent="添加到情绪版"
                                   tooltipSide="top"
                                   className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                                 />

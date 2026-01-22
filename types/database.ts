@@ -43,6 +43,7 @@ export interface GenerationConfig {
   isEdit?: boolean;
   parentId?: string;
   taskId?: string;
+  workflowName?: string;
 }
 
 export interface Generation {

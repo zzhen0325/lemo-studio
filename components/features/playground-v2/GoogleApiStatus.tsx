@@ -49,9 +49,9 @@ export function GoogleApiStatus({ className }: { className?: string }) {
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md cursor-help hover:bg-white/10 transition-colors", className)}>
+                <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/40 border border-white/10 backdrop-blur-md cursor-help  transition-colors", className)}>
                     <div className={cn("w-2 h-2 rounded-full", config.color, config.glow)} />
-                    <span className="text-[10px] font-medium text-white/50 tracking-widest uppercase">
+                    <span className="text-[10px] font-medium text-black/60    uppercase">
                         Google API
                     </span>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ZoomIn, ZoomOut, RefreshCw, Pencil, Info, Copy, Download } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
@@ -18,9 +18,22 @@ interface ImagePreviewModalProps {
   onClose: () => void;
   result?: Generation;
   onEdit?: (result: Generation) => void;
+  onNext?: () => void;
+  onPrev?: () => void;
+  hasNext?: boolean;
+  hasPrev?: boolean;
 }
 
-export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: ImagePreviewModalProps) {
+export default function ImagePreviewModal({
+  isOpen,
+  onClose,
+  result,
+  onEdit,
+  onNext,
+  onPrev,
+  hasNext,
+  hasPrev
+}: ImagePreviewModalProps) {
   const [scale, setScale] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
   const { toast } = useToast();
@@ -37,10 +50,12 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft' && hasPrev) onPrev?.();
+      if (e.key === 'ArrowRight' && hasNext) onNext?.();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, onNext, onPrev, hasNext, hasPrev]);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -128,6 +143,50 @@ export default function ImagePreviewModal({ isOpen, onClose, result, onEdit }: I
                   draggable={false}
                 />
               </motion.div>
+
+              {/* Navigation Buttons */}
+              <AnimatePresence>
+                {hasPrev && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="absolute left-10 top-1/2 -translate-y-1/2 z-[110]"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-14 h-14 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-xl border border-white/10 text-white/60 hover:text-white transition-all shadow-2xl"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPrev?.();
+                      }}
+                    >
+                      <ChevronLeft className="w-8 h-8" />
+                    </Button>
+                  </motion.div>
+                )}
+                {hasNext && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="absolute right-10 top-1/2 -translate-y-1/2 z-[110]"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-14 h-14 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-xl border border-white/10 text-white/60 hover:text-white transition-all shadow-2xl"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNext?.();
+                      }}
+                    >
+                      <ChevronRight className="w-8 h-8" />
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Fixed Control Bar - sibling to scaled image */}
               <div className='flex justify-center w-full mt-10 shrink-0'>
