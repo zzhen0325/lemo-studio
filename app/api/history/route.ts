@@ -354,7 +354,7 @@ export async function POST(request: Request) {
                 const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
 
                 try {
-                    let metadata: any = {};
+                    let metadata: Partial<Generation> = {};
                     try {
                         const content = await fs.readFile(jsonPath, 'utf-8');
                         metadata = JSON.parse(content);

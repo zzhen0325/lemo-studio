@@ -18,13 +18,11 @@ import { TooltipButton } from '@/components/ui/tooltip-button';
 interface StyleDetailViewProps {
     style: StyleStack;
     onBack: () => void;
-    onApply: (prompt: string) => void;
 }
 
 export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
     style,
-    onBack,
-    onApply
+    onBack
 }) => {
     const { toast } = useToast();
     const { updateStyle, removeImageFromStyle, setUploadedImages } = usePlaygroundStore();
@@ -83,13 +81,6 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         await updateStyle({ ...style, prompt: tempPrompt });
         setIsEditingPrompt(false);
         toast({ title: "修改成功", description: "提示词已更新" });
-    };
-
-    const handleDeleteImage = async (path: string) => {
-        if (confirm('确定要从这个风格中移除这张图片吗？')) {
-            await removeImageFromStyle(style.id, path);
-            toast({ title: "移除成功", description: "图片已从风格中移除" });
-        }
     };
 
     const handleBatchDelete = async () => {

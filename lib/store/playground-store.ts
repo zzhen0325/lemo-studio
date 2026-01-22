@@ -39,7 +39,7 @@ interface PlaygroundState {
     setUploadedImages: (images: UploadedImage[] | ((prev: UploadedImage[]) => UploadedImage[])) => void;
     setDescribeImages: (images: UploadedImage[] | ((prev: UploadedImage[]) => UploadedImage[])) => void;
     setSelectedModel: (model: string) => void;
-    setSelectedWorkflowConfig: (workflow: IViewComfy | undefined) => void;
+    setSelectedWorkflowConfig: (workflow: IViewComfy | undefined, presetName?: string) => void;
     setSelectedLoras: (loras: SelectedLora[]) => void;
     setHasGenerated: (val: boolean) => void;
     setShowHistory: (val: boolean) => void;

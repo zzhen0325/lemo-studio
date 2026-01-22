@@ -122,9 +122,9 @@ const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
     );
 };
 
-const PresetImage = ({ src, alt, fill, className }: { src: string; alt: string; fill?: boolean; className?: string }) => {
-    const source = useImageSource(src);
-    return <NextImage src={source} alt={alt} fill={fill} className={className} />;
+const PresetImage = ({ src, alt, fill, className }: { src: string | undefined; alt: string; fill?: boolean; className?: string }) => {
+    const source = useImageSource(src || '');
+    return <NextImage src={source || ''} alt={alt} fill={fill} className={className} />;
 };
 
 export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows, currentConfig, currentEditConfig }) => {
@@ -224,7 +224,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
 
         if (uploaded) {
             setFormData(prev => ({ ...prev, coverUrl: uploaded.path }));
-            setPreviewUrl(uploaded.path);
+            setPreviewUrl(uploaded.path || null);
         }
     };
 
@@ -646,7 +646,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 <div className="space-y-2">
                                                                     <Label className="text-sm">Linked Workflow</Label>
                                                                     <Select
-                                                                        value={(formData.config as any)?.presetName || 'default'}
+                                                                        value={(formData.config as GenerationConfig)?.presetName || 'default'}
                                                                         onValueChange={(val) => setFormData({
                                                                             ...formData,
                                                                             config: { ...(formData.config || DEFAULT_CONFIG), presetName: val === 'default' ? undefined : val, isPreset: val !== 'default' }

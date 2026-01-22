@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
-import { getApiBase, formatImageUrl } from "@/lib/api-base";
+import { formatImageUrl } from "@/lib/api-base";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, Layers } from "lucide-react";
 import GradualBlur from "@/components/GradualBlur";
 import ImagePreviewModal from './Dialogs/ImagePreviewModal';
@@ -22,7 +22,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import { HistoryLoadingSkeleton } from './HistoryLoadingSkeleton';
 
 
 
@@ -667,9 +666,9 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                                 width: item.config.width || config.width,
                                 height: item.config.height || config.height,
                                 model: item.config.model || config.model,
-                                isEdit: item.isEdit,
-                                editConfig: item.editConfig,
-                                parentId: item.parentId,
+                                isEdit: item.config.isEdit,
+                                editConfig: item.config.editConfig,
+                                parentId: item.config.parentId,
                                 sourceImageUrls: sourceUrls,
                             };
 
