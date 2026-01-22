@@ -4,7 +4,6 @@ export type GenerationResult = Generation;
 
 export interface UploadedImage {
   id?: string;
-  localId?: string; // Persistent local storage ID
   file: File;
   base64: string;
   previewUrl: string;

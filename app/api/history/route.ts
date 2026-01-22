@@ -63,6 +63,23 @@ async function saveHistory(history: Generation[]) {
                     config.sourceImageUrl = "(large base64 data truncated)";
                 }
             }
+            if (config.sourceImageUrls && config.sourceImageUrls.length > 0) {
+                config.sourceImageUrls = config.sourceImageUrls.map(url => {
+                    if (url && url.length > 5000 && url.startsWith('data:')) {
+                        return "(large base64 data truncated)";
+                    }
+                    return url;
+                });
+            }
+        }
+
+        if (newItem.sourceImageUrls && newItem.sourceImageUrls.length > 0) {
+            newItem.sourceImageUrls = newItem.sourceImageUrls.map(url => {
+                if (url && url.length > 5000 && url.startsWith('data:')) {
+                    return "(large base64 data truncated)";
+                }
+                return url;
+            });
         }
 
         return newItem;
@@ -149,8 +166,11 @@ async function readHistoryFromDisk() {
                             width: Number(metadata.config.width || 1024),
                             height: Number(metadata.config.height || 1024),
                             model: metadata.config.model || '',
+                            baseModel: metadata.config.baseModel || metadata.config.model || '',
                             loras: metadata.config.loras || [],
                             presetName: metadata.config.presetName || '',
+                            sourceImageUrls: metadata.config.sourceImageUrls || [],
+                            localSourceIds: metadata.config.localSourceIds || [],
                         };
                     }
                     return {
@@ -158,8 +178,10 @@ async function readHistoryFromDisk() {
                         width: Number(metadata?.img_width || metadata?.metadata?.img_width || 1024),
                         height: Number(metadata?.img_height || metadata?.metadata?.img_height || 1024),
                         model: metadata?.base_model || metadata?.metadata?.base_model || '',
+                        baseModel: metadata?.base_model || metadata?.metadata?.base_model || '',
                         loras: metadata?.loras || metadata?.metadata?.loras || [],
                         presetName: metadata?.presetName || metadata?.metadata?.presetName || '',
+                        sourceImageUrls: metadata?.sourceImageUrls || [],
                     };
                 })();
 
@@ -171,6 +193,10 @@ async function readHistoryFromDisk() {
                     config,
                     status: 'completed',
                     sourceImageUrl: metadata?.sourceImageUrl || metadata?.sourceImage || metadata?.metadata?.sourceImage,
+                    sourceImageUrls: metadata?.sourceImageUrls || (metadata?.sourceImageUrl ? [metadata.sourceImageUrl] : []),
+                    localSourceId: metadata?.localSourceId,
+                    localSourceIds: metadata?.localSourceIds,
+                    baseModel: config.baseModel,
                     createdAt: String(metadata?.createdAt || createdAt),
                 };
                 return gen;
@@ -254,8 +280,11 @@ export async function GET(request: Request) {
                                         width: Number(metadata.config.width || 1024),
                                         height: Number(metadata.config.height || 1024),
                                         model: metadata.config.model || '',
+                                        baseModel: metadata.config.baseModel || metadata.config.model || '',
                                         loras: metadata.config.loras || [],
                                         presetName: metadata.config.presetName || '',
+                                        sourceImageUrls: metadata.config.sourceImageUrls || [],
+                                        localSourceIds: metadata.config.localSourceIds || [],
                                     };
                                 }
                                 return {
@@ -263,8 +292,10 @@ export async function GET(request: Request) {
                                     width: Number(metadata?.img_width || metadata?.metadata?.img_width || 1024),
                                     height: Number(metadata?.img_height || metadata?.metadata?.img_height || 1024),
                                     model: metadata?.base_model || metadata?.metadata?.base_model || '',
+                                    baseModel: metadata?.base_model || metadata?.metadata?.base_model || '',
                                     loras: metadata?.loras || metadata?.metadata?.loras || [],
                                     presetName: metadata?.presetName || metadata?.metadata?.presetName || '',
+                                    sourceImageUrls: metadata?.sourceImageUrls || [],
                                 };
                             })();
 
@@ -276,6 +307,10 @@ export async function GET(request: Request) {
                                 config,
                                 status: 'completed',
                                 sourceImageUrl: metadata?.sourceImageUrl || metadata?.sourceImage || metadata?.metadata?.sourceImage,
+                                sourceImageUrls: metadata?.sourceImageUrls || (metadata?.sourceImageUrl ? [metadata.sourceImageUrl] : []),
+                                localSourceId: metadata?.localSourceId,
+                                localSourceIds: metadata?.localSourceIds,
+                                baseModel: config.baseModel,
                                 createdAt: String(metadata?.createdAt || createdAt),
                             };
                             return gen;
@@ -342,11 +377,33 @@ export async function POST(request: Request) {
                     newItem.sourceImageUrl = serverPath;
                     updated = true;
                 }
+                
+                // Update sourceImageUrls array
+                if (newItem.localSourceIds?.includes(localId)) {
+                    const idx = newItem.localSourceIds.indexOf(localId);
+                    if (newItem.sourceImageUrls && newItem.sourceImageUrls[idx]) {
+                        const newUrls = [...newItem.sourceImageUrls];
+                        newUrls[idx] = serverPath;
+                        newItem.sourceImageUrls = newUrls;
+                        updated = true;
+                    }
+                }
 
                 // Update config as well
-                if (newItem.config && newItem.config.localSourceId === localId) {
-                    newItem.config = { ...newItem.config, sourceImageUrl: serverPath };
-                    updated = true;
+                if (newItem.config) {
+                    if (newItem.config.localSourceId === localId) {
+                        newItem.config = { ...newItem.config, sourceImageUrl: serverPath };
+                        updated = true;
+                    }
+                    if (newItem.config.localSourceIds?.includes(localId)) {
+                        const idx = newItem.config.localSourceIds.indexOf(localId);
+                        if (newItem.config.sourceImageUrls && newItem.config.sourceImageUrls[idx]) {
+                            const newUrls = [...newItem.config.sourceImageUrls];
+                            newUrls[idx] = serverPath;
+                            newItem.config = { ...newItem.config, sourceImageUrls: newUrls };
+                            updated = true;
+                        }
+                    }
                 }
 
                 if (updated) updatedCount++;
@@ -412,10 +469,26 @@ export async function POST(request: Request) {
         if (item.sourceImageUrl && item.sourceImageUrl.length > 5000 && item.sourceImageUrl.startsWith('data:')) {
             item.sourceImageUrl = "(large base64 data truncated)";
         }
+        if (item.sourceImageUrls && item.sourceImageUrls.length > 0) {
+            item.sourceImageUrls = item.sourceImageUrls.map(url => {
+                if (url && url.length > 5000 && url.startsWith('data:')) {
+                    return "(large base64 data truncated)";
+                }
+                return url;
+            });
+        }
         if (item.config) {
             const config = item.config as GenerationConfig;
             if (config.sourceImageUrl && config.sourceImageUrl.length > 5000 && config.sourceImageUrl.startsWith('data:')) {
                 config.sourceImageUrl = "(large base64 data truncated)";
+            }
+            if (config.sourceImageUrls && config.sourceImageUrls.length > 0) {
+                config.sourceImageUrls = config.sourceImageUrls.map(url => {
+                    if (url && url.length > 5000 && url.startsWith('data:')) {
+                        return "(large base64 data truncated)";
+                    }
+                    return url;
+                });
             }
         }
 
@@ -430,6 +503,10 @@ export async function POST(request: Request) {
             config: item.config,
             status: item.status || 'completed',
             sourceImageUrl: item.sourceImageUrl,
+            sourceImageUrls: item.sourceImageUrls,
+            localSourceId: item.localSourceId,
+            localSourceIds: item.localSourceIds,
+            taskId: item.taskId,
             createdAt: item.createdAt || new Date().toISOString(),
         };
 

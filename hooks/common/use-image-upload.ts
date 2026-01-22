@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { localImageStorage } from '@/lib/local-image-storage';
 import { getApiBase } from '@/lib/api-base';
 import { useToast } from '@/hooks/common/use-toast';
 import { UploadedImage } from '@/components/features/playground-v2/types';
@@ -40,12 +39,9 @@ export function useImageUpload() {
                 img.src = dataUrl;
             });
 
-            // 3. 持久化到本地 IndexedDB
-            await localImageStorage.storeImage(tempId, file);
-
+            // 3. 构建上传对象 (不再持久化到本地 IndexedDB)
             const uploadedImage: UploadedImage = {
                 id: tempId,
-                localId: tempId,
                 file,
                 base64: base64Data,
                 previewUrl: dataUrl,

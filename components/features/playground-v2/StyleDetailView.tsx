@@ -174,25 +174,26 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         toast({ title: "正在处理", description: `正在处理 ${uploads.length} 张图片...` });
 
         for (const file of uploads) {
+            let tempPreviewUrl = '';
             await uploadFile(file, {
                 onLocalPreview: (image) => {
-                    // 使用 local: 前缀表示本地存储的图片，立即更新 UI
-                    const localPath = `local:${image.id}`;
-                    updateStyle({
-                        ...style,
-                        imagePaths: [...style.imagePaths, localPath],
-                        updatedAt: new Date().toISOString()
-                    });
-                },
-                onSuccess: (tempId, path) => {
-                    // 上传成功后，将 style 中的 localPath 替换为 CDN path
-                    const localPath = `local:${tempId}`;
-                    // 注意：这里需要从 store 中获取最新的 style 状态，因为 style prop 可能不是最新的
+                    tempPreviewUrl = image.previewUrl;
                     const currentStyle = usePlaygroundStore.getState().styles.find(s => s.id === style.id);
                     if (currentStyle) {
+                        updateStyle({
+                            ...currentStyle,
+                            imagePaths: [...currentStyle.imagePaths, tempPreviewUrl],
+                            updatedAt: new Date().toISOString()
+                        });
+                    }
+                },
+                onSuccess: (tempId, path) => {
+                    // 上传成功后，将 style 中的 tempPreviewUrl 替换为 CDN path
+                    const currentStyle = usePlaygroundStore.getState().styles.find(s => s.id === style.id);
+                    if (currentStyle && tempPreviewUrl) {
                         const updatedStyle = {
                             ...currentStyle,
-                            imagePaths: currentStyle.imagePaths.map(p => p === localPath ? path : p),
+                            imagePaths: currentStyle.imagePaths.map(p => p === tempPreviewUrl ? path : p),
                             updatedAt: new Date().toISOString()
                         };
                         updateStyle(updatedStyle);

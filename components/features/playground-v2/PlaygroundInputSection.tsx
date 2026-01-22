@@ -434,7 +434,7 @@ function StackImage({
     onPreview: (url: string, id: string) => void;
     onRemove: (index: number) => void;
 }) {
-    const src = useImageSource(image.path || image.previewUrl, image.localId);
+    const src = useImageSource(image.path || image.previewUrl);
     const rotations = [-6, 4, -2, 3];
     const finalSrc = src || image.previewUrl;
 

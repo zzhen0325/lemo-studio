@@ -169,7 +169,7 @@ function DescribeImageItem({
   onRemove: (index: number) => void;
   onPreview: (url: string, layoutId?: string) => void;
 }) {
-  const src = useImageSource(img.path || img.previewUrl, img.localId);
+  const src = useImageSource(img.path || img.previewUrl);
 
   return (
     <div className="relative group/img shrink-0">

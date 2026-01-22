@@ -112,7 +112,9 @@ export default function PromptInput({
             }
           }
           if (files.length > 0) {
+            // 阻止默认粘贴文本行为，只处理图片
             e.preventDefault();
+            console.log(`[PromptInput] Pasted ${files.length} images`);
             onAddImages(files);
           }
         }}

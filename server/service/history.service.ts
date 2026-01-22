@@ -67,6 +67,7 @@ export class HistoryService {
           status: item.status || 'completed',
           sourceImageUrl: singleSourceUrl,
           sourceImageUrls,
+          baseModel: item.baseModel || item.config?.baseModel,
           createdAt: String(item.createdAt || new Date().toISOString()),
           progress: item.progress,
           progressStage: item.progressStage,
@@ -129,6 +130,7 @@ export class HistoryService {
         width: cfg.width,
         height: cfg.height,
         model: cfg.model,
+        baseModel: cfg.baseModel || item.baseModel,
         lora: cfg.lora,
         loras: cfg.loras,
         seed: cfg.seed,
@@ -148,6 +150,11 @@ export class HistoryService {
         parentId: item.parentId,
         createdAt: item.createdAt || new Date().toISOString(),
         outputUrl: item.outputUrl,
+        sourceImageUrl: item.sourceImageUrl,
+        sourceImageUrls: item.sourceImageUrls,
+        localSourceId: item.localSourceId,
+        localSourceIds: item.localSourceIds,
+        taskId: item.taskId,
       };
 
       const existing =

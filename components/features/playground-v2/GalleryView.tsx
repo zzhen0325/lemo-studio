@@ -487,7 +487,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
     // Prefer sourceImageUrls array, fallback to sourceImageUrl
     const sourceUrls = item.sourceImageUrls || (item.sourceImageUrl ? [item.sourceImageUrl] : []);
     const firstSourceUrl = sourceUrls[0];
-    const sourceImage = useImageSource(firstSourceUrl || undefined, item.config?.localSourceId);
+    const sourceImage = useImageSource(firstSourceUrl || undefined);
 
     const performDownload = () => {
         if (!item.outputUrl) return;

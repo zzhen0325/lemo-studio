@@ -47,6 +47,9 @@ export class Generation {
   public model?: string;
 
   @Prop()
+  public baseModel?: string;
+
+  @Prop()
   public workflowName?: string;
 
   @Prop()

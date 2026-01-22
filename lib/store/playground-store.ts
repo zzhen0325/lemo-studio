@@ -6,7 +6,6 @@ import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
 import { userStore } from './user-store';
 import { getApiBase } from "@/lib/api-base";
-import { localImageStorage } from '@/lib/local-image-storage';
 
 const BASE_MODELS = new Set([
     'FLUX_fill',
@@ -345,15 +344,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
                 try {
                     let blob: Blob;
-                    if (imageUrl.startsWith('local:')) {
-                        const id = imageUrl.slice(6);
-                        const storedBlob = await localImageStorage.getImage(id);
-                        if (!storedBlob) throw new Error("Local image not found");
-                        blob = storedBlob;
-                    } else {
-                        const resp = await fetch(imageUrl);
-                        blob = await resp.blob();
-                    }
+                    const resp = await fetch(imageUrl);
+                    blob = await resp.blob();
 
                     const file = new File([blob], `image-${Date.now()}.png`, { type: 'image/png' });
                     const reader = new FileReader();
@@ -383,15 +375,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 try {
                     const newImages = await Promise.all(imageUrls.map(async (url) => {
                         let blob: Blob;
-                        if (url.startsWith('local:')) {
-                            const id = url.slice(6);
-                            const storedBlob = await localImageStorage.getImage(id);
-                            if (!storedBlob) throw new Error("Local image not found");
-                            blob = storedBlob;
-                        } else {
-                            const resp = await fetch(url);
-                            blob = await resp.blob();
-                        }
+                        const resp = await fetch(url);
+                        blob = await resp.blob();
 
                         const file = new File([blob], `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.png`, { type: 'image/png' });
                         const reader = new FileReader();
@@ -416,13 +401,15 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
             applyModel: (model, configData) => {
                 set((state) => {
-                    const finalModel = model;
+                    const finalModel = configData?.baseModel || model;
                     let uiModel = model;
-                    if (BASE_MODELS.has(model)) {
+                    if (BASE_MODELS.has(finalModel)) {
                         uiModel = 'Workflow';
                     }
 
-                    const newConfig = configData ? { ...state.config, ...configData, model: finalModel } : { ...state.config, model: finalModel };
+                    const newConfig = configData 
+                        ? { ...state.config, ...configData, model: finalModel, baseModel: finalModel } 
+                        : { ...state.config, model: finalModel, baseModel: finalModel, presetName: undefined, workflowName: undefined };
 
                     // Default to 2K for Seed 4.2
                     if (finalModel === 'seed4_2_lemo' && !newConfig.imageSize) {
@@ -435,14 +422,14 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         selectedWorkflowConfig: uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined,
                         // If configData explicitly provides loras array, use it as priority
                         selectedLoras: configData?.loras || state.config?.loras || state.selectedLoras,
-                        selectedPresetName: configData?.presetName || state.selectedPresetName
+                        selectedPresetName: configData?.presetName || (configData ? state.selectedPresetName : undefined)
                     };
                 });
             },
 
             remix: (result: Generation) => {
                 set((state) => {
-                    const modelFromConfig = result.config?.model;
+                    const modelFromConfig = result.config?.baseModel || result.config?.model;
                     const finalModel = (modelFromConfig as string) || state.selectedModel;
                     let uiModel = finalModel;
 
@@ -453,16 +440,18 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     return {
                         selectedModel: uiModel,
                         selectedWorkflowConfig: result.config?.workflowName ? (state.presets.find(p => p.workflow_id === result.id || p.name === result.config.workflowName) as unknown as IViewComfy) : (uiModel === 'Workflow' ? state.selectedWorkflowConfig : undefined),
-                        selectedLoras: result.config?.loras || state.selectedLoras,
-                        selectedPresetName: result.config?.presetName || state.selectedPresetName,
+                        selectedLoras: result.config?.loras || [],
+                        selectedPresetName: result.config?.presetName,
                         config: {
                             ...state.config,
                             prompt: result.config?.prompt || state.config.prompt,
                             width: result.config?.width || state.config.width,
                             height: result.config?.height || state.config.height,
                             model: finalModel,
+                            baseModel: finalModel,
+                            presetName: result.config?.presetName,
                             workflowName: result.config?.workflowName,
-                            loras: result.config?.loras || state.config.loras,
+                            loras: result.config?.loras || [],
                             seed: result.config?.seed,
                             imageSize: result.config?.imageSize,
                             aspectRatio: result.config?.aspectRatio,

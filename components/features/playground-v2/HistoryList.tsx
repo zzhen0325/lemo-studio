@@ -102,12 +102,15 @@ const HistoryList = observer(function HistoryList({
     const map = new Map<string, GroupedHistoryItem>();
     history.forEach((result) => {
       const cfg = result.config;
-      // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
-      const sourceUrls = result.sourceImageUrls && result.sourceImageUrls.length > 0
+      // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 config.sourceImageUrls 获取，
+      // 再尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
+      const sourceUrls: string[] = (result.sourceImageUrls && result.sourceImageUrls.length > 0)
         ? result.sourceImageUrls
-        : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
-          ? result.editConfig.referenceImages.map(img => img.dataUrl)
-          : (result.sourceImageUrl ? [result.sourceImageUrl] : []));
+        : (result.config?.sourceImageUrls && result.config.sourceImageUrls.length > 0
+          ? result.config.sourceImageUrls
+          : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
+            ? result.editConfig.referenceImages.map(img => img.dataUrl)
+            : (result.sourceImageUrl ? [result.sourceImageUrl] : (result.config?.sourceImageUrl ? [result.config.sourceImageUrl] : []))));
       const firstSourceUrl = sourceUrls[0];
       const isText = !!firstSourceUrl && (result.outputUrl === firstSourceUrl);
       const type: 'image' | 'text' = isText ? 'text' : 'image';
@@ -291,12 +294,15 @@ const HistoryList = observer(function HistoryList({
         )}>
           {layoutMode === 'grid' ? (
             history.map((result, idx) => {
-              // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
-              const sourceUrls = result.sourceImageUrls && result.sourceImageUrls.length > 0
+              // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 config.sourceImageUrls 获取，
+              // 再尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
+              const sourceUrls: string[] = (result.sourceImageUrls && result.sourceImageUrls.length > 0)
                 ? result.sourceImageUrls
-                : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
-                  ? result.editConfig.referenceImages.map(img => img.dataUrl)
-                  : (result.sourceImageUrl ? [result.sourceImageUrl] : []));
+                : (result.config?.sourceImageUrls && result.config.sourceImageUrls.length > 0
+                  ? result.config.sourceImageUrls
+                  : (result.editConfig?.referenceImages && result.editConfig.referenceImages.length > 0
+                    ? result.editConfig.referenceImages.map(img => img.dataUrl)
+                    : (result.sourceImageUrl ? [result.sourceImageUrl] : (result.config?.sourceImageUrl ? [result.config.sourceImageUrl] : []))));
               const firstSourceUrl = sourceUrls[0];
               const isText = !!firstSourceUrl && (result.outputUrl === firstSourceUrl);
 
@@ -522,7 +528,7 @@ function DescribeSourceImage({
   generationId: string;
   onPreview: (url: string, id: string) => void;
 }) {
-  const src = useImageSource(sourceImage, localId);
+  const src = useImageSource(sourceImage);
 
   if (!src) return (
     <div className="w-full h-full bg-white/5 flex items-center justify-center">
@@ -564,7 +570,7 @@ function HistoryReferenceImage({
   resultId: string;
   onRefImageClick: (url: string, id: string) => void
 }) {
-  const src = useImageSource(url, localId);
+  const src = useImageSource(url);
   const displayUrl = src || formatImageUrl(url);
   const layoutId = `img-ref-${resultId}-${idx}`;
 
@@ -673,20 +679,25 @@ function HistoryCard({
   const { applyPrompt, applyModel, applyImage, applyImages, styles, addImageToStyle, setSelectedPresetName } = usePlaygroundStore();
   const { toast } = useToast();
 
-  // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 editConfig.referenceImages 提取（针对编辑任务），最后回退到 sourceImageUrl
-  const sourceUrls = React.useMemo(() => {
+  // 优先从 sourceImageUrls 数组获取，如果没有则尝试从 config.sourceImageUrls 获取，最后回退到 sourceImageUrl
+  const sourceUrls = React.useMemo<string[]>(() => {
     if (result.sourceImageUrls && result.sourceImageUrls.length > 0) {
       return result.sourceImageUrls;
     }
-    return result.sourceImageUrl ? [result.sourceImageUrl] : [];
-  }, [result.sourceImageUrls, result.sourceImageUrl]);
+    if (result.config?.sourceImageUrls && result.config.sourceImageUrls.length > 0) {
+      return result.config.sourceImageUrls;
+    }
+    return result.sourceImageUrl ? [result.sourceImageUrl] : (result.config?.sourceImageUrl ? [result.config.sourceImageUrl] : []);
+  }, [result.sourceImageUrls, result.sourceImageUrl, result.config?.sourceImageUrls, result.config?.sourceImageUrl]);
 
   const firstSourceUrl = sourceUrls[0];
-  const sourceImage = useImageSource(firstSourceUrl || undefined, result.config?.localSourceId);
+  const sourceImage = useImageSource(firstSourceUrl || undefined);
   const mainImage = formatImageUrl(result.outputUrl);
 
   const config = result.config;
+  const isWorkflow = config?.model === 'Workflow';
   const modelDisplayName = AVAILABLE_MODELS.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
+  const baseModelDisplayName = config?.baseModel ? (AVAILABLE_MODELS.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
   const prompt = config?.prompt || '';
   const timeStr = new Date(result.createdAt).toLocaleString();
 
@@ -713,10 +724,30 @@ function HistoryCard({
       >
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
           <div className="flex items-center gap-4">
-            {(config?.presetName || config?.workflowName) && (
-              <span className="text-white text-md bg-[#b4cdbf22] px-2 py-0.5 rounded border border-white/10"> {config.presetName || config.workflowName}</span>
+            {config?.presetName ? (
+              <span className="text-white text-md bg-[#b4cdbf22] px-2 py-0.5 rounded border border-white/10"> {config.presetName}</span>
+            ) : (
+              <span className="text-white/80">{modelDisplayName}</span>
             )}
-            <span className="text-white/80">{modelDisplayName}</span>
+
+            {isWorkflow && (
+              <>
+                {baseModelDisplayName && (
+                  <>
+                    <span className="opacity-40">/</span>
+                    <span className="text-white/40">Model: {baseModelDisplayName}</span>
+                  </>
+                )}
+                {config?.loras && config.loras.length > 0 && config.loras.map((l, idx) => (
+                  <React.Fragment key={idx}>
+                    <span className="opacity-40">/</span>
+                    <span className="text-white/40">
+                      LoRA: {l.model_name.replace('.safetensors', '')} ({l.strength})
+                    </span>
+                  </React.Fragment>
+                ))}
+              </>
+            )}
 
             <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
@@ -730,14 +761,6 @@ function HistoryCard({
               </>
             )}
 
-            {config?.loras && config.loras.length > 0 && config.loras.map((l, idx) => (
-              <React.Fragment key={idx}>
-                <span className="opacity-40">/</span>
-                <span className="text-white/40  ">
-                  LoRA: {l.model_name.replace('.safetensors', '')} ({l.strength})
-                </span>
-              </React.Fragment>
-            ))}
             <span className="opacity-40">/</span>
             <span>{timeStr}</span>
 
@@ -991,13 +1014,15 @@ function HistoryCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (config) {
+                    const effectiveModel = config.baseModel || config.model || '';
                     // 1. 回填模型和参数
-                    applyModel(config.model || '', {
+                    applyModel(effectiveModel, {
                       ...config,
                       prompt: config.prompt,
                       width: config.width,
                       height: config.height,
                       model: config.model,
+                      baseModel: config.baseModel,
                       lora: config.lora,
                       loras: config.loras,
                       presetName: config.presetName,
@@ -1164,11 +1189,13 @@ function HistoryCard({
             onClick={(e) => {
               e.stopPropagation();
               if (result.config) {
-                applyModel(result.config.model, {
+                const effectiveModel = result.config.baseModel || result.config.model;
+                applyModel(effectiveModel, {
                   prompt: result.config.prompt,
                   width: result.config.width,
                   height: result.config.height,
                   model: result.config.model,
+                  baseModel: result.config.baseModel,
                   lora: result.config.lora,
                   loras: result.config.loras,
                 });

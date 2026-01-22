@@ -29,18 +29,19 @@ export interface GenerationConfig {
   width: number;
   height: number;
   model: string;
-  workflowName?: string;
-  lora?: string;
+  baseModel?: string; // Real base model ID
+  workflowName?: string; // Legacy: use presetName instead
+  lora?: string; // Legacy: use loras instead
   loras?: SelectedLora[];
   seed?: number;
   imageSize?: ImageSize;
   aspectRatio?: AspectRatio;
   sizeFrom?: SizeFrom;
-  sourceImageUrl?: string;
+  sourceImageUrl?: string; // Legacy: use sourceImageUrls instead
   sourceImageUrls?: string[];
-  localSourceId?: string; // Track local image ID for sync
+  localSourceId?: string; // Legacy: use localSourceIds instead
   localSourceIds?: string[]; // Track multiple local image IDs for sync
-  presetName?: string;
+  presetName?: string; // Contains readable label (workflowName + loras summary)
   editConfig?: EditPresetConfig;
   isEdit?: boolean;
   parentId?: string;
@@ -54,10 +55,11 @@ export interface Generation {
   outputUrl: string;
   config: GenerationConfig;
   status: 'pending' | 'completed' | 'failed';
-  sourceImageUrl?: string;
+  sourceImageUrl?: string; // Legacy: use sourceImageUrls instead
   sourceImageUrls?: string[];
-  localSourceId?: string; // Track local image ID for sync
+  localSourceId?: string; // Legacy: use localSourceIds instead
   localSourceIds?: string[]; // Track multiple local image IDs for sync
+  baseModel?: string; // Real base model ID
   editConfig?: EditPresetConfig;
   isEdit?: boolean;
   parentId?: string;

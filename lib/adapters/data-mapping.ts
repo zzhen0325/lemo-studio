@@ -46,6 +46,7 @@ export function inferRatioImageSize(width: number, height: number) {
 
 export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationConfig {
   let model = input.model;
+  let baseModel = input.baseModel;
   const width = Number(input.width);
   const height = Number(input.height);
 
@@ -60,6 +61,10 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
     model = 'lemo_2dillustator';
   } else if (model === 'Seed 4') {
     model = 'lemoseedt2i';
+  }
+
+  if (!baseModel) {
+    baseModel = model;
   }
 
   if (model && RATIO_BASED_MODELS.has(model)) {
@@ -79,6 +84,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
         width,
         height,
         model,
+        baseModel,
         imageSize: imageSize || '1K',
         aspectRatio: 'auto',
         sizeFrom: 'custom',
@@ -93,6 +99,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
         width: size.width,
         height: size.height,
         model,
+        baseModel,
         imageSize,
         aspectRatio,
         sizeFrom: 'ratioImageSize',
@@ -105,6 +112,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
       width,
       height,
       model,
+      baseModel,
       sizeFrom: 'custom',
     };
   }
@@ -115,5 +123,6 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
     width,
     height,
     model,
+    baseModel,
   };
 }

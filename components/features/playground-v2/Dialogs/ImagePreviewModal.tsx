@@ -308,7 +308,7 @@ function ReferenceImageItem({
   index: number;
 }) {
   const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
-  const sourceImage = useImageSource(url, localId);
+  const sourceImage = useImageSource(url);
 
   return (
     <motion.div

@@ -46,7 +46,6 @@ import { PlaygroundInputSection } from "@/components/features/playground-v2/Play
 import { AR_MAP } from "@/components/features/playground-v2/constants/aspect-ratio";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { v4 as uuidv4 } from 'uuid';
-import { localImageStorage } from "@/lib/local-image-storage";
 import { useImageUpload } from "@/hooks/common/use-image-upload";
 
 import gsap from "gsap";
@@ -421,7 +420,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       };
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
       const sourceImageUrls = currentUploadedImages.map(img => img.path || img.previewUrl);
-      const localSourceIds = currentUploadedImages.map(img => img.localId).filter((id): id is string => !!id);
+      const localSourceIds = currentUploadedImages.map(img => img.id).filter((id): id is string => !!id);
       const localSourceId = localSourceIds[0]; // Keep first for backward compatibility
 
       // 1. Immediately create and show the pending card
@@ -449,6 +448,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const { uploadFile } = useImageUpload();
 
   const handleFilesUpload = React.useCallback(async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
+    // 如果是上传参考图，重置编辑状态，防止旧的编辑缓存干扰新上传的图片生成
+    if (target === 'reference') {
+      usePlaygroundStore.getState().updateConfig({
+        isEdit: false,
+        editConfig: undefined,
+        parentId: undefined
+      });
+    }
+
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     const setImages = target === 'describe' ? setDescribeImages : setUploadedImages;
     const updateImage = target === 'describe' ? updateDescribeImage : updateUploadedImage;
@@ -505,8 +513,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const removeImage = React.useCallback((index: number) => { 
     setUploadedImages(prev => {
       const newImages = prev.filter((_, i) => i !== index);
-      // 如果图片被清空，重置编辑状态，防止残留参考图
-      if (newImages.length === 0) {
+      // 如果图片被清空或者移除的是第一张参考图，重置编辑状态
+      if (newImages.length === 0 || (index === 0 && usePlaygroundStore.getState().config.isEdit)) {
         // 使用 setTimeout 确保在渲染周期外更新 config，避免潜在的冲突
         setTimeout(() => {
           usePlaygroundStore.getState().updateConfig({
@@ -990,6 +998,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       setSelectedPresetName(undefined);
       setSelectedModel("");
       setSelectedWorkflowConfig(undefined);
+      updateConfig({ presetName: undefined, workflowName: undefined });
     },
     setIsDescribeMode: (val: boolean) => {
       if (val) {

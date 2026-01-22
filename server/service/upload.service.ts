@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { Injectable, Inject } from '@gulux/gulux';
 import { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
@@ -42,7 +43,10 @@ export class UploadService {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const fileName = file.name || `upload_${Date.now()}.${ext}`;
+
+    // Generate unique filename to prevent overwrite
+    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "") || 'image';
+    const fileName = `${nameWithoutExt}_${randomUUID()}.${ext}`;
     const cdnRes = await uploadBufferToCdn(buffer, {
       fileName,
       dir: 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/upload',
