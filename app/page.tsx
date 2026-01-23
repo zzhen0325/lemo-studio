@@ -36,6 +36,9 @@ const ToolsView = dynamic(() => import("@/components/features/tools/ToolsView"),
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import { NewSidebar } from "@/components/layout/NewSidebar";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
+import TldrawEditorModal from "@/components/features/playground-v2/Dialogs/TldrawEditorModal";
+import { useToast } from "@/hooks/common/use-toast";
+import { useImageUpload } from "@/hooks/common/use-image-upload";
 
 
 export default function Page() {
@@ -62,7 +65,7 @@ export default function Page() {
         // 在空闲时间预加载组件和数据
         const preload = () => {
             console.log("[Performance] Starting background preloading...");
-            
+
             // 1. 预加载核心数据
             const store = usePlaygroundStore.getState();
             if (store.initPresets) store.initPresets();
@@ -134,6 +137,44 @@ export default function Page() {
     const handleEditMapping = (workflow: IViewComfy) => {
         localStorage.setItem("MAPPING_EDITOR_INITIAL_WORKFLOW", JSON.stringify(workflow));
         handleTabChange(TabValue.MappingEditor);
+    };
+
+    const { isTldrawEditorOpen, setTldrawEditorOpen, tldrawEditingImageUrl } = usePlaygroundStore();
+    const { toast } = useToast();
+    const { uploadFile } = useImageUpload();
+    const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
+
+    const handleSaveTldrawImage = async (dataUrl: string, prompt?: string, refImageUrls?: string[], shouldGenerate?: boolean) => {
+        try {
+            console.log("[Page] Saving Tldraw image", { prompt, refImageUrls, shouldGenerate });
+
+            if (prompt) {
+                usePlaygroundStore.getState().applyPrompt(prompt);
+            }
+
+            if (!dataUrl || dataUrl === '') {
+                setTldrawEditorOpen(false);
+                return;
+            }
+
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const file = new File([blob], `tldraw-${Date.now()}.png`, { type: 'image/png' });
+
+            await uploadFile(file, {
+                onLocalPreview: (image) => {
+                    setUploadedImages(prev => [image, ...prev]);
+                    setTldrawEditorOpen(false);
+                    toast({ title: "标注已保存", description: "编辑后的图片已添加到输入框，Prompt 已更新。" });
+                },
+                onSuccess: (tempId, path) => {
+                    usePlaygroundStore.getState().updateUploadedImage(tempId, { path, isUploading: false });
+                }
+            });
+        } catch (error) {
+            console.error("Failed to save tldraw image:", error);
+            toast({ title: "保存失败", description: "无法处理导出的图片", variant: "destructive" });
+        }
     };
 
     /* useEffect(() => {
@@ -225,6 +266,13 @@ export default function Page() {
 
 
                 </main>
+
+                <TldrawEditorModal
+                    isOpen={isTldrawEditorOpen}
+                    imageUrl={tldrawEditingImageUrl}
+                    onClose={() => setTldrawEditorOpen(false)}
+                    onSave={handleSaveTldrawImage}
+                />
             </div>
         </TabContext.Provider>
     );

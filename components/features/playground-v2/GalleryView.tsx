@@ -26,11 +26,12 @@ import {
 
 
 export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Generation) => void }) {
-    const [isEditorOpen, setIsEditorOpen] = useState(false);
-    const [editingImageUrl, setEditingImageUrl] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedModels, setSelectedModels] = useState<string[]>([]);
     const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
+    const [useTldraw] = useState(true); // 始终开启实验版 tldraw
+    const [isOldEditorOpen, setIsOldEditorOpen] = useState(false); // 仅用于旧版编辑器
+    const [editingImageUrl, setEditingImageUrl] = useState("");
 
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
@@ -163,24 +164,33 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
         }
     }, [galleryItems.length, isFetchingGallery, fetchGallery]);
 
+    const { setTldrawEditorOpen } = usePlaygroundStore();
+
     const handleEditImage = (result: Generation) => {
         const url = result.outputUrl || "";
         if (url) {
-            setEditingImageUrl(url);
-            setIsEditorOpen(true);
-            // Close preview if needed
-            if (onSelectItem) {
-                // Not ideal but for now we reset parent state if possible
-                // Better approach is to let parent handle all preview states
+            if (useTldraw) {
+                setTldrawEditorOpen(true, url);
+            } else {
+                setEditingImageUrl(url);
+                setIsOldEditorOpen(true);
             }
         }
     };
 
-    const handleSaveEditedImage = async (dataUrl: string, prompt?: string) => {
+
+    const handleSaveEditedImage = async (dataUrl: string, prompt?: string, refImageUrls?: string[], shouldGenerate?: boolean) => {
         try {
+            console.log("[GalleryView] handleSaveEditedImage called", { prompt, hasDataUrl: !!dataUrl, shouldGenerate, refImageUrls });
+
             // Apply prompt if provided (from labeling tool)
             if (prompt) {
                 usePlaygroundStore.getState().applyPrompt(prompt);
+            }
+
+            if (!dataUrl || dataUrl === '') {
+                setIsOldEditorOpen(false);
+                return;
             }
 
             // 1. Convert dataUrl to Blob/File
@@ -192,7 +202,7 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
             await uploadFile(file, {
                 onLocalPreview: (image) => {
                     setUploadedImages(prev => [image, ...prev]);
-                    setIsEditorOpen(false);
+                    setIsOldEditorOpen(false);
                     toast({ title: "图片已保存", description: "编辑后的图片已添加到输入框，正在同步到 CDN..." });
                 },
                 onSuccess: (tempId, path) => {
@@ -391,13 +401,15 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 
             {/* ImagePreviewModal removed from here as it is rendered globally in PlaygroundV2Page to avoid duplication and key conflicts */}
 
-            <ImageEditorModal
-                isOpen={isEditorOpen}
-                imageUrl={editingImageUrl}
-                onClose={() => setIsEditorOpen(false)}
-                onSave={handleSaveEditedImage}
-                workflows={[]}
-            />
+            {!useTldraw && (
+                <ImageEditorModal
+                    isOpen={isOldEditorOpen}
+                    imageUrl={editingImageUrl}
+                    onClose={() => setIsOldEditorOpen(false)}
+                    onSave={handleSaveEditedImage}
+                    workflows={[]}
+                />
+            )}
 
         </div >
     );

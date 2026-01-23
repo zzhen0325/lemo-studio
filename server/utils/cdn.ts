@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { fetch, FormData, File } from 'undici';
 
-const CDN_BASE = process.env.CDN_BASE_URL || 'https://ife-cdn.byteintl.net';
+const CDN_BASE = process.env.NODE_ENV === 'development' ? 'https://ife-cdn.tiktok-row.net' : 'https://ife-cdn.byteintl.net';
 const DEFAULT_DIR = process.env.CDN_DIR || 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design';
 const DEFAULT_REGION = process.env.CDN_REGION || 'SG';
 const DEFAULT_EMAIL = process.env.CDN_EMAIL || 'zzhen.0325@bytedance.com';
@@ -26,7 +26,7 @@ function buildUrl(dir: string, fileName: string) {
 }
 
 async function postForm<T = unknown>(pathName: string, form: FormData): Promise<T> {
-  const url = `${CDN_BASE}${pathName}`;
+  const url = `${'https://ife-cdn.tiktok-row.net'}${pathName}`;
   let res;
   try {
     res = await fetch(url, {

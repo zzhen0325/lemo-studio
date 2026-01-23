@@ -125,7 +125,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                 backgroundColor: initialState.backgroundColor || prev.backgroundColor,
                 canvasWidth: initialState.canvasSize?.width || prev.canvasWidth,
                 canvasHeight: initialState.canvasSize?.height || prev.canvasHeight,
-                zoom: 1
             }));
 
             hasLoadedInitialState.current = true;
@@ -232,25 +231,6 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             await uploadFile(file, {
                 onLocalPreview: (image) => {
                     const dataUrl = image.previewUrl;
-                    // 如果是第一张图且未初始化，同步尺寸到输入框配置
-                    if (!isInitialized && index === 0 && inputSectionProps?.setConfig) {
-                        let { width, height } = image;
-                        if (width && height) {
-                            const minSide = Math.min(width, height);
-                            if (minSide < 1024) {
-                                const scale = 1024 / minSide;
-                                width = Math.round(width * scale);
-                                height = Math.round(height * scale);
-                            }
-                            inputSectionProps.setConfig(prev => ({
-                                ...prev,
-                                width: width || 1024,
-                                height: height || 1024,
-                            }));
-                            // setIsAutoAspectRatio(true); // Auto aspect ratio logic simplified/removed
-                        }
-                    }
-
                     if (!isInitialized && index === 0) {
                         console.log("Initializing canvas with first uploaded image");
                         initCanvasWithImage(dataUrl);
@@ -266,7 +246,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                 }
             });
         }
-    }, [uploadFile, addImage, isInitialized, initCanvasWithImage, inputSectionProps]);
+    }, [uploadFile, addImage, isInitialized, initCanvasWithImage]);
 
     // Consolidate editing text synchronization and focus
     useEffect(() => {
@@ -461,7 +441,7 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                 onChange={(e) => handleFileUpload(e.target.files)}
                             />
 
-                            <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#E5E5E5]">
+                            <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#5a4b4b]">
                                 {/* Left Side: Canvas Area */}
                                 <motion.div
                                     className="h-full relative flex flex-col overflow-hidden border-r border-black/[0.03]"

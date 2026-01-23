@@ -162,6 +162,13 @@ export const useImageEditor = (imageUrl: string) => {
 
     const [isInitialized, setIsInitialized] = useState(false);
 
+    // 辅助检查点：获取图片在画布中的当前缩放
+    const getImageFitZoom = useCallback((w: number, h: number, iw: number, ih: number) => {
+        const horizontalMargin = 120; // 考虑侧边栏占位
+        const verticalMargin = 100;
+        return Math.min((w - horizontalMargin) / iw, (h - verticalMargin) / ih, 1);
+    }, []);
+
     const resetState = useCallback(() => {
         setIsInitialized(false);
         setEditorState({
@@ -729,18 +736,16 @@ export const useImageEditor = (imageUrl: string) => {
                     const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
                     const iw = img.width || 1, ih = img.height || 1;
 
-                    // 计算最佳 fit 比例，不再使用硬编码 0.7
-                    const horizontalMargin = 120; // 考虑侧边栏占位
-                    const verticalMargin = 100;
-                    const fitZ = Math.min((w - horizontalMargin) / iw, (h - verticalMargin) / ih, 1);
+                    // 计算适配当前容器的初始 zoom
+                    const initialZoom = getImageFitZoom(w, h, iw, ih);
 
                     const bgRect = new fabric.Rect({
                         left: w / 2, top: h / 2, width: iw, height: ih,
                         originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
-                        selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
+                        selectable: false, evented: false,
                         name: 'canvas-background',
                         shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 }),
-                        lockMovementX: true, lockMovementY: true // 强力锁定
+                        lockMovementX: true, lockMovementY: true
                     });
 
                     canvas.add(bgRect);
@@ -749,15 +754,19 @@ export const useImageEditor = (imageUrl: string) => {
 
                     img.set({
                         left: w / 2, top: h / 2, originX: 'center', originY: 'center',
-                        selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
+                        selectable: false, evented: false,
                         lockMovementX: true, lockMovementY: true
                     });
 
                     canvas.add(img);
                     setImageObj(img);
-                    setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: fitZ }));
 
-                    // 使用 setViewportTransform 替代绝对 clipPath，提高视口鲁棒性
+                    // 设置画布视口，将背景块居中并应用缩放
+                    canvas.setZoom(initialZoom);
+                    canvas.absolutePan(new fabric.Point(iw / 2 * initialZoom - w / 2, ih / 2 * initialZoom - h / 2));
+
+                    setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: initialZoom }));
+
                     canvas.requestRenderAll();
                     setIsInitialized(true);
                 } catch (err) {
@@ -809,7 +818,7 @@ export const useImageEditor = (imageUrl: string) => {
         });
 
         return canvas;
-    }, [imageUrl]);
+    }, [imageUrl, getImageFitZoom]);
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -911,12 +920,37 @@ export const useImageEditor = (imageUrl: string) => {
 
     const exportImage = useCallback((): string | null => {
         const c = fabricCanvasRef.current; if (!c) return null;
-        const oz = c.getZoom(), ovp = c.viewportTransform ? [...c.viewportTransform] : null;
-        c.setZoom(1); c.viewportTransform = [1, 0, 0, 1, 0, 0];
-        const t = imageObj || canvasBackgroundRef.current; if (!t) return null;
-        const sx = t.scaleX || 1, sy = t.scaleY || 1, w = (t.width || 0) * sx, h = (t.height || 0) * sy;
-        const dataUrl = c.toDataURL({ format: 'png', left: (t.left || 0) - w / 2, top: (t.top || 0) - h / 2, width: w, height: h, multiplier: 1 / sx });
-        c.setZoom(oz); if (ovp) c.viewportTransform = ovp as fabric.TMat2D;
+        const target = imageObj || canvasBackgroundRef.current; if (!target) return null;
+
+        // 保存当前视口状态
+        const oz = c.getZoom();
+        const ovp = c.viewportTransform ? [...c.viewportTransform] : null;
+
+        // 导出时，我们要导出逻辑画板区域 (target 覆盖的范围)
+        // target 的尺寸即为逻辑尺寸
+        const tw = target.width || 0;
+        const th = target.height || 0;
+        const tl = target.left || 0;
+        const tt = target.top || 0;
+
+        // 强制重置视口到 1:1 且对准逻辑画板左上角以进行精确裁切导出
+        c.setZoom(1);
+        c.viewportTransform = [1, 0, 0, 1, 0, 0];
+
+        const dataUrl = c.toDataURL({
+            format: 'png',
+            left: tl - tw / 2,
+            top: tt - th / 2,
+            width: tw,
+            height: th,
+            multiplier: 1 // 物理尺寸 1:1
+        });
+
+        // 恢复视口
+        c.setZoom(oz);
+        if (ovp) c.viewportTransform = ovp as fabric.TMat2D;
+        c.requestRenderAll();
+
         return dataUrl;
     }, [imageObj]);
 
@@ -1046,12 +1080,24 @@ export const useImageEditor = (imageUrl: string) => {
 
     const updateCanvasSize = useCallback((w: number, h: number) => {
         const c = fabricCanvasRef.current; if (!c || !canvasBackgroundRef.current) return;
-        const cw = c.width || 800, ch = c.height || 600, z = Math.min(cw / w, ch / h) * 0.9;
-        canvasBackgroundRef.current.set({ width: w, height: h, scaleX: z, scaleY: z });
-        if (imageObj) imageObj.set({ scaleX: (w / imageObj.width) * z, scaleY: (h / imageObj.height) * z });
-        c.clipPath = new fabric.Rect({ left: cw / 2, top: ch / 2, width: w * z, height: h * z, originX: 'center', originY: 'center', absolutePositioned: true });
-        setEditorState(p => ({ ...p, canvasWidth: w, canvasHeight: h })); c.renderAll(); saveHistory();
-    }, [imageObj, saveHistory]);
+        const cw = c.width || 800, ch = c.height || 600;
+
+        // 逻辑尺寸更新
+        canvasBackgroundRef.current.set({ width: w, height: h });
+        if (imageObj) {
+            // 如果有背景图，缩放背景图以适应新尺寸
+            imageObj.set({ scaleX: w / (imageObj.width || 1), scaleY: h / (imageObj.height || 1) });
+        }
+
+        // 重新计算并应用适配缩放
+        const initialZoom = getImageFitZoom(cw, ch, w, h);
+        c.setZoom(initialZoom);
+        c.absolutePan(new fabric.Point(w / 2 * initialZoom - cw / 2, h / 2 * initialZoom - ch / 2));
+
+        setEditorState(p => ({ ...p, canvasWidth: w, canvasHeight: h, zoom: initialZoom }));
+        c.renderAll();
+        saveHistory();
+    }, [imageObj, saveHistory, getImageFitZoom]);
 
     const getCanvasState = useCallback(() => {
         if (!fabricCanvasRef.current) return null;
@@ -1155,26 +1201,6 @@ export const useImageEditor = (imageUrl: string) => {
             }
         }
 
-        // 如果还是 null，尝试异步重试几次（可能在动画中或尚未挂载）
-        if (!canvas) {
-            console.warn("fabricCanvasRef is null during initCanvas, waiting a bit...");
-            for (let i = 0; i < 5; i++) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                canvas = fabricCanvasRef.current;
-
-                // 每次重试时也尝试再探测一次 DOM
-                if (!canvas && canvasRef.current) {
-                    const container = canvasRef.current.parentElement;
-                    const rect = container?.getBoundingClientRect();
-                    if (rect && rect.width > 0 && rect.height > 0) {
-                        canvas = initFabric(rect.width, rect.height);
-                    }
-                }
-
-                if (canvas) break;
-            }
-        }
-
         if (!canvas) {
             console.error("Canvas not initialized after retries");
             return;
@@ -1183,12 +1209,12 @@ export const useImageEditor = (imageUrl: string) => {
         resetState();
 
         const cw = canvas.width || 800, ch = canvas.height || 600;
-        const initialZoom = Math.min(cw / w, ch / h) * 0.7;
+        const initialZoom = getImageFitZoom(cw, ch, w, h);
 
         const bgRect = new fabric.Rect({
             left: cw / 2, top: ch / 2, width: w, height: h,
             originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
-            selectable: false, evented: false, scaleX: initialZoom, scaleY: initialZoom,
+            selectable: false, evented: false,
             name: 'canvas-background',
             shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
         });
@@ -1197,15 +1223,14 @@ export const useImageEditor = (imageUrl: string) => {
         canvas.sendObjectToBack(bgRect);
         canvasBackgroundRef.current = bgRect;
 
-        setEditorState(prev => ({ ...prev, canvasWidth: w, canvasHeight: h, zoom: 1 }));
-        canvas.clipPath = new fabric.Rect({
-            left: cw / 2, top: ch / 2, width: w * initialZoom, height: h * initialZoom,
-            originX: 'center', originY: 'center', absolutePositioned: true
-        });
+        canvas.setZoom(initialZoom);
+        canvas.absolutePan(new fabric.Point(w / 2 * initialZoom - cw / 2, h / 2 * initialZoom - ch / 2));
+
+        setEditorState(prev => ({ ...prev, canvasWidth: w, canvasHeight: h, zoom: initialZoom }));
 
         canvas.requestRenderAll();
         setIsInitialized(true);
-    }, [initFabric, resetState]);
+    }, [initFabric, resetState, getImageFitZoom]);
 
     const initCanvasWithImage = useCallback(async (url: string) => {
         let canvas = fabricCanvasRef.current;
@@ -1216,16 +1241,6 @@ export const useImageEditor = (imageUrl: string) => {
                 if (rect.width > 0 && rect.height > 0) {
                     canvas = initFabric(rect.width, rect.height);
                 }
-            }
-        }
-
-        if (!canvas) {
-            console.warn("fabricCanvasRef is null during initCanvasWithImage, waiting a bit...");
-            // 尝试等待一帧，给 ResizeObserver 机会
-            for (let i = 0; i < 5; i++) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-                canvas = fabricCanvasRef.current;
-                if (canvas) break;
             }
         }
 
@@ -1241,12 +1256,12 @@ export const useImageEditor = (imageUrl: string) => {
         try {
             const img = await fabric.FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
             const iw = img.width || 1, ih = img.height || 1;
-            const fitZ = Math.min(cw / iw, ch / ih) * 0.7;
+            const fitZ = getImageFitZoom(cw, ch, iw, ih);
 
             const bgRect = new fabric.Rect({
                 left: cw / 2, top: ch / 2, width: iw, height: ih,
                 originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
-                selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
+                selectable: false, evented: false,
                 name: 'canvas-background',
                 shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
             });
@@ -1257,17 +1272,16 @@ export const useImageEditor = (imageUrl: string) => {
 
             img.set({
                 left: cw / 2, top: ch / 2, originX: 'center', originY: 'center',
-                selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ
+                selectable: false, evented: false
             });
 
             canvas.add(img);
             setImageObj(img);
-            setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: 1 }));
 
-            canvas.clipPath = new fabric.Rect({
-                left: cw / 2, top: ch / 2, width: iw * fitZ, height: ih * fitZ,
-                originX: 'center', originY: 'center', absolutePositioned: true
-            });
+            canvas.setZoom(fitZ);
+            canvas.absolutePan(new fabric.Point(iw / 2 * fitZ - cw / 2, ih / 2 * fitZ - ch / 2));
+
+            setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: fitZ }));
 
             canvas.requestRenderAll();
             setIsInitialized(true);
@@ -1275,7 +1289,7 @@ export const useImageEditor = (imageUrl: string) => {
         } catch (err) {
             console.error("Failed to load image:", err);
         }
-    }, [saveHistory, initFabric, resetState]);
+    }, [saveHistory, initFabric, resetState, getImageFitZoom]);
 
     return {
         canvasRef, editorState, setTool, addText, addShape, addImage, undo, redo, rotateCanvas, applyFilter, exportImage,

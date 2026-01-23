@@ -27,6 +27,11 @@ interface PlaygroundState {
     editConfig?: import('@/types/database').EditPresetConfig;
     visitorId: string | undefined;
 
+    // Tldraw Editor States
+    isTldrawEditorOpen: boolean;
+    tldrawEditingImageUrl: string;
+    setTldrawEditorOpen: (open: boolean, imageUrl?: string) => void;
+
     // Selection Mode
     isSelectionMode: boolean;
     selectedHistoryIds: Set<string>;
@@ -157,6 +162,12 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             viewMode: 'home',
             activeTab: 'history',
             visitorId: undefined,
+            isTldrawEditorOpen: false,
+            tldrawEditingImageUrl: "",
+            setTldrawEditorOpen: (open, imageUrl = "") => set({
+                isTldrawEditorOpen: open,
+                tldrawEditingImageUrl: imageUrl
+            }),
             setSelectedPresetName: (name) => set({ selectedPresetName: name }),
             setViewMode: (mode) => set((state) => ({
                 viewMode: mode,
@@ -461,6 +472,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     hasMoreHistory: true,
                     isFetchingHistory: false,
                     visitorId: undefined, // Will be initialized by the component or on first use
+                    isTldrawEditorOpen: false,
+                    tldrawEditingImageUrl: "",
                 });
             },
 

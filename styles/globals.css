@@ -230,3 +230,12 @@
   0% { transform: translateX(-100%) skewX(-12deg); }
   100% { transform: translateX(100%) skewX(-12deg); }
 }
+
+/* Tldraw Branding Removal */
+.tl-watermark,
+.tl-ui-brand,
+[data-testid="tl-watermark"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

@@ -44,7 +44,7 @@ const navItems = [
 export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps) => {
     const [authOpen, setAuthOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
-    const { setViewMode } = usePlaygroundStore();
+    const { setViewMode, setTldrawEditorOpen } = usePlaygroundStore();
 
     return (
         <header
@@ -93,6 +93,15 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                         </button>
                     );
                 })}
+
+                {/* Tldraw Beta Entry */}
+                <button
+                    onClick={() => setTldrawEditorOpen(true)}
+                    className="ml-4 px-3 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-all flex items-center gap-2 group"
+                >
+                    <Wand2 className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Tldraw Beta</span>
+                </button>
             </nav>
 
             <div className="flex items-center gap-4">
@@ -102,11 +111,11 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10">
                                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden">
                                     {userStore.currentUser.avatar ? (
-                                        <Image 
-                                            src={userStore.currentUser.avatar} 
-                                            alt={userStore.currentUser.name} 
-                                            width={20} 
-                                            height={20} 
+                                        <Image
+                                            src={userStore.currentUser.avatar}
+                                            alt={userStore.currentUser.name}
+                                            width={20}
+                                            height={20}
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (
@@ -125,7 +134,7 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                                 <span className="text-white font-bold truncate block">{userStore.currentUser.name}</span>
                             </div>
                             <DropdownMenuSeparator className="bg-white/10" />
-                            
+
                             <DropdownMenuItem
                                 onClick={() => setProfileOpen(true)}
                                 className="cursor-pointer focus:bg-white/10 focus:text-white"
@@ -133,9 +142,9 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                                 <UserIcon className="w-4 h-4 mr-2" />
                                 <span>Profile Settings</span>
                             </DropdownMenuItem>
-                            
+
                             <DropdownMenuSeparator className="bg-white/10" />
-                            
+
                             <DropdownMenuItem
                                 onClick={() => userStore.logout()}
                                 className="cursor-pointer focus:bg-white/10 focus:text-red-400 text-red-400"
@@ -146,9 +155,9 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                         </DropdownMenuContent>
                     </DropdownMenu>
                 ) : (
-                    <Button 
+                    <Button
                         onClick={() => setAuthOpen(true)}
-                        variant="ghost" 
+                        variant="ghost"
                         size="sm"
                         className="text-white/80 hover:text-white hover:bg-white/10"
                     >
@@ -156,7 +165,7 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                     </Button>
                 )}
 
-                
+
             </div>
 
             <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
