@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import NextImage from "next/image";
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,11 +10,6 @@ import {
     Square,
     Circle as CircleIcon,
     ArrowRight,
-
-    Palette,
-    Layers,
-    SlidersHorizontal,
-    History as HistoryIcon,
     X,
     LucideIcon,
     ImagePlus,
@@ -26,10 +20,7 @@ import {
     ChevronDown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -37,18 +28,19 @@ import {
     DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
-import { useImageEditor, EDITOR_COLORS, EditorColor } from '@/hooks/features/PlaygroundV2/useImageEditor';
+import { useImageEditor } from '@/hooks/features/PlaygroundV2/useImageEditor';
 import { AVAILABLE_MODELS } from '@/hooks/features/PlaygroundV2/useGenerationService';
 import { cn } from '@/lib/utils';
-import { usePlaygroundStore } from '@/lib/store/playground-store';
-import { formatImageUrl } from '@/lib/api-base';
 import { useImageUpload } from '@/hooks/common/use-image-upload';
+import { useGenerationService } from '@/hooks/features/PlaygroundV2/useGenerationService';
+import { usePlaygroundStore } from '@/lib/store/playground-store';
 
 import { PresetManagerDialog } from './PresetManagerDialog';
 import { EditPresetConfig } from '../types';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { PlaygroundInputSectionProps } from '../PlaygroundInputSection';
-import { Generation } from '@/types/database';
+import { AnnotationInfo, Generation } from '@/types/database';
+import { EditorState } from '@/hooks/features/PlaygroundV2/useImageEditor';
 
 interface ImageEditorModalProps {
     isOpen: boolean;
@@ -58,13 +50,17 @@ interface ImageEditorModalProps {
     initialState?: EditPresetConfig;
     workflows: IViewComfy[];
     inputSectionProps?: PlaygroundInputSectionProps;
-    taskId?: string;
 }
 
-export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows, inputSectionProps, taskId }: ImageEditorModalProps) {
+export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, initialState, workflows, inputSectionProps }: ImageEditorModalProps) {
     const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
     const [currentEditConfig, setCurrentEditConfig] = useState<EditPresetConfig | undefined>(undefined);
     const [mounted, setMounted] = useState(false);
+    const [inlineGenResult, setInlineGenResult] = useState<string | null>(null);
+    const [inlineGenId, setInlineGenId] = useState<string | null>(null);
+    const [showComparison, setShowComparison] = useState(false);
+
+    const { handleGenerate, isGenerating: isGeneratingService } = useGenerationService();
 
     // Resizable Right Panel State
 
@@ -84,19 +80,12 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         addText,
         undo,
         redo,
-
-
         exportImage,
-        updateBrushColor,
-        updateBrushWidth,
         deleteSelected,
         addImage,
-
         addReferenceImage,
         removeReferenceImage,
         getAnnotationsInfo,
-        updateCanvasBackground,
-        updateCanvasSize,
         getCanvasState,
         loadCanvasState,
         setEditorState,
@@ -104,36 +93,12 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
         initCanvas,
         initCanvasWithImage,
         setZoomEnabled,
-        resetState
+        resetState,
+        confirmAnnotation,
+        cancelAnnotation
     } = useImageEditor(imageUrl);
 
-    // 获取全局历史并过滤相关快照
-    const { generationHistory } = usePlaygroundStore();
-    const relatedSnapshots = React.useMemo(() => {
-        // 找出所有包含 editConfig 且 taskId 匹配的历史记录
-        if (!taskId) return [];
-        return (generationHistory as Generation[])
-            .filter((gen: Generation) => gen.config?.editConfig && gen.config?.taskId === taskId)
-            .sort((a: Generation, b: Generation) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [generationHistory, taskId]);
-
-    const handleSwitchSnapshot = useCallback((snapshot: import('@/types/database').EditPresetConfig) => {
-        if (!snapshot.canvasJson) return;
-
-        console.log("Switching to snapshot:", snapshot);
-        loadCanvasState(snapshot.canvasJson);
-
-        // 同步其他状态
-        setEditorState(prev => ({
-            ...prev,
-            referenceImages: snapshot.referenceImages || [],
-            backgroundColor: snapshot.backgroundColor || prev.backgroundColor,
-            canvasWidth: snapshot.canvasSize?.width || prev.canvasWidth,
-            canvasHeight: snapshot.canvasSize?.height || prev.canvasHeight,
-            zoom: 1
-        }));
-    }, [loadCanvasState, setEditorState]);
-
+    // preset manager zoom sync
     useEffect(() => {
         // Disable canvas zoom when preset manager is open to prevent scroll interference
         if (setZoomEnabled) {
@@ -175,6 +140,16 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             resetState();
         }
     }, [isOpen, resetState]);
+
+    const { galleryItems } = usePlaygroundStore();
+    useEffect(() => {
+        if (inlineGenId) {
+            const found = galleryItems.find((g: Generation) => g.config?.taskId === inlineGenId);
+            if (found && found.outputUrl && found.status === 'completed') {
+                setInlineGenResult(found.outputUrl);
+            }
+        }
+    }, [galleryItems, inlineGenId]);
 
     // 自动初始化逻辑：处理 Canvas 环境开启
     useEffect(() => {
@@ -352,11 +327,23 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
             const referenceImages = editorState.referenceImages;
 
             // Use the global prompt directly from inputSectionProps
-            const finalPrompt = inputSectionProps?.config.prompt || "";
+            let finalPrompt = inputSectionProps?.config.prompt || "";
+
+            // 追加标注对应的指令
+            if (annotations.length > 0) {
+                const annotationPrompts = annotations
+                    .filter(ann => ann.description && ann.description.trim() !== "")
+                    .map(ann => `[${ann.label}]: ${ann.description}`)
+                    .join("\n");
+
+                if (annotationPrompts) {
+                    finalPrompt = finalPrompt ? `${finalPrompt}\n\nRegion Instructions:\n${annotationPrompts}` : annotationPrompts;
+                }
+            }
 
 
             // 提取参考图的 dataUrl 列表
-            const refImageUrls = referenceImages.map(img => img.dataUrl);
+            const refImageUrls = referenceImages.map((img: { dataUrl: string }) => img.dataUrl);
 
             // 构建完整的编辑配置
             const editConfig: EditPresetConfig = {
@@ -368,7 +355,29 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                 canvasSize: { width: editorState.canvasWidth, height: editorState.canvasHeight }
             };
 
-            onSave(dataUrl, finalPrompt || undefined, refImageUrls.length > 0 ? refImageUrls : undefined, shouldGenerate, editConfig);
+            if (shouldGenerate) {
+                // 如果是生成模式，不调用外部 onSave 关闭，而是触发内部生成
+                setShowComparison(true);
+                setInlineGenResult(null);
+                const gId = `gen-${Date.now()}`;
+                setInlineGenId(gId);
+
+                handleGenerate({
+                    configOverride: {
+                        prompt: finalPrompt,
+                        editConfig,
+                        isEdit: true,
+                        width: editorState.canvasWidth,
+                        height: editorState.canvasHeight,
+                        model: inputSectionProps?.config.model || AVAILABLE_MODELS[0].id
+                    },
+                    taskId: gId
+                }).then(() => {
+                    // Result handled by useEffect on galleryItems
+                });
+            } else {
+                onSave(dataUrl, finalPrompt || undefined, refImageUrls.length > 0 ? refImageUrls : undefined, false, editConfig);
+            }
         }
     };
 
@@ -441,12 +450,8 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                         </div>
 
 
-                        {/* Main Content */}
-                        <div className="relative h-full  flex-1 flex overflow-hidden">
-
-
-
-                            {/* Hidden file input */}
+                        {/* Main Content Area */}
+                        <div className="relative h-full flex-1 flex overflow-hidden">
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -456,104 +461,109 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                 onChange={(e) => handleFileUpload(e.target.files)}
                             />
 
-                            {/* Canvas Area - 核心自适应逻辑已移入 hook，此处仅需占满空间并支持溢出滚动 */}
-                            <div className="flex-1 flex flex-col bg-[#E5E5E5] relative overflow-hidden">
-                                <div
-                                    className="flex-1 flex items-center justify-center relative overflow-hidden"
-                                    onDragOver={handleDragOver}
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={handleDrop}
+                            <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#E5E5E5]">
+                                {/* Left Side: Canvas Area */}
+                                <motion.div
+                                    className="h-full relative flex flex-col overflow-hidden border-r border-black/[0.03]"
+                                    animate={{ width: showComparison ? '50%' : '100%' }}
+                                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                                 >
-                                    {/* 拖放指示器 */}
-                                    {/* isDragging && ( ... ) - Removed drag overlay for now or restore state if needed */}\
-                                    {false && (
-                                        <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary z-50 flex items-center justify-center">
-                                            <div className="text-primary text-lg font-medium flex items-center gap-2">
-                                                <ImagePlus className="w-6 h-6" />
-                                                拖放图片到此处添加
+                                    <div
+                                        className="flex-1 flex items-center justify-center relative overflow-hidden"
+                                        onDragOver={handleDragOver}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={handleDrop}
+                                    >
+                                        {/* 拖放指示器 */}
+                                        {/* isDragging && ( ... ) - Removed drag overlay for now or restore state if needed */}\
+                                        {false && (
+                                            <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary z-50 flex items-center justify-center">
+                                                <div className="text-primary text-lg font-medium flex items-center gap-2">
+                                                    <ImagePlus className="w-6 h-6" />
+                                                    拖放图片到此处添加
+                                                </div>
                                             </div>
+                                        )}
+
+                                        {/* Floating Action Controls (Top Right) - Re-positioned into canvas area */}
+                                        <div className="absolute top-6 right-6 z-[60] flex items-center gap-1 bg-black/50 backdrop-blur-md rounded-full p-1 border border-white/10">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
+                                                onClick={undo}
+                                                disabled={!editorState.canUndo}
+                                                title="Undo (Ctrl+Z)"
+                                            >
+                                                <Undo2 className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
+                                                onClick={redo}
+                                                disabled={!editorState.canRedo}
+                                                title="Redo (Ctrl+Y)"
+                                            >
+                                                <Redo2 className="w-4 h-4" />
+                                            </Button>
+                                            <div className="w-px h-4 bg-white/10 mx-1" />
+                                            <span className="text-[11px] text-white/40 font-mono min-w-[3rem] text-center">
+                                                {Math.round(editorState.zoom * 100)}%
+                                            </span>
                                         </div>
-                                    )}
 
-                                    {/* Floating Action Controls (Top Right) - Re-positioned into canvas area */}
-                                    <div className="absolute top-6 right-6 z-[60] flex items-center gap-1 bg-black/50 backdrop-blur-md rounded-full p-1 border border-white/10">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-                                            onClick={undo}
-                                            disabled={!editorState.canUndo}
-                                            title="Undo (Ctrl+Z)"
-                                        >
-                                            <Undo2 className="w-4 h-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="w-8 h-8 rounded-full text-white/50 hover:text-white hover:bg-white/10"
-                                            onClick={redo}
-                                            disabled={!editorState.canRedo}
-                                            title="Redo (Ctrl+Y)"
-                                        >
-                                            <Redo2 className="w-4 h-4" />
-                                        </Button>
-                                        <div className="w-px h-4 bg-white/10 mx-1" />
-                                        <span className="text-[11px] text-white/40 font-mono min-w-[3rem] text-center">
-                                            {Math.round(editorState.zoom * 100)}%
-                                        </span>
-                                    </div>
+                                        {/* Floating Toolbar (Top) */}
+                                        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 p-2 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/5  scale-80 transition-all duration-200 hover:bg-black/90">
+                                            <ToolButton
+                                                icon={MousePointer2}
+                                                active={editorState.activeTool === 'select'}
+                                                onClick={() => setTool('select')}
+                                                label="Select"
+                                            />
+                                            <ToolButton
+                                                icon={Pencil}
+                                                active={editorState.activeTool === 'brush'}
+                                                onClick={() => setTool('brush')}
+                                                label="Brush"
+                                            />
+                                            <ToolButton
+                                                icon={MessageSquarePlus}
+                                                active={editorState.activeTool === 'annotate'}
+                                                onClick={() => setTool('annotate')}
+                                                label="Label"
+                                            />
+                                            <ToolButton
+                                                icon={Type}
+                                                active={editorState.activeTool === 'text'}
+                                                onClick={() => addText()}
+                                                label="Text"
+                                            />
 
-                                    {/* Floating Toolbar (Top) */}
-                                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 p-2 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all duration-200 hover:bg-black/90">
-                                        <ToolButton
-                                            icon={MousePointer2}
-                                            active={editorState.activeTool === 'select'}
-                                            onClick={() => setTool('select')}
-                                            label="Select"
-                                        />
-                                        <ToolButton
-                                            icon={Pencil}
-                                            active={editorState.activeTool === 'brush'}
-                                            onClick={() => setTool('brush')}
-                                            label="Brush"
-                                        />
-                                        <ToolButton
-                                            icon={MessageSquarePlus}
-                                            active={editorState.activeTool === 'annotate'}
-                                            onClick={() => setTool('annotate')}
-                                            label="Label"
-                                        />
-                                        <ToolButton
-                                            icon={Type}
-                                            active={editorState.activeTool === 'text'}
-                                            onClick={() => addText()}
-                                            label="Text"
-                                        />
-
-                                        <div className="w-px h-6 bg-white/10 mx-1" />
+                                            <div className="w-px h-6 bg-white/10 mx-1" />
 
 
 
-                                        <ToolButton
-                                            icon={Square}
-                                            active={editorState.activeTool === 'rect'}
-                                            onClick={() => setTool('rect')}
-                                            label="Rectangle"
-                                        />
-                                        <ToolButton
-                                            icon={CircleIcon}
-                                            active={editorState.activeTool === 'circle'}
-                                            onClick={() => setTool('circle')}
-                                            label="Circle"
-                                        />
-                                        <ToolButton
-                                            icon={ArrowRight}
-                                            active={editorState.activeTool === 'arrow'}
-                                            onClick={() => setTool('arrow')}
-                                            label="Arrow"
-                                        />
+                                            <ToolButton
+                                                icon={Square}
+                                                active={editorState.activeTool === 'rect'}
+                                                onClick={() => setTool('rect')}
+                                                label="Rectangle"
+                                            />
+                                            <ToolButton
+                                                icon={CircleIcon}
+                                                active={editorState.activeTool === 'circle'}
+                                                onClick={() => setTool('circle')}
+                                                label="Circle"
+                                            />
+                                            <ToolButton
+                                                icon={ArrowRight}
+                                                active={editorState.activeTool === 'arrow'}
+                                                onClick={() => setTool('arrow')}
+                                                label="Arrow"
+                                            />
 
-                                        {/* <div className="w-px h-6 bg-white/10 mx-1" />
+                                            {/* <div className="w-px h-6 bg-white/10 mx-1" />
 
                                         <ToolButton
                                             icon={RotateCcw}
@@ -566,275 +576,414 @@ export default function ImageEditorModal({ isOpen, onClose, imageUrl, onSave, in
                                             label="Rotate Right"
                                         /> */}
 
-                                        <div className="w-px h-6 bg-white/10 mx-1" />
+                                            <div className="w-px h-6 bg-white/10 mx-1" />
 
-                                        <ToolButton
-                                            icon={ImagePlus}
-                                            onClick={() => fileInputRef.current?.click()}
-                                            label="Add Image"
-                                        />
+                                            <ToolButton
+                                                icon={ImagePlus}
+                                                onClick={() => fileInputRef.current?.click()}
+                                                label="Add Image"
+                                            />
 
-                                        {/* <ToolButton
+                                            {/* <ToolButton
                                             icon={Trash2}
                                             onClick={deleteSelected}
                                             label="Delete (Del)"
                                         /> */}
-                                    </div>
-                                    <div
-                                        className="w-full h-full flex items-center justify-center relative"
-                                        ref={canvasContainerRef}
-                                    >
-                                        {/* 参考图展示区域 - 始终渲染容器避免 DOM 插入冲突 */}
-                                        {/* Combined Container for Ref Images and Modification Panel */}
-                                        <div className="absolute top-20 left-8 z-[100] flex flex-row items-start gap-4 pointer-events-none">
-                                            {/* Reference Images List */}
-                                            <div
-                                                className="flex flex-col gap-2 pointer-events-auto"
-                                                style={{ display: editorState.referenceImages.length > 0 ? 'flex' : 'none' }}
-                                            >
-                                                <div className="text-white/40 text-[10px] uppercase font-mono tracking-wider mb-1">
-                                                    Reference Images
-                                                </div>
-                                                <div className="flex flex-wrap gap-2 max-w-[300px]">
-                                                    {editorState.referenceImages.map((img) => (
-                                                        <div
-                                                            key={img.id}
-                                                            className="relative group cursor-pointer"
-                                                            onClick={() => {
-                                                                inputSectionProps?.setConfig(prev => ({
-                                                                    ...prev,
-                                                                    prompt: (prev.prompt || '') + ` [${img.label}] `
-                                                                }));
-                                                            }}
-                                                            title={`点击插入光标位置: [${img.label}]`}
-                                                        >
-                                                            <div className="w-36 h-36 rounded-lg overflow-hidden border border-white/20 bg-black/40 group-hover:border-primary/50 transition-colors">
-                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                <img
-                                                                    src={img.dataUrl}
-                                                                    alt={img.label}
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            </div>
-                                                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[12px] text-white/80 whitespace-nowrap group-hover:text-primary transition-colors">
-                                                                {img.label}
-                                                            </div>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    removeReferenceImage(img.id);
+                                        </div>
+                                        <div
+                                            className="w-full h-full flex items-center justify-center relative"
+                                            ref={canvasContainerRef}
+                                        >
+                                            {/* 参考图展示区域 - 始终渲染容器避免 DOM 插入冲突 */}
+                                            {/* Combined Container for Ref Images and Modification Panel */}
+                                            <div className="absolute top-20 left-8 z-[100] flex flex-row items-start gap-4 pointer-events-none">
+                                                {/* Reference Images List */}
+                                                <div
+                                                    className="flex flex-col gap-2 pointer-events-auto"
+                                                    style={{ display: editorState.referenceImages.length > 0 ? 'flex' : 'none' }}
+                                                >
+                                                    <div className="text-white/40 text-[10px] uppercase font-mono tracking-wider mb-1">
+                                                        Reference Images
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 max-w-[300px]">
+                                                        {editorState.referenceImages.map((img) => (
+                                                            <div
+                                                                key={img.id}
+                                                                className="relative group cursor-pointer"
+                                                                onClick={() => {
+                                                                    inputSectionProps?.setConfig(prev => ({
+                                                                        ...prev,
+                                                                        prompt: (prev.prompt || '') + ` [${img.label}] `
+                                                                    }));
                                                                 }}
-                                                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                                title={`点击插入光标位置: [${img.label}]`}
                                                             >
-                                                                <X className="w-2.5 h-2.5 text-white" />
-                                                            </button>
-                                                            <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors rounded-lg flex items-center justify-center">
-                                                                <MessageSquarePlus className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                <div className="w-36 h-36 rounded-lg overflow-hidden border border-white/20 bg-black/40 group-hover:border-primary/50 transition-colors">
+                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                    <img
+                                                                        src={img.dataUrl}
+                                                                        alt={img.label}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                </div>
+                                                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[12px] text-white/80 whitespace-nowrap group-hover:text-primary transition-colors">
+                                                                    {img.label}
+                                                                </div>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        removeReferenceImage(img.id);
+                                                                    }}
+                                                                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                                >
+                                                                    <X className="w-2.5 h-2.5 text-white" />
+                                                                </button>
+                                                                <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors rounded-lg flex items-center justify-center">
+                                                                    <MessageSquarePlus className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Modification Panel (Moved here) */}
-                                            <AnimatePresence mode="wait">
-                                                {(editorState.activeTool !== 'select' || true) && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, x: -20 }}
-                                                        animate={{ opacity: 1, x: 0 }}
-                                                        exit={{ opacity: 0, x: -20 }}
-                                                        className="w-[320px] h-[50vh] bg-white/80 backdrop-blur-2xl p-4 rounded-3xl flex flex-col gap-6 shrink-0 overflow-y-auto pointer-events-auto border border-white/20 shadow-xl"
-                                                    >
-                                                        {/* Command Center */}
-                                                        <div className="flex flex-col gap-3 p-1">
-                                                            <div className="text-sm font-semibold text-gray-900">Modification</div>
+                                                {/* Modification Panel (Moved here) */}
+                                                <AnimatePresence mode="wait">
+                                                    {(editorState.activeTool !== 'select' || true) && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, x: -20 }}
+                                                            animate={{ opacity: 1, x: 0 }}
+                                                            exit={{ opacity: 0, x: -20 }}
+                                                            className="w-[320px] h-[80vh] bg-white/80 backdrop-blur-2xl p-4 rounded-3xl flex flex-col shrink-0 overflow-hidden pointer-events-auto border border-white/20 shadow-2xl shadow-black/5"
+                                                        >
+                                                            {/* Scrollable Content Area */}
+                                                            <div className="flex-1 overflow-y-auto pr-1 -mr-1 custom-scrollbar">
+                                                                <div className="flex flex-col gap-6 pb-4">
+                                                                    {/* Command Center */}
+                                                                    <div className="flex flex-col gap-3 p-1">
+                                                                        <div className="text-sm font-semibold text-gray-900">Modification</div>
 
-                                                            {/* Prompt Input Area */}
-                                                            <div className="relative">
-                                                                <Textarea
-                                                                    value={inputSectionProps?.config.prompt || ''}
-                                                                    onChange={(e) => inputSectionProps?.setConfig(prev => ({ ...prev, prompt: e.target.value }))}
-                                                                    placeholder="Describe how to modify the image..."
-                                                                    className="min-h-[100px] w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-gray-400 resize-none"
-                                                                />
+                                                                        {/* Prompt Input Area */}
+                                                                        <div className="relative">
+                                                                            <Textarea
+                                                                                value={inputSectionProps?.config.prompt || ''}
+                                                                                onChange={(e) => inputSectionProps?.setConfig(prev => ({ ...prev, prompt: e.target.value }))}
+                                                                                placeholder="Describe how to modify the image..."
+                                                                                className="min-h-[100px] w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-gray-400 resize-none"
+                                                                            />
 
-                                                                {/* Badge Helpers */}
-                                                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                                                    {editorState.referenceImages.map((_, i) => (
-                                                                        <button
-                                                                            key={`ref-${i}`}
-                                                                            onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, prompt: (prev.prompt || '') + ` [Image ${i + 1}] ` }))}
-                                                                            className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
-                                                                        >
-                                                                            + [Image {i + 1}]
-                                                                        </button>
-                                                                    ))}
-                                                                    <button
-                                                                        onClick={() => refImageInputRef.current?.click()}
-                                                                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 transition-colors"
+                                                                            {/* Badge Helpers */}
+                                                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                                {editorState.referenceImages.map((_, i) => (
+                                                                                    <button
+                                                                                        key={`ref-${i}`}
+                                                                                        onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, prompt: (prev.prompt || '') + ` [Image ${i + 1}] ` }))}
+                                                                                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                                                                                    >
+                                                                                        + [Image {i + 1}]
+                                                                                    </button>
+                                                                                ))}
+                                                                                <button
+                                                                                    onClick={() => refImageInputRef.current?.click()}
+                                                                                    className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 transition-colors"
+                                                                                >
+                                                                                    <Upload className="w-3 h-3 mr-1" /> Add Ref
+                                                                                </button>
+                                                                            </div>
+                                                                            <input
+                                                                                type="file"
+                                                                                ref={refImageInputRef}
+                                                                                className="hidden"
+                                                                                accept="image/*"
+                                                                                multiple
+                                                                                onChange={handleRefInputChange}
+                                                                            />
+                                                                        </div>
+
+                                                                        {/* Annotations Specific Instructions */}
+                                                                        {editorState.annotations.length > 0 && (
+                                                                            <div className="flex flex-col gap-4 mt-2">
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Region Instructions</div>
+                                                                                    <div className="text-[10px] text-gray-400">{editorState.annotations.length} regions</div>
+                                                                                </div>
+                                                                                <div className="space-y-3">
+                                                                                    {editorState.annotations.map((ann: AnnotationInfo) => (
+                                                                                        <div key={ann.id} className="space-y-1.5 p-2.5 rounded-xl bg-gray-50/50 border border-gray-100 transition-all hover:bg-gray-50 hover:border-gray-200">
+                                                                                            <div className="flex items-center gap-2">
+                                                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ann.color }} />
+                                                                                                <span className="text-[11px] font-medium text-gray-600">{ann.label}</span>
+                                                                                            </div>
+                                                                                            <Textarea
+                                                                                                value={ann.description || ''}
+                                                                                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                                                                                                    const newDescription = e.target.value;
+                                                                                                    setEditorState((prev: EditorState) => ({
+                                                                                                        ...prev,
+                                                                                                        annotations: prev.annotations.map((a: AnnotationInfo) =>
+                                                                                                            a.id === ann.id ? { ...a, description: newDescription } : a
+                                                                                                        )
+                                                                                                    }));
+                                                                                                }}
+                                                                                                placeholder={`Instructions for this area...`}
+                                                                                                className="min-h-[60px] text-xs text-gray-500 bg-white border-gray-200 rounded-lg resize-none focus-visible:ring-1"
+                                                                                            />
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Model & Size Selectors */}
+                                                                        <div className="grid grid-cols-2 gap-3 mt-2">
+                                                                            <div className="space-y-1.5">
+                                                                                <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Model</div>
+                                                                                <DropdownMenu>
+                                                                                    <DropdownMenuTrigger asChild>
+                                                                                        <Button variant="outline" className="w-full h-9 justify-start px-2 bg-white border-gray-200 text-gray-700 text-xs hover:bg-gray-50">
+                                                                                            <span className="truncate flex-1 text-left">
+                                                                                                {AVAILABLE_MODELS.find(m => m.id === inputSectionProps?.config.model)?.displayName || 'Select Model'}
+                                                                                            </span>
+                                                                                            <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
+                                                                                        </Button>
+                                                                                    </DropdownMenuTrigger>
+                                                                                    <DropdownMenuContent className="w-[180px] bg-white border-gray-200">
+                                                                                        {AVAILABLE_MODELS.filter(m => !m.id.includes('workflow') || true).map(m => (
+                                                                                            <DropdownMenuItem
+                                                                                                key={m.id}
+                                                                                                onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, model: m.id }))}
+                                                                                                className="text-gray-700 hover:bg-gray-100 text-xs"
+                                                                                            >
+                                                                                                {m.displayName}
+                                                                                            </DropdownMenuItem>
+                                                                                        ))}
+                                                                                    </DropdownMenuContent>
+                                                                                </DropdownMenu>
+                                                                            </div>
+                                                                            <div className="space-y-1.5">
+                                                                                <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Size</div>
+                                                                                <DropdownMenu>
+                                                                                    <DropdownMenuTrigger asChild>
+                                                                                        <Button variant="outline" className="w-full h-9 justify-start px-2 bg-white border-gray-200 text-gray-700 text-xs hover:bg-gray-50">
+                                                                                            <span className="truncate flex-1 text-left">
+                                                                                                {inputSectionProps?.config.imageSize || 'Default'}
+                                                                                            </span>
+                                                                                            <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
+                                                                                        </Button>
+                                                                                    </DropdownMenuTrigger>
+                                                                                    <DropdownMenuContent className="w-[120px] bg-white border-gray-200">
+                                                                                        {['1K', '2K', '4K'].map(s => (
+                                                                                            <DropdownMenuItem
+                                                                                                key={s}
+                                                                                                onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, imageSize: s as "1K" | "2K" | "4K" }))}
+                                                                                                className="text-gray-700 hover:bg-gray-100 text-xs"
+                                                                                            >
+                                                                                                {s}
+                                                                                            </DropdownMenuItem>
+                                                                                        ))}
+                                                                                    </DropdownMenuContent>
+                                                                                </DropdownMenu>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Static Bottom Actions */}
+                                                            <div className="flex flex-col gap-3 pt-4 mt-auto border-t border-gray-100/50">
+                                                                <div className="grid grid-cols-1 gap-2">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-9 px-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 bg-white border border-gray-200 text-xs transition-colors"
+                                                                        onClick={handleSavePreset}
                                                                     >
-                                                                        <Upload className="w-3 h-3 mr-1" /> Add Ref
-                                                                    </button>
+                                                                        <Save className="w-3.5 h-3.5 mr-2" />
+                                                                        Save as Preset
+                                                                    </Button>
                                                                 </div>
-                                                                <input
-                                                                    type="file"
-                                                                    ref={refImageInputRef}
-                                                                    className="hidden"
-                                                                    accept="image/*"
-                                                                    multiple
-                                                                    onChange={handleRefInputChange}
-                                                                />
+                                                                <Button
+                                                                    className="w-full h-11 bg-black hover:bg-black/90 text-white rounded-xl font-semibold shadow-lg shadow-black/5 transition-all active:scale-[0.98]"
+                                                                    onClick={() => handleSave(true)}
+                                                                >
+                                                                    Generate Modification
+                                                                </Button>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                            <canvas ref={canvasRef} className={cn("max-w-full max-h-full transition-all duration-300", !isInitialized && "opacity-0")} />
+
+                                            {/* Empty or Loading State Overlay */}
+                                            {!isInitialized && (
+                                                <div className="absolute inset-0 -mt-20 flex flex-col items-center justify-center z-50 pointer-events-auto">
+                                                    {imageUrl ? (
+                                                        // 如果有 imageUrl，显示加载中，而不是“开始编辑”
+                                                        <div className="flex flex-col items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                                                            <span className="text-white/40 text-sm font-medium">Loading Image...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-black/0 p-12 rounded-[40px] flex flex-col items-center gap-8 pointer-events-auto">
+                                                            <div className="flex flex-col items-center gap-3 text-center">
+                                                                <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
+                                                                    <ImagePlus className="w-8 h-8 text-primary" />
+                                                                </div>
+                                                                <h3 className="text-xl font-medium text-white">开始编辑</h3>
+                                                                <p className="text-sm text-white/40 max-w-[240px]">
+                                                                    上传一张图片开始，或者创建一个空白画框进行自由创作
+                                                                </p>
                                                             </div>
 
-                                                            {/* Model & Size Selectors */}
-                                                            <div className="grid grid-cols-2 gap-3 mt-2">
-                                                                <div className="space-y-1.5">
-                                                                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Model</div>
-                                                                    <DropdownMenu>
-                                                                        <DropdownMenuTrigger asChild>
-                                                                            <Button variant="outline" className="w-full h-9 justify-start px-2 bg-white border-gray-200 text-gray-700 text-xs hover:bg-gray-50">
-                                                                                <span className="truncate flex-1 text-left">
-                                                                                    {AVAILABLE_MODELS.find(m => m.id === inputSectionProps?.config.model)?.displayName || 'Select Model'}
-                                                                                </span>
-                                                                                <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
-                                                                            </Button>
-                                                                        </DropdownMenuTrigger>
-                                                                        <DropdownMenuContent className="w-[180px] bg-white border-gray-200">
-                                                                            {AVAILABLE_MODELS.filter(m => !m.id.includes('workflow') || true).map(m => (
-                                                                                <DropdownMenuItem
-                                                                                    key={m.id}
-                                                                                    onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, model: m.id }))}
-                                                                                    className="text-gray-700 hover:bg-gray-100 text-xs"
-                                                                                >
-                                                                                    {m.displayName}
-                                                                                </DropdownMenuItem>
-                                                                            ))}
-                                                                        </DropdownMenuContent>
-                                                                    </DropdownMenu>
-                                                                </div>
-                                                                <div className="space-y-1.5">
-                                                                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Size</div>
-                                                                    <DropdownMenu>
-                                                                        <DropdownMenuTrigger asChild>
-                                                                            <Button variant="outline" className="w-full h-9 justify-start px-2 bg-white border-gray-200 text-gray-700 text-xs hover:bg-gray-50">
-                                                                                <span className="truncate flex-1 text-left">
-                                                                                    {inputSectionProps?.config.imageSize || 'Default'}
-                                                                                </span>
-                                                                                <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
-                                                                            </Button>
-                                                                        </DropdownMenuTrigger>
-                                                                        <DropdownMenuContent className="w-[120px] bg-white border-gray-200">
-                                                                            {['1K', '2K', '4K'].map(s => (
-                                                                                <DropdownMenuItem
-                                                                                    key={s}
-                                                                                    onClick={() => inputSectionProps?.setConfig(prev => ({ ...prev, imageSize: s as "1K" | "2K" | "4K" }))}
-                                                                                    className="text-gray-700 hover:bg-gray-100 text-xs"
-                                                                                >
-                                                                                    {s}
-                                                                                </DropdownMenuItem>
-                                                                            ))}
-                                                                        </DropdownMenuContent>
-                                                                    </DropdownMenu>
-                                                                </div>
+                                                            <div className="flex flex-col w-full gap-3">
+                                                                <Button
+                                                                    variant="act"
+                                                                    className="h-12 w-full rounded-2xl gap-2 text-base font-medium shadow-[0_0_20px_oklch(var(--primary)/0.2)] pointer-events-auto"
+                                                                    onClick={(e) => {
+                                                                        console.log("Upload button clicked");
+                                                                        e.stopPropagation();
+                                                                        fileInputRef.current?.click();
+                                                                    }}
+                                                                >
+                                                                    <Upload className="w-5 h-5" />
+                                                                    上传图片
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    className="h-12 w-full rounded-2xl gap-2 text-base font-medium bg-white/5 border border-white/5 hover:bg-white/10 text-white/80 pointer-events-auto"
+                                                                    onClick={(e) => {
+                                                                        console.log("New canvas button clicked");
+                                                                        e.stopPropagation();
+                                                                        initCanvas(1024, 1024);
+                                                                    }}
+                                                                >
+                                                                    <Plus className="w-5 h-5" />
+                                                                    新建空白画框
+                                                                </Button>
                                                             </div>
-                                                            <div className="h-px bg-gray-200 my-2" />
 
+                                                            <div className="flex items-center gap-2 text-[11px] text-white/20 uppercase font-mono tracking-widest">
+                                                                <div className="w-8 h-px bg-white/5" />
+                                                                或者直接拖拽图片到此处
+                                                                <div className="w-8 h-px bg-white/5" />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Annotation Input Overlay */}
+                                            <AnimatePresence>
+                                                {editorState.pendingAnnotation && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                                        className="absolute z-[110] bg-white rounded-2xl shadow-2xl p-4 border border-gray-100 flex flex-col gap-3 w-64"
+                                                        style={{
+                                                            left: editorState.pendingAnnotation.bounds.left,
+                                                            top: editorState.pendingAnnotation.bounds.top - 120, // offset above
+                                                        }}
+                                                    >
+                                                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Region Label / Instruction</div>
+                                                        <input
+                                                            autoFocus
+                                                            className="w-full bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                                            placeholder="e.g. Red Shirt"
+                                                            defaultValue=""
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    confirmAnnotation((e.target as HTMLInputElement).value);
+                                                                } else if (e.key === 'Escape') {
+                                                                    cancelAnnotation();
+                                                                }
+                                                            }}
+                                                            id="pending-annotation-input"
+                                                        />
+                                                        <div className="flex gap-2">
                                                             <Button
-                                                                className="w-full bg-primary hover:bg-primary/90 text-black font-medium"
-                                                                onClick={() => handleSave(true)}
+                                                                variant="act"
+                                                                size="sm"
+                                                                className="flex-1 h-8 text-xs bg-black text-white hover:bg-black/90"
+                                                                onClick={() => {
+                                                                    const input = document.getElementById('pending-annotation-input') as HTMLInputElement;
+                                                                    confirmAnnotation(input.value || "New Region");
+                                                                }}
                                                             >
-                                                                Generate
+                                                                Confirm
                                                             </Button>
-                                                        </div>
-                                                        {/* Canvas Settings */}
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center gap-2 text-gray-400 text-[10px] uppercase font-mono tracking-wider">
-                                                                <Square className="w-3 h-3" /> Canvas Settings
-                                                            </div>
-                                                        </div>
-                                                        {/* Action Toolbar (moved from header) */}
-                                                        <div className="grid grid-cols-1 gap-2 mb-4">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-8 px-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 bg-white border border-gray-200 text-[10px]"
-                                                                onClick={handleSavePreset}
+                                                                className="px-3 h-8 text-xs text-gray-400 hover:text-gray-600"
+                                                                onClick={cancelAnnotation}
                                                             >
-                                                                <Save className="w-3.5 h-3.5 mr-1.5" />
-                                                                Save Preset
+                                                                Cancel
                                                             </Button>
                                                         </div>
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
                                         </div>
-                                        <canvas ref={canvasRef} className={cn("max-w-full max-h-full transition-all duration-300", !isInitialized && "opacity-0")} />
+                                    </div>
+                                </motion.div>
 
-                                        {/* Empty or Loading State Overlay */}
-                                        {!isInitialized && (
-                                            <div className="absolute inset-0 -mt-20 flex flex-col items-center justify-center z-50 pointer-events-auto">
-                                                {imageUrl ? (
-                                                    // 如果有 imageUrl，显示加载中，而不是“开始编辑”
-                                                    <div className="flex flex-col items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                                                        <span className="text-white/40 text-sm font-medium">Loading Image...</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="bg-black/0 p-12 rounded-[40px] flex flex-col items-center gap-8 pointer-events-auto">
-                                                        <div className="flex flex-col items-center gap-3 text-center">
-                                                            <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
-                                                                <ImagePlus className="w-8 h-8 text-primary" />
+                                {/* Right Side: Comparison Result Area */}
+                                <AnimatePresence>
+                                    {showComparison && (
+                                        <motion.div
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20 }}
+                                            className="h-full flex-1 relative bg-[#F4F4F4] flex flex-col overflow-hidden"
+                                        >
+                                            <div className="h-14 flex items-center justify-between px-6 border-b border-black/5 shrink-0 bg-white/40 backdrop-blur-sm">
+                                                <div className="text-xs font-mono uppercase tracking-widest text-black/40 font-semibold">Result Comparison</div>
+                                                <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full text-black/30 hover:text-black hover:bg-black/5" onClick={() => setShowComparison(false)}>
+                                                    <X className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+
+                                            <div className="flex-1 relative m-6 rounded-2xl border border-black/5 bg-white shadow-sm overflow-hidden flex items-center justify-center">
+                                                {isGeneratingService && !inlineGenResult ? (
+                                                    <div className="w-full h-full relative overflow-hidden flex flex-col items-center justify-center gap-4">
+                                                        <div className="absolute inset-0 bg-[#F9F9FB]">
+                                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/[0.03] to-transparent animate-[shimmer_2s_infinite] -skew-x-12 translate-x-[-100%]" style={{ width: '200%' }} />
+                                                            <div className="flex flex-col items-center gap-3 relative z-10">
+                                                                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                                                                <p className="text-[10px] text-black/20 font-mono tracking-wider uppercase">Generating Result...</p>
                                                             </div>
-                                                            <h3 className="text-xl font-medium text-white">开始编辑</h3>
-                                                            <p className="text-sm text-white/40 max-w-[240px]">
-                                                                上传一张图片开始，或者创建一个空白画框进行自由创作
-                                                            </p>
                                                         </div>
-
-                                                        <div className="flex flex-col w-full gap-3">
+                                                    </div>
+                                                ) : inlineGenResult ? (
+                                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full relative p-4 flex flex-col items-center justify-center">
+                                                        <img src={inlineGenResult} className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" alt="Result" />
+                                                        <div className="absolute bottom-6 flex gap-3">
                                                             <Button
-                                                                variant="act"
-                                                                className="h-12 w-full rounded-2xl gap-2 text-base font-medium shadow-[0_0_20px_oklch(var(--primary)/0.2)] pointer-events-auto"
-                                                                onClick={(e) => {
-                                                                    console.log("Upload button clicked");
-                                                                    e.stopPropagation();
-                                                                    fileInputRef.current?.click();
-                                                                }}
+                                                                className="rounded-full bg-black text-white px-6 h-10 shadow-xl"
+                                                                onClick={() => onSave(inlineGenResult, "", [], false)}
                                                             >
-                                                                <Upload className="w-5 h-5" />
-                                                                上传图片
+                                                                Apply Result
                                                             </Button>
                                                             <Button
                                                                 variant="ghost"
-                                                                className="h-12 w-full rounded-2xl gap-2 text-base font-medium bg-white/5 border border-white/5 hover:bg-white/10 text-white/80 pointer-events-auto"
-                                                                onClick={(e) => {
-                                                                    console.log("New canvas button clicked");
-                                                                    e.stopPropagation();
-                                                                    initCanvas(1024, 1024);
-                                                                }}
+                                                                className="rounded-full bg-white/80 border border-black/5 text-black px-6 h-10"
+                                                                onClick={() => handleSave(true)}
                                                             >
-                                                                <Plus className="w-5 h-5" />
-                                                                新建空白画框
+                                                                Regenerate
                                                             </Button>
                                                         </div>
-
-                                                        <div className="flex items-center gap-2 text-[11px] text-white/20 uppercase font-mono tracking-widest">
-                                                            <div className="w-8 h-px bg-white/5" />
-                                                            或者直接拖拽图片到此处
-                                                            <div className="w-8 h-px bg-white/5" />
-                                                        </div>
+                                                    </motion.div>
+                                                ) : (
+                                                    <div className="opacity-10 flex flex-col items-center gap-3">
+                                                        <ImagePlus className="w-12 h-12" />
+                                                        <span className="text-[10px] uppercase font-mono tracking-widest">Awaiting Generation</span>
                                                     </div>
                                                 )}
                                             </div>
-                                        )}
-
-                                        {/* Annotation Input Overlay */}
-                                    </div>
-                                </div>
-                                {/* Bottom Input Section Removed */}
-                                {/* <div className="absolute bottom-10 left-1/2 -translate-x-1/2 shadow-[0px_10px_30px_0px_rgba(0,0,0,0.20)]  bg-[#5d7b9544] rounded-[30px] ">
-                                        <PlaygroundInputSection ... />
-                                    </div> */}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
 
                             {/* Right Properties Panel */}

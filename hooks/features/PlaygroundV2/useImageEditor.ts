@@ -20,13 +20,17 @@ export const EDITOR_COLORS = [
 export type EditorColor = typeof EDITOR_COLORS[number]['hex'];
 
 export interface AnnotationMeta {
+    id: string;
     colorName: string;
+    color: string;
     text: string;
+    label: string;
+    description?: string;
     referenceImageLabel?: string;
     annotationName: string;
 }
 
-export interface FabricObject extends fabric.Object {
+export type FabricObject = (fabric.Object | fabric.Rect | fabric.IText | fabric.FabricImage) & {
     name?: string;
     annotationMeta?: AnnotationMeta;
     parentRect?: fabric.Rect;
@@ -36,10 +40,10 @@ export interface FabricObject extends fabric.Object {
     annotationMetaLabel?: string;
     id?: string;
     _prevEvented?: boolean;
-    nameLabelId?: string;  // 属性名
-    textLabelId?: string;  // 属性名
-    parentRectId?: string; // 属性名
-}
+    nameLabelId?: string;
+    textLabelId?: string;
+    parentRectId?: string;
+};
 
 export interface FabricCanvas extends fabric.Canvas {
     _wasDrawingMode?: boolean;
@@ -112,11 +116,27 @@ export interface EditorState {
     canvasHeight: number;
     backgroundColor: string;
     canvasVersion: number;
+    annotations: AnnotationInfo[];
 }
+
+// 内部同步 Effect：当 editorState.annotations 变化时，同步回 fabric 对象 (针对 description)
+const useSyncAnnotationsToCanvas = (canvas: fabric.Canvas | null, annotations: AnnotationInfo[]) => {
+    useEffect(() => {
+        if (!canvas) return;
+        const objects = canvas.getObjects() as FabricObject[];
+        annotations.forEach(ann => {
+            const obj = objects.find(o => o.annotationMeta?.id === ann.id);
+            if (obj && obj.annotationMeta) {
+                obj.annotationMeta.description = ann.description;
+            }
+        });
+    }, [canvas, annotations]);
+};
 
 export const useImageEditor = (imageUrl: string) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+
     const [imageObj, setImageObj] = useState<fabric.FabricImage | null>(null);
     const canvasBackgroundRef = useRef<fabric.Rect | null>(null);
 
@@ -132,9 +152,13 @@ export const useImageEditor = (imageUrl: string) => {
         referenceImages: [],
         canvasWidth: 1024,
         canvasHeight: 1024,
-        backgroundColor: '#eeeeee', // 默认白色底，更符合“画纸”直觉
+        backgroundColor: '#eeeeee',
         canvasVersion: 0,
+        annotations: [],
     });
+
+    // 启用同步：确保 UI 层对 description 的修改能写回 Canvas 对象
+    useSyncAnnotationsToCanvas(fabricCanvasRef.current, editorState.annotations);
 
     const [isInitialized, setIsInitialized] = useState(false);
 
@@ -154,6 +178,7 @@ export const useImageEditor = (imageUrl: string) => {
             canvasHeight: 1024,
             backgroundColor: '#eeeeee',
             canvasVersion: 0,
+            annotations: [],
         });
         setImageObj(null);
         canvasBackgroundRef.current = null;
@@ -328,13 +353,26 @@ export const useImageEditor = (imageUrl: string) => {
         const allowSelect = tool === 'select' || tool === 'annotate';
         const bgObjects: (fabric.Object | null)[] = [imageObj, canvasBackgroundRef.current];
 
-        canvas.forEachObject(obj => {
-            if (bgObjects.includes(obj)) return;
+        canvas.forEachObject(o => {
+            const obj = o as FabricObject;
+            // Background is ALWAYS locked
+            if (bgObjects.includes(obj) || obj.name === 'canvas-background' || (obj instanceof fabric.FabricImage && !obj.selectable && !obj.name)) {
+                obj.set({
+                    selectable: false,
+                    evented: false,
+                    lockMovementX: true,
+                    lockMovementY: true,
+                    lockScalingX: true,
+                    lockScalingY: true,
+                    lockRotation: true
+                });
+                return;
+            }
 
-            // Check if object is part of an annotation (Rect with meta, or Label)
-            const isAnnotation = (obj as FabricObject).annotationMeta !== undefined ||
-                (obj as FabricObject).annotationName !== undefined ||
-                (obj as FabricObject).parentRect !== undefined;
+            // Check if object is part of an annotation
+            const isAnnotation = obj.annotationMeta !== undefined ||
+                obj.annotationName !== undefined ||
+                obj.parentRect !== undefined;
 
             if (tool === 'annotate') {
                 if (isAnnotation) {
@@ -690,14 +728,19 @@ export const useImageEditor = (imageUrl: string) => {
                 try {
                     const img = await fabric.FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
                     const iw = img.width || 1, ih = img.height || 1;
-                    const fitZ = Math.min(w / iw, h / ih) * 0.7;
+
+                    // 计算最佳 fit 比例，不再使用硬编码 0.7
+                    const horizontalMargin = 120; // 考虑侧边栏占位
+                    const verticalMargin = 100;
+                    const fitZ = Math.min((w - horizontalMargin) / iw, (h - verticalMargin) / ih, 1);
 
                     const bgRect = new fabric.Rect({
                         left: w / 2, top: h / 2, width: iw, height: ih,
                         originX: 'center', originY: 'center', fill: editorStateRef.current.backgroundColor,
                         selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
                         name: 'canvas-background',
-                        shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 })
+                        shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 20, offsetX: 0, offsetY: 0 }),
+                        lockMovementX: true, lockMovementY: true // 强力锁定
                     });
 
                     canvas.add(bgRect);
@@ -706,17 +749,16 @@ export const useImageEditor = (imageUrl: string) => {
 
                     img.set({
                         left: w / 2, top: h / 2, originX: 'center', originY: 'center',
-                        selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ
+                        selectable: false, evented: false, scaleX: fitZ, scaleY: fitZ,
+                        lockMovementX: true, lockMovementY: true
                     });
 
                     canvas.add(img);
                     setImageObj(img);
-                    setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: 1 }));
+                    setEditorState(prev => ({ ...prev, canvasWidth: iw, canvasHeight: ih, zoom: fitZ }));
 
-                    canvas.clipPath = new fabric.Rect({
-                        left: w / 2, top: h / 2, width: iw * fitZ, height: ih * fitZ,
-                        originX: 'center', originY: 'center', absolutePositioned: true
-                    });
+                    // 使用 setViewportTransform 替代绝对 clipPath，提高视口鲁棒性
+                    canvas.requestRenderAll();
                     setIsInitialized(true);
                 } catch (err) {
                     console.error("Failed to load image:", err);
@@ -802,9 +844,13 @@ export const useImageEditor = (imageUrl: string) => {
         if (historyIndexRef.current <= 0 || !fabricCanvasRef.current) return;
         historyIndexRef.current--;
         fabricCanvasRef.current.loadFromJSON(historyRef.current[historyIndexRef.current]).then(() => {
-            const obs = fabricCanvasRef.current?.getObjects() || [];
-            canvasBackgroundRef.current = obs.find(o => (o as fabric.Object & { name?: string }).name === 'canvas-background') as fabric.Rect || null;
-            fabricCanvasRef.current?.renderAll();
+            const canvas = fabricCanvasRef.current; if (!canvas) return;
+            const obs = canvas.getObjects() as (fabric.Object & FabricObject)[];
+            canvasBackgroundRef.current = obs.find(o => o.name === 'canvas-background') as fabric.Rect || null;
+            const mainImg = obs.find(o => o instanceof fabric.FabricImage && !o.name && o.selectable === false) as fabric.FabricImage | null;
+            if (mainImg) setImageObj(mainImg);
+
+            canvas.renderAll();
             setEditorState(prev => ({ ...prev, canUndo: historyIndexRef.current > 0, canRedo: true, canvasVersion: prev.canvasVersion + 1 }));
         });
     }, []);
@@ -813,9 +859,13 @@ export const useImageEditor = (imageUrl: string) => {
         if (historyIndexRef.current >= historyRef.current.length - 1 || !fabricCanvasRef.current) return;
         historyIndexRef.current++;
         fabricCanvasRef.current.loadFromJSON(historyRef.current[historyIndexRef.current]).then(() => {
-            const obs = fabricCanvasRef.current?.getObjects() || [];
-            canvasBackgroundRef.current = obs.find(o => (o as fabric.Object & { name?: string }).name === 'canvas-background') as fabric.Rect || null;
-            fabricCanvasRef.current?.renderAll();
+            const canvas = fabricCanvasRef.current; if (!canvas) return;
+            const obs = canvas.getObjects() as (fabric.Object & FabricObject)[];
+            canvasBackgroundRef.current = obs.find(o => o.name === 'canvas-background') as fabric.Rect || null;
+            const mainImg = obs.find(o => o instanceof fabric.FabricImage && !o.name && o.selectable === false) as fabric.FabricImage | null;
+            if (mainImg) setImageObj(mainImg);
+
+            canvas.renderAll();
             setEditorState(prev => ({ ...prev, canUndo: true, canRedo: historyIndexRef.current < historyRef.current.length - 1, canvasVersion: prev.canvasVersion + 1 }));
         });
     }, []);
@@ -900,60 +950,57 @@ export const useImageEditor = (imageUrl: string) => {
         });
     }, [saveHistory, setTool]);
 
-    const confirmAnnotation = useCallback((t: string, rL?: string) => {
+    const confirmAnnotation = useCallback((t: string) => {
         const c = fabricCanvasRef.current, a = editorState.pendingAnnotation; if (!c || !a) return;
-        const r = a.rect as FabricObject, rl = r.left || 0, rt = r.top || 0, rh = (r.height || 0) * (r.scaleY || 1), col = a.color;
-        if (a.existingLabel) c.remove(a.existingLabel); if (r.nameLabel) c.remove(r.nameLabel!);
+        const r = a.rect as FabricObject, col = a.color;
 
         // 确保 rect 有个唯一 ID
         if (!r.id) r.id = `rect-${generateId()}`;
 
-        let n: string; if (!a.existingLabel && !a.existingText) { annotationCountRef.current++; n = `标注${annotationCountRef.current}`; } else n = r.annotationName || `标注${annotationCountRef.current}`;
+        const n = `标注${annotationCountRef.current + 1}`;
+        annotationCountRef.current++;
         r.annotationName = n;
 
+        const rl = r.left || 0, rt = r.top || 0;
         const nL = new fabric.IText(n, {
             id: `name-${generateId()}`,
             left: rl,
-            top: rt - 18,
+            top: rt - 22,
             fontFamily: 'sans-serif',
             fontSize: 12,
             fill: '#ffffff',
             backgroundColor: col,
-            padding: 2,
+            padding: 3,
             selectable: false,
-            evented: false
+            evented: false,
+            fontWeight: '600'
         }) as FabricObject;
-
         c.add(nL);
         r.nameLabel = nL as unknown as fabric.IText;
         r.nameLabelId = nL.id;
         nL.parentRect = r as unknown as fabric.Rect;
         nL.parentRectId = r.id;
 
-        let lT = t.trim(); if (rL) lT = lT ? `${lT} (${rL})` : rL;
-        if (lT) {
-            const l = new fabric.IText(lT, {
-                id: `text-${generateId()}`,
-                left: rl + 5,
-                top: rt + rh + 5,
-                fontFamily: 'sans-serif',
-                fontSize: 14,
-                fill: col,
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                padding: 4,
-                selectable: true,
-                evented: true,
-                editable: false
-            }) as FabricObject;
+        r.annotationMeta = {
+            id: r.id,
+            colorName: EDITOR_COLORS.find(c => c.hex === col)?.name || 'Red',
+            color: col,
+            text: t.trim(),
+            label: n,
+            description: t.trim(),
+            annotationName: n
+        };
 
-            l.annotationMeta = { colorName: EDITOR_COLORS.find(c => c.hex === col)?.name || 'Red', text: t.trim(), referenceImageLabel: rL, annotationName: n };
-            c.add(l);
-            r.textLabel = l as unknown as fabric.IText;
-            r.textLabelId = l.id;
-            l.parentRect = r as unknown as fabric.Rect;
-            l.parentRectId = r.id;
-        }
-        r.set({ selectable: true, evented: true, lockMovementX: false, lockMovementY: false }); c.setActiveObject(r); c.renderAll(); callbackRefs.current.saveHistory();
+        // Sync with React State for instant sidebar update
+        setEditorState(prev => ({
+            ...prev,
+            annotations: [...prev.annotations, r.annotationMeta as AnnotationInfo]
+        }));
+
+        r.set({ selectable: true, evented: true, lockMovementX: false, lockMovementY: false });
+        c.setActiveObject(r);
+        c.renderAll();
+        callbackRefs.current.saveHistory();
         setEditorState(p => ({ ...p, pendingAnnotation: null }));
     }, [editorState.pendingAnnotation]);
 
@@ -982,7 +1029,12 @@ export const useImageEditor = (imageUrl: string) => {
     const getAnnotationsInfo = useCallback((): AnnotationInfo[] => {
         const c = fabricCanvasRef.current; if (!c) return [];
         const res: AnnotationInfo[] = [];
-        c.getObjects().forEach(o => { if (o.type === 'i-text' && (o as FabricObject).annotationMeta) res.push((o as FabricObject).annotationMeta!); });
+        c.getObjects().forEach(o => {
+            const obj = o as FabricObject;
+            if (obj.annotationMeta) {
+                res.push(obj.annotationMeta as AnnotationInfo);
+            }
+        });
         return res;
     }, []);
 
@@ -1061,7 +1113,14 @@ export const useImageEditor = (imageUrl: string) => {
 
                 annotationCountRef.current = maxAnnotNum;
 
-                const mainImg = obs.find(o => o instanceof fabric.FabricImage) as fabric.FabricImage | null;
+                const annotations: AnnotationInfo[] = [];
+                obs.forEach(obj => {
+                    if (obj.type === 'i-text' && (obj as FabricObject).annotationMeta) {
+                        annotations.push((obj as FabricObject).annotationMeta! as AnnotationInfo);
+                    }
+                });
+
+                const mainImg = obs.find(o => o instanceof fabric.FabricImage && !o.name && o.selectable === false) as fabric.FabricImage | null;
                 if (mainImg) {
                     setImageObj(mainImg);
                 }
@@ -1071,7 +1130,12 @@ export const useImageEditor = (imageUrl: string) => {
                 const jsonStr = JSON.stringify(canvas.toObject(CUSTOM_PROPS));
                 historyRef.current = [jsonStr];
                 historyIndexRef.current = 0;
-                setEditorState(prev => ({ ...prev, canUndo: false, canRedo: false }));
+                setEditorState(prev => ({
+                    ...prev,
+                    annotations,
+                    canUndo: false,
+                    canRedo: false
+                }));
                 setIsInitialized(true);
             });
         }

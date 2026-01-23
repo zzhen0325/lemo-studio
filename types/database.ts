@@ -62,8 +62,12 @@ export interface Generation {
 
 
 export interface AnnotationInfo {
+  id: string;
   colorName: string;
+  color: string;
   text: string;
+  label: string;
+  description?: string;
   referenceImageLabel?: string;
   annotationName: string;
 }
