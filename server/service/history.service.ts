@@ -26,10 +26,11 @@ export class HistoryService {
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
 
-    // 自动清理过期记录
-    await this.cleanupStaleGenerations();
+    // 自动清理过期记录：改为概率触发 (1%) 且非阻塞
+    if (Math.random() < 0.01) {
+      this.cleanupStaleGenerations().catch(err => console.error('Background cleanup failed:', err));
+    }
 
-    console.log('query=======', query)
     try {
       const filter: Record<string, unknown> = {};
       if (projectId && projectId !== 'null' && projectId !== 'undefined') {
@@ -40,12 +41,12 @@ export class HistoryService {
       }
 
       const total = await this.generationModel.countDocuments(filter);
-      console.log('total=======', total)
       const items = await this.generationModel
         .find(filter)
         .sort({ createdAt: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
+        .select('-config.editConfig -llmResponse') // 大幅度减少 Payload，列表不需要这些字段
         .populate(['outputImageId', 'sourceImageId'])
         .lean();
 

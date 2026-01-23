@@ -228,6 +228,10 @@ export class DoubaoVisionProvider implements TextProvider, VisionProvider {
   }
 }
 
+type GooglePart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
 export class GoogleGenAIProvider
   implements TextProvider, VisionProvider, ImageProvider {
   private apiKey: string;
@@ -291,7 +295,7 @@ export class GoogleGenAIProvider
   async describeImage(params: VisionGenerationInput): Promise<TextResult> {
     const { image, prompt, systemPrompt } = params;
 
-    const parts: any[] = [];
+    const parts: GooglePart[] = [];
 
     // Handle image
     try {
@@ -369,8 +373,8 @@ export class GoogleGenAIProvider
     }
 
     return {
-      inlineData: {
-        mimeType: mimeType,
+      inline_data: {
+        mime_type: mimeType,
         data: base64Data,
       },
     };
@@ -378,13 +382,13 @@ export class GoogleGenAIProvider
 
   async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
     const { prompt, aspectRatio, imageSize, image, images } = params;
-    const parts: any[] = [];
+    const parts: GooglePart[] = [];
 
     // 优先使用 images 数组，回退到单个 image
     const imageList = (images && images.length > 0) ? images : (image ? [image] : []);
 
     if (imageList.length > 0) {
-    
+
       for (const img of imageList) {
         try {
           const imagePart = await this.prepareImagePart(img);
@@ -399,7 +403,7 @@ export class GoogleGenAIProvider
     parts.push({ text: prompt });
 
     const configParams: Record<string, any> = {
-      responseModalities: ["Image"], // 官方 REST 文档使用 "Image"
+      responseModalities: ["Image"] as const, // 官方 REST 文档使用 "Image"
     };
 
     if (aspectRatio || (imageSize && this.modelId === 'gemini-3-pro-image-preview')) {
@@ -921,22 +925,13 @@ export class CozeImageProvider implements ImageProvider {
         blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
       } else if (imageUrl.startsWith("/") && imageUrl.length < 2048) {
         // 2. Handle local file paths (with sanity check on length to avoid misidentifying long base64)
-        const truncatedUrl =
-          imageUrl.length > 100 ? `${imageUrl.substring(0, 100)}...` : imageUrl;
-        // console.log(
-        //   `[CozeImageProvider] Processing image from local path: ${truncatedUrl}`
-        // );
         try {
           const publicPath = path.join(process.cwd(), "public", imageUrl);
           const buffer = await fs.readFile(publicPath);
           const ext = path.extname(publicPath).slice(1) || "png";
           const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
           blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-        } catch (readErr) {
-          // console.error(
-          //   `[CozeImageProvider] Failed to read local file, falling back to fetch`,
-          //   readErr
-          // );
+        } catch (_readErr) {
           // Fallback to fetch if local read fails (e.g. running in a restricted env)
           const baseUrl =
             process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
@@ -950,11 +945,6 @@ export class CozeImageProvider implements ImageProvider {
         }
       } else if (imageUrl.startsWith("http")) {
         // 3. Handle external URLs
-        const truncatedUrl =
-          imageUrl.length > 100 ? `${imageUrl.substring(0, 100)}...` : imageUrl;
-        // console.log(
-        //   `[CozeImageProvider] Processing image from external URL: ${truncatedUrl}`
-        // );
         const response = await fetch(imageUrl);
         if (!response.ok)
           throw new Error(

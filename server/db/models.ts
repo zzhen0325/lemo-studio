@@ -34,6 +34,8 @@ export class ImageAsset {
 @Database('default')
 @modelOptions({ schemaOptions: { timestamps: true } })
 @index({ createdAt: -1 }) // 为排序字段添加索引，避免内存超限
+@index({ userId: 1, createdAt: -1 }) // 针对用户查询优化
+@index({ projectId: 1, createdAt: -1 }) // 针对项目查询优化
 export class Generation {
   @Prop()
   public status?: 'pending' | 'completed' | 'failed';

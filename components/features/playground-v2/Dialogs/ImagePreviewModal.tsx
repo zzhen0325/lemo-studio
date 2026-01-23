@@ -233,9 +233,9 @@ export default function ImagePreviewModal({
                 <div className="absolute top-10 left-6 z-[110] flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
                   {sourceUrls.map((url, idx) => (
                     <ReferenceImageItem
-                      key={`${result.id}-${idx}`}
+                      key={`ref-${result.id}-${idx}-${url.slice(-10)}`}
                       url={url}
-                      localId={idx === 0 ? result.config?.localSourceId : undefined}
+                      localId={result.config?.localSourceIds?.[idx]}
                       generationId={result.id}
                       index={idx}
                     />
@@ -358,12 +358,10 @@ export default function ImagePreviewModal({
 
 function ReferenceImageItem({
   url,
-  localId,
   generationId,
   index
 }: {
   url: string;
-  localId?: string;
   generationId: string;
   index: number;
 }) {

@@ -25,6 +25,7 @@ interface PlaygroundState {
     viewMode: 'home' | 'dock';
     activeTab: 'history' | 'gallery' | 'describe' | 'style';
     editConfig?: import('@/types/database').EditPresetConfig;
+    visitorId: string | undefined;
 
     // Selection Mode
     isSelectionMode: boolean;
@@ -155,6 +156,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             selectedPresetName: undefined,
             viewMode: 'home',
             activeTab: 'history',
+            visitorId: undefined,
             setSelectedPresetName: (name) => set({ selectedPresetName: name }),
             setViewMode: (mode) => set((state) => ({
                 viewMode: mode,
@@ -457,7 +459,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     selectedHistoryIds: new Set(),
                     historyPage: 1,
                     hasMoreHistory: true,
-                    isFetchingHistory: false
+                    isFetchingHistory: false,
+                    visitorId: undefined, // Will be initialized by the component or on first use
                 });
             },
 
@@ -475,12 +478,15 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
                 set({ isFetchingHistory: true });
                 try {
-                    const limit = 20;
+                    const limitNum = 50;
                     const url = new URL(`${getApiBase()}/history`);
                     url.searchParams.set('page', page.toString());
-                    url.searchParams.set('limit', limit.toString());
-                    if (userStore.currentUser?.id) {
-                        url.searchParams.set('userId', userStore.currentUser.id);
+                    url.searchParams.set('limit', limitNum.toString());
+
+                    // Use visitorId if currentUser is not available
+                    const userId = userStore.currentUser?.id || state.visitorId;
+                    if (userId) {
+                        url.searchParams.set('userId', userId);
                     }
                     if (projectId) url.searchParams.set('projectId', projectId);
 
@@ -876,10 +882,13 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             isMockMode: state.isMockMode,
             viewMode: state.viewMode,
             presetCategories: state.presetCategories,
+            visitorId: state.visitorId || `visitor_${Math.random().toString(36).substring(2, 11)}`,
 
-            // Only persist the first 20 items and strip heavy data to avoid localStorage quota (5MB) issues
-            generationHistory: state.generationHistory.slice(0, 20).map(item => ({
+            // Only persist the first 5 items and strip heavy data to avoid localStorage quota (5MB) issues
+            generationHistory: state.generationHistory.slice(0, 10).map(item => ({
                 ...item,
+                // CRITICAL: NEVER persist base64 image data to localStorage
+                outputUrl: (item.outputUrl?.startsWith('data:')) ? '' : item.outputUrl,
                 config: {
                     ...item.config,
                     // Strip potentially large objects from config.editConfig
@@ -888,9 +897,18 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         canvasJson: {},
                         referenceImages: item.config.editConfig.referenceImages?.map(img => ({
                             ...img,
-                            dataUrl: '' // Remove base64 data
-                        })) || []
+                            dataUrl: img.dataUrl?.startsWith('data:') ? '' : img.dataUrl // Remove base64 data
+                        })) || [],
+                        annotations: [] // Also clear annotations for persistence
                     } : undefined,
+                }
+            })),
+            // Ensure presets and styles don't carry heavy base64 strings in config if any
+            presets: state.presets.map(p => ({
+                ...p,
+                config: {
+                    ...p.config,
+                    editConfig: undefined // Presets shouldn't need full editConfig persisted
                 }
             }))
         }),

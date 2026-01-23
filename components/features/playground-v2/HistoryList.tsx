@@ -86,7 +86,7 @@ const HistoryList = observer(function HistoryList({
           fetchHistory(historyPage + 1, projectStore.currentProjectId || undefined);
         }
       },
-      { threshold: 0.1, root: scrollRef.current }
+      { threshold: 0.1, root: scrollRef.current, rootMargin: '400px' }
     );
 
     if (loadMoreRef.current) {

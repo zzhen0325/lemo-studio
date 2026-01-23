@@ -399,7 +399,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
-    const { configOverride, editConfig } = options;
+    const { configOverride } = options;
     // Switch to Dock Mode and History Tab
     setViewMode('dock');
     setActiveTab('history');
@@ -430,11 +430,28 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       const sourceImageUrls = currentUploadedImages.map(img => img.path || img.previewUrl);
 
       // 1. Immediately create and show the pending card
-      singleGenerate({ configOverride, fixedCreatedAt: startTime, isBackground: true, editConfig, taskId: batchTaskId, sourceImageUrls }).then((uniqueId) => {
+      // 关键修复：普通生成显式禁用 isEdit，逻辑上它不是编辑。
+      // 使用显式合并逻辑，并保证 prompt 不为空
+      const displayConfigOverride: GenerationConfig = {
+        ...currentConfig,
+        ...(configOverride || {}),
+        prompt: (configOverride as Partial<GenerationConfig>)?.prompt || currentConfig.prompt || '',
+        isEdit: false
+      };
+
+      singleGenerate({
+        configOverride: displayConfigOverride,
+        fixedCreatedAt: startTime,
+        isBackground: true,
+        editConfig: undefined,
+        taskId: batchTaskId,
+        sourceImageUrls
+      }).then((uniqueId) => {
         // 2. Schedule the actual backend execution with a staggered delay
         if (uniqueId) {
           setTimeout(() => {
-            executeGeneration(uniqueId, batchTaskId, { ...finalConfig }, startTime, sourceImageUrls);
+            // 确保执行任务也显式携带 isEdit: false
+            executeGeneration(uniqueId, batchTaskId, { ...finalConfig, isEdit: false }, startTime, sourceImageUrls);
           }, i * 1100);
         }
       });
@@ -676,6 +693,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         height: config.height,
         model: config.model,
         loras: config.loras,
+        isEdit: false, // 放入 config 中
       },
       status: 'pending',
       createdAt: startTime,
@@ -784,7 +802,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       editConfig: originalRecordConfig.editConfig,
       parentId: originalRecordConfig.parentId,
       // 显式让 taskId 为空，让 handleGenerate 生成一个全新的 ID
-      taskId: undefined
+      taskId: undefined,
     };
 
     // 4. 计算应该使用的参考图列表
@@ -1343,7 +1361,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-28">
                     <div className="h-full w-full  overflow-hidden relative">
                       <Suspense fallback={<div className="flex w-[90%] items-center justify-center h-full text-white">Loading Gallery...</div>}>
-                        <GalleryView />
+                        <GalleryView onSelectItem={(item) => {
+                          setSelectedResult(item);
+                          setIsImageModalOpen(true);
+                        }} />
                       </Suspense>
                     </div>
                   </div>
@@ -1417,7 +1438,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
               initialState={editingPresetConfig}
               workflows={workflows}
               inputSectionProps={inputSectionProps}
-              taskId={config.taskId}
             />
           )
         }

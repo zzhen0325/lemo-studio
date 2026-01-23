@@ -230,6 +230,3 @@
   0% { transform: translateX(-100%) skewX(-12deg); }
   100% { transform: translateX(100%) skewX(-12deg); }
 }
-/* Shimmer/Scanline Animation for V5 Generation Result Area */
-@keyframes shimmer {
-  0

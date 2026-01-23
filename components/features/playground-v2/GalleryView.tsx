@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { formatImageUrl } from "@/lib/api-base";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, Layers } from "lucide-react";
 import GradualBlur from "@/components/GradualBlur";
-import ImagePreviewModal from './Dialogs/ImagePreviewModal';
 import ImageEditorModal from './Dialogs/ImageEditorModal';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -26,8 +25,7 @@ import {
 
 
 
-export default function GalleryView() {
-    const [selectedItem, setSelectedItem] = useState<Generation | null>(null);
+export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Generation) => void }) {
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [editingImageUrl, setEditingImageUrl] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
@@ -136,7 +134,7 @@ export default function GalleryView() {
                     fetchGallery(galleryPage + 1);
                 }
             },
-            { threshold: 0.1 }
+            { threshold: 0.1, rootMargin: '400px' }
         );
 
         if (loadMoreRef.current) {
@@ -156,28 +154,25 @@ export default function GalleryView() {
         document.body.removeChild(link);
     };
 
-    const currentIndex = selectedItem ? sortedHistory.findIndex(h => h.id === selectedItem.id) : -1;
-    const hasPrev = currentIndex > 0;
-    const hasNext = currentIndex < sortedHistory.length - 1 && currentIndex !== -1;
+    // Navigation Logic removed as ImagePreviewModal is now global
 
-    const handleNextItem = () => {
-        if (hasNext) {
-            setSelectedItem(sortedHistory[currentIndex + 1]);
+    // 初始数据加载：如果进入该视图且数据为空，则触发拉取
+    useEffect(() => {
+        if (galleryItems.length === 0 && !isFetchingGallery) {
+            fetchGallery(1);
         }
-    };
-
-    const handlePrevItem = () => {
-        if (hasPrev) {
-            setSelectedItem(sortedHistory[currentIndex - 1]);
-        }
-    };
+    }, [galleryItems.length, isFetchingGallery, fetchGallery]);
 
     const handleEditImage = (result: Generation) => {
         const url = result.outputUrl || "";
         if (url) {
             setEditingImageUrl(url);
             setIsEditorOpen(true);
-            setSelectedItem(null);
+            // Close preview if needed
+            if (onSelectItem) {
+                // Not ideal but for now we reset parent state if possible
+                // Better approach is to let parent handle all preview states
+            }
         }
     };
 
@@ -282,7 +277,7 @@ export default function GalleryView() {
                                     <GalleryCard
                                         key={`${item.id}-${index}`}
                                         item={item}
-                                        onClick={() => item.status !== 'pending' && setSelectedItem(item)}
+                                        onClick={() => item.status !== 'pending' && onSelectItem?.(item)}
                                         onDownload={handleDownload}
                                     />
                                 )}
@@ -356,9 +351,9 @@ export default function GalleryView() {
                                         <div className="space-y-2">
                                             <div className="text-sm  text-white/40  ">Models</div>
                                             <div className="space-y-1">
-                                                {availableModels.map(model => (
+                                                {availableModels.map((model, idx) => (
                                                     <FilterItem
-                                                        key={model}
+                                                        key={`${model}-${idx}`}
                                                         label={model}
                                                         isSelected={selectedModels.includes(model)}
                                                         onClick={() => toggleModel(model)}
@@ -374,9 +369,9 @@ export default function GalleryView() {
                                         <div className="space-y-2">
                                             <div className="text-sm  text-white/40 ">Presets</div>
                                             <div className="space-y-1">
-                                                {availablePresets.map(preset => (
+                                                {availablePresets.map((preset, idx) => (
                                                     <FilterItem
-                                                        key={preset}
+                                                        key={`${preset}-${idx}`}
                                                         label={preset}
                                                         isSelected={selectedPresets.includes(preset)}
                                                         onClick={() => togglePreset(preset)}
@@ -394,16 +389,7 @@ export default function GalleryView() {
 
             </div>
 
-            <ImagePreviewModal
-                isOpen={!!selectedItem}
-                onClose={() => setSelectedItem(null)}
-                result={selectedItem || undefined}
-                onEdit={handleEditImage}
-                onNext={handleNextItem}
-                onPrev={handlePrevItem}
-                hasNext={hasNext}
-                hasPrev={hasPrev}
-            />
+            {/* ImagePreviewModal removed from here as it is rendered globally in PlaygroundV2Page to avoid duplication and key conflicts */}
 
             <ImageEditorModal
                 isOpen={isEditorOpen}
@@ -464,7 +450,11 @@ function MasonryGrid<T extends Generation>({
         <div className="flex gap-0 w-full ">
             {columns.map((col, colIndex) => (
                 <div key={colIndex} className="flex flex-col gap-0 flex-1 min-w-0">
-                    {col.map(({ item, index }) => renderItem(item, index))}
+                    {col.map(({ item, index }) => (
+                        <React.Fragment key={`${item.id}-${index}`}>
+                            {renderItem(item, index)}
+                        </React.Fragment>
+                    ))}
                 </div>
             ))}
         </div>

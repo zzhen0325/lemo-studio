@@ -22,7 +22,7 @@ export interface UnifiedModelConfig {
 }
 
 export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
-        { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
+    { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
     { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
 
     { id: 'coze_seed4', displayName: 'Seedream 4' },
@@ -60,36 +60,40 @@ export function useGenerationService() {
     const { doPost: runComfyWorkflow, loading: isWorkflowProcessing } = usePostPlayground();
 
     // Helper: URL to DataURL
-    const blobToDataURL = (blob: Blob) => new Promise<string>((resolve) => {
+    const blobToDataURL = useCallback((blob: Blob) => new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(blob);
-    });
+    }), []);
 
     // Helper: Save to outputs
-    const saveImageToOutputs = async (dataUrl: string, metadata?: Record<string, unknown>) => {
-        const resp = await fetch(`${getApiBase()}/save-image`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'outputs', metadata })
-        });
-        const json = await resp.json();
-        return resp.ok && json?.path ? String(json.path) : dataUrl;
-    };
-
-    // Helper: Save to history.json
-    const saveHistoryToBackend = async (item: Generation) => {
+    const saveImageToOutputs = useCallback(async (dataUrl: string, metadata?: Record<string, unknown>) => {
         try {
-            await fetch(`${getApiBase()}/history`, {
+            const resp = await fetch(`${getApiBase()}/save-image`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item),
+                body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'outputs', metadata })
             });
+            const json = await resp.json();
+            if (!resp.ok || !json?.path) {
+                console.error('[saveImageToOutputs] Failed:', { status: resp.status, json });
+                throw new Error(json?.message || `HTTP ${resp.status}`);
+            }
+            return String(json.path);
         } catch (err) {
-            console.error('Failed to save history:', err);
-            toast({ title: "保存历史失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
+            console.error('[saveImageToOutputs] Error:', err);
+            // DO NOT fallback to base64 silently, as it causes QuotaExceededError in localStorage
+            // If it's a critical save, let the caller handle it or show a toast
+            toast({
+                title: "图片保存失败",
+                description: "由于服务器或网络问题，生成结果未能保存到服务器。历史记录中可能无法显示此预览。",
+                variant: "destructive"
+            });
+            return dataUrl; // Still return dataUrl for immediate UI display, but we've alerted the user
         }
-    };
+    }, [toast]);
+
+    // Helper: Save to history.json
 
     const updateHistoryAndSave = useCallback((uniqueId: string, result: Generation) => {
         setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
@@ -101,13 +105,27 @@ export function useGenerationService() {
             projectId: item.projectId,
             createdAt: item.createdAt,
         } : item));
-        saveHistoryToBackend(result);
+
+        // Internal helper to avoid re-render issues
+        const saveToBackend = async (data: Generation) => {
+            try {
+                await fetch(`${getApiBase()}/history`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+            } catch (err) {
+                console.error('Failed to save history:', err);
+                toast({ title: "保存历史失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
+            }
+        };
+        saveToBackend(result);
 
         // 如果成功生成，清除正在生成的标志
         if (result.status === 'completed') {
             setIsGenerating(false);
         }
-    }, [setGenerationHistory, saveHistoryToBackend]);
+    }, [setGenerationHistory, toast]);
 
     const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         // Calculate effective source URLs - prioritize passed parameter
@@ -149,9 +167,8 @@ export function useGenerationService() {
         let lastSavedPath = "";
 
         // 为历史记录构造成组的参考图信息 (editConfig)
-        // 如果当前没有从编辑器传来的 editConfig，则根据上传列表自动生成一个
-
-        const effectiveEditConfig: EditPresetConfig | undefined = currentConfig.editConfig || (effectiveSourceUrls.length > 0 ? {
+        // 关键修复：不再为普通参考图自动生成 editConfig。editConfig 仅应在 isEdit 为 true 时存在 (来自编辑器)。
+        const effectiveEditConfig: EditPresetConfig | undefined = (currentConfig.isEdit || currentConfig.editConfig) ? (currentConfig.editConfig || (effectiveSourceUrls.length > 0 ? {
             canvasJson: {},
             referenceImages: effectiveSourceUrls.map((url, idx) => ({
                 id: `ref-${idx}`,
@@ -162,7 +179,7 @@ export function useGenerationService() {
             annotations: [],
             backgroundColor: 'transparent',
             canvasSize: { width: Number(unified.width), height: Number(unified.height) }
-        } : undefined);
+        } : undefined)) : undefined;
 
         const res = await callImage({
             model: modelId,
@@ -321,7 +338,7 @@ export function useGenerationService() {
         } else {
             throw new Error(`${selectedModel} returned empty result`);
         }
-    }, [selectedModel, setGenerationHistory, updateHistoryAndSave, callImage, toast]);
+    }, [selectedModel, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs]);
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
@@ -381,16 +398,16 @@ export function useGenerationService() {
                                 dataUrl,
                                 {
                                     config: {
-                                    ...currentConfig,
-                                    model: MODEL_ID_WORKFLOW,
-                                    baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
-                                    workflowName: selectedWorkflowConfig.viewComfyJSON.title,
-                                    loras: usePlaygroundStore.getState().selectedLoras,
-                                    localSourceId: effectiveLocalId,
-                                    localSourceIds: effectiveLocalIds,
-                                    presetName: currentConfig.presetName,
-                                    isPreset: !!currentConfig.presetName,
-                                },
+                                        ...currentConfig,
+                                        model: MODEL_ID_WORKFLOW,
+                                        baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
+                                        workflowName: selectedWorkflowConfig.viewComfyJSON.title,
+                                        loras: usePlaygroundStore.getState().selectedLoras,
+                                        localSourceId: effectiveLocalId,
+                                        localSourceIds: effectiveLocalIds,
+                                        presetName: currentConfig.presetName,
+                                        isPreset: !!currentConfig.presetName,
+                                    },
                                     createdAt: generationTime,
                                     sourceImageUrl: effectiveSourceUrl,
                                     sourceImageUrls: effectiveSourceUrls,
@@ -436,7 +453,7 @@ export function useGenerationService() {
                 }
             });
         });
-    }, [selectedWorkflowConfig, userStore.currentUser?.id, projectStore.currentProjectId, updateHistoryAndSave, runComfyWorkflow, blobToDataURL]);
+    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs]);
 
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
@@ -488,7 +505,7 @@ export function useGenerationService() {
                 variant: "destructive"
             });
         }
-    }, [isMockMode, userStore.currentUser?.id, projectStore.currentProjectId, selectedModel, handleWorkflow, handleUnifiedImageGen, updateHistoryAndSave, setGenerationHistory, toast]);
+    }, [isMockMode, selectedModel, handleWorkflow, handleUnifiedImageGen, updateHistoryAndSave, setGenerationHistory, toast]);
 
     const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
         const { configOverride, fixedCreatedAt, isBackground } = options;
@@ -519,9 +536,8 @@ export function useGenerationService() {
         const width = configOverride?.width || freshConfig.width;
         const height = configOverride?.height || freshConfig.height;
 
-        // 所有的参考图都应该存储在 sourceImageUrls，editConfig.referenceImages 也直接读 sourceImageUrls
-        // 如果 sourceImageUrls 为空，则 displayEditConfig 中的 referenceImages 必须为空
-        const displayEditConfig = editConfig ? {
+        // 修正：不再为普通图生图生成 displayEditConfig。只有显式标记为 isEdit 的任务才需要。
+        const displayEditConfig = isEdit ? (editConfig ? {
             ...editConfig,
             referenceImages: sourceImageUrls.map((url, idx) => ({
                 id: editConfig.referenceImages?.[idx]?.id || `ref-${idx}`,
@@ -540,7 +556,7 @@ export function useGenerationService() {
             annotations: [],
             backgroundColor: 'transparent',
             canvasSize: { width: Number(width), height: Number(height) }
-        } : undefined);
+        } : undefined)) : undefined;
 
         const parentId = options.parentId || configOverride?.parentId || freshConfig.parentId;
 
@@ -618,7 +634,7 @@ export function useGenerationService() {
         if (isBackground) return uniqueId;
 
         return executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
-    }, [setHasGenerated, userStore.currentUser?.id, projectStore.currentProjectId, setGenerationHistory, executeGeneration]);
+    }, [setHasGenerated, setGenerationHistory, executeGeneration]);
 
     return {
         handleGenerate,

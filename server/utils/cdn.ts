@@ -2,10 +2,10 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { fetch, FormData, File } from 'undici';
 
-const CDN_BASE = 'https://ife-cdn.byteintl.net';
-const DEFAULT_DIR = 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design';
-const DEFAULT_REGION = 'SG';
-const DEFAULT_EMAIL = 'zzhen.0325@bytedance.com';
+const CDN_BASE = process.env.CDN_BASE_URL || 'https://ife-cdn.byteintl.net';
+const DEFAULT_DIR = process.env.CDN_DIR || 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design';
+const DEFAULT_REGION = process.env.CDN_REGION || 'SG';
+const DEFAULT_EMAIL = process.env.CDN_EMAIL || 'zzhen.0325@bytedance.com';
 
 interface UploadOptions {
   fileName?: string;
@@ -26,10 +26,21 @@ function buildUrl(dir: string, fileName: string) {
 }
 
 async function postForm<T = unknown>(pathName: string, form: FormData): Promise<T> {
-  const res = await fetch(`${CDN_BASE}${pathName}`, {
-    method: 'POST',
-    body: form,
-  });
+  const url = `${CDN_BASE}${pathName}`;
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      body: form,
+      // undici fetch options
+      // @ts-expect-error connectTimeout is supported by undici but not in standard fetch types
+      connectTimeout: 5000,
+    });
+  } catch (err: unknown) {
+    const error = err as { message: string; code?: string };
+    console.error('[CDN Fetch Error]', { url, error: error.message, code: error.code });
+    throw new Error(`[cdn] Failed to fetch ${url}: ${error.message}${error.code ? ` (${error.code})` : ''}`);
+  }
 
   let data: unknown = null;
   const text = await res.text().catch(() => '');
@@ -47,7 +58,7 @@ async function postForm<T = unknown>(pathName: string, form: FormData): Promise<
 
   const success = res.ok && (code === 0 || code === undefined || code === 200);
   if (!success) {
-    console.error('[CDN Error Detail]', { status: res.status, code, data, text: text.slice(0, 500) });
+    console.error('[CDN Error Detail]', { url, status: res.status, code, data, text: text.slice(0, 500) });
     const msg = typeof message === 'string' ? message : JSON.stringify(message);
     const detail = text ? ` body=${text}` : '';
     throw new Error(`[cdn ${res.status}] ${msg}${detail}`);
