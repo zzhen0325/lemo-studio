@@ -82,14 +82,14 @@ export function useGenerationService() {
             return String(json.path);
         } catch (err) {
             console.error('[saveImageToOutputs] Error:', err);
-            // DO NOT fallback to base64 silently, as it causes QuotaExceededError in localStorage
-            // If it's a critical save, let the caller handle it or show a toast
+            // CRITICAL: Return empty string instead of defaulting to dataUrl
+            // to prevent leaking massive Base64 into the history store persistence
             toast({
                 title: "图片保存失败",
-                description: "由于服务器或网络问题，生成结果未能保存到服务器。历史记录中可能无法显示此预览。",
+                description: "生成结果无法保存到服务器。历史记录将由于空间限制无法保存此预览。",
                 variant: "destructive"
             });
-            return dataUrl; // Still return dataUrl for immediate UI display, but we've alerted the user
+            return "";
         }
     }, [toast]);
 

@@ -885,45 +885,40 @@ export const usePlaygroundStore = create<PlaygroundState>()(
         }), {
         name: 'playground-storage',
         partialize: (state) => ({
-            // Only persist config and UI states, not large data
-            config: state.config,
+            // Keep only essential UI and config states
+            config: {
+                ...state.config,
+                // Aggressively strip potentially large strings from sourceImageUrls
+                sourceImageUrls: state.config?.sourceImageUrls?.map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url) || [],
+                // Deeply strip editConfig
+                editConfig: state.config?.editConfig ? {
+                    ...state.config.editConfig,
+                    canvasJson: {},
+                    referenceImages: [], // Remove reference images from persistence
+                    annotations: []
+                } : undefined
+            },
             selectedModel: state.selectedModel,
-            selectedWorkflowConfig: state.selectedWorkflowConfig,
+            selectedWorkflowConfig: state.selectedWorkflowConfig ? {
+                // Keep only IDs/Titles for workflow, strip heavy JSONs
+                viewComfyJSON: {
+                    id: state.selectedWorkflowConfig.viewComfyJSON?.id,
+                    title: state.selectedWorkflowConfig.viewComfyJSON?.title
+                }
+            } : undefined,
             selectedLoras: state.selectedLoras,
             showProjectSidebar: state.showProjectSidebar,
             isAspectRatioLocked: state.isAspectRatioLocked,
             isMockMode: state.isMockMode,
             viewMode: state.viewMode,
-            presetCategories: state.presetCategories,
             visitorId: state.visitorId || `visitor_${Math.random().toString(36).substring(2, 11)}`,
 
-            // Only persist the first 5 items and strip heavy data to avoid localStorage quota (5MB) issues
-            generationHistory: state.generationHistory.slice(0, 10).map(item => ({
-                ...item,
-                // CRITICAL: NEVER persist base64 image data to localStorage
-                outputUrl: (item.outputUrl?.startsWith('data:')) ? '' : item.outputUrl,
-                config: {
-                    ...item.config,
-                    // Strip potentially large objects from config.editConfig
-                    editConfig: item.config?.editConfig ? {
-                        ...item.config.editConfig,
-                        canvasJson: {},
-                        referenceImages: item.config.editConfig.referenceImages?.map(img => ({
-                            ...img,
-                            dataUrl: img.dataUrl?.startsWith('data:') ? '' : img.dataUrl // Remove base64 data
-                        })) || [],
-                        annotations: [] // Also clear annotations for persistence
-                    } : undefined,
-                }
-            })),
-            // Ensure presets and styles don't carry heavy base64 strings in config if any
-            presets: state.presets.map(p => ({
-                ...p,
-                config: {
-                    ...p.config,
-                    editConfig: undefined // Presets shouldn't need full editConfig persisted
-                }
-            }))
+            // CRITICAL: Stop persisting large arrays that are re-fetched from server
+            generationHistory: [], // Completely skip history persistence
+            presets: [],          // Completely skip presets persistence
+            styles: [],           // Completely skip styles persistence
+            uploadedImages: [],   // Completely skip uploaded images (often have large previews)
+            describeImages: [],
         }),
     }
     ));
