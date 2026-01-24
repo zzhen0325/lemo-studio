@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     Tldraw,
     Editor,
@@ -12,16 +12,11 @@ import 'tldraw/tldraw.css';
 import { Trash2, MessageSquarePlus, X, Save, Wand2, Upload, ChevronDown, Image as ImageIcon, Crop, Download } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
 import { motion } from 'framer-motion';
+import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { AVAILABLE_MODELS, useGenerationService } from '@/hooks/features/PlaygroundV2/useGenerationService';
 import { PlaygroundInputSectionProps } from '../PlaygroundInputSection';
-import { AnnotationShapeUtil, ResultShapeUtil, ResultShape, AnnotationTool } from './TldrawShapes';
+import { AnnotationShapeUtil, ResultShapeUtil, AnnotationTool, AnnotationShape } from './TldrawShapes';
 
 
 interface TldrawAnnotation {
@@ -244,6 +239,34 @@ export const TldrawEditorView = ({
     const refImageInputRef = useRef<HTMLInputElement>(null);
     const [referenceImages, setReferenceImages] = useState<Array<{ id: string; dataUrl: string; label: string }>>([]);
     const [annotations, setAnnotations] = useState<TldrawAnnotation[]>([]);
+    const selectedModel = usePlaygroundStore(s => s.selectedModel);
+    const setSelectedModel = usePlaygroundStore(s => s.setSelectedModel);
+
+    const tldrawOverrides = useMemo(() => ({
+        translations: {
+            'zh-cn': {
+                'fill-style.lined-fill': '线条填充',
+                'tool.annotation': '标注区域'
+            },
+            'zh-CN': {
+                'fill-style.lined-fill': '线条填充',
+                'tool.annotation': '标注区域'
+            }
+        },
+        tools(editor: any, tools: any) {
+            const t = tools as Record<string, any>;
+            t.annotation = {
+                id: 'annotation',
+                icon: 'tool-note',
+                label: '标注区域',
+                kbd: 'a',
+                onSelect: () => {
+                    editor.setCurrentTool('annotation');
+                },
+            };
+            return tools;
+        },
+    }), []);
 
     // Tracks current annotation count for naming, though create listener handles it too
     // Keeping it for consistent id generation if needed, but TldrawShapes handles it mostly
@@ -278,14 +301,37 @@ export const TldrawEditorView = ({
         setReferenceImages(prev => prev.filter(img => img.id !== id));
     }, []);
 
+    const [localizedImageUrl, setLocalizedImageUrl] = useState<string>('');
+
+    // Pre-localize image to avoid Tainted Canvas error
     useEffect(() => {
-        if (editor && imageUrl) {
+        if (!imageUrl) return;
+        const localize = async () => {
+            try {
+                const resp = await fetch(imageUrl);
+                const blob = await resp.blob();
+                const reader = new FileReader();
+                const dataUrl = await new Promise<string>((resolve) => {
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                });
+                setLocalizedImageUrl(dataUrl);
+            } catch (err) {
+                console.error('[TldrawEditor] Failed to localize image:', err);
+                setLocalizedImageUrl(imageUrl); // Fallback to raw URL
+            }
+        };
+        localize();
+    }, [imageUrl]);
+
+    useEffect(() => {
+        if (editor && localizedImageUrl) {
             const setupImage = async () => {
                 editor.selectAll().deleteShapes(editor.getSelectedShapeIds());
                 const assetId = AssetRecordType.createId();
                 const shapeId = createShapeId();
                 const img = new Image();
-                img.src = imageUrl;
+                img.src = localizedImageUrl;
                 await new Promise((resolve) => {
                     img.onload = resolve;
                     img.onerror = resolve;
@@ -299,7 +345,7 @@ export const TldrawEditorView = ({
                         typeName: 'asset',
                         props: {
                             name: 'base-image',
-                            src: imageUrl,
+                            src: localizedImageUrl,
                             w,
                             h,
                             mimeType: 'image/png',
@@ -322,7 +368,7 @@ export const TldrawEditorView = ({
             };
             setupImage();
         }
-    }, [editor, imageUrl]);
+    }, [editor, localizedImageUrl]);
 
     useEffect(() => {
         if (!editor) return;
@@ -359,7 +405,7 @@ export const TldrawEditorView = ({
         if (!editor) return;
         const unsubscribe = editor.store.listen(() => {
             const shapes = editor.getCurrentPageShapes();
-            const annos = shapes.filter(s => s.type === 'annotation') as unknown as AnnotationShape[];
+            const annos = shapes.filter(s => s && (s.type as string) === 'annotation') as unknown as AnnotationShape[];
 
             // Sync local annotations state
             const newAnnotations = annos.map((s) => ({
@@ -419,23 +465,40 @@ export const TldrawEditorView = ({
             .join('\n');
         const finalPrompt = annotationPrompts ? `${basePrompt}\n\nRegion Instructions:\n${annotationPrompts}` : basePrompt;
 
-        let referenceImageUrl = '';
-        if (shouldGenerate && annotations.length > 0) {
+
+        let referenceImageUrl = localizedImageUrl || imageUrl;
+        if (shouldGenerate) {
             try {
-                const shapes = editor.getCurrentPageShapes();
-                const shapeIds = shapes.map(s => s.id);
+                // Logic aligned with handleDownload (exportAs)
+                // Use all shapes if none selected
+                const shapeIds = editor.getCurrentPageShapes().length > 0 ? Array.from(editor.getCurrentPageShapeIds()) : [];
+
                 if (shapeIds.length > 0) {
-                    const svg = await editor.getSvgElement(shapeIds, { background: true, padding: 0 });
+                    // Use Tldraw's native getSvg which handles asset embedding better than manual fetching
+                    // @ts-ignore - getSvg exists at runtime but missing in some type definitions
+                    const svg = await (editor as any).getSvg(shapeIds, {
+                        scale: 1,
+                        background: true,
+                    });
+
                     if (svg) {
-                        const svgString = new XMLSerializer().serializeToString(svg.svg);
+                        // Serialize SVG to string
+                        const s = new XMLSerializer();
+                        const svgString = s.serializeToString(svg);
                         const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
                         const svgUrl = URL.createObjectURL(svgBlob);
+
                         const img = new Image();
-                        img.src = svgUrl;
-                        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+                        // Wait for image to load
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            img.src = svgUrl;
+                        });
+
                         const canvas = document.createElement('canvas');
-                        canvas.width = svg.width;
-                        canvas.height = svg.height;
+                        canvas.width = parseFloat(svg.getAttribute('width') || '1024');
+                        canvas.height = parseFloat(svg.getAttribute('height') || '1024');
                         const ctx = canvas.getContext('2d');
                         if (ctx) {
                             ctx.fillStyle = 'white';
@@ -446,7 +509,16 @@ export const TldrawEditorView = ({
                         URL.revokeObjectURL(svgUrl);
                     }
                 }
-            } catch (err) { console.error('参考图生成失败：', err); }
+            } catch (err) {
+                console.error('[TldrawEditor] Export failed, falling back to original:', err);
+                referenceImageUrl = localizedImageUrl || imageUrl;
+            }
+        }
+
+        if (shouldGenerate && (!referenceImageUrl || referenceImageUrl.trim() === '')) {
+            console.warn('[TldrawEditor] Reference image is empty, aborting generation');
+            alert('无法生成：画布为空或导出失败 (Canvas is empty or export failed)');
+            return;
         }
 
         if (!shouldGenerate) {
@@ -455,15 +527,16 @@ export const TldrawEditorView = ({
         }
 
         if (shouldGenerate) {
-            const shapes = editor.getCurrentPageShapes();
-            const imageShape = shapes.find(s => s.type === 'image');
             const resultId = createShapeId();
+            const imageShape = editor.getCurrentPageShapes().find(s => s.type === 'image');
+
             if (imageShape) {
                 const bounds = editor.getShapePageBounds(imageShape.id);
                 if (bounds) {
                     const spacing = 100;
                     const arrowWidth = 80;
                     const arrowId = createShapeId();
+
                     editor.createShapes([{
                         id: arrowId,
                         type: 'arrow',
@@ -471,6 +544,7 @@ export const TldrawEditorView = ({
                         y: bounds.center.y,
                         props: { start: { x: 0, y: 0 }, end: { x: arrowWidth, y: 0 }, arrowheadEnd: 'arrow', color: 'black', dash: 'draw', size: 'm' }
                     }]);
+
                     editor.createShapes([{
                         id: resultId,
                         type: 'result' as any,
@@ -483,21 +557,43 @@ export const TldrawEditorView = ({
             }
             try {
                 const generationOptions = {
-                    configOverride: { prompt: finalPrompt, isEdit: true },
+                    configOverride: {
+                        prompt: finalPrompt,
+                        isEdit: true,
+                        model: inputSectionProps?.config.model || selectedModel, // 优先使用局部配置，兜底使用全局选中模型
+                        imageSize: inputSectionProps?.config.imageSize,
+                    },
                     sourceImageUrls: [referenceImageUrl],
                 };
-                await handleGenerate(generationOptions as unknown as Parameters<typeof handleGenerate>[0]);
-                setTimeout(() => {
-                    if (editor.getShape(resultId)) {
-                        editor.updateShapes([{ id: resultId, props: { isLoading: false, url: imageUrl, version: 1 } } as any]);
-                    }
-                }, 3000);
+
+                console.log('[TldrawEditor] Generating with params:', {
+                    inputConfigModel: inputSectionProps?.config.model,
+                    storeSelectedModel: selectedModel,
+                    finalModel: generationOptions.configOverride.model
+                });
+
+                const result = await handleGenerate(generationOptions as any);
+
+                if (result && typeof result !== 'string' && 'outputUrl' in result && result.outputUrl) {
+                    editor.updateShapes([{
+                        id: resultId,
+                        type: 'result' as any,
+                        props: {
+                            isLoading: false,
+                            url: result.outputUrl,
+                            version: 1,
+                        } as any
+                    }]);
+                } else {
+                    editor.deleteShape(resultId);
+                    console.error('[TldrawEditor] 生成返回结果无效');
+                }
             } catch (err) {
-                console.error('Generation failed:', err);
+                console.error('[TldrawEditor] 生图接口执行失败:', err);
                 editor.deleteShape(resultId);
             }
         }
-    }, [editor, localPrompt, inputSectionProps, annotations, onSave, handleGenerate, imageUrl]);
+    }, [editor, localPrompt, inputSectionProps, annotations, onSave, handleGenerate, imageUrl, localizedImageUrl, selectedModel]);
 
     return (
         <main className="flex-1 relative flex overflow-hidden">
@@ -599,62 +695,45 @@ export const TldrawEditorView = ({
                             <div className="grid grid-cols-2 gap-3 mt-2">
                                 <div className="space-y-1.5">
                                     <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide z-[110]">Model</div>
-                                    <DropdownMenu modal={false}>
-                                        <DropdownMenuTrigger className="w-full h-9 flex items-center justify-start px-2 bg-white border border-gray-200 rounded-md text-gray-700 text-xs hover:text-gray-600 hover:bg-gray-50 focus:outline-none">
-                                            <span className="truncate flex-1 text-left">{AVAILABLE_MODELS.find(m => m.id === inputSectionProps?.config.model)?.displayName || 'Select Model'}</span>
-                                            <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                            className="w-[180px] bg-white border-gray-200 z-[10002]"
+                                    <div className="relative group">
+                                        <select
+                                            value={inputSectionProps?.config.model || selectedModel}
+                                            onChange={(e) => {
+                                                const newVal = e.target.value;
+                                                console.log('[TldrawEditor] User selected model:', newVal);
+                                                if (inputSectionProps) {
+                                                    inputSectionProps.setConfig((prev: PlaygroundInputSectionProps['config']) => ({ ...prev, model: newVal }));
+                                                } else {
+                                                    setSelectedModel(newVal);
+                                                }
+                                            }}
                                             onPointerDown={(e) => e.stopPropagation()}
-                                            onPointerUp={(e) => e.stopPropagation()}
+                                            className="w-full h-9 pl-2 pr-8 bg-white border border-gray-200 rounded-md text-gray-700 text-xs hover:border-gray-300 focus:outline-none appearance-none cursor-pointer"
                                         >
                                             {AVAILABLE_MODELS.map(m => (
-                                                <DropdownMenuItem
-                                                    key={m.id}
-                                                    onSelect={() => inputSectionProps?.setConfig((prev: PlaygroundInputSectionProps['config']) => ({ ...prev, model: m.id }))}
-                                                    onPointerDown={(e) => {
-                                                        e.stopPropagation();
-                                                        // 即使 select 没触发，我们也在这强行更新
-                                                        inputSectionProps?.setConfig((prev: PlaygroundInputSectionProps['config']) => ({ ...prev, model: m.id }));
-                                                    }}
-                                                    onPointerUp={(e) => e.stopPropagation()}
-                                                    className="text-gray-700 hover:bg-gray-100 text-xs cursor-pointer"
-                                                >
-                                                    {m.displayName}
-                                                </DropdownMenuItem>
+                                                <option key={m.id} value={m.id}>{m.displayName}</option>
                                             ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                        </select>
+                                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 opacity-50 pointer-events-none" />
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Size</div>
-                                    <DropdownMenu modal={false}>
-                                        <DropdownMenuTrigger className="w-full h-9 flex items-center justify-start px-2 bg-white border border-gray-200 rounded-md text-gray-700 text-xs hover:text-gray-600 hover:bg-gray-50 focus:outline-none">
-                                            <span className="truncate flex-1 text-left">{inputSectionProps?.config.imageSize || 'Default'}</span>
-                                            <ChevronDown className="h-3 w-3 opacity-50 ml-1" />
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                            className="w-[120px] bg-white border-gray-200 z-[10002]"
-                                            onPointerDown={(e) => e.stopPropagation()}
-                                            onPointerUp={(e) => e.stopPropagation()}
-                                        >
-                                            {['1K', '2K', '4K'].map(s => (
-                                                <DropdownMenuItem
-                                                    key={s}
-                                                    onSelect={() => inputSectionProps?.setConfig((prev: PlaygroundInputSectionProps['config']) => ({ ...prev, imageSize: s as "1K" | "2K" | "4K" }))}
-                                                    onPointerDown={(e) => {
-                                                        e.stopPropagation();
-                                                        inputSectionProps?.setConfig((prev: PlaygroundInputSectionProps['config']) => ({ ...prev, imageSize: s as "1K" | "2K" | "4K" }));
-                                                    }}
-                                                    onPointerUp={(e) => e.stopPropagation()}
-                                                    className="text-gray-700 hover:bg-gray-100 text-xs cursor-pointer"
-                                                >
-                                                    {s}
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <div className="flex bg-gray-50 border border-gray-200 rounded-lg p-0.5 gap-0.5" onPointerDown={(e) => e.stopPropagation()}>
+                                        {['1K', '2K', '4K'].map(s => (
+                                            <button
+                                                key={s}
+                                                type="button"
+                                                onClick={() => inputSectionProps?.setConfig((prev: PlaygroundInputSectionProps['config']) => ({ ...prev, imageSize: s as "1K" | "2K" | "4K" }))}
+                                                className={`flex-1 h-8 rounded-md text-[10px] font-bold transition-all ${inputSectionProps?.config.imageSize === s
+                                                    ? 'bg-white text-black shadow-sm'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                                    }`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -675,21 +754,7 @@ export const TldrawEditorView = ({
                     hideUi={true}
                     shapeUtils={[AnnotationShapeUtil, ResultShapeUtil]}
                     tools={[AnnotationTool]}
-                    overrides={{
-                        tools(editor, tools) {
-                            const t = tools as Record<string, any>;
-                            t.annotation = {
-                                id: 'annotation',
-                                icon: 'tool-note',
-                                label: '标注区域',
-                                kbd: 'a',
-                                onSelect: () => {
-                                    (editor as any).setCurrentTool('annotation');
-                                },
-                            };
-                            return tools;
-                        },
-                    }}
+                    overrides={tldrawOverrides}
                 >
                     <ToolbarComponent
                         imageScreenBounds={imageScreenBounds}

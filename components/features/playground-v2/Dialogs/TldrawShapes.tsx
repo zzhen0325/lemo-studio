@@ -131,7 +131,7 @@ export class AnnotationTool extends StateNode {
         const imageShape = hitShape && hitShape.type === 'image' ? hitShape : this.editor.getCurrentPageShapes().find(s => s.type === 'image');
 
         // 计算当前名称
-        const annotations = this.editor.getCurrentPageShapes().filter(s => s.type === 'annotation');
+        const annotations = this.editor.getCurrentPageShapes().filter(s => (s.type as string) === 'annotation');
         const nextIndex = annotations.length + 1;
 
         let x = currentPagePoint.x;
@@ -147,7 +147,7 @@ export class AnnotationTool extends StateNode {
 
         this.editor.createShape({
             id: this.createdShapeId,
-            type: 'annotation',
+            type: 'annotation' as any,
             x,
             y,
             parentId,
