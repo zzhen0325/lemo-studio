@@ -26,7 +26,7 @@ function buildUrl(dir: string, fileName: string) {
 }
 
 async function postForm<T = unknown>(pathName: string, form: FormData): Promise<T> {
-  const url = `${'https://ife-cdn.tiktok-row.net'}${pathName}`;
+  const url = `${CDN_BASE}${pathName}`;
   let res;
   try {
     res = await fetch(url, {
