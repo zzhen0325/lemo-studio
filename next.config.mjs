@@ -23,6 +23,9 @@ const nextConfig = {
     formats: ['image/webp'],
   },
   outputFileTracingRoot: import.meta.dirname,
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'lucide'],
+  },
   // output: "standalone",
   env: {
     PORT: process.env.PORT || process.argv.find(arg => arg.startsWith('-p=') || arg.startsWith('--port='))?.split('=')[1] || '3001',

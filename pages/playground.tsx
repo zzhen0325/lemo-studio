@@ -9,13 +9,14 @@ import { usePromptOptimization, AIModel } from "@/hooks/features/PlaygroundV2/us
 
 
 import { useGenerationService, type GenerateOptions } from "@/hooks/features/PlaygroundV2/useGenerationService";
+import { useHistory } from "@/hooks/features/PlaygroundV2/useHistory";
 import { useAIService as useAIServiceV1 } from "@/hooks/ai/useAIService";
 
 import { GoogleApiStatus } from "@/components/features/playground-v2/GoogleApiStatus";
 import SimpleImagePreview from "@/components/features/playground-v2/SimpleImagePreview";
 import HistoryList from "@/components/features/playground-v2/HistoryList";
 import ImagePreviewModal from "@/components/features/playground-v2/Dialogs/ImagePreviewModal";
-import TldrawEditorModal from "@/components/features/playground-v2/Dialogs/TldrawEditorModal";
+// import TldrawEditorModal from "@/components/features/playground-v2/Dialogs/TldrawEditorModal";
 import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
 import BaseModelSelectorDialog from "@/components/features/playground-v2/Dialogs/BaseModelSelectorDialog";
 import LoraSelectorDialog, { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
@@ -38,6 +39,11 @@ import dynamic from "next/dynamic";
 
 const GalleryView = dynamic(() => import("@/components/features/playground-v2/GalleryView"), {
   loading: () => <div className="flex items-center justify-center h-full text-white">Loading Gallery...</div>,
+  ssr: false
+});
+
+const TldrawEditorModal = dynamic(() => import("@/components/features/playground-v2/Dialogs/TldrawEditorModal"), {
+  loading: () => null,
   ssr: false
 });
 import { StyleStacksView } from '@/components/features/playground-v2/StyleStacksView';
@@ -99,7 +105,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
-  const fetchHistory = usePlaygroundStore(s => s.fetchHistory);
+  // const fetchHistory = usePlaygroundStore(s => s.fetchHistory); // Deprecated in favor of useHistory
   const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
   const applyModel = usePlaygroundStore(s => s.applyModel);
   const addStyle = usePlaygroundStore(s => s.addStyle);
@@ -134,12 +140,21 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const mobxProjectId = projectStore.currentProjectId;
 
+  // Use SWR hook for history
+  const { history: swrHistory, size, setSize, isLoading: isHistoryLoading, hasMore: hasMoreHistory } = useHistory(mobxProjectId || undefined);
+  const syncHistoryWithSWR = usePlaygroundStore(s => s.syncHistoryWithSWR);
+
+  // Sync SWR data to store whenever it changes
   useEffect(() => {
-    // 预加载历史记录
-    fetchHistory(1, mobxProjectId || undefined);
+    if (swrHistory) {
+      syncHistoryWithSWR(swrHistory);
+    }
+  }, [swrHistory, syncHistoryWithSWR]);
+
+  useEffect(() => {
     // 预加载图库 (之前图库只有在切换到图库标签且组件挂载后才加载)
     fetchGallery(1);
-  }, [fetchHistory, fetchGallery, mobxProjectId]);
+  }, [fetchGallery, mobxProjectId]);
 
   const filteredHistory = useMemo(() => {
     if (!mobxProjectId) return generationHistory;
@@ -1408,6 +1423,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           layoutMode={historyLayoutMode}
                           onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
                           onClose={() => setViewMode('home')}
+                          onLoadMore={() => setSize(size + 1)}
+                          hasMore={hasMoreHistory}
+                          isLoading={isHistoryLoading}
                         />
                       </div>
                     )}

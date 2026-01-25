@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
-import { projectStore } from '@/lib/store/project-store';
 
 
 import Image from "next/image";
@@ -42,6 +41,10 @@ interface HistoryListProps {
   layoutMode?: 'grid' | 'list';
   onLayoutModeChange?: (mode: 'grid' | 'list') => void;
   onClose?: () => void;
+  // SWR Pagination Support
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoading?: boolean;
 }
 
 interface GroupedHistoryItem {
@@ -61,6 +64,9 @@ const HistoryList = observer(function HistoryList({
   variant = 'default',
 
   layoutMode = 'list',
+  onLoadMore,
+  hasMore = false,
+  isLoading = false,
 }: HistoryListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const {
@@ -71,10 +77,6 @@ const HistoryList = observer(function HistoryList({
     selectedHistoryIds: selectedIds,
     toggleHistorySelection: toggleSelection,
     clearHistorySelection: clearSelection,
-    historyPage,
-    hasMoreHistory,
-    isFetchingHistory,
-    fetchHistory
   } = usePlaygroundStore();
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -82,8 +84,8 @@ const HistoryList = observer(function HistoryList({
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMoreHistory && !isFetchingHistory) {
-          fetchHistory(historyPage + 1, projectStore.currentProjectId || undefined);
+        if (entries[0].isIntersecting && hasMore && !isLoading && onLoadMore) {
+          onLoadMore();
         }
       },
       { threshold: 0.1, root: scrollRef.current, rootMargin: '400px' }
@@ -94,7 +96,7 @@ const HistoryList = observer(function HistoryList({
     }
 
     return () => observer.disconnect();
-  }, [hasMoreHistory, isFetchingHistory, historyPage, fetchHistory]);
+  }, [hasMore, isLoading, onLoadMore]);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
 
 
@@ -155,7 +157,7 @@ const HistoryList = observer(function HistoryList({
   };
 
   if (history.length === 0) {
-    if (isFetchingHistory) {
+    if (isLoading) {
       return <HistoryLoadingSkeleton layoutMode={layoutMode} />;
     }
     return null;
@@ -418,12 +420,12 @@ const HistoryList = observer(function HistoryList({
 
         {/* Load More Sentinel & Indicator */}
         <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
-          {isFetchingHistory ? (
+          {isLoading ? (
             <div className="flex flex-col items-center gap-2">
               <LoadingSpinner size={24} className="text-white/20" />
               <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
             </div>
-          ) : hasMoreHistory ? (
+          ) : hasMore ? (
             <div className="h-4" />
           ) : (
             <div className="flex flex-col items-center gap-2 opacity-20">

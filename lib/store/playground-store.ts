@@ -5,7 +5,7 @@ import { UploadedImage, Preset, StyleStack } from '@/components/features/playgro
 import { Generation, GenerationConfig } from '@/types/database';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
 import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
-import { userStore } from './user-store';
+// import { userStore } from './user-store';
 import { getApiBase } from "@/lib/api-base";
 
 import { MODEL_ID_WORKFLOW } from '../constants/models';
@@ -80,10 +80,17 @@ interface PlaygroundState {
     // Generation History
     generationHistory: Generation[];
     setGenerationHistory: (history: Generation[] | ((prev: Generation[]) => Generation[])) => void;
-    fetchHistory: (page?: number, projectId?: string) => Promise<void>;
-    historyPage: number;
-    hasMoreHistory: boolean;
-    isFetchingHistory: boolean;
+    // generationHistory in store now primarily holds "Pending" items that SWR hasn't seen yet
+    // OR we use it as a merged view. To keep migration simple, we will use it as a merged view populated by SWR + Pending.
+    // However, to follow best practices, we should separate them.
+    // For this step, let's keep generationHistory as the "Display List" but add methods to sync SWR data into it.
+    syncHistoryWithSWR: (swrHistory: Generation[]) => void;
+
+    // Explicit pending items management
+    pendingGenerations: Generation[];
+    addPendingGeneration: (item: Generation) => void;
+    updatePendingGeneration: (id: string, updates: Partial<Generation>) => void;
+    removePendingGeneration: (id: string) => void;
 
     // Presets
     presets: (Preset & { workflow_id?: string })[];
@@ -136,6 +143,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             },
             uploadedImages: [],
             describeImages: [],
+            pendingGenerations: [], // Initialize pending list
             selectedModel: 'gemini-3-pro-image-preview',
             selectedWorkflowConfig: undefined,
             selectedLoras: [],
@@ -472,9 +480,6 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     editConfig: undefined,
                     isSelectionMode: false,
                     selectedHistoryIds: new Set(),
-                    historyPage: 1,
-                    hasMoreHistory: true,
-                    isFetchingHistory: false,
                     visitorId: undefined, // Will be initialized by the component or on first use
                     isTldrawEditorOpen: false,
                     tldrawEditingImageUrl: "",
@@ -483,66 +488,46 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             },
 
             generationHistory: [],
-            historyPage: 1,
-            hasMoreHistory: true,
-            isFetchingHistory: false,
+            pendingGenerations: [],
+            addPendingGeneration: (item) => set(state => ({
+                pendingGenerations: [item, ...state.pendingGenerations],
+                // Also optimistically add to main list for immediate display
+                generationHistory: [item, ...state.generationHistory]
+            })),
+            updatePendingGeneration: (id, updates) => set(state => ({
+                pendingGenerations: state.pendingGenerations.map(p => p.id === id ? { ...p, ...updates } : p),
+                generationHistory: state.generationHistory.map(h => h.id === id ? { ...h, ...updates } : h)
+            })),
+            removePendingGeneration: (id) => set(state => ({
+                pendingGenerations: state.pendingGenerations.filter(p => p.id !== id),
+                // We don't necessarily remove from generationHistory here, as SWR might have picked it up. 
+                // The sync logic will handle final consistency.
+            })),
+
+            syncHistoryWithSWR: (swrHistory) => set(state => {
+                // Merge SWR history (server truth) with local pending items
+                // Filter out any pending items that are already in SWR history (by ID)
+                const serverIds = new Set(swrHistory.map(h => h.id));
+                const uniquePending = state.pendingGenerations.filter(p => !serverIds.has(p.id));
+
+                // If a pending item is now in server history, remove it from pending list (cleanup)
+                const newPendingList = state.pendingGenerations.filter(p => !serverIds.has(p.id));
+
+                // If the cleaned pending list is different, update it
+                // Note: We return Partial<PlaygroundState>
+                const updates: Partial<PlaygroundState> = {
+                    generationHistory: [...uniquePending, ...swrHistory],
+                };
+
+                if (newPendingList.length !== state.pendingGenerations.length) {
+                    updates.pendingGenerations = newPendingList;
+                }
+
+                return updates;
+            }),
             setGenerationHistory: (updater) => set((state) => ({
                 generationHistory: typeof updater === 'function' ? updater(state.generationHistory) : updater
             })),
-
-            fetchHistory: async (page = 1, projectId) => {
-                const state = get();
-                if (state.isFetchingHistory) return;
-
-                set({ isFetchingHistory: true });
-                try {
-                    const limitNum = 50;
-                    const url = new URL(`${getApiBase()}/history`);
-                    url.searchParams.set('page', page.toString());
-                    url.searchParams.set('limit', limitNum.toString());
-
-                    // Use visitorId if currentUser is not available
-                    const userId = userStore.currentUser?.id || state.visitorId;
-                    if (userId) {
-                        url.searchParams.set('userId', userId);
-                    }
-                    if (projectId) url.searchParams.set('projectId', projectId);
-
-                    const res = await fetch(url.toString());
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.history) {
-                            set((state) => {
-                                let newHistory: Generation[] = [];
-                                if (page === 1) {
-                                    // Keep pending items that might not be in the server response yet
-                                    const pendingItems = state.generationHistory.filter(item => item.status === 'pending');
-                                    // Deduplicate pending items against fetched items (just in case)
-                                    const fetchedIds = new Set(data.history.map((h: Generation) => h.id));
-                                    const uniquePending = pendingItems.filter(item => !fetchedIds.has(item.id));
-
-                                    newHistory = [...uniquePending, ...data.history];
-                                } else {
-                                    // Deduplicate when appending
-                                    const existingIds = new Set(state.generationHistory.map(item => item.id));
-                                    const uniqueNewItems = data.history.filter((item: Generation) => !existingIds.has(item.id));
-                                    newHistory = [...state.generationHistory, ...uniqueNewItems];
-                                }
-
-                                return {
-                                    generationHistory: newHistory,
-                                    historyPage: page,
-                                    hasMoreHistory: data.hasMore
-                                };
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.error("Failed to fetch history", error);
-                } finally {
-                    set({ isFetchingHistory: false });
-                }
-            },
 
             galleryItems: [],
             galleryPage: 1,
