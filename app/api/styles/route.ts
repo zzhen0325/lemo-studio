@@ -37,7 +37,7 @@ export async function GET() {
         styles.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
         return NextResponse.json(styles);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to fetch styles' }, { status: 500 });
     }
 }
@@ -80,7 +80,7 @@ export async function DELETE(req: NextRequest) {
 
         return NextResponse.json({ success: true });
 
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to delete style' }, { status: 500 });
     }
 }

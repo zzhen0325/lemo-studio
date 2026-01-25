@@ -134,15 +134,17 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
 
 export function normalizeGeneration(gen: Generation): Generation {
   const config = gen.config || {} as GenerationConfig;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const legacyGen = gen as any;
 
   // 确保 config 内包含必要的数组字段
   const sourceImageUrls = (config.sourceImageUrls && config.sourceImageUrls.length > 0)
     ? config.sourceImageUrls
-    : (gen as any).sourceImageUrls || [];
+    : legacyGen.sourceImageUrls || [];
 
   const localSourceIds = (config.localSourceIds && config.localSourceIds.length > 0)
     ? config.localSourceIds
-    : (gen as any).localSourceIds || [];
+    : legacyGen.localSourceIds || [];
 
   return {
     ...gen,
@@ -150,8 +152,8 @@ export function normalizeGeneration(gen: Generation): Generation {
       ...config,
       sourceImageUrls,
       localSourceIds,
-      baseModel: config.baseModel || (gen as any).baseModel,
-      isEdit: config.isEdit ?? (gen as any).isEdit,
+      baseModel: config.baseModel || legacyGen.baseModel,
+      isEdit: config.isEdit ?? legacyGen.isEdit,
       isPreset: config.isPreset ?? !!(config.presetName),
     }
   };

@@ -1,12 +1,12 @@
 import path from "node:path";
-import type { IComfyInput } from "@/types/comfy-input";
-import { ComfyWorkflow } from "@/app/models/comfy-workflow";
+import type { IComfyInput } from "../../types/comfy-input";
+import { ComfyWorkflow } from "../../app/models/comfy-workflow";
 import fs from "node:fs/promises";
-import { ComfyErrorHandler } from "@/lib/comfy-error-handler";
-import { ComfyError, ComfyWorkflowError } from "@/app/models/errors";
-import { ComfyUIAPIService, ComfyUIAPIServiceConfig } from "@/lib/api/comfyui-api-service";
+import { ComfyErrorHandler } from "../comfy-error-handler";
+import { ComfyError, ComfyWorkflowError } from "../../app/models/errors";
+import { ComfyUIAPIService, ComfyUIAPIServiceConfig } from "./comfyui-api-service";
 import mime from 'mime-types';
-import { missingViewComfyFileError, viewComfyFileName } from "@/lib/constants";
+import { missingViewComfyFileError, viewComfyFileName } from "../constants";
 
 // 简单的日志工具类
 const logger = {

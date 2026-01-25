@@ -17,7 +17,7 @@ export interface LoraMetadata {
 export class LorasService {
   public async listLoras(): Promise<LoraMetadata[]> {
     try {
-      const lorasDir = path.join(process.cwd(), 'public', 'loras');
+      const lorasDir = path.join(process.cwd(), '../public', 'loras');
       const files = await fs.readdir(lorasDir);
       const metadataFiles = files.filter((file) => file.endsWith('.metadata.json'));
 

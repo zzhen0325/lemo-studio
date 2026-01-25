@@ -1,7 +1,7 @@
 import { makeAutoObservable, reaction } from "mobx";
-import { Generation } from "@/types/database";
+import { Generation } from "../../types/database";
 import { userStore } from "./user-store";
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase } from "../api-base";
 
 export interface Project {
   id: string;

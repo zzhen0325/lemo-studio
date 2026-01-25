@@ -1,5 +1,5 @@
 import { usePlaygroundStore } from "@/lib/store/playground-store";
-import ColorBends from "@/components/ColorBends";
+import ColorBends from "@/components/visual-effects/ColorBends";
 
 export function PlaygroundBackground() {
   const showHistory = usePlaygroundStore(s => s.showHistory);

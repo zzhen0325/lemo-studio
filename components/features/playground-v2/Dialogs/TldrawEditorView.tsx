@@ -16,7 +16,7 @@ import { MessageSquarePlus, X, Image as ImageIcon, Crop, Download, ArrowRight, L
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from 'framer-motion';
-import { useGenerationService, AVAILABLE_MODELS } from '@/hooks/features/PlaygroundV2/useGenerationService';
+import { useGenerationService, AVAILABLE_MODELS } from "@/components/features/playground-v2/hooks/useGenerationService";
 import { useToast } from "@/hooks/common/use-toast";
 import { PlaygroundInputSectionProps } from '../PlaygroundInputSection';
 import { AnnotationShapeUtil, ResultShapeUtil, AnnotationTool, AnnotationShape, ResultShape } from './TldrawShapes';
@@ -738,13 +738,7 @@ export const TldrawEditorView = ({
      * 处理 Snapshot 中的 DataURL，将其上传到服务器并替换为路径
      */
     const prepareSnapshotForSave = useCallback(async (snapshot: TLEditorSnapshot) => {
-        interface TldrawAssetRecord {
-            typeName: string;
-            type: string;
-            props?: { src?: string };
-            [key: string]: unknown;
-        }
-
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const snapshotAny = snapshot as any;
         // Tldraw 快照结构可能因版本而异，通常包含 store 字段，或者 snapshot 本身就是记录集
         const store = snapshotAny?.store || snapshotAny;

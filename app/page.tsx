@@ -71,7 +71,6 @@ export default function Page() {
             if (store.initPresets) store.initPresets();
             if (store.initStyles) store.initStyles();
             if (store.initCategories) store.initCategories();
-            if (store.fetchHistory) store.fetchHistory();
             if (store.fetchGallery) store.fetchGallery();
 
             // 2. 预加载动态导入的组件

@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TLEditorSnapshot } from 'tldraw';
-import { UploadedImage, Preset, StyleStack } from '@/components/features/playground-v2/types';
-import { Generation, GenerationConfig } from '@/types/database';
-import { IViewComfy } from '@/lib/providers/view-comfy-provider';
-import { SelectedLora } from '@/components/features/playground-v2/Dialogs/LoraSelectorDialog';
+import { UploadedImage, Preset, StyleStack } from '../../components/features/playground-v2/types';
+import { Generation, GenerationConfig } from '../../types/database';
+import { IViewComfy } from '../providers/view-comfy-provider';
+import type { SelectedLora } from '../../components/features/playground-v2/Dialogs/LoraSelectorDialog';
 // import { userStore } from './user-store';
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase } from "../api-base";
 
 import { MODEL_ID_WORKFLOW } from '../constants/models';
 import { isWorkflowModel } from '../utils/model-utils';
@@ -143,7 +143,6 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             },
             uploadedImages: [],
             describeImages: [],
-            pendingGenerations: [], // Initialize pending list
             selectedModel: 'gemini-3-pro-image-preview',
             selectedWorkflowConfig: undefined,
             selectedLoras: [],
@@ -252,7 +251,9 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     }
 
                     // Update top-level sourceImageUrls array
-                    const itemAny = newItem as any;
+                    // Use type assertion to access sourceImageUrls
+                    // TODO: Define a complete type or interface instead of using any for better type safety
+                    const itemAny = newItem as unknown as { sourceImageUrls?: string[]; editConfig?: { originalImageUrl?: string } };
                     if (itemAny.sourceImageUrls?.includes(oldUrl)) {
                         itemAny.sourceImageUrls = itemAny.sourceImageUrls.map((url: string) => url === oldUrl ? newUrl : url);
                         updated = true;

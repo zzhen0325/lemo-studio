@@ -1,5 +1,5 @@
-import { SEED_LIKE_INPUT_VALUES } from "@/lib/constants";
-import type { IViewComfyBase } from "@/lib/providers/view-comfy-provider";
+import { SEED_LIKE_INPUT_VALUES } from "./constants";
+import type { IViewComfyBase } from "./providers/view-comfy-provider";
 
 export interface IInputField {
     title: string;

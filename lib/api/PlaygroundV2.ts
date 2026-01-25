@@ -1,4 +1,4 @@
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase } from "../api-base";
 
 export type ByteArtistConfig = Record<string, unknown>;
 
@@ -53,8 +53,8 @@ export async function exampleUsage(text: string, config?: Partial<ByteArtistConf
   return result;
 }
 
-import type { IViewComfy } from '@/lib/providers/view-comfy-provider';
-import type { IMultiValueInput, IInputField } from '@/lib/workflow-api-parser';
+import type { IViewComfy } from '../providers/view-comfy-provider';
+import type { IMultiValueInput, IInputField } from '../workflow-api-parser';
 
 export interface LoraParam {
   model_name: string;

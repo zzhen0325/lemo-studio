@@ -31,9 +31,8 @@ export default class ComfyController {
     if (res) {
       res.set('Content-Type', 'application/octet-stream');
       res.set('Content-Disposition', 'attachment; filename="generated_images.bin"');
-      // @ts-expect-error Readable.fromWeb might not be in the current TS types
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      res.body = Readable.fromWeb(stream as any);
+      res.body = (Readable as any).fromWeb(stream);
       return;
     }
     return stream;

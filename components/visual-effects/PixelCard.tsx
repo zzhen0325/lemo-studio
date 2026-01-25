@@ -228,7 +228,7 @@ export default function PixelCard({
     let allIdle = true;
     for (let i = 0; i < pixelsRef.current.length; i++) {
       const pixel = pixelsRef.current[i];
-      // @ts-ignore
+      // @ts-expect-error Dynamic function access on pixel object
       pixel[fnName]();
       if (!pixel.isIdle) {
         allIdle = false;

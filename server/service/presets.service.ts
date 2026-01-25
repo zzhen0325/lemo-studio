@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { Preset } from '@/types/database';
 import { Inject, Injectable } from '@gulux/gulux';
-import { ModelType } from '@gulux/gulux/typegoose';
+import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { Preset as PresetEntity, ImageAsset } from '../db';
 

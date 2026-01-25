@@ -1,4 +1,5 @@
-import { Database, Prop, Ref, getModelForClass, modelOptions, index } from '@gulux/gulux/typegoose';
+import { Database, Prop, getModelForClass, modelOptions, index } from '@gulux/gulux/typegoose';
+import type { Ref } from '@gulux/gulux/typegoose';
 // 移除未使用的类型导入以修复 ESLint 警告
 
 

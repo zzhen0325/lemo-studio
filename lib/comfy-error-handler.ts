@@ -1,4 +1,4 @@
-import { ComfyWorkflowError } from "@/app/models/errors";
+import { ComfyWorkflowError } from "../app/models/errors";
 
 interface ErrorInfo {
     message: string;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { APIProviderConfig, APIConfigSettings, ServiceBinding, ServiceConfig, ServiceType } from '@/lib/api-config/types';
-import { getApiBase } from "@/lib/api-base";
+import { APIProviderConfig, APIConfigSettings, ServiceBinding, ServiceConfig, ServiceType } from '../api-config/types';
+import { getApiBase } from "../api-base";
 
 interface APIConfigState {
     // State

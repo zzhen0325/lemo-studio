@@ -1,5 +1,5 @@
-import { infer, inferWithLogsStream, PromptResult } from "@/lib/api/viewcomfy-api-services";
-import { UIConfig } from "@/types/features/mapping-editor";
+import { infer, inferWithLogsStream, PromptResult } from "./viewcomfy-api-services";
+import { UIConfig } from "../../types/features/mapping-editor";
 
 export interface ViewComfyGenerationOptions {
   config: UIConfig;

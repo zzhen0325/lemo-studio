@@ -55,7 +55,6 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                 <StyleDetailView
                     style={selectedStyle}
                     onBack={() => setSelectedStyleId(null)}
-                    onApply={applyPrompt}
                 />
             );
         }

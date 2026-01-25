@@ -1,5 +1,5 @@
 import { ProviderOptions } from './types';
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase } from "../api-base";
 
 export interface ClientGenerationParams {
     model: string; // e.g. doubao-pro-4k

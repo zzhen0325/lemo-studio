@@ -35,7 +35,7 @@ export const AddToProjectDialog = observer(({
     
     if (mode === 'create') {
       if (!newProjectName.trim()) return;
-      const newProject = projectStore.createProjectWithHistory(newProjectName, selectedItems);
+      const newProject = await projectStore.createProjectWithHistory(newProjectName, selectedItems);
       targetProjectId = newProject.id;
     } else {
       if (!selectedProjectId) return;

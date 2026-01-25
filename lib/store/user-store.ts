@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase } from "../api-base";
 
 export interface User {
     id: string;
@@ -15,9 +15,11 @@ class UserStore {
 
     constructor() {
         makeAutoObservable(this);
-        this.loadUsers().then(() => {
-            this.loadSession();
-        });
+        if (typeof window !== 'undefined') {
+            this.loadUsers().then(() => {
+                this.loadSession();
+            });
+        }
     }
 
     async loadUsers() {

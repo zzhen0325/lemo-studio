@@ -15,8 +15,8 @@ function useDataState<T extends HTMLElement = HTMLElement>(
   key: string,
   forwardedRef?: React.Ref<T | null>,
   onChange?: (value: DataStateValue) => void,
-): [DataStateValue, React.RefObject<T | null>] {
-  const localRef = React.useRef<T | null>(null);
+): [DataStateValue, React.RefObject<T>] {
+  const localRef = React.useRef<T>(null);
   React.useImperativeHandle(forwardedRef, () => localRef.current as T);
 
   const getSnapshot = (): DataStateValue => {

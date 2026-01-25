@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { Injectable, Inject } from '@gulux/gulux';
-import { ModelType } from '@gulux/gulux/typegoose';
+import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
 import { ImageAsset } from '../db';

@@ -1,4 +1,4 @@
-import { IViewComfy } from "@/types/comfy-input";
+import { IViewComfy } from "../../types/comfy-input";
 
 export class ViewComfyApiParamBuilder {
     private formData: FormData;

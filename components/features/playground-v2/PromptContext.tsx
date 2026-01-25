@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
+import { AIModel } from "@/components/features/playground-v2/hooks/usePromptOptimization";
 import { UploadedImage } from "@/components/features/playground-v2/types";
 
 interface PromptContextType {

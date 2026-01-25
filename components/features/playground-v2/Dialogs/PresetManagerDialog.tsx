@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
-import { AVAILABLE_MODELS } from '@/hooks/features/PlaygroundV2/useGenerationService';
+import { AVAILABLE_MODELS } from "@/components/features/playground-v2/hooks/useGenerationService";
 import { useImageUpload } from "@/hooks/common/use-image-upload";
 import { useImageSource } from "@/hooks/common/use-image-source";
 import {

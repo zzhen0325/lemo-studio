@@ -30,8 +30,17 @@ async function readUsers() {
     }
 }
 
+interface User {
+    id: string;
+    name: string;
+    password?: string;
+    avatar?: string;
+    createdAt?: string;
+    [key: string]: unknown;
+}
+
 // Helper to save users
-async function saveUsers(users: any[]) {
+async function saveUsers(users: User[]) {
     await ensureDir();
     await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
 }
@@ -43,19 +52,21 @@ export async function GET(request: Request) {
         const users = await readUsers();
 
         if (userId) {
-            const user = users.find((u: any) => u.id === userId);
+            const user = users.find((u: User) => u.id === userId);
             if (!user) {
                 return NextResponse.json({ error: 'User not found' }, { status: 404 });
             }
             // Don't return password
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { password, ...safeUser } = user;
             return NextResponse.json({ user: safeUser });
         }
 
         // Return all users (safe version)
-        const safeUsers = users.map(({ password, ...u }: any) => u);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const safeUsers = users.map(({ password, ...u }: User) => u);
         return NextResponse.json({ users: safeUsers });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Failed to load users' }, { status: 500 });
     }
 }
@@ -72,11 +83,11 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
             }
             
-            if (users.find((u: any) => u.name === username)) {
+            if (users.find((u: User) => u.name === username)) {
                 return NextResponse.json({ error: 'Username already exists' }, { status: 409 });
             }
 
-            const newUser = {
+            const newUser: User = {
                 id: `user-${Date.now()}`,
                 name: username,
                 password, // In real app, hash this!
@@ -87,18 +98,20 @@ export async function POST(request: Request) {
             users.push(newUser);
             await saveUsers(users);
 
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { password: _, ...safeUser } = newUser;
             return NextResponse.json({ user: safeUser });
         }
 
         if (action === 'login') {
             const { username, password } = body;
-            const user = users.find((u: any) => u.name === username && u.password === password);
+            const user = users.find((u: User) => u.name === username && u.password === password);
             
             if (!user) {
                 return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { password: _, ...safeUser } = user;
             return NextResponse.json({ user: safeUser });
         }
@@ -120,7 +133,7 @@ export async function PUT(request: Request) {
         }
 
         const users = await readUsers();
-        const index = users.findIndex((u: any) => u.id === id);
+        const index = users.findIndex((u: User) => u.id === id);
         
         if (index === -1) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -134,9 +147,10 @@ export async function PUT(request: Request) {
         users[index] = updatedUser;
         await saveUsers(users);
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password: _, ...safeUser } = updatedUser;
         return NextResponse.json({ user: safeUser });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: 'Update failed' }, { status: 500 });
     }
 }

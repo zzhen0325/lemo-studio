@@ -358,15 +358,17 @@ export default function ImagePreviewModal({
 
 function ReferenceImageItem({
   url,
+  localId,
   generationId,
   index
 }: {
   url: string;
+  localId?: string;
   generationId: string;
   index: number;
 }) {
   const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
-  const sourceImage = useImageSource(url);
+  const sourceImage = useImageSource(url, localId);
 
   return (
     <motion.div

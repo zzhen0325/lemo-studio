@@ -18,7 +18,7 @@ import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { UploadedImage } from "@/components/features/playground-v2/types";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
 import { GenerationConfig, ImageSize } from '@/types/database';
-import { AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
+import { AIModel } from "@/components/features/playground-v2/hooks/usePromptOptimization";
 import { AR_MAP, getAspectRatioPresets, getAspectRatioByDimensions } from "./constants/aspect-ratio";
 
 export interface PlaygroundInputSectionProps {

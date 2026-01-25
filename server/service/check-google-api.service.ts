@@ -1,6 +1,6 @@
 import { Injectable } from '@gulux/gulux';
 import { HttpError } from '../utils/http-error';
-import { getGoogleApiKey } from '@/lib/ai/modelRegistry';
+import { getGoogleApiKey } from '../../lib/ai/modelRegistry';
 
 export interface GoogleApiCheckResult {
   status: 'connected' | 'blocked' | 'offline';

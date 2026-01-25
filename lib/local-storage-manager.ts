@@ -4,7 +4,7 @@ import {
   ImportResult,
   ExportConfig,
   STORAGE_KEYS
-} from "@/types/features/mapping-editor";
+} from "../types/features/mapping-editor";
 
 /**
  * 本地存储管理器类

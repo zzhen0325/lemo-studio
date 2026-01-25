@@ -402,7 +402,7 @@ export class GoogleGenAIProvider
 
     parts.push({ text: prompt });
 
-    const configParams: Record<string, any> = {
+    const configParams: Record<string, unknown> = {
       responseModalities: ["Image"] as const, // 官方 REST 文档使用 "Image"
     };
 
@@ -931,7 +931,7 @@ export class CozeImageProvider implements ImageProvider {
           const ext = path.extname(publicPath).slice(1) || "png";
           const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
           blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-        } catch (_readErr) {
+        } catch {
           // Fallback to fetch if local read fails (e.g. running in a restricted env)
           const baseUrl =
             process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";

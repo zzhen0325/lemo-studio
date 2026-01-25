@@ -20,7 +20,7 @@ import { GenerationConfig, ImageSize } from "@/types/database";
 import type { UploadedImage } from "@/components/features/playground-v2/types";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
-import { AVAILABLE_MODELS } from "@/hooks/features/PlaygroundV2/useGenerationService";
+import { AVAILABLE_MODELS } from "@/components/features/playground-v2/hooks/useGenerationService";
 import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 

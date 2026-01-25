@@ -26,6 +26,22 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'lucide'],
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push(
+        '@napi-rs/snappy-darwin-arm64',
+        'snappy',
+        'mongoose',
+        'mongodb',
+        'node-unix-socket',
+        'node-unix-socket-darwin-arm64',
+        '@byted-nodex/metrics',
+        '@gulux/plugin-typegoose',
+        '@gulux/gulux'
+      );
+    }
+    return config;
+  },
   // output: "standalone",
   env: {
     PORT: process.env.PORT || process.argv.find(arg => arg.startsWith('-p=') || arg.startsWith('--port='))?.split('=')[1] || '3001',

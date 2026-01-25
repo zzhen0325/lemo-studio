@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { APIProviderConfig, APIConfigSettings, APIConfigResponse } from '../../lib/api-config/types';
 import { Inject, Injectable } from '@gulux/gulux';
-import { ModelType } from '@gulux/gulux/typegoose';
+import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { ApiProvider, ApiSettings } from '../db';
 

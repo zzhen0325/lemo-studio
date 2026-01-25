@@ -1,6 +1,7 @@
 import { Inject } from '@gulux/gulux';
 import { Body, Controller, Delete, Files, Get, Post, Put, Query } from '@gulux/gulux/application-http';
-import { DatasetService, DatasetQuery, DatasetPostParams, DatasetDeleteParams, DatasetUpdateBody } from '../service/dataset.service';
+import { DatasetService } from '../service/dataset.service';
+import type { DatasetQuery, DatasetPostParams, DatasetDeleteParams, DatasetUpdateBody } from '../service/dataset.service';
 import { toFileLike } from '../utils/formdata';
 import { HttpError } from '../utils/http-error';
 import { DatasetDeleteSchema, DatasetPostSchema, DatasetQuerySchema, DatasetUpdateSchema } from '../../lib/schemas/dataset';

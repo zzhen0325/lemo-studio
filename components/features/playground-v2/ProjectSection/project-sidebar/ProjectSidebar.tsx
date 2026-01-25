@@ -8,7 +8,7 @@ import { Plus, LayoutGrid, Folder, Edit2, Trash2, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
-import GradualBlur from "@/components/GradualBlur";
+import GradualBlur from "@/components/visual-effects/GradualBlur";
 import {
   Dialog,
   DialogContent,

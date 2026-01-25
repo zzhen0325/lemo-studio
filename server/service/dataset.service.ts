@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@gulux/gulux';
-import { ModelType } from '@gulux/gulux/typegoose';
+import type { ModelType } from '@gulux/gulux/typegoose';
 import { datasetEvents, DATASET_SYNC_EVENT } from '../../lib/server/dataset-events';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';

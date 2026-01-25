@@ -1,6 +1,6 @@
 import React from 'react';
 import { AutosizeTextarea } from "@/components/ui/autosize-text-area";
-import { AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
+import { AIModel } from "@/components/features/playground-v2/hooks/usePromptOptimization";
 import { UploadedImage } from '@/components/features/playground-v2/types';
 import { cn } from "@/lib/utils";
 import ShinyText from "@/components/ui/ShinyText";

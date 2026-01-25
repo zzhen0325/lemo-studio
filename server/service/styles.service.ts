@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { StyleStack } from '@/types/database';
 import { Inject, Injectable } from '@gulux/gulux';
-import { ModelType } from '@gulux/gulux/typegoose';
+import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { StyleStack as StyleStackEntity } from '../db';
 

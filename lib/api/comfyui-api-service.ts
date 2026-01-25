@@ -1,5 +1,5 @@
-import { ComfyWorkflowError } from '@/app/models/errors';
-import { ComfyUIConnRefusedError } from '@/lib/constants';
+import { ComfyWorkflowError } from '../../app/models/errors';
+import { ComfyUIConnRefusedError } from '../constants';
 
 type ComfyUIWSEventType = "status" | "executing" | "execution_cached" | "progress" | "executed" | "execution_error" | "execution_success";
 

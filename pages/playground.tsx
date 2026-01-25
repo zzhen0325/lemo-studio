@@ -5,11 +5,9 @@ import React, { useState, useEffect, useRef, useMemo, Suspense, useCallback } fr
 import NextImage from "next/image";
 import { useToast } from "@/hooks/common/use-toast";
 
-import { usePromptOptimization, AIModel } from "@/hooks/features/PlaygroundV2/usePromptOptimization";
-
-
-import { useGenerationService, type GenerateOptions } from "@/hooks/features/PlaygroundV2/useGenerationService";
-import { useHistory } from "@/hooks/features/PlaygroundV2/useHistory";
+import { usePromptOptimization, AIModel } from "@/components/features/playground-v2/hooks/usePromptOptimization";
+import { useGenerationService, type GenerateOptions } from "@/components/features/playground-v2/hooks/useGenerationService";
+import { useHistory } from "@/components/features/playground-v2/hooks/useHistory";
 import { useAIService as useAIServiceV1 } from "@/hooks/ai/useAIService";
 
 import { GoogleApiStatus } from "@/components/features/playground-v2/GoogleApiStatus";

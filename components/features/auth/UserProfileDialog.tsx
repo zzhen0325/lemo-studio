@@ -31,6 +31,7 @@ const PRESET_AVATARS = [
 
 const AvatarImage = ({ src, alt, width, height, className }: { src: string; alt: string; width: number; height: number; className?: string }) => {
     const source = useImageSource(src);
+    if (!source) return null;
     return <Image src={source} alt={alt} width={width} height={height} className={className} />;
 };
 
@@ -57,19 +58,15 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
         if (!file) return;
 
         setIsUploading(true);
-        const uploaded = await uploadFile(file, {
-            onSuccess: (url) => {
-                setAvatar(url);
+        await uploadFile(file, {
+            onSuccess: (id, path) => {
+                setAvatar(path);
                 setIsUploading(false);
             },
             onError: () => {
                 setIsUploading(false);
             }
         });
-
-        if (uploaded) {
-            setAvatar(uploaded.path);
-        }
     };
 
     if (!user) return null;

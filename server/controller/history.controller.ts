@@ -1,6 +1,7 @@
 import { Inject } from '@gulux/gulux';
 import { Body, Controller, Delete, Get, Post, Query } from '@gulux/gulux/application-http';
-import { HistoryService, HistoryQuery } from '../service/history.service';
+import { HistoryService } from '../service/history.service';
+import type { HistoryQuery } from '../service/history.service';
 
 /**
  * 历史记录：

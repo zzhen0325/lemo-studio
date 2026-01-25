@@ -1,9 +1,9 @@
 import path from "node:path";
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
-import type { IInput } from "@/types/input";
-import { SEED_LIKE_INPUT_VALUES } from "@/lib/constants";
-import { getComfyUIRandomSeed } from "@/lib/utils";
+import type { IInput } from "../../types/input";
+import { SEED_LIKE_INPUT_VALUES } from "../../lib/constants";
+import { getComfyUIRandomSeed } from "../../lib/utils";
 
 const COMFY_INPUTS_DIR = path.join(process.cwd(), "comfy", "inputs");
 const COMFY_WORKFLOWS_DIR = path.join(process.cwd(), "comfy", "workflows");

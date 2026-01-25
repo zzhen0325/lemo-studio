@@ -3,14 +3,14 @@ import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { formatImageUrl } from "@/lib/api-base";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, Layers } from "lucide-react";
-import GradualBlur from "@/components/GradualBlur";
+import GradualBlur from "@/components/visual-effects/GradualBlur";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
 import { useImageSource } from '@/hooks/common/use-image-source';
 import { useImageUpload } from '@/hooks/common/use-image-upload';
-import { useGenerationService } from '@/hooks/features/PlaygroundV2/useGenerationService';
+import { useGenerationService } from "@/components/features/playground-v2/hooks/useGenerationService";
 import { Generation, GenerationConfig } from '@/types/database';
 import {
     DropdownMenu,
@@ -166,7 +166,8 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
         const url = result.outputUrl || "";
         const snapshot = result.config?.tldrawSnapshot;
         if (url) {
-            setTldrawEditorOpen(true, url, snapshot);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setTldrawEditorOpen(true, url, snapshot as any);
         }
     };
 

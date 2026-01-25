@@ -1,6 +1,7 @@
 import { Inject } from '@gulux/gulux';
 import { Body, Controller, Get, Post } from '@gulux/gulux/application-http';
-import { ViewComfyConfigService, ViewComfyConfigPayload } from '../service/view-comfy.service';
+import { ViewComfyConfigService } from '../service/view-comfy.service';
+import type { ViewComfyConfigPayload } from '../service/view-comfy.service';
 
 /**
  * ViewComfy 工作流配置：

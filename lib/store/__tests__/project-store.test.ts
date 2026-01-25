@@ -7,7 +7,7 @@ describe("ProjectStore", () => {
     // Reset store state
     projectStore.projects = [];
     // Provide a fake logged-in user so ProjectStore can create projects
-    userStore.currentUser = { id: "u1", name: "Test User" } as any;
+    userStore.currentUser = { id: "u1", name: "Test User" } as unknown as { id: string; name: string; email?: string; avatar?: string };
     projectStore.addProject("Default Project");
   });
 

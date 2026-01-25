@@ -23,7 +23,12 @@ async function readProjects() {
   }
 }
 
-async function saveProjects(projects: any[]) {
+interface Project {
+  userId?: string;
+  [key: string]: unknown;
+}
+
+async function saveProjects(projects: Project[]) {
   await ensureDir();
   await fs.writeFile(PROJECTS_FILE, JSON.stringify(projects, null, 2), 'utf-8');
 }
@@ -39,11 +44,11 @@ export async function GET(request: Request) {
     // We also include projects with no userId (legacy) for the first user or default view
     let projects = allProjects;
     if (userId) {
-        projects = allProjects.filter((p: any) => !p.userId || p.userId === userId);
+        projects = allProjects.filter((p: Project) => !p.userId || p.userId === userId);
     }
 
     return NextResponse.json({ projects });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to load projects' }, { status: 500 });
   }
 }
@@ -68,10 +73,10 @@ export async function POST(request: Request) {
         const allProjects = await readProjects();
         
         // Filter out projects for this user
-        const otherUserProjects = allProjects.filter((p: any) => p.userId && p.userId !== userId);
+        const otherUserProjects = allProjects.filter((p: Project) => p.userId && p.userId !== userId);
         
         // Ensure incoming projects have the userId attached
-        const userProjects = projects.map((p: any) => ({ ...p, userId }));
+        const userProjects = projects.map((p: Project) => ({ ...p, userId }));
         
         // Combine
         const newAllProjects = [...otherUserProjects, ...userProjects];

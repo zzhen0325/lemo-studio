@@ -264,7 +264,7 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const raw: DatasetDeleteInput = {
-      collection: searchParams.get('collection') ?? undefined,
+      collection: searchParams.get('collection') || '',
       filename: searchParams.get('filename'),
       filenames: searchParams.get('filenames'),
     };
@@ -380,7 +380,7 @@ export async function PUT(request: Request) {
         .map((obj) => path.basename(obj.key))
         .filter((file) => IMAGE_EXT_REGEX.test(file));
 
-      let sortedFiles = [...imageFiles];
+      const sortedFiles = [...imageFiles];
       if (metadata.order && metadata.order.length > 0) {
         const orderMap = new Map(metadata.order.map((f, i) => [f, i] as const));
         sortedFiles.sort((a, b) => {

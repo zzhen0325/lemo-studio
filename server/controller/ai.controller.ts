@@ -1,7 +1,8 @@
 import { Inject } from '@gulux/gulux';
 import { Body, Controller, Post, Res } from '@gulux/gulux/application-http';
 import type { HTTPResponse } from '@gulux/gulux/application-http';
-import { AiService, DescribeRequestBody, ImageRequestBody, TextRequestBody } from '../service/ai.service';
+import { AiService } from '../service/ai.service';
+import type { DescribeRequestBody, ImageRequestBody, TextRequestBody } from '../service/ai.service';
 import { Readable } from 'node:stream';
 import { HttpError } from '../utils/http-error';
 import { DescribeRequestSchema, ImageRequestSchema, TextRequestSchema } from '../../lib/schemas/ai';
@@ -42,8 +43,8 @@ export default class AiController {
       res.set('Connection', 'keep-alive');
       res.set('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
 
-      // @ts-expect-error Readable.fromWeb might not be in the current TS types
-      res.body = Readable.fromWeb(result.stream as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      res.body = (Readable as any).fromWeb(result.stream);
       // 强制再次设置 Content-Type，确保框架不会因为 body 赋值而重写它
       res.set('Content-Type', 'text/event-stream');
       return;
@@ -63,8 +64,8 @@ export default class AiController {
       res.set('Content-Type', 'text/event-stream');
       res.set('Cache-Control', 'no-cache, no-transform');
       res.set('Connection', 'keep-alive');
-      // @ts-expect-error Readable.fromWeb might not be in the current TS types
-      res.body = Readable.fromWeb(result.stream as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      res.body = (Readable as any).fromWeb(result.stream);
       res.set('Content-Type', 'text/event-stream');
       return;
     }
