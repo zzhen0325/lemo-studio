@@ -149,7 +149,7 @@ const ToolbarComponent = ({
 
     return (
         <div className="absolute z-[100] pointer-events-none" style={{ left: imageScreenBounds.centerX, top: imageScreenBounds.top - 64, transform: 'translateX(-50%)' }}>
-            <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-100 p-1.5 pointer-events-auto">
+            <div className="flex items-center gap-1.5 bg-white rounded-2xl shadow-2xl shadow-black/10 border border-gray-100 p-1.5 pointer-events-auto">
                 <div className="flex items-center gap-0.5 px-1 border-r border-gray-100">
                     <Button
                         variant="ghost"
@@ -351,7 +351,7 @@ const IntegratedInput = ({
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: '-50%', scale: 0.98 }}
+            initial={{ opacity: 0, x: '-50%', scale: 0.9 }}
             animate={{ opacity: 1, x: '-50%', scale: 1 }}
             className="absolute z-[100] pointer-events-none"
             style={{
@@ -360,7 +360,7 @@ const IntegratedInput = ({
                 width: Math.min(700, window.innerWidth - 64)
             }}
         >
-            <div className="relative bg-white rounded-3xl shadow-xl shadow-black/10 border border-white/40 p-1 flex flex-col gap-2 pointer-events-auto">
+            <div className="relative bg-white rounded-3xl shadow-2xl shadow-black/10 border border-white/40 p-1 flex flex-col gap-2 pointer-events-auto">
                 {/* 标注列表 */}
                 {annotations.length > 0 && (
                     <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto custom-scrollbar px-2 py-1">
@@ -376,12 +376,12 @@ const IntegratedInput = ({
                 )}
 
                 {/* 主输入框与生成按钮 */}
-                <div className="relative flex flex-col gap-2 bg-gray-50/50 rounded-2xl border border-gray-100 p-2 focus-within:bg-white focus-within:border-gray-200 focus-within:ring-4 focus-within:ring-gray-100/50 transition-all">
+                <div className="relative flex flex-col  bg-gray-50/50 rounded-2xl border border-gray-100 p-1 focus-within:bg-white focus-within:border-gray-200   focus-within:ring-4 focus-within:ring-gray-100/50 transition-all">
                     <Textarea
                         value={localPrompt}
                         onChange={(e) => setLocalPrompt(e.target.value)}
                         placeholder="输入额外的修改要求..."
-                        className="flex-1 min-h-[40px] max-h-[120px] bg-transparent border-none shadow-none focus-visible:ring-0 text-sm py-2 px-1 resize-none overflow-y-auto custom-scrollbar"
+                        className="h-4 max-h-[100px] bg-transparent border-none shadow-none focus-visible:ring-0 text-sm py-2 px-1 resize-none overflow-y-auto custom-scrollbar"
                     />
 
                     <div className="flex items-center justify-between gap-2 px-1 pb-1">
@@ -419,9 +419,9 @@ const IntegratedInput = ({
 
                         <Button
                             onClick={onGenerate}
-                            className="shrink-0 h-8 px-4 bg-black hover:bg-black/90 text-white rounded-xl font-bold shadow-xl shadow-black/10 transition-all active:scale-[0.95] flex items-center justify-center group gap-1.5"
+                            className="shrink-0 h-8 px-4 bg-black hover:bg-black/90 text-white rounded-xl font-bold   transition-all active:scale-[0.95] flex items-center justify-center group gap-1.5"
                         >
-                            <span className="text-[11px] font-black uppercase tracking-wider">生成</span>
+                            {/* <span className="text-[11px] font-black uppercase tracking-wider">生成</span> */}
                             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                         </Button>
                     </div>
@@ -477,6 +477,37 @@ export const TldrawEditorView = ({
     useEffect(() => {
         setInternalPrompt(stripRegionInstructions(propsLocalPrompt || ""));
     }, [propsLocalPrompt, stripRegionInstructions]);
+
+    // 强制避让 UI 的缩放逻辑：将图片居中于顶部工具栏(64px)和底部输入框(~200px)之间的空隙
+    const zoomToFitWithUiAvoidance = useCallback((editor: Editor, animationDuration = 0) => {
+        editor.zoomToFit();
+        const baseZoom = editor.getZoomLevel();
+        const bounds = editor.getSelectionPageBounds() || editor.getCurrentPageBounds();
+        if (bounds) {
+            // 1. 设置缩放级别（保持 0.75 系数，给四周留白）
+            const targetZoom = baseZoom * 0.75;
+
+            // 2. 计算理想中心位置
+            // 顶部占用 64px, 底部输入框+间距约占用 180px
+            // 画面中心需要向下移动：(底部占用 - 顶部占用) / 2
+            // 在页面空间中，向上移动相机 = 画面下移
+            const offsetInScreen = (180 - 64) / 2;
+            const offsetInPage = offsetInScreen / targetZoom;
+
+            editor.zoomToBounds(bounds, {
+                targetZoom,
+                animation: { duration: animationDuration }
+            });
+
+            // 延迟微调相机位置，确保在 zoomToBounds 之后生效
+            const camera = editor.getCamera();
+            editor.setCamera({
+                x: camera.x,
+                y: camera.y + offsetInPage, // 向下移动相机 = 画面上移，从而避开底部较高的输入框
+                z: targetZoom
+            }, { animation: { duration: animationDuration } });
+        }
+    }, []);
 
     const { handleGenerate, executeGeneration } = useGenerationService();
 
@@ -562,7 +593,7 @@ export const TldrawEditorView = ({
                 try {
                     console.log("[TldrawEditor] Loading initial snapshot...");
                     editor.loadSnapshot(initialSnapshot as unknown as StoreSnapshot<TLRecord>);
-                    editor.zoomToFit();
+                    zoomToFitWithUiAvoidance(editor, 0);
                     return;
                 } catch (e) {
                     console.error("[TldrawEditor] Failed to load snapshot", e);
@@ -599,10 +630,10 @@ export const TldrawEditorView = ({
                 props: { assetId, w, h },
                 isLocked: false,
             }]);
-            editor.zoomToFit();
+            zoomToFitWithUiAvoidance(editor, 0);
         };
         setupImage();
-    }, [editor, localizedImageUrl, initialSnapshot]);
+    }, [editor, localizedImageUrl, initialSnapshot, zoomToFitWithUiAvoidance]);
 
     useEffect(() => {
         if (!editor) return;
@@ -664,9 +695,25 @@ export const TldrawEditorView = ({
         };
 
         updateImagesInfo();
-        const unsubscribe = editor.store.listen(updateImagesInfo, { scope: 'all' });
+        const unsubscribe = editor.store.listen((history) => {
+            updateImagesInfo();
+
+            // 监听是否有新图片添加（例如拖拽上传），如果有则触发一次自动缩放
+            const changes = history.changes;
+            if (changes.added) {
+                const hasNewImage = Object.values(changes.added).some(
+                    record => record.typeName === 'shape' && (record as import('tldraw').TLShape).type === 'image'
+                );
+                if (hasNewImage) {
+                    // 稍微延迟一下以确保图片已经上屏，并且让 Tldraw 完成自己的默认处理
+                    setTimeout(() => {
+                        zoomToFitWithUiAvoidance(editor, 200);
+                    }, 100);
+                }
+            }
+        }, { scope: 'all', source: 'user' }); // 仅监听用户操作，避免死循环（不过 added image 通常是用户触发）
         return () => unsubscribe();
-    }, [editor]);
+    }, [editor, zoomToFitWithUiAvoidance]);
 
     const deleteAnnotationWithRenumber = useCallback((id: string) => {
         if (!editor) return;
@@ -965,7 +1012,7 @@ export const TldrawEditorView = ({
                     { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: imageShape.id, props: { terminal: 'start', normalizedAnchor: { x: 1, y: 0.5 } } },
                     { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: resultId, props: { terminal: 'end', normalizedAnchor: { x: 0, y: 0.5 } } }
                 ]);
-                editor.zoomToFit();
+                zoomToFitWithUiAvoidance(editor, 200);
                 (window as unknown as { __lastArrowId?: TLShapeId } & Window).__lastArrowId = arrowId;
             }
         }
@@ -1071,7 +1118,7 @@ export const TldrawEditorView = ({
             console.error(err);
             editor.deleteShape(resultId);
         }
-    }, [editor, internalPrompt, localModel, localBatchSize, localTaskId, localizedImageUrl, imageUrl, onSave, handleGenerate, executeGeneration, stripRegionInstructions, inputSectionProps, prepareSnapshotForSave]);
+    }, [editor, internalPrompt, localModel, localBatchSize, localTaskId, localizedImageUrl, imageUrl, onSave, handleGenerate, executeGeneration, stripRegionInstructions, inputSectionProps, prepareSnapshotForSave, zoomToFitWithUiAvoidance]);
 
     const editorComponents = useMemo(() => ({
         PageMenu: null,
@@ -1099,6 +1146,17 @@ export const TldrawEditorView = ({
 
     return (
         <main className="flex-1 relative flex overflow-hidden">
+            {/* Override Tldraw right panel position to make room for close button */}
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .tldraw-custom-container .tlui-layout__top__right {
+                    margin-top: 64px !important;
+                    pointer-events: none; /* Ensure the gap is click-through */
+                }
+                .tldraw-custom-container .tlui-layout__top__right > * {
+                    pointer-events: all; /* Restore clicks on children */
+                }
+            `}} />
             <div className="flex-1 relative bg-white flex flex-col overflow-hidden tldraw-custom-container">
                 <Tldraw
                     onMount={(editor) => {
