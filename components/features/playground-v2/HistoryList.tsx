@@ -699,7 +699,7 @@ function HistoryCard({
       >
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
           <div className="flex items-center gap-4">
-            {config?.isPreset ? (
+            {(config?.isPreset && !config?.isEdit) ? (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/20 text-primary border border-primary/30">
                 PRESET: {config.presetName}
               </span>

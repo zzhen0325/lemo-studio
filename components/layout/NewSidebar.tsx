@@ -95,13 +95,13 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                 })}
 
                 {/* Tldraw Beta Entry */}
-                <button
+                {/* <button
                     onClick={() => setTldrawEditorOpen(true)}
                     className="ml-4 px-3 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-all flex items-center gap-2 group"
                 >
                     <Wand2 className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
                     <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Tldraw Beta</span>
-                </button>
+                </button> */}
             </nav>
 
             <div className="flex items-center gap-4">

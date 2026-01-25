@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { formatImageUrl } from "@/lib/api-base";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, Layers } from "lucide-react";
 import GradualBlur from "@/components/GradualBlur";
-import ImageEditorModal from './Dialogs/ImageEditorModal';
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
@@ -29,9 +28,6 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedModels, setSelectedModels] = useState<string[]>([]);
     const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
-    const [useTldraw] = useState(true); // 始终开启实验版 tldraw
-    const [isOldEditorOpen, setIsOldEditorOpen] = useState(false); // 仅用于旧版编辑器
-    const [editingImageUrl, setEditingImageUrl] = useState("");
 
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
@@ -168,51 +164,9 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 
     const handleEditImage = (result: Generation) => {
         const url = result.outputUrl || "";
+        const snapshot = result.config?.tldrawSnapshot;
         if (url) {
-            if (useTldraw) {
-                setTldrawEditorOpen(true, url);
-            } else {
-                setEditingImageUrl(url);
-                setIsOldEditorOpen(true);
-            }
-        }
-    };
-
-
-    const handleSaveEditedImage = async (dataUrl: string, prompt?: string, refImageUrls?: string[], shouldGenerate?: boolean) => {
-        try {
-            console.log("[GalleryView] handleSaveEditedImage called", { prompt, hasDataUrl: !!dataUrl, shouldGenerate, refImageUrls });
-
-            // Apply prompt if provided (from labeling tool)
-            if (prompt) {
-                usePlaygroundStore.getState().applyPrompt(prompt);
-            }
-
-            if (!dataUrl || dataUrl === '') {
-                setIsOldEditorOpen(false);
-                return;
-            }
-
-            // 1. Convert dataUrl to Blob/File
-            const response = await fetch(dataUrl);
-            const blob = await response.blob();
-            const file = new File([blob], `edited-${Date.now()}.png`, { type: 'image/png' });
-
-            // 2. Use unified upload logic
-            await uploadFile(file, {
-                onLocalPreview: (image) => {
-                    setUploadedImages(prev => [image, ...prev]);
-                    setIsOldEditorOpen(false);
-                    toast({ title: "图片已保存", description: "编辑后的图片已添加到输入框，正在同步到 CDN..." });
-                },
-                onSuccess: (tempId, path) => {
-                    // Update path in store
-                    usePlaygroundStore.getState().updateUploadedImage(tempId, { path, isUploading: false });
-                }
-            });
-        } catch (error) {
-            console.error("Failed to save edited image:", error);
-            toast({ title: "保存失败", description: "无法处理编辑后的图片", variant: "destructive" });
+            setTldrawEditorOpen(true, url, snapshot);
         }
     };
 
@@ -399,17 +353,6 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 
             </div>
 
-            {/* ImagePreviewModal removed from here as it is rendered globally in PlaygroundV2Page to avoid duplication and key conflicts */}
-
-            {!useTldraw && (
-                <ImageEditorModal
-                    isOpen={isOldEditorOpen}
-                    imageUrl={editingImageUrl}
-                    onClose={() => setIsOldEditorOpen(false)}
-                    onSave={handleSaveEditedImage}
-                    workflows={[]}
-                />
-            )}
 
         </div >
     );

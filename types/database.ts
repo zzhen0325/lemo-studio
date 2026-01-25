@@ -44,6 +44,7 @@ export interface GenerationConfig {
   parentId?: string;
   taskId?: string;
   workflowName?: string;
+  tldrawSnapshot?: Record<string, unknown>;
 }
 
 export interface Generation {
@@ -79,6 +80,7 @@ export interface EditPresetConfig {
   annotations: AnnotationInfo[];
   backgroundColor: string;
   canvasSize: { width: number; height: number };
+  tldrawSnapshot?: Record<string, unknown>;
 }
 
 export interface Preset {

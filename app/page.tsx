@@ -139,7 +139,7 @@ export default function Page() {
         handleTabChange(TabValue.MappingEditor);
     };
 
-    const { isTldrawEditorOpen, setTldrawEditorOpen, tldrawEditingImageUrl } = usePlaygroundStore();
+    const { isTldrawEditorOpen, setTldrawEditorOpen, tldrawEditingImageUrl, tldrawSnapshot } = usePlaygroundStore();
     const { toast } = useToast();
     const { uploadFile } = useImageUpload();
     const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
@@ -272,6 +272,7 @@ export default function Page() {
                     imageUrl={tldrawEditingImageUrl}
                     onClose={() => setTldrawEditorOpen(false)}
                     onSave={handleSaveTldrawImage}
+                    initialSnapshot={tldrawSnapshot}
                 />
             </div>
         </TabContext.Provider>

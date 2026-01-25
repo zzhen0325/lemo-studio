@@ -38,8 +38,8 @@ const config: ApplicationConfig = {
     port: Number(process.env.PORT) || 3000,
     routerPrefix: "/api",
     bodyParser: {
-      jsonLimit: "20mb",
-      formLimit: "20mb",
+      jsonLimit: "100mb",
+      formLimit: "100mb",
     },
   },
   typegoose: {

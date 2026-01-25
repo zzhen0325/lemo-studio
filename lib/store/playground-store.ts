@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { TLEditorSnapshot } from 'tldraw';
 import { UploadedImage, Preset, StyleStack } from '@/components/features/playground-v2/types';
 import { Generation, GenerationConfig } from '@/types/database';
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
@@ -30,7 +31,8 @@ interface PlaygroundState {
     // Tldraw Editor States
     isTldrawEditorOpen: boolean;
     tldrawEditingImageUrl: string;
-    setTldrawEditorOpen: (open: boolean, imageUrl?: string) => void;
+    tldrawSnapshot?: TLEditorSnapshot;
+    setTldrawEditorOpen: (open: boolean, imageUrl?: string, snapshot?: TLEditorSnapshot) => void;
 
     // Selection Mode
     isSelectionMode: boolean;
@@ -164,9 +166,11 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             visitorId: undefined,
             isTldrawEditorOpen: false,
             tldrawEditingImageUrl: "",
-            setTldrawEditorOpen: (open, imageUrl = "") => set({
+            tldrawSnapshot: undefined,
+            setTldrawEditorOpen: (open, imageUrl = "", snapshot) => set({
                 isTldrawEditorOpen: open,
-                tldrawEditingImageUrl: imageUrl
+                tldrawEditingImageUrl: imageUrl,
+                tldrawSnapshot: snapshot
             }),
             setSelectedPresetName: (name) => set({ selectedPresetName: name }),
             setViewMode: (mode) => set((state) => ({
@@ -474,6 +478,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     visitorId: undefined, // Will be initialized by the component or on first use
                     isTldrawEditorOpen: false,
                     tldrawEditingImageUrl: "",
+                    tldrawSnapshot: undefined,
                 });
             },
 
@@ -737,9 +742,13 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     if (res.ok) {
                         const savedPreset = await res.json();
                         set((state) => ({ presets: [savedPreset, ...state.presets] }));
+                    } else {
+                        const errorText = await res.text();
+                        throw new Error(`Failed to save preset: ${res.status} ${errorText}`);
                     }
                 } catch (e) {
                     console.error("Failed to add preset", e);
+                    throw e; // Re-throw to allow caller to handle
                 }
             },
 

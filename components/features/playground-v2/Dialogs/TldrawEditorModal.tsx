@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, AlertCircle } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { PlaygroundInputSectionProps } from '../PlaygroundInputSection';
+import { TLEditorSnapshot } from 'tldraw';
 import { TldrawEditorView } from './TldrawEditorView';
+import { EditPresetConfig } from '../types';
 
 interface TldrawEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     imageUrl: string;
-    onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean) => void;
+    onSave: (editedImageUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean, snapshot?: TLEditorSnapshot, keepOpen?: boolean, taskId?: string) => void;
     inputSectionProps?: PlaygroundInputSectionProps;
+    initialSnapshot?: TLEditorSnapshot;
+    onSaveAsPreset?: (editConfig: EditPresetConfig, name?: string) => void;
 }
 
 export default function TldrawEditorModal({
@@ -21,10 +25,14 @@ export default function TldrawEditorModal({
     imageUrl,
     onSave,
     inputSectionProps,
+    initialSnapshot,
+    onSaveAsPreset
 }: TldrawEditorModalProps) {
     const [mounted, setMounted] = useState(false);
     const [localPrompt, setLocalPrompt] = useState("");
     const storePrompt = usePlaygroundStore(s => s.config.prompt);
+
+    const editorRef = React.useRef<{ getSnapshot: () => TLEditorSnapshot | null; getTaskId: () => string } | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -35,6 +43,22 @@ export default function TldrawEditorModal({
             setLocalPrompt(storePrompt);
         }
     }, [isOpen, storePrompt]);
+
+    const handleClose = () => {
+        if (editorRef.current) {
+            const snapshot = editorRef.current.getSnapshot();
+            if (snapshot) {
+                // Save snapshot on exit. 
+                // We pass the original imageUrl as the "edited" image because we aren't generating a new one right now.
+                // shouldGenerate = false
+                // keepOpen = false (we want to close)
+                const taskId = editorRef.current.getTaskId();
+                onSave(imageUrl, localPrompt, [], false, snapshot, false, taskId);
+                return;
+            }
+        }
+        onClose();
+    };
 
     if (!isOpen || !mounted) return null;
 
@@ -47,35 +71,11 @@ export default function TldrawEditorModal({
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.2 }}
             >
-                <header className="absolute top-4 right-4 z-[101]">
-                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-2xl hover:bg-gray-100 group">
-                        <X className="w-5 h-5 text-gray-500 group-hover:rotate-90 transition-transform duration-200" />
+                <header className="absolute top-4 right-4 z-[11000]">
+                    <Button variant="default" size="icon" onClick={handleClose} className="rounded-2xl hover:bg-gray-500 border border-gray-500 bg-gray-800 group">
+                        <X className="w-5 h-5 text-white group-hover:rotate-90 transition-transform duration-200" />
                     </Button>
-
                 </header>
-
-                {/* Header */}
-                {/* <header className="h-16 border-b border-gray-200 flex items-center justify-between px-6 bg-white shrink-0 shadow-sm z-[101]">
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon" onClick={onClose} className="rounded-2xl hover:bg-gray-100 group">
-                            <X className="w-5 h-5 text-gray-500 group-hover:rotate-90 transition-transform duration-200" />
-                        </Button>
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                                <h2 className="font-bold text-gray-900 tracking-tight">Tldraw AI Studio</h2>
-                                <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[9px] font-black uppercase tracking-wider">Beta</span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 font-medium">Draw to describe, say to generate.</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <div className="items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-xl mr-4 hidden sm:flex">
-                            <AlertCircle className="w-3.5 h-3.5 text-yellow-600" />
-                            <span className="text-[10px] font-bold text-yellow-700 uppercase">Sandbox Mode</span>
-                        </div>
-                    </div>
-                </header> */}
 
                 <TldrawEditorView
                     imageUrl={imageUrl}
@@ -83,6 +83,9 @@ export default function TldrawEditorModal({
                     inputSectionProps={inputSectionProps}
                     localPrompt={localPrompt}
                     setLocalPrompt={setLocalPrompt}
+                    initialSnapshot={initialSnapshot}
+                    editorRef={editorRef}
+                    onSaveAsPreset={onSaveAsPreset}
                 />
             </motion.div>
         </AnimatePresence>,

@@ -35,6 +35,7 @@ import { TLBaseShape } from 'tldraw';
 export type AnnotationShape = TLBaseShape<'annotation', {
     name: string
     content: string
+    referenceImageUrl: string
     w: number
     h: number
 }>
@@ -49,6 +50,7 @@ export class AnnotationShapeUtil extends BaseBoxShapeUtil<AnnotationShape> {
         return {
             name: '',
             content: '',
+            referenceImageUrl: '',
             w: 100,
             h: 100,
         };

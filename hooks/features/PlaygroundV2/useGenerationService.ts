@@ -194,8 +194,12 @@ export function useGenerationService() {
                     .map(async (imgUrl) => {
                         processedImages.add(imgUrl);
                         try {
+                            const metadataConfig = { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            delete (metadataConfig as any).tldrawSnapshot;
+
                             const savedPath = await saveImageToOutputs(imgUrl, {
-                                config: { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName },
+                                config: metadataConfig,
                                 createdAt: generationTime,
                                 sourceImageUrl: effectiveSourceUrl,
                                 sourceImageUrls: effectiveSourceUrls,
@@ -234,8 +238,12 @@ export function useGenerationService() {
             }
         } else if (res?.images && res.images.length > 0) {
             const dataUrl = res.images[0];
+            const metadataConfig = { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (metadataConfig as any).tldrawSnapshot;
+
             const savedPath = await saveImageToOutputs(dataUrl, {
-                config: { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName },
+                config: metadataConfig,
                 createdAt: generationTime,
                 sourceImageUrl: effectiveSourceUrl,
                 sourceImageUrls: effectiveSourceUrls,
@@ -299,8 +307,12 @@ export function useGenerationService() {
                     try {
                         if (blobs && blobs.length > 0) {
                             const dataUrl = await blobToDataURL(blobs[0]);
+                            const metadataConfig = { ...currentConfig, model: MODEL_ID_WORKFLOW, baseModel: currentConfig.model || MODEL_ID_WORKFLOW, workflowName: selectedWorkflowConfig.viewComfyJSON.title, loras: usePlaygroundStore.getState().selectedLoras, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            delete (metadataConfig as any).tldrawSnapshot;
+
                             const savedPath = await saveImageToOutputs(dataUrl, {
-                                config: { ...currentConfig, model: MODEL_ID_WORKFLOW, baseModel: currentConfig.model || MODEL_ID_WORKFLOW, workflowName: selectedWorkflowConfig.viewComfyJSON.title, loras: usePlaygroundStore.getState().selectedLoras, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName },
+                                config: metadataConfig,
                                 createdAt: generationTime,
                                 sourceImageUrl: effectiveSourceUrl,
                                 sourceImageUrls: effectiveSourceUrls,
@@ -393,5 +405,35 @@ export function useGenerationService() {
         return await executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
     }, [setHasGenerated, setGenerationHistory, executeGeneration]);
 
-    return { handleGenerate, executeGeneration, isGenerating: isGenerating || isAIProcessing || isWorkflowProcessing, isLoading: isAIProcessing || isWorkflowProcessing };
+    const syncHistoryConfig = useCallback(async (updates: { id?: string; taskId?: string; config: Partial<GenerationConfig> }) => {
+        const { id, taskId, config: newConfig } = updates;
+
+        setGenerationHistory((prev: Generation[]) => {
+            const newHistory = prev.map(item => {
+                const match = (id && item.id === id) || (taskId && item.config?.taskId === taskId);
+                if (match) {
+                    return { ...item, config: { ...item.config, ...newConfig } };
+                }
+                return item;
+            });
+
+            // Sync matched items to backend
+            const matchedItems = newHistory.filter(item => (id && item.id === id) || (taskId && item.config?.taskId === taskId));
+            matchedItems.forEach(async (item) => {
+                try {
+                    await fetch(`${getApiBase()}/history`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item),
+                    });
+                } catch (err) {
+                    console.error('Failed to sync history item:', item.id, err);
+                }
+            });
+
+            return newHistory;
+        });
+    }, [setGenerationHistory]);
+
+    return { handleGenerate, executeGeneration, syncHistoryConfig, isGenerating: isGenerating || isAIProcessing || isWorkflowProcessing, isLoading: isAIProcessing || isWorkflowProcessing };
 }
