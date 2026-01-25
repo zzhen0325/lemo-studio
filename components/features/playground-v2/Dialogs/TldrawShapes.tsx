@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import React from 'react';
 import {
     BaseBoxShapeUtil,
@@ -5,7 +6,6 @@ import {
     TLShapeId,
     StateNode,
     createShapeId,
-    TLShape,
 } from 'tldraw';
 import { Loader2 } from 'lucide-react';
 

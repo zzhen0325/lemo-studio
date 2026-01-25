@@ -1111,7 +1111,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     selectedPresetName, selectedWorkflowConfig, workflows, fileInputRef,
     describePanelRef, setConfig, setIsStackHovered, setIsInputFocused,
     setPreviewImage, removeImage, handleFilesUpload, handleOptimizePrompt,
-    handleGenerate, handleDescribe, setSelectedAIModel, setSelectedModel,
+    handleGenerate, handleDescribe, setSelectedAIModel,
     setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults,
     setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,

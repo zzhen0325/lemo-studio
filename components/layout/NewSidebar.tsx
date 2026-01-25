@@ -44,11 +44,11 @@ const navItems = [
 export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps) => {
     const [authOpen, setAuthOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
-    const { setViewMode, setTldrawEditorOpen } = usePlaygroundStore();
+    const { setViewMode } = usePlaygroundStore();
 
     return (
         <header
-            className="fixed top-2 px-14 left-0 right-0 h-14 z-50 flex items-center justify-between px-8 select-none"
+            className="fixed top-2 px-14 left-0 right-0 h-14 z-50 flex items-center justify-between  select-none"
         >
             <div
                 className="flex items-center cursor-pointer absolute top-4 hover:opacity-80 transition-opacity"

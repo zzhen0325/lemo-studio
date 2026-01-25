@@ -279,6 +279,7 @@ const AnnotationRow = ({
                 >
                     {ann.referenceImageUrl ? (
                         <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={ann.referenceImageUrl} alt="Reference" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                 <ImageIcon className="w-3 h-3 text-white" />

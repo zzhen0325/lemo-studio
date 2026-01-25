@@ -101,7 +101,6 @@ export default function ControlToolbar({
   customAspectRatioLabel,
   uploadedImages = [],
   disableModelSelection = false,
-  selectedWorkflowName,
 }: ControlToolbarProps) {
 
 

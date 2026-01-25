@@ -83,7 +83,7 @@ class UserStore {
                 });
                 return false;
             }
-        } catch (e) {
+        } catch {
             runInAction(() => {
                 this.error = 'Network error';
             });
@@ -123,7 +123,7 @@ class UserStore {
                 });
                 return false;
             }
-        } catch (e) {
+        } catch {
             runInAction(() => {
                 this.error = 'Network error';
             });

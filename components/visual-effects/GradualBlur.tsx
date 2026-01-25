@@ -196,7 +196,7 @@ const GradualBlur: React.FC<GradualBlurProps> = props => {
       handleScroll(); // 初始执行一次
       return () => target.removeEventListener('scroll', handleScroll);
     }
-  }, [props.animate?.type, props.animate?.targetRef?.current, props.animate?.startOffset, props.animate?.endOffset]);
+  }, [props.animate?.type, props.animate?.targetRef, props.animate?.startOffset, props.animate?.endOffset]);
 
   const config = useMemo(() => {
     const presetConfig = props.preset && PRESETS[props.preset] ? PRESETS[props.preset] : {};
@@ -255,7 +255,7 @@ const GradualBlur: React.FC<GradualBlurProps> = props => {
     }
 
     return divs;
-  }, [config, isHovered, scrollProgress]);
+  }, [config, isHovered, scrollProgress, props.borderRadius]);
 
   const containerStyle: CSSProperties = useMemo(() => {
     const isVertical = ['top', 'bottom'].includes(config.position);
@@ -288,7 +288,7 @@ const GradualBlur: React.FC<GradualBlurProps> = props => {
     }
 
     return baseStyle;
-  }, [config, responsiveHeight, responsiveWidth, isVisible]);
+  }, [config, responsiveHeight, responsiveWidth, isVisible, props.borderRadius]);
 
   const { hoverIntensity, animated, onAnimationComplete, duration } = config;
   useEffect(() => {

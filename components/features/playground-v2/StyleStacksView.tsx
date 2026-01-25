@@ -16,7 +16,7 @@ interface StyleStacksViewProps {
 }
 
 export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: isDraggingProp }) => {
-    const { styles, initStyles, addStyle, applyPrompt } = usePlaygroundStore();
+    const { styles, initStyles, addStyle } = usePlaygroundStore();
     const [isCreating, setIsCreating] = useState(false);
     const [newName, setNewName] = useState('');
     const [newPrompt, setNewPrompt] = useState('');

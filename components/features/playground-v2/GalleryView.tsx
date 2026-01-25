@@ -9,7 +9,6 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
 import { useImageSource } from '@/hooks/common/use-image-source';
-import { useImageUpload } from '@/hooks/common/use-image-upload';
 import { useGenerationService } from "@/components/features/playground-v2/hooks/useGenerationService";
 import { Generation, GenerationConfig } from '@/types/database';
 import {
@@ -29,14 +28,11 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
     const [selectedModels, setSelectedModels] = useState<string[]>([]);
     const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
 
-    const setUploadedImages = usePlaygroundStore(s => s.setUploadedImages);
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
     const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
     const galleryPage = usePlaygroundStore(s => s.galleryPage);
     const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
     const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
-    const { toast } = useToast();
-    const { uploadFile } = useImageUpload();
 
     // Responsive column count
     const isSm = useMediaQuery("(min-width: 640px)");
@@ -159,17 +155,6 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
             fetchGallery(1);
         }
     }, [galleryItems.length, isFetchingGallery, fetchGallery]);
-
-    const { setTldrawEditorOpen } = usePlaygroundStore();
-
-    const handleEditImage = (result: Generation) => {
-        const url = result.outputUrl || "";
-        const snapshot = result.config?.tldrawSnapshot;
-        if (url) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setTldrawEditorOpen(true, url, snapshot as any);
-        }
-    };
 
     const scrollRef = useRef<HTMLDivElement>(null);
 

@@ -34,7 +34,9 @@ export class LocalStorage implements IStorage {
     return path.join(this.root, safeKey);
   }
 
-  public async putObject(key: string, body: Buffer | Uint8Array | string, _options?: PutObjectOptions): Promise<{ url?: string }> {
+  public async putObject(key: string, body: Buffer | Uint8Array | string, options?: PutObjectOptions): Promise<{ url?: string }> {
+    // options are unused in local storage
+    void options;
     const filePath = this.resolvePath(key);
     const dir = path.dirname(filePath);
     await ensureDir(dir);

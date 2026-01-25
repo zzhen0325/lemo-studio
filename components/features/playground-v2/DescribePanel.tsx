@@ -7,7 +7,6 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { RefObject } from "react";
 import type { UploadedImage } from "@/components/features/playground-v2/types";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
-import { formatImageUrl } from "@/lib/api-base";
 import { useImageSource } from "@/hooks/common/use-image-source";
 
 export interface DescribePanelProps {

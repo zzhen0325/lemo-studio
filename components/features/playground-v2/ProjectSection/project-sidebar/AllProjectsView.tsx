@@ -15,6 +15,7 @@ const ProjectGridItem = observer(({ project, onClick }: { project: Project; onCl
       onClick={onClick}
     >
       {project.thumbnailUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src={project.thumbnailUrl}
           alt={project.name}
