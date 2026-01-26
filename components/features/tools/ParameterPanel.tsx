@@ -95,7 +95,98 @@ const AestheticColorSlot: React.FC<{
 
 // --- Main Panel ---
 
+const AestheticImagePicker: React.FC<{
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+}> = ({ label, value, onChange }) => {
+    const { uploadFile } = useImageUpload();
+    const [isUploading, setIsUploading] = React.useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Create local URL for immediate preview (optional, but good for UX)
+        const localUrl = URL.createObjectURL(file);
+        onChange(localUrl);
+
+        // Upload
+        setIsUploading(true);
+        await uploadFile(file, {
+            onSuccess: () => {
+                // Success
+                setIsUploading(false);
+            },
+            onError: () => {
+                setIsUploading(false);
+            }
+        });
+    };
+
+    return (
+        <div className="space-y-2 group">
+            <label className="text-[10px] text-white/30 uppercase font-bold tracking-wider group-hover:text-white/50 transition-colors">
+                {label}
+            </label>
+            <div
+                onClick={() => fileInputRef.current?.click()}
+                className="relative w-full aspect-video bg-white/[0.03] border border-white/10 rounded-xl overflow-hidden cursor-pointer hover:border-white/20 transition-all flex items-center justify-center group/picker"
+            >
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*,video/*"
+                    onChange={handleFileChange}
+                />
+
+                {value ? (
+                    <>
+                        {/* Try to show image or video thumbnail */}
+                        {(value.endsWith('.mp4') || value.endsWith('.webm') || value.startsWith('blob:')) && <video src={value} className="w-full h-full object-cover opacity-50" muted loop autoPlay playsInline />}
+                        {/* Fallback to image if not video ext, or overlay */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={value} alt="Selected" className="absolute inset-0 w-full h-full object-cover" />
+
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/picker:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-[10px] uppercase font-bold text-white tracking-widest">Change Media</span>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col items-center gap-2 opacity-40 group-hover/picker:opacity-80 transition-opacity">
+                        <div className="w-8 h-8 rounded-full border border-dashed border-white flex items-center justify-center">
+                            <Plus className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="text-[9px] uppercase tracking-widest">Select Media</span>
+                    </div>
+                )}
+
+                {isUploading && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-20">
+                        <div className="w-6 h-6 rounded-full border-2 border-white/20 border-t-blue-500 animate-spin" />
+                    </div>
+                )}
+            </div>
+            {value && (
+                <div className="flex justify-end">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onChange(''); }}
+                        className="text-[9px] text-red-400 hover:text-red-300 uppercase tracking-wider"
+                    >
+                        Clear
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- Main Panel ---
+
 const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChange, onLoadPreset, onCaptureScreenshot }) => {
+    // ... existing state ...
     const [presets, setPresets] = useState<ToolPreset[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -120,6 +211,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
     }, [fetchPresets]);
 
     const handleSaveCurrent = async () => {
+        // ... existing handleSaveCurrent code
         if (!newPresetName.trim() || isUploading) return;
 
         setIsUploading(true);
@@ -208,7 +300,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
             grouped[category].push(param);
         });
 
-        const order = ['Geometry', 'Simulation', 'Palette', 'Parameters'];
+        const order = ['Input', 'Geometry', 'Simulation', 'Palette', 'Analysis', 'Parameters'];
         const sortedKeys = Object.keys(grouped).sort((a, b) => {
             const idxA = order.indexOf(a);
             const idxB = order.indexOf(b);
@@ -348,8 +440,8 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
                             </div>
                         ))}
                     </div>
-                    <div className="h-px w-full bg-white/5 mt-4" />
                 </section>
+                <div className="h-px w-full bg-white/5" />
 
                 {groups.map((group, groupIndex) => (
                     <section key={group.name} className="space-y-4">
@@ -366,6 +458,15 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
                         <div className={`space-y-4 px-1 ${group.name === 'Palette' ? 'grid grid-cols-1 gap-2.5 space-y-0' : ''}`}>
                             {group.params.map((param, paramIndex) => (
                                 <React.Fragment key={param.id}>
+                                    {/* Image / Media Picker */}
+                                    {param.type === 'image' && (
+                                        <AestheticImagePicker
+                                            label={param.name}
+                                            value={values[param.id] as string}
+                                            onChange={(val) => onChange(param.id, val)}
+                                        />
+                                    )}
+
                                     {param.type === 'number' && (
                                         <AestheticSlider
                                             label={param.name}

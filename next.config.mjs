@@ -24,8 +24,9 @@ const nextConfig = {
   },
   outputFileTracingRoot: import.meta.dirname,
   experimental: {
-    optimizePackageImports: ['lucide-react', 'lucide'],
+    optimizePackageImports: ['lucide-react', 'lucide', 'tldraw', '@tldraw/editor', '@tldraw/ui'],
   },
+  transpilePackages: ['tldraw', '@tldraw/editor', '@tldraw/ui', '@tldraw/utils', '@tldraw/state', '@tldraw/store', '@tldraw/tlschema', '@tldraw/validate'],
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals.push(

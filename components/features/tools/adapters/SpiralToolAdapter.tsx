@@ -1,8 +1,11 @@
-"use client";
-
-import React from 'react';
-import Spiral from '@/components/ui/spiral';
+import dynamic from 'next/dynamic';
 import { ToolComponentProps } from '../tool-configs';
+
+// 动态导入以避免 SSR 和副作用冲突
+const Spiral = dynamic(() => import('@/components/ui/spiral'), {
+    ssr: false,
+    loading: () => <div className="w-full h-full bg-black flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin"></div></div>
+});
 
 const SpiralToolAdapter: React.FC<ToolComponentProps> = (props) => {
     // 映射通用的参数到 Spiral 组件特定的 props

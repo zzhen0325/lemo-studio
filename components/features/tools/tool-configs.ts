@@ -1,5 +1,5 @@
-import EtherealToolAdapter from './adapters/EtherealToolAdapter';
 import SpiralToolAdapter from './adapters/SpiralToolAdapter';
+import dynamic from 'next/dynamic';
 
 export interface ToolComponentProps {
   onChange?: (id: string, value: number | string | boolean) => void;
@@ -12,7 +12,7 @@ export interface ToolComponentProps {
   [key: string]: any;
 }
 
-export type ToolParamType = 'number' | 'color' | 'boolean';
+export type ToolParamType = 'number' | 'color' | 'boolean' | 'image';
 
 export interface ToolParameter {
   id: string;
@@ -23,6 +23,8 @@ export interface ToolParameter {
   step?: number;
   defaultValue: string | number | boolean;
   category?: string;
+  // For image/select types
+  options?: string[];
 }
 
 export interface ToolPreset {
@@ -51,11 +53,7 @@ export const WEBGL_TOOLS: WebGLToolConfig[] = [
     description: 'A mesmerizing fluid simulation with deep navy and orange gradients.',
     type: 'shader',
     fragmentShader: `
-uniform float iTime;
-uniform vec2 iResolution;
-uniform float waveIntensity;
-uniform float flowSpeed;
-
+    
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 uv = 1.0 * fragCoord/iResolution.xy;
@@ -124,35 +122,6 @@ void main() {
     ]
   },
   {
-    id: 'ethereal-mesh-gradient',
-    name: 'Ethereal Mesh Gradient',
-    description: 'A flowing, ethereal mesh gradient simulation with adjustable parameters.',
-    type: 'component',
-    component: EtherealToolAdapter,
-    parameters: [
-      { id: 'wireframe', name: 'Wireframe Mode', type: 'boolean', defaultValue: false, category: 'Geometry' },
-      { id: 'density', name: 'Complexity', type: 'number', min: 10, max: 300, step: 1, defaultValue: 205, category: 'Geometry' },
-      { id: 'amplitude', name: 'Displacement', type: 'number', min: 0, max: 0.5, step: 0.01, defaultValue: 0.05, category: 'Simulation' },
-      { id: 'speed', name: 'Flow Velocity', type: 'number', min: 0, max: 0.5, step: 0.01, defaultValue: 0.07, category: 'Simulation' },
-      { id: 'frequency', name: 'Frequency', type: 'number', min: 0, max: 20, step: 0.1, defaultValue: 6.10, category: 'Simulation' },
-      { id: 'paused', name: 'Pause Animation', type: 'boolean', defaultValue: false, category: 'Simulation' },
-      { id: 'camPosX', name: 'Camera X', type: 'number', min: -10, max: 10, step: 0.1, defaultValue: 0, category: 'Camera' },
-      { id: 'camPosY', name: 'Camera Y', type: 'number', min: -10, max: 10, step: 0.1, defaultValue: 1.0, category: 'Camera' },
-      { id: 'camPosZ', name: 'Camera Z', type: 'number', min: -10, max: 10, step: 0.1, defaultValue: 1.8, category: 'Camera' },
-      { id: 'targetX', name: 'Target X', type: 'number', min: -5, max: 5, step: 0.1, defaultValue: 0, category: 'Camera' },
-      { id: 'targetY', name: 'Target Y', type: 'number', min: -5, max: 5, step: 0.1, defaultValue: 0, category: 'Camera' },
-      { id: 'targetZ', name: 'Target Z', type: 'number', min: -5, max: 5, step: 0.1, defaultValue: 0, category: 'Camera' },
-      { id: 'color1', name: 'Layer 1 Color', type: 'color', defaultValue: '#5B5B5D', category: 'Palette' },
-      { id: 'color2', name: 'Layer 2 Color', type: 'color', defaultValue: '#B4B1C3', category: 'Palette' },
-      { id: 'color3', name: 'Layer 3 Color', type: 'color', defaultValue: '#BAB9CB', category: 'Palette' },
-      { id: 'color4', name: 'Layer 4 Color', type: 'color', defaultValue: '#000000', category: 'Palette' },
-      { id: 'color5', name: 'Layer 5 Color', type: 'color', defaultValue: '#549291', category: 'Palette' },
-      { id: 'scaleX', name: 'Stretch X', type: 'number', min: 0.1, max: 10, step: 0.1, defaultValue: 1.0, category: 'Geometry' },
-      { id: 'scaleY', name: 'Stretch Y', type: 'number', min: 0.1, max: 10, step: 0.1, defaultValue: 1.0, category: 'Geometry' },
-      { id: 'enableOrbit', name: 'Enable Orbit', type: 'boolean', defaultValue: false, category: 'Simulation' },
-    ]
-  },
-  {
     id: 'phyllotaxis-spiral',
     name: 'Phyllotaxis Spiral',
     description: 'A mathematical spiral pattern based on the golden angle, featuring animated dots.',
@@ -173,6 +142,29 @@ void main() {
       { id: 'color1', name: 'Phase 1 Color', type: 'color', defaultValue: '#FF0000', category: 'Palette' },
       { id: 'color2', name: 'Phase 2 Color', type: 'color', defaultValue: '#00FF00', category: 'Palette' },
       { id: 'color3', name: 'Phase 3 Color', type: 'color', defaultValue: '#0000FF', category: 'Palette' },
+    ]
+  },
+  {
+    id: 'pixel-grid',
+    name: 'Pixel Grid',
+    description: 'A tactical pixel art generator that converts images/videos into a dynamic grid display.',
+    type: 'component',
+    component: dynamic(() => import('./adapters/PixelGridAdapter'), { ssr: false }),
+    parameters: [
+      { id: 'mediaUrl', name: 'Source Media', type: 'image', defaultValue: '', category: 'Input' },
+      { id: 'masterSpeed', name: 'Master Speed', type: 'number', min: 0.1, max: 3.0, step: 0.1, defaultValue: 1.0, category: 'Simulation' },
+      { id: 'gridDensity', name: 'Grid Density', type: 'number', min: 20, max: 200, step: 1, defaultValue: 80, category: 'Geometry' },
+      { id: 'clusterThreshold', name: 'Cluster Threshold', type: 'number', min: 0.0, max: 1.0, step: 0.01, defaultValue: 0.5, category: 'Analysis' },
+      { id: 'sizeScale', name: 'Size Scale', type: 'number', min: 0.5, max: 2.0, step: 0.05, defaultValue: 1.0, category: 'Geometry' },
+      { id: 'minPixelFilter', name: 'Min Pixel Filter', type: 'number', min: 0.0, max: 0.8, step: 0.01, defaultValue: 0.1, category: 'Analysis' },
+      { id: 'rotationChaos', name: 'Rotation Chaos', type: 'number', min: 0.0, max: 1.0, step: 0.01, defaultValue: 0.0, category: 'Simulation' },
+      // Red Noise Intensity removed as per user request to hide effect
+      // Use logic to map 0,1,2 to Square, Circle, Triangle if needed, or simplified as numbers
+      // But typically sliders are better for continuous, and select for discrete. 
+      // For now, let's map shape to a number slider 0-2 for simplicity or add a 'select' type if I had time, 
+      // but since I'm restricted, I'll use number with step 1.
+      { id: 'pixelShape', name: 'Pixel Shape (Sq/Cir/Tri)', type: 'number', min: 0, max: 2, step: 1, defaultValue: 0, category: 'Geometry' },
+      { id: 'imageScaleMode', name: 'Scale Mode (0:Fit, 1:Fill)', type: 'number', min: 0, max: 1, step: 1, defaultValue: 0, category: 'Geometry' },
     ]
   }
 ];

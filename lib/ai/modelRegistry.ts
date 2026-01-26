@@ -3,6 +3,10 @@ import { OpenAICompatibleProvider, GoogleGenAIProvider, BytedanceAfrProvider, Do
 import { REGISTRY } from './registry';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
+
+// Load .env.local from project root
+dotenv.config({ path: path.join(__dirname, '../../.env.local') });
 
 // 豆包视觉模型列表（使用 /api/v3/responses 端点）
 const DOUBAO_VISION_MODELS = [
@@ -14,7 +18,7 @@ const DOUBAO_VISION_MODELS = [
 // 从providers.json读取配置
 function readProvidersConfig(): { id: string; apiKey: string; baseURL?: string; providerType: string; models: { modelId: string }[]; isEnabled?: boolean }[] {
     try {
-        const configPath = path.join(process.cwd(), 'data/api-config/providers.json');
+        const configPath = path.join(__dirname, '../../data/api-config/providers.json');
         const content = fs.readFileSync(configPath, 'utf-8');
         return JSON.parse(content);
     } catch (error) {
@@ -141,6 +145,18 @@ export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfi
         baseURL: providerConfig?.baseURL || entry.defaultConfig.baseURL,
         ...overrideConfig
     };
+
+    // Fallback: Try to load from environment variables if apiKey is missing
+    if (!config.apiKey) {
+        if (entry.providerType === 'coze-image') {
+            config.apiKey = process.env.COZE_API_TOKEN;
+        } else if (entry.providerType === 'google-genai') {
+            config.apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+        } else if (entry.providerType === 'openai-compatible' || config.providerId === 'deepseek') {
+            config.apiKey = process.env.DEEPSEEK_API_KEY; // Assuming deepseek for now based on context, or check entry
+        }
+        // Add more mappings as needed
+    }
 
     if (entry.providerType !== 'bytedance-afr' && !config.apiKey) {
         throw new Error(`Missing API Key for model ${modelId} (Provider: ${entry.providerType})`);

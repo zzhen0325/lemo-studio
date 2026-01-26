@@ -36,9 +36,12 @@ const WebGLRenderer: React.FC<WebGLRendererProps> = ({ shader, uniforms, classNa
         // Fragment shader (prefixed with uniforms)
         const fsSource = `
       precision highp float;
-      ${Object.keys(uniforms).map(key => `uniform float ${key};`).join('\n')}
-      uniform float iTime;
-      uniform vec2 iResolution;
+      ${Object.keys(uniforms)
+                .filter(key => !new RegExp(`uniform\\s+\\w+\\s+${key}\\s*;`).test(shader))
+                .map(key => `uniform float ${key};`)
+                .join('\n')}
+      ${!new RegExp(`uniform\\s+\\w+\\s+iTime\\s*;`).test(shader) ? 'uniform float iTime;' : ''}
+      ${!new RegExp(`uniform\\s+\\w+\\s+iResolution\\s*;`).test(shader) ? 'uniform vec2 iResolution;' : ''}
       ${shader}
     `;
 

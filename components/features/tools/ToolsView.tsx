@@ -75,7 +75,7 @@ const ToolsView: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col  h-screen overflow-hidden "
+        <div className="flex flex-col pt-16 h-screen overflow-hidden "
             style={{
                 background: "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 75%, #D8C6B8 100%)",
             }}>
@@ -113,9 +113,12 @@ const ToolsView: React.FC = () => {
                                                 />
                                             )}
                                             {tool.type === 'component' && tool.component && (
-                                                <tool.component
-                                                    {...tool.parameters.reduce((acc, p) => { acc[p.id] = p.defaultValue; return acc; }, {} as Record<string, number | string | boolean | undefined>)}
-                                                />
+                                                <div className="w-full h-full relative isolate">
+                                                    <tool.component
+                                                        key={tool.id} // 强制隔离
+                                                        {...tool.parameters.reduce((acc, p) => { acc[p.id] = p.defaultValue; return acc; }, {} as Record<string, number | string | boolean | undefined>)}
+                                                    />
+                                                </div>
                                             )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <Button variant="outline" className="rounded-full border-white/40 text-white">Open Tool</Button>

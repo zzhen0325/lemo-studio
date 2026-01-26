@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           src="https://tweakcn.com/live-preview.min.js"
         />
       </head>
-      <body className={cn("min-h-screen font-sans antialiased")}>
+      <body className={cn("min-h-screen font-sans antialiased")} suppressHydrationWarning>
 
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <TooltipProvider>

@@ -997,16 +997,58 @@ export const TldrawEditorView = ({
             const bounds = editor.getShapePageBounds(imageShape.id);
             if (bounds) {
                 const arrowId = createShapeId();
+                // 计算 result 形状的位置
+                const resultX = bounds.maxX + 100;
+                const resultY = bounds.minY;
+                
+                // 计算箭头的初始位置（两个形状的中点）
+                const arrowX = (bounds.maxX + resultX) / 2;
+                const arrowY = bounds.center.y;
+                
+                // 计算相对于箭头位置的 start 和 end（局部坐标）
+                const startX = bounds.maxX - arrowX;
+                const startY = bounds.center.y - arrowY;
+                const endX = resultX - arrowX;
+                const endY = bounds.center.y - arrowY;
+                
                 editor.createShapes([
-                    { id: arrowId, type: 'arrow', x: bounds.maxX + 10, y: bounds.center.y, props: { start: { x: 0, y: 0 }, end: { x: 80, y: 0 }, arrowheadEnd: 'arrow' } },
+                    { 
+                        id: arrowId, 
+                        type: 'arrow', 
+                        x: arrowX, 
+                        y: arrowY, 
+                        props: { 
+                            start: { x: startX, y: startY }, 
+                            end: { x: endX, y: endY }, 
+                            kind: 'arc',
+                            bend: 0.5,
+                            arrowheadStart: 'dot',
+                            arrowheadEnd: 'dot'
+                        } 
+                    },
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    { id: resultId, type: 'result', x: bounds.maxX + 10 + 80 + 100, y: bounds.minY, props: { isLoading: true, version: 1, w: bounds.width, h: bounds.height } } as unknown as import('tldraw').TLShape
+                    { id: resultId, type: 'result', x: resultX, y: resultY, props: { isLoading: true, version: 1, w: bounds.width, h: bounds.height } } as unknown as import('tldraw').TLShape
                 ]);
-                editor.createBindings([
-                    { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: imageShape.id, props: { terminal: 'start', normalizedAnchor: { x: 1, y: 0.5 } } },
-                    { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: resultId, props: { terminal: 'end', normalizedAnchor: { x: 0, y: 0.5 } } }
-                ]);
+                
+                // 使用双重 requestAnimationFrame 确保形状完全渲染后再创建绑定
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // 确保形状存在后再创建绑定
+                        const arrowShape = editor.getShape(arrowId);
+                        const resultShape = editor.getShape(resultId);
+                        if (arrowShape && resultShape && imageShape) {
+                            try {
+                                editor.createBindings([
+                                    { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: imageShape.id, props: { terminal: 'start', normalizedAnchor: { x: 1, y: 0.5 }, isPrecise: true } },
+                                    { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: resultId, props: { terminal: 'end', normalizedAnchor: { x: 0, y: 0.5 }, isPrecise: true } }
+                                ]);
+                            } catch (e) {
+                                console.error('Failed to create arrow bindings:', e);
+                            }
+                        }
+                    });
+                });
                 zoomToFitWithUiAvoidance(editor, 200);
                 (window as unknown as { __lastArrowId?: TLShapeId } & Window).__lastArrowId = arrowId;
             }
@@ -1150,6 +1192,41 @@ export const TldrawEditorView = ({
                 }
                 .tldraw-custom-container .tlui-layout__top__right > * {
                     pointer-events: all; /* Restore clicks on children */
+                }
+                /* Override tldraw grid dot pattern color to light gray */
+                .tldraw-custom-container .tl-grid {
+                    background-color: #f5f5f5 !important;
+                }
+                /* Override SVG grid dots */
+                .tldraw-custom-container .tl-grid svg circle,
+                .tldraw-custom-container .tl-grid svg ellipse,
+                .tldraw-custom-container svg circle[fill],
+                .tldraw-custom-container svg ellipse[fill] {
+                    fill: #d3d3d3 !important;
+                }
+                /* Override SVG pattern dots */
+                .tldraw-custom-container .tl-grid pattern circle,
+                .tldraw-custom-container .tl-grid pattern ellipse,
+                .tldraw-custom-container pattern circle,
+                .tldraw-custom-container pattern ellipse {
+                    fill: #d3d3d3 !important;
+                }
+                /* Override canvas-based grid dots */
+                .tldraw-custom-container canvas.tl-grid,
+                .tldraw-custom-container canvas[class*="grid"] {
+                    filter: brightness(1.5) contrast(0.8) !important;
+                }
+                /* Override any grid-related elements */
+                .tldraw-custom-container [class*="tl-grid"] circle,
+                .tldraw-custom-container [class*="tl-grid"] ellipse,
+                .tldraw-custom-container [class*="grid"] circle,
+                .tldraw-custom-container [class*="grid"] ellipse {
+                    fill: #d3d3d3 !important;
+                }
+                /* Override tldraw background pattern */
+                .tldraw-custom-container .tl-background,
+                .tldraw-custom-container [class*="background"] {
+                    background-color: #f5f5f5 !important;
                 }
             `}} />
             <div className="flex-1 relative bg-white flex flex-col overflow-hidden tldraw-custom-container">
