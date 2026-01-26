@@ -110,6 +110,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
   const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
+  const visitorId = usePlaygroundStore(s => s.visitorId);
+  const initVisitorId = usePlaygroundStore(s => s.initVisitorId);
 
 
   const setConfig = React.useCallback((val: GenerationConfig | ((prev: GenerationConfig) => GenerationConfig)) => {
@@ -278,11 +280,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   }, [initPresets]);
 
   // Helper: save history using unified fields
-  const saveHistoryToBackend = async (item: import('@/types/database').Generation) => {
+  const saveHistoryToBackend = React.useCallback(async (item: import('@/types/database').Generation) => {
     try {
       const gen = {
         id: item.id,
-        userId: item.userId || 'anonymous',
+        userId: item.userId || visitorId || 'anonymous',
         projectId: item.projectId || 'default',
         outputUrl: item.outputUrl || '',
         config: item.config,
@@ -296,8 +298,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       });
     } catch (error) {
       console.error('Failed to save history:', error);
+      // Optional: Add toast notification if needed, but avoiding it to keep behavior identical to before
     }
-  };
+  }, [visitorId]);
 
   useEffect(() => {
     const fetchWorkflows = async () => {
@@ -313,6 +316,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     };
     fetchWorkflows();
   }, []);
+
+  useEffect(() => {
+    initVisitorId();
+  }, [initVisitorId]);
 
   useEffect(() => {
     const path = uploadedImages[0]?.path;
@@ -706,7 +713,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     const loadingCard: import('@/types/database').Generation = {
       id: loadingId,
-      userId: 'anonymous',
+      userId: visitorId || 'anonymous',
       projectId: 'default',
       outputUrl: imageUrl,
       config: {
@@ -752,7 +759,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         // Create history cards for each description result
         const newHistoryItems: import('@/types/database').Generation[] = results.map((desc: string, index: number) => ({
           id: `describe-${Date.now()}-${index}`,
-          userId: 'anonymous',
+          userId: visitorId || 'anonymous',
           projectId: 'default',
           outputUrl: imageUrl,
           config: {
@@ -787,7 +794,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, toast]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, toast, initVisitorId, visitorId]);
 
   const handleBatchUse = async (results: Generation[]) => {
     if (!results || results.length === 0) return;

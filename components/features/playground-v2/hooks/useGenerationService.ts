@@ -253,7 +253,7 @@ export function useGenerationService() {
             });
             const gen: Generation = {
                 id: uniqueId,
-                userId: userStore.currentUser?.id || 'anonymous',
+                userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous',
                 projectId: projectStore.currentProjectId || 'default',
                 outputUrl: savedPath,
                 config: { ...unified, model: modelId, baseModel: modelId, loras: undefined, workflowName: undefined, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId, isPreset: !!currentConfig.presetName },
@@ -322,7 +322,7 @@ export function useGenerationService() {
                             });
                             const gen: Generation = {
                                 id: uniqueId,
-                                userId: userStore.currentUser?.id || 'anonymous',
+                                userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous',
                                 projectId: projectStore.currentProjectId || 'default',
                                 outputUrl: savedPath,
                                 config: { ...toUnifiedConfigFromLegacy(currentConfig), model: MODEL_ID_WORKFLOW, baseModel: currentConfig.model || MODEL_ID_WORKFLOW, workflowName: selectedWorkflowConfig.viewComfyJSON.title, loras: usePlaygroundStore.getState().selectedLoras, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId },
@@ -349,7 +349,7 @@ export function useGenerationService() {
             if (isMockMode) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
-                const result: Generation = { id: uniqueId, userId: userStore.currentUser?.id || 'anonymous', projectId: projectStore.currentProjectId || 'default', outputUrl: mockImageUrl, config: { prompt: unifiedCfg.prompt, width: unifiedCfg.width, height: unifiedCfg.height, model: unifiedCfg.model, loras: isWorkflow ? usePlaygroundStore.getState().selectedLoras : undefined, isPreset: !!(unifiedCfg.presetName), workflowName: isWorkflow ? usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined : undefined, sourceImageUrls: sourceImageUrls, localSourceIds: localSourceIds, taskId: taskId }, status: 'completed', createdAt: new Date().toISOString() };
+                const result: Generation = { id: uniqueId, userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous', projectId: projectStore.currentProjectId || 'default', outputUrl: mockImageUrl, config: { prompt: unifiedCfg.prompt, width: unifiedCfg.width, height: unifiedCfg.height, model: unifiedCfg.model, loras: isWorkflow ? usePlaygroundStore.getState().selectedLoras : undefined, isPreset: !!(unifiedCfg.presetName), workflowName: isWorkflow ? usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined : undefined, sourceImageUrls: sourceImageUrls, localSourceIds: localSourceIds, taskId: taskId }, status: 'completed', createdAt: new Date().toISOString() };
                 updateHistoryAndSave(uniqueId, result);
                 return result;
             }
@@ -399,7 +399,7 @@ export function useGenerationService() {
         const configForHistory = { ...finalConfig };
         if (!isWorkflow) { configForHistory.loras = undefined; configForHistory.workflowName = undefined; }
         const uniqueId = `gen-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-        const loadingGen: Generation = { id: uniqueId, userId: userStore.currentUser?.id || 'anonymous', projectId: projectStore.currentProjectId || 'default', outputUrl: "", config: { ...configForHistory, sourceImageUrls, localSourceIds, baseModel: effectiveModel, editConfig: displayEditConfig, isEdit, parentId, taskId, isPreset: !!(finalConfig.presetName) }, status: 'pending', createdAt: generationTime };
+        const loadingGen: Generation = { id: uniqueId, userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous', projectId: projectStore.currentProjectId || 'default', outputUrl: "", config: { ...configForHistory, sourceImageUrls, localSourceIds, baseModel: effectiveModel, editConfig: displayEditConfig, isEdit, parentId, taskId, isPreset: !!(finalConfig.presetName) }, status: 'pending', createdAt: generationTime };
         setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
         if (isBackground) return uniqueId;
         return await executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);

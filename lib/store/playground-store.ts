@@ -10,6 +10,7 @@ import { getApiBase } from "../api-base";
 
 import { MODEL_ID_WORKFLOW } from '../constants/models';
 import { isWorkflowModel } from '../utils/model-utils';
+import { v4 as uuidv4 } from 'uuid';
 
 interface PlaygroundState {
     config: GenerationConfig;
@@ -27,6 +28,7 @@ interface PlaygroundState {
     activeTab: 'history' | 'gallery' | 'describe' | 'style';
     editConfig?: import('@/types/database').EditPresetConfig;
     visitorId: string | undefined;
+    initVisitorId: () => void; // Add this
 
     // Tldraw Editor States
     isTldrawEditorOpen: boolean;
@@ -481,11 +483,18 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     editConfig: undefined,
                     isSelectionMode: false,
                     selectedHistoryIds: new Set(),
-                    visitorId: undefined, // Will be initialized by the component or on first use
+                    visitorId: undefined,
                     isTldrawEditorOpen: false,
                     tldrawEditingImageUrl: "",
                     tldrawSnapshot: undefined,
                 });
+            },
+
+            initVisitorId: () => {
+                const state = get();
+                if (!state.visitorId) {
+                    set({ visitorId: uuidv4() });
+                }
             },
 
             generationHistory: [],

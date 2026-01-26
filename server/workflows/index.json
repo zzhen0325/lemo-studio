@@ -1,0 +1,11 @@
+{
+  "appTitle": "ViewComfy",
+  "appImg": "",
+  "workflows": [
+    {
+      "title": "image_z_image_turbo",
+      "folder": "image_z_image_turbo",
+      "id": "wf_image_z_image_turbo"
+    }
+  ]
+}
