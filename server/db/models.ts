@@ -138,6 +138,12 @@ export class StyleStack {
   @Prop({ type: () => [String], default: [] })
   public previewUrls?: string[];
 
+  @Prop()
+  public collageImageUrl?: string;
+
+  @Prop({ type: () => Object })
+  public collageConfig?: Record<string, unknown>;
+
   public createdAt?: Date;
   public updatedAt?: Date;
 }

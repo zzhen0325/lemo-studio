@@ -1,5 +1,5 @@
 import { TextProvider, VisionProvider, ImageProvider, ModelConfig } from './types';
-import { OpenAICompatibleProvider, GoogleGenAIProvider, BytedanceAfrProvider, DoubaoVisionProvider, CozeImageProvider } from './providers';
+import { OpenAICompatibleProvider, GoogleGenAIProvider, BytedanceAfrProvider, DoubaoVisionProvider, CozeImageProvider, CozeChatVisionProvider } from './providers';
 import { REGISTRY } from './registry';
 import fs from 'fs';
 import path from 'path';
@@ -148,12 +148,12 @@ export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfi
 
     // Fallback: Try to load from environment variables if apiKey is missing
     if (!config.apiKey) {
-        if (entry.providerType === 'coze-image') {
+        if (entry.providerType === 'coze-image' || entry.providerType === 'coze-vision') {
             config.apiKey = process.env.COZE_API_TOKEN;
         } else if (entry.providerType === 'google-genai') {
             config.apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
         } else if (entry.providerType === 'openai-compatible' || config.providerId === 'deepseek') {
-            config.apiKey = process.env.DEEPSEEK_API_KEY; // Assuming deepseek for now based on context, or check entry
+            config.apiKey = process.env.DEEPSEEK_API_KEY;
         }
         // Add more mappings as needed
     }
@@ -168,6 +168,8 @@ export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfi
         return new BytedanceAfrProvider(config);
     } else if (entry.providerType === 'coze-image') {
         return new CozeImageProvider(config);
+    } else if (entry.providerType === 'coze-vision') {
+        return new CozeChatVisionProvider(config);
     } else {
         // 检查是否是豆包视觉模型
         if (DOUBAO_VISION_MODELS.some(vm => modelId.includes(vm))) {

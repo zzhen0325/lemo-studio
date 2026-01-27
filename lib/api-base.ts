@@ -32,11 +32,21 @@ export function formatImageUrl(url: string | undefined | null, useProxy = false)
 
     // 如果启用代理且是外部 URL，则包装代理
     if (useProxy && resultUrl.startsWith('http')) {
-        const isLocal = resultUrl.startsWith(siteBase) ||
-            resultUrl.includes('localhost') ||
-            resultUrl.includes('127.0.0.1');
+        let isSameOrigin = false;
+        try {
+            if (typeof window !== 'undefined') {
+                const url = new URL(resultUrl, window.location.origin);
+                const current = new URL(window.location.origin);
+                // 只有协议、域名、端口全等才不需要代理
+                isSameOrigin = (url.protocol === current.protocol &&
+                    url.hostname === current.hostname &&
+                    url.port === current.port);
+            }
+        } catch (e) {
+            // fallback to proxying if URL parsing fails
+        }
 
-        if (!isLocal) {
+        if (!isSameOrigin) {
             return `${apiBase}/proxy-image?url=${encodeURIComponent(resultUrl)}`;
         }
     }

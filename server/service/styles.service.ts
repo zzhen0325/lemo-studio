@@ -21,6 +21,8 @@ export class StylesService {
           (s.imagePaths && s.imagePaths.length > 0
             ? s.imagePaths
             : s.previewUrls || []) as string[],
+        collageImageUrl: s.collageImageUrl,
+        collageConfig: s.collageConfig,
         updatedAt: new Date(s.updatedAt || s.createdAt || Date.now()).toISOString(),
       }));
     } catch (error) {
@@ -36,13 +38,20 @@ export class StylesService {
       }
 
       const updatedAt = new Date();
-      const doc = {
+      const doc: Record<string, unknown> = {
         name: styleData.name,
         prompt: styleData.prompt,
         imagePaths: styleData.imagePaths || [],
         previewUrls: styleData.imagePaths || [],
         updatedAt,
       };
+
+      if (styleData.collageImageUrl !== undefined) {
+        doc.collageImageUrl = styleData.collageImageUrl;
+      }
+      if (styleData.collageConfig !== undefined) {
+        doc.collageConfig = styleData.collageConfig;
+      }
 
       await this.styleStackModel.updateOne(
         { _id: styleData.id },

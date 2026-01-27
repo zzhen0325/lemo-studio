@@ -64,7 +64,7 @@ export class AiService {
     }
 
     let resolvedSystemPrompt = explicitSystemPrompt;
-    if (!resolvedSystemPrompt && profileId) {
+    if (resolvedSystemPrompt === undefined && profileId) {
       let providerIdForPrompt = 'unknown';
       if (model.includes('gemini') || model.includes('google')) providerIdForPrompt = 'google';
       else if (model.includes('doubao')) providerIdForPrompt = 'doubao';
@@ -133,7 +133,7 @@ export class AiService {
     const providerInstance = getProvider(model);
 
     let resolvedSystemPrompt = explicitSystemPrompt;
-    if (!resolvedSystemPrompt && profileId) {
+    if (resolvedSystemPrompt === undefined && profileId) {
       let providerIdForPrompt = 'unknown';
       if (model.includes('doubao')) providerIdForPrompt = 'doubao';
       else if (model.includes('deepseek')) providerIdForPrompt = 'deepseek';

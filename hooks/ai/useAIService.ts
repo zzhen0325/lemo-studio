@@ -80,7 +80,7 @@ export function useAIService() {
             const describeConfig = getServiceConfig('describe');
             const model = params.model || describeConfig.modelId;
             // 如果没有传入systemPrompt，使用设置中的systemPrompt
-            const systemPrompt = params.systemPrompt || describeConfig.systemPrompt;
+            const systemPrompt = params.systemPrompt !== undefined ? params.systemPrompt : describeConfig.systemPrompt;
 
             const result = await clientDescribeImage({
                 ...params,

@@ -95,6 +95,8 @@ export function useGenerationService() {
 
     // Helper: Save to history.json
 
+    const addGalleryItem = usePlaygroundStore(s => s.addGalleryItem);
+
     const updateHistoryAndSave = useCallback((uniqueId: string, result: Generation) => {
         setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
             ...item,
@@ -105,6 +107,15 @@ export function useGenerationService() {
             projectId: item.projectId,
             createdAt: item.createdAt,
         } : item));
+
+        // 如果成功生成，同步到 Gallery 状态
+        if (result.status === 'completed') {
+            addGalleryItem({
+                ...result,
+                id: uniqueId,
+                status: 'completed'
+            });
+        }
 
         // Internal helper to avoid re-render issues
         const saveToBackend = async (data: Generation) => {
@@ -125,7 +136,7 @@ export function useGenerationService() {
         if (result.status === 'completed') {
             setIsGenerating(false);
         }
-    }, [setGenerationHistory, toast]);
+    }, [setGenerationHistory, toast, addGalleryItem]);
 
     const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         // Calculate effective source URLs - prioritize passed parameter

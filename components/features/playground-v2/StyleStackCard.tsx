@@ -77,14 +77,20 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                     <Sparkles size={14} className="text-purple-400 group-hover/btn:animate-pulse" />
                     <span className="text-[11px] uppercase tracking-wider font-bold">Use Prompt</span>
                 </Button>
-                {style.imagePaths.length > 0 && (
+                {(style.collageImageUrl || style.imagePaths.length > 0) && (
                     <Button
                         size="sm"
                         className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-blue-500/50 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
                         onClick={(e) => {
                             e.stopPropagation();
-                            applyImage(style.imagePaths[0]);
-                            toast({ title: "Image Added", description: "图片已添加为参考图" });
+                            const pathToApply = style.collageImageUrl || style.imagePaths[0];
+                            if (pathToApply) {
+                                applyImage(pathToApply);
+                                toast({
+                                    title: style.collageImageUrl ? "Collage Added" : "Image Added",
+                                    description: style.collageImageUrl ? "风格拼合图已添加为参考图" : "风格图片已添加为参考图"
+                                });
+                            }
                         }}
                     >
                         <ImageIcon size={14} className="text-blue-400 group-hover/btn:scale-110 transition-transform" />
@@ -157,9 +163,9 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                                 rotate: isExpanded ? (index - (displayImages.length - 1) / 2) * 10 : (index - (displayImages.length - 1) / 2) * 5,
                                 zIndex: 10 - index,
                             }}
-                            transition={{ 
-                                type: 'spring', 
-                                stiffness: 400, 
+                            transition={{
+                                type: 'spring',
+                                stiffness: 400,
                                 damping: 25,
                                 mass: 1.2
                             }}

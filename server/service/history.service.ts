@@ -5,6 +5,7 @@ import { Generation as GenerationEntity, ImageAsset } from '../db';
 import type { Generation, GenerationConfig } from '../../types/database';
 import { isValidObjectId } from '@byted/bytedmongoose';
 import type { UpdateQuery } from '@byted/bytedmongoose';
+import { sanitizeMongoKeys, restoreMongoKeys } from '../utils/mongo';
 
 export interface HistoryQuery {
   page: number;
@@ -51,39 +52,40 @@ export class HistoryService {
         .lean();
 
       const history = items.map((item) => {
-        const outputImage = item.outputImageId as unknown as { url?: string } | undefined;
-        const sourceImage = item.sourceImageId as unknown as { url?: string } | undefined;
-        const storedSourceUrls = (item as { sourceImageUrls?: string[] }).sourceImageUrls;
-        const singleSourceUrl = sourceImage?.url || item.config?.sourceImageUrl;
+        const restoredItem = restoreMongoKeys(item);
+        const outputImage = restoredItem.outputImageId as unknown as { url?: string } | undefined;
+        const sourceImage = restoredItem.sourceImageId as unknown as { url?: string } | undefined;
+        const storedSourceUrls = (restoredItem as { sourceImageUrls?: string[] }).sourceImageUrls;
+        const singleSourceUrl = sourceImage?.url || restoredItem.config?.sourceImageUrl;
 
         // 规范化 sourceImageUrls：统一到 config 内
-        const sourceImageUrls = (item.config?.sourceImageUrls && item.config.sourceImageUrls.length > 0)
-          ? item.config.sourceImageUrls
+        const sourceImageUrls = (restoredItem.config?.sourceImageUrls && restoredItem.config.sourceImageUrls.length > 0)
+          ? restoredItem.config.sourceImageUrls
           : storedSourceUrls && storedSourceUrls.length > 0
             ? storedSourceUrls
             : (singleSourceUrl ? [singleSourceUrl] : []);
 
         // 规范化 localSourceIds：统一到 config 内
-        const localSourceIds = (item.config?.localSourceIds && item.config.localSourceIds.length > 0)
-          ? item.config.localSourceIds
-          : (item as { localSourceIds?: string[] }).localSourceIds ||
-          (item.config?.localSourceId ? [item.config.localSourceId] : []);
+        const localSourceIds = (restoredItem.config?.localSourceIds && restoredItem.config.localSourceIds.length > 0)
+          ? restoredItem.config.localSourceIds
+          : (restoredItem as { localSourceIds?: string[] }).localSourceIds ||
+          (restoredItem.config?.localSourceId ? [restoredItem.config.localSourceId] : []);
 
         return {
-          id: String(item._id),
-          userId: item.userId || 'anonymous',
-          projectId: item.projectId || 'default',
-          outputUrl: outputImage?.url || item.outputUrl,
+          id: String(restoredItem._id),
+          userId: restoredItem.userId || 'anonymous',
+          projectId: restoredItem.projectId || 'default',
+          outputUrl: outputImage?.url || restoredItem.outputUrl,
           config: {
-            ...item.config,
+            ...restoredItem.config,
             sourceImageUrls,
             localSourceIds,
           },
-          status: item.status || 'completed',
-          createdAt: String(item.createdAt || new Date().toISOString()),
-          progress: item.progress,
-          progressStage: item.progressStage,
-          llmResponse: item.llmResponse,
+          status: restoredItem.status || 'completed',
+          createdAt: String(restoredItem.createdAt || new Date().toISOString()),
+          progress: restoredItem.progress,
+          progressStage: restoredItem.progressStage,
+          llmResponse: restoredItem.llmResponse,
         } as Generation;
       });
 
@@ -106,7 +108,8 @@ export class HistoryService {
         const items = body.items as Generation[];
         for (const item of items) {
           if (!item.id || !isValidObjectId(item.id)) continue;
-          await this.generationModel.updateOne({ _id: item.id }, { $set: { ...item, outputUrl: item.outputUrl } });
+          const sanitizedItem = sanitizeMongoKeys(item);
+          await this.generationModel.updateOne({ _id: item.id }, { $set: { ...sanitizedItem, outputUrl: sanitizedItem.outputUrl } });
         }
         return { success: true };
       }
@@ -165,13 +168,15 @@ export class HistoryService {
             ? await this.generationModel.findOne({ outputUrl: item.outputUrl })
             : null;
 
+      const sanitizedRecord = sanitizeMongoKeys(record);
+
       if (existing) {
         await this.generationModel.updateOne(
           { _id: existing._id },
-          { $set: record } as UpdateQuery<GenerationEntity>,
+          { $set: sanitizedRecord } as UpdateQuery<GenerationEntity>,
         );
       } else {
-        const newDoc = await this.generationModel.create(record);
+        const newDoc = await this.generationModel.create(sanitizedRecord);
         if (item.outputUrl) {
           await this.imageAssetModel.updateOne(
             { url: item.outputUrl },

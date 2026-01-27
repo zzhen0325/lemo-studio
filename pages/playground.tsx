@@ -692,7 +692,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     if (optimizedText) setConfig(prev => ({ ...prev, prompt: optimizedText }));
   }, [config.prompt, optimizePrompt, selectedAIModel, setConfig]);
 
-  const handleDescribe = React.useCallback(async () => {
+  const handleDescribe = React.useCallback(async (mode: 'short' | 'json' = 'short') => {
     if (describeImages.length === 0) {
       toast({ title: "错误", description: "请先上传图片", variant: "destructive" });
       return;
@@ -705,6 +705,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setShowHistory(true); // Auto-expand history panel
 
     const startTime = new Date().toISOString();
+    // Create a unified taskId for the entire batch to ensure grouping
+    const batchTaskId = Date.now().toString() + Math.random().toString(36).substring(2, 7);
 
     // Create a temporary loading card
     const loadingId = `describe-loading-${Date.now()}`;
@@ -722,7 +724,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         height: config.height,
         model: config.model,
         loras: config.loras,
-        isEdit: false, // 放入 config 中
+        isEdit: false,
+        taskId: batchTaskId,
+        sourceImageUrls: [imageUrl],
       },
       status: 'pending',
       createdAt: startTime,
@@ -747,13 +751,23 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       }
 
       // 2. Call unified Vision service
+      const modelId = mode === 'json' ? 'coze-professional-describe' : 'gemini-3-pro-image-preview';
+      const systemPrompt = mode === 'json' ? "" : VISION_DESCRIBE_SYSTEM_PROMPT;
+
       const result = await callVision({
         image: `data:image/png;base64,${base64}`,
-        systemPrompt: VISION_DESCRIBE_SYSTEM_PROMPT
+        model: modelId,
+        systemPrompt: systemPrompt
       });
 
       const text = result?.text || "";
-      const results = text.split('|||').map((s: string) => s.trim()).filter(Boolean);
+      let results: string[] = [];
+
+      if (mode === 'json') {
+        results = [text.trim()].filter(Boolean);
+      } else {
+        results = text.split('|||').map((s: string) => s.trim()).filter(Boolean);
+      }
 
       if (results.length > 0) {
         // Create history cards for each description result
@@ -766,8 +780,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             prompt: desc,
             width: config.width || 1024,
             height: config.height || 1024,
-            model: "gemini-3-pro-image-preview",
+            model: modelId,
             loras: config.loras,
+            taskId: batchTaskId,
+            sourceImageUrls: [imageUrl],
           },
           status: 'completed',
           createdAt: startTime,
@@ -794,7 +810,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, toast, initVisitorId, visitorId]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, toast, visitorId, saveHistoryToBackend]);
 
   const handleBatchUse = async (results: Generation[]) => {
     if (!results || results.length === 0) return;

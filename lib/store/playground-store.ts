@@ -562,6 +562,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                             set((state) => {
                                 let newItems: Generation[] = [];
                                 if (page === 1) {
+                                    // 首页加载：如果是手动触发或初次加载，则替换全部数据
                                     newItems = data.history;
                                 } else {
                                     const existingIds = new Set(state.galleryItems.map(item => item.id));
@@ -584,9 +585,12 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             },
 
             addGalleryItem: (item: Generation) => {
-                set((state) => ({
-                    galleryItems: [item, ...state.galleryItems]
-                }));
+                set((state) => {
+                    if (state.galleryItems.some(i => i.id === item.id)) return state;
+                    return {
+                        galleryItems: [item, ...state.galleryItems]
+                    };
+                });
             },
 
             deleteHistory: async (ids: string[]) => {
@@ -599,7 +603,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
                     if (res.ok) {
                         set((state) => ({
-                            generationHistory: state.generationHistory.filter(item => !ids.includes(item.id))
+                            generationHistory: state.generationHistory.filter(item => !ids.includes(item.id)),
+                            galleryItems: state.galleryItems.filter(item => !ids.includes(item.id))
                         }));
                     }
                 } catch (error) {

@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 
 
 import Image from "next/image";
-import { Download, Type, Image as ImageIcon, Box, RefreshCw, Copy, FolderPlus, GripVertical, Bookmark, Pencil, Trash2, History as HistoryIcon } from "lucide-react";
+import { Download, Type, Image as ImageIcon, Box, RefreshCw, Copy, FolderPlus, GripVertical, Bookmark, Pencil, Trash2, History as HistoryIcon, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Generation } from '@/types/database';
 import { AVAILABLE_MODELS } from "@/components/features/playground-v2/hooks/useGenerationService";
@@ -62,7 +62,7 @@ const HistoryList = observer(function HistoryList({
   onEdit,
   onImageClick,
   variant = 'default',
-
+  onLayoutModeChange,
   layoutMode = 'list',
   onLoadMore,
   hasMore = false,
@@ -173,6 +173,34 @@ const HistoryList = observer(function HistoryList({
     <div
       className=" rounded-3xl h-full flex flex-col relative overflow-hidden"
     >
+      <div className="absolute top-4 right-6 z-40 flex items-center gap-2">
+        <div className="flex items-center p-1 gap-1 bg-black/20 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20">
+          <button
+            onClick={() => onLayoutModeChange?.('grid')}
+            className={cn(
+              "p-1.5 rounded-lg transition-all",
+              layoutMode === 'grid'
+                ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20"
+                : "text-white/40 hover:text-white hover:bg-white/5"
+            )}
+            title="Grid View"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onLayoutModeChange?.('list')}
+            className={cn(
+              "p-1.5 rounded-lg transition-all",
+              layoutMode === 'list'
+                ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20"
+                : "text-white/40 hover:text-white hover:bg-white/5"
+            )}
+            title="List View"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
 
 
 
@@ -289,8 +317,7 @@ const HistoryList = observer(function HistoryList({
           variant === 'default' ? "max-w-[1600px]" : "max-w-full"
         )}>
           {layoutMode === 'grid' ? (
-            history.map((result, idx) => {
-              // 数据已规范化，直接从 config.sourceImageUrls 读取
+            history.map((result) => {
               const sourceUrls: string[] = result.config?.sourceImageUrls ||
                 (result.config?.editConfig?.referenceImages?.map(img => img.dataUrl) || []);
               const firstSourceUrl = sourceUrls[0];
@@ -301,7 +328,7 @@ const HistoryList = observer(function HistoryList({
               }
 
               return (
-                <div key={`${result.id}-${idx}`} className="break-inside-avoid mb-4">
+                <div key={result.id} className="break-inside-avoid mb-4">
                   <DraggableHistoryCard
                     result={result}
                     selectedIds={selectedIds}
@@ -319,7 +346,9 @@ const HistoryList = observer(function HistoryList({
                       layoutMode={layoutMode}
                       isSelectionMode={isSelectionMode}
                       isSelected={selectedIds.has(result.id)}
-                      onToggleSelect={() => toggleSelection(result.id)}
+                      onToggleSelect={() => {
+                        usePlaygroundStore.getState().toggleHistorySelection(result.id);
+                      }}
                     />
                   </DraggableHistoryCard>
                 </div>
@@ -1115,6 +1144,14 @@ function HistoryCard({
                   }
                 }}
               />
+
+              {/* Batch count badge for grouped images */}
+              {allResults && allResults.length > 1 && (
+                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded-md border border-white/10 text-[10px] text-white/90 font-mono z-20 flex items-center gap-1 shadow-lg">
+                  <Box className="w-2.5 h-2.5" />
+                  {allResults.length}
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div

@@ -33,6 +33,7 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
     const galleryPage = usePlaygroundStore(s => s.galleryPage);
     const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
     const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
+    const activeTab = usePlaygroundStore(s => s.activeTab);
 
     // Responsive column count
     const isSm = useMediaQuery("(min-width: 640px)");
@@ -149,12 +150,16 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 
     // Navigation Logic removed as ImagePreviewModal is now global
 
-    // 初始数据加载：如果进入该视图且数据为空，则触发拉取
+    // 数据加载逻辑：
+    // 1. 如果进入该视图且数据为空，则触发拉取
+    // 2. 切换到 Gallery 标签时自动刷新第一页，确保数据最新
     useEffect(() => {
-        if (galleryItems.length === 0 && !isFetchingGallery) {
-            fetchGallery(1);
+        if (activeTab === 'gallery') {
+            if (galleryItems.length === 0 || !isFetchingGallery) {
+                fetchGallery(1).catch(err => console.error("Gallery refresh failed:", err));
+            }
         }
-    }, [galleryItems.length, isFetchingGallery, fetchGallery]);
+    }, [activeTab, fetchGallery, isFetchingGallery, galleryItems.length]);
 
     const scrollRef = useRef<HTMLDivElement>(null);
 

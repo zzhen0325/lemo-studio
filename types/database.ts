@@ -110,6 +110,8 @@ export interface StyleStack {
   name: string;
   prompt: string;
   imagePaths: string[];
+  collageImageUrl?: string;
+  collageConfig?: Record<string, unknown>;
   updatedAt: string;
 }
 

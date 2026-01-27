@@ -22,7 +22,7 @@ export interface DescribePanelProps {
   onRemoveImage: (index: number) => void;
   isDescribing: boolean;
   isGenerating: boolean;
-  onDescribe: () => void;
+  onDescribe: (mode: 'short' | 'json') => void;
 }
 
 export function DescribePanel({
@@ -127,26 +127,49 @@ export function DescribePanel({
                     </div>
                   </div>
 
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDescribe();
-                    }}
-                    disabled={isDescribing || isGenerating}
-                    className="h-10 px-8 rounded-xl bg-primary text-black font-normal hover:bg-primary/90 transition-all shadow-[0_0_20px_oklch(var(--primary)/0.3)] active:scale-95 disabled:opacity-50 shrink-0"
-                  >
-                    {isDescribing ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size={14} />
-                        <span className="text-sm">描述中...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span className="text-sm">Describe</span>
-                      </div>
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDescribe('short');
+                      }}
+                      disabled={isDescribing || isGenerating}
+                      className="h-10 px-6 rounded-xl bg-white/10 text-white font-normal hover:bg-white/20 transition-all border border-white/10 active:scale-95 disabled:opacity-50 shrink-0"
+                    >
+                      {isDescribing ? (
+                        <div className="flex items-center gap-2">
+                          <LoadingSpinner size={14} />
+                          <span className="text-sm">描述中...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-3.5 h-3.5 opacity-60" />
+                          <span className="text-sm">简短描述</span>
+                        </div>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDescribe('json');
+                      }}
+                      disabled={isDescribing || isGenerating}
+                      className="h-10 px-8 rounded-xl bg-primary text-black font-normal hover:bg-primary/90 transition-all shadow-[0_0_20px_oklch(var(--primary)/0.3)] active:scale-95 disabled:opacity-50 shrink-0"
+                    >
+                      {isDescribing ? (
+                        <div className="flex items-center gap-2">
+                          <LoadingSpinner size={14} />
+                          <span className="text-sm">生成中...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span className="text-sm">专业 JSON</span>
+                        </div>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

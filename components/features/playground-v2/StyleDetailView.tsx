@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import SimpleImagePreview from './SimpleImagePreview';
 import { cn } from '@/lib/utils';
 import { TooltipButton } from '@/components/ui/tooltip-button';
+import { StyleCollageEditor } from './StyleCollageEditor';
 
 interface StyleDetailViewProps {
     style: StyleStack;
@@ -36,6 +37,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
     const [selectedPaths, setSelectedPaths] = React.useState<string[]>([]);
     const [previewImage, setPreviewImage] = React.useState<string | null>(null);
     const [previewLayoutId, setPreviewLayoutId] = React.useState<string | null>(null);
+    const [isCollageEditorOpen, setIsCollageEditorOpen] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleCopyPrompt = async () => {
@@ -131,6 +133,32 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         } catch (error) {
             console.error("Failed to use image", error);
             toast({ title: "添加失败", description: "无法将图片添加到输入框", variant: "destructive" });
+        }
+    };
+
+    const handleUseCollage = async () => {
+        if (!style.collageImageUrl) return;
+
+        try {
+            const imageUrl = formatImageUrl(style.collageImageUrl);
+            const resp = await fetch(imageUrl);
+            const blob = await resp.blob();
+            const file = new File([blob], `style-collage-${style.id}.png`, { type: 'image/png' });
+            const reader = new FileReader();
+            const dataUrl = await new Promise<string>((resolve) => {
+                reader.onload = (e) => resolve(String(e.target?.result));
+                reader.readAsDataURL(blob);
+            });
+            const base64Data = dataUrl.split(',')[1];
+
+            setUploadedImages(prev => [
+                ...prev,
+                { file, base64: base64Data, previewUrl: dataUrl, path: style.collageImageUrl }
+            ]);
+            toast({ title: "已添加", description: "该风格的拼合图已作为参考图添加到输入框" });
+        } catch (error) {
+            console.error("Failed to use collage", error);
+            toast({ title: "添加失败", description: "无法将拼合图添加到输入框", variant: "destructive" });
         }
     };
 
@@ -305,6 +333,52 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                     )}
                 </div>
 
+                {/* Collage Section */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xl text-white/60 font-normal">Collage</span>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsCollageEditorOpen(true)}
+                            className="rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-10 px-6 transition-all"
+                        >
+                            <Edit2 size={14} />
+                            {style.collageImageUrl ? '编辑拼图' : '生成拼图'}
+                        </Button>
+                    </div>
+
+                    {style.collageImageUrl ? (
+                        <div
+                            className="relative aspect-square w-full max-w-2xl mx-auto rounded-3xl overflow-hidden border border-white/10 bg-white/5 group cursor-pointer"
+                            onClick={handleUseCollage}
+                        >
+                            <NextImage
+                                src={formatImageUrl(style.collageImageUrl)}
+                                alt="Style Collage"
+                                fill
+                                className="object-cover transition-transform group-hover:scale-[1.02] duration-500"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                        <ImageIcon size={24} />
+                                    </div>
+                                    <p className="text-white font-medium">点击使用拼图作为参考图</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] bg-white/[0.01] hover:bg-white/5 transition-colors cursor-pointer group"
+                            onClick={() => setIsCollageEditorOpen(true)}
+                        >
+                            <ImageIcon size={32} className="text-white/10 group-hover:text-primary transition-colors mb-3" />
+                            <p className="text-white/20 italic">点击生成风格拼合图</p>
+                            <p className="text-white/10 text-xs mt-1">2048 x 2048, 高保真参考图</p>
+                        </div>
+                    )}
+                </div>
+
                 {/* Image Grid */}
                 <div className=" flex-1 space-y-3 ">
                     <div className="flex items-center justify-between">
@@ -453,6 +527,21 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                     setPreviewLayoutId(null);
                 }}
             />
+
+            {isCollageEditorOpen && (
+                <StyleCollageEditor
+                    style={style}
+                    onClose={() => setIsCollageEditorOpen(false)}
+                    onSave={async (path, config) => {
+                        await updateStyle({
+                            ...style,
+                            collageImageUrl: path,
+                            collageConfig: config,
+                            updatedAt: new Date().toISOString()
+                        });
+                    }}
+                />
+            )}
 
         </div>
     );
