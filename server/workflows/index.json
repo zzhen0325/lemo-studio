@@ -6,6 +6,41 @@
       "title": "image_z_image_turbo",
       "folder": "image_z_image_turbo",
       "id": "wf_image_z_image_turbo"
+    },
+    {
+      "title": "标准文生图",
+      "folder": "标准文生图",
+      "id": "wf_标准文生图"
+    },
+    {
+      "title": "JP",
+      "folder": "JP",
+      "id": "wf_jp"
+    },
+    {
+      "title": "US",
+      "folder": "US",
+      "id": "wf_us"
+    },
+    {
+      "title": "3D lemo",
+      "folder": "3D lemo",
+      "id": "wf_3d lemo"
+    },
+    {
+      "title": "2D lemo",
+      "folder": "2D lemo",
+      "id": "wf_2d lemo"
+    },
+    {
+      "title": "高清放大",
+      "folder": "高清放大",
+      "id": "wf_高清放大"
+    },
+    {
+      "title": "flux 双图流",
+      "folder": "flux 双图流",
+      "id": "wf_flux 双图流"
     }
   ]
 }
