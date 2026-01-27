@@ -46,16 +46,20 @@ export const StyleCollageEditor: React.FC<StyleCollageEditorProps> = ({
         if (!collageRef.current) return;
         setIsSaving(true);
 
+        // 确保 React 完成由于 isSaving 状态变化引起的重新渲染（如果有）
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         try {
             const canvas = document.createElement('canvas');
             canvas.width = CANVAS_SIZE;
             canvas.height = CANVAS_SIZE;
-            canvas.style.width = '2048px'; // 显式样式，防止浏览器缩放干扰
-            canvas.style.height = '2048px';
+            canvas.style.width = `${CANVAS_SIZE / 2}px`;
+            canvas.style.height = `${CANVAS_SIZE / 2}px`;
+
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (!ctx) throw new Error('CTX_FAIL');
 
-            // 1. 深灰底色，专业且区分纯黑 Taint
+            // 1. 深灰底色
             ctx.fillStyle = '#111';
             ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
@@ -63,46 +67,67 @@ export const StyleCollageEditor: React.FC<StyleCollageEditorProps> = ({
             if (containerRect.width === 0) throw new Error('Visibility Error');
             const scale = CANVAS_SIZE / containerRect.width;
 
+            // 关键修复：在任何 await 之前，立即捕获所有 Slot 的 DOM 位置和路径数据
+            // 避免在异步循环内访问可能失效或重排的 DOM 节点
             const slotNodes = Array.from(collageRef.current.querySelectorAll('[data-slot-index]'));
+            const tasks = slotNodes.map(slot => {
+                const index = parseInt(slot.getAttribute('data-slot-index') || '-1');
+                const path = orderedPaths[index];
+                const rect = slot.getBoundingClientRect();
+                return { index, path, rect };
+            }).filter(t => t.index !== -1 && t.path && t.rect.width > 0.5 && t.rect.height > 0.5);
+
             let drawnCount = 0;
 
-            for (const slot of slotNodes) {
-                const index = parseInt(slot.getAttribute('data-slot-index') || '-1');
-                if (index === -1) continue;
-
-                const path = orderedPaths[index];
-                if (!path) continue;
-
-                const rect = slot.getBoundingClientRect();
-                // 宽容度检测：只要大于0就尝试画，防止计算误差
-                if (rect.width <= 0.5 || rect.height <= 0.5) {
-                    console.warn(`Slot ${index} too small: ${rect.width}x${rect.height}`);
-                    continue;
-                }
-
+            for (const task of tasks) {
+                const { index, path, rect } = task;
                 const dw = rect.width * scale;
                 const dh = rect.height * scale;
                 const dx = (rect.left - containerRect.left) * scale;
                 const dy = (rect.top - containerRect.top) * scale;
 
                 const rawUrl = formatImageUrl(path);
+                const isLocalOrData = rawUrl.startsWith('data:') || rawUrl.startsWith('blob:') || rawUrl.startsWith('local:');
 
                 try {
                     const img = new Image();
                     img.crossOrigin = "anonymous";
-                    img.src = `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}ts=${Date.now()}_${index}`;
 
-                    await new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = () => {
-                            img.crossOrigin = null;
-                            img.src = rawUrl;
-                            img.onload = resolve;
-                            img.onerror = resolve;
+                    const loadPromise = new Promise((resolve) => {
+                        const onDone = () => {
+                            img.onload = null;
+                            img.onerror = null;
+                            resolve(true);
                         };
-                        // 稍微放宽超时，防止大图加载慢
-                        setTimeout(resolve, 6000);
+
+                        img.onload = onDone;
+                        img.onerror = () => {
+                            // 针对远程图，如果 CORS 失败则尝试非 anonymous 模式（可能会导致 Canvas 污染，但能画出来）
+                            if (!isLocalOrData && img.crossOrigin) {
+                                img.crossOrigin = null;
+                                img.src = rawUrl;
+                                // 重新绑定事件
+                                img.onload = onDone;
+                                img.onerror = onDone;
+                            } else {
+                                onDone();
+                            }
+                        };
+
+                        // 超时容错
+                        setTimeout(onDone, 8000);
                     });
+
+                    // 启动加载
+                    if (isLocalOrData) {
+                        img.src = rawUrl;
+                    } else {
+                        // 避免对带参数的 URL 错误拼接，且加上时间戳防止缓存导致的 CORS 冲突
+                        const separator = rawUrl.includes('?') ? '&' : '?';
+                        img.src = `${rawUrl}${separator}ts=${Date.now()}_${index}`;
+                    }
+
+                    await loadPromise;
 
                     if (img.complete && img.naturalWidth > 0) {
                         const iW = img.naturalWidth;
@@ -121,38 +146,39 @@ export const StyleCollageEditor: React.FC<StyleCollageEditorProps> = ({
                         drawnCount++;
                     }
                 } catch (e) {
-                    console.error('Draw failed', e);
+                    console.error(`Draw failed for slot ${index}`, e);
                 }
             }
 
-            // 至少要画出一张才算有内容，否则报错不让用户疑惑
             if (drawnCount === 0) throw new Error('No images rendered');
 
             const blob = await new Promise<Blob | null>(resolve => {
                 try {
-                    canvas.toBlob(resolve, 'image/jpeg', 0.92);
+                    canvas.toBlob(resolve, 'image/jpeg', 0.95);
                 } catch (e) {
+                    console.error('Canvas toBlob failed', e);
                     resolve(null);
                 }
             });
 
-            if (!blob) throw new Error('Tainted Canvas');
+            if (!blob) throw new Error('Tainted Canvas or Export Fail');
 
             const formData = new FormData();
             formData.append('file', blob, `collage-${style.id}.jpg`);
 
             const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: formData });
+            if (!resp.ok) throw new Error(`Upload failed: ${resp.statusText}`);
             const data = await resp.json();
 
-            await onSave(data.path, {});
+            await onSave(data.path, { drawnCount, collageSize: CANVAS_SIZE });
             toast({
                 title: "合成成功",
-                description: <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{`包含 ${drawnCount} 个图层`}</div>
+                description: <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-green-500" />{`已合并 ${drawnCount} 个图层`}</div>
             });
             onClose();
 
         } catch (error) {
-            console.error(error);
+            console.error('Collage Error:', error);
             toast({ title: "合成中断", description: String(error), variant: "destructive" });
         } finally {
             setIsSaving(false);

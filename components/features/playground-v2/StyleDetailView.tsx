@@ -333,187 +333,190 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                     )}
                 </div>
 
-                {/* Collage Section */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xl text-white/60 font-normal">Collage</span>
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsCollageEditorOpen(true)}
-                            className="rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-10 px-6 transition-all"
-                        >
-                            <Edit2 size={14} />
-                            {style.collageImageUrl ? '编辑拼图' : '生成拼图'}
-                        </Button>
-                    </div>
+                {/* Content Layout: Collage & Gallery (Left-Right) */}
+                <div className="flex flex-col lg:flex-row gap-10 items-start">
+                    {/* Left side: Collage Section */}
+                    <div className="w-full lg:w-[450px] space-y-4 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xl text-white/60 font-normal">Collage</span>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsCollageEditorOpen(true)}
+                                className="rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-9 px-4 text-xs transition-all"
+                            >
+                                <Edit2 size={12} />
+                                {style.collageImageUrl ? '编辑拼图' : '生成拼图'}
+                            </Button>
+                        </div>
 
-                    {style.collageImageUrl ? (
-                        <div
-                            className="relative aspect-square w-full max-w-2xl mx-auto rounded-3xl overflow-hidden border border-white/10 bg-white/5 group cursor-pointer"
-                            onClick={handleUseCollage}
-                        >
-                            <NextImage
-                                src={formatImageUrl(style.collageImageUrl)}
-                                alt="Style Collage"
-                                fill
-                                className="object-cover transition-transform group-hover:scale-[1.02] duration-500"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                                <div className="flex flex-col items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                                        <ImageIcon size={24} />
+                        {style.collageImageUrl ? (
+                            <div
+                                className="relative aspect-square w-full rounded-2xl overflow-hidden border border-white/10 bg-white/5 group cursor-pointer"
+                                onClick={handleUseCollage}
+                            >
+                                <NextImage
+                                    src={formatImageUrl(style.collageImageUrl)}
+                                    alt="Style Collage"
+                                    fill
+                                    className="object-cover transition-transform group-hover:scale-[1.02] duration-500"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                            <ImageIcon size={20} />
+                                        </div>
+                                        <p className="text-xs text-white font-medium">点击使用拼图作为参考图</p>
                                     </div>
-                                    <p className="text-white font-medium">点击使用拼图作为参考图</p>
                                 </div>
                             </div>
-                        </div>
-                    ) : (
-                        <div
-                            className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] bg-white/[0.01] hover:bg-white/5 transition-colors cursor-pointer group"
-                            onClick={() => setIsCollageEditorOpen(true)}
-                        >
-                            <ImageIcon size={32} className="text-white/10 group-hover:text-primary transition-colors mb-3" />
-                            <p className="text-white/20 italic">点击生成风格拼合图</p>
-                            <p className="text-white/10 text-xs mt-1">2048 x 2048, 高保真参考图</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Image Grid */}
-                <div className=" flex-1 space-y-3 ">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                            <span className="text-xl text-white/60 font-normal">
-                                Gallery <span className="text-white/40 ml-1">({style.imagePaths.length})</span>
-                            </span>
-                        </div>
-
-                        <div className="flex items-center  gap-4">
-                            {isManaging && selectedPaths.length > 0 && (
-                                <Button
-                                    variant="destructive"
-                                    onClick={handleBatchDelete}
-                                    className="rounded-xl gap-2 h-10 px-6 transition-all bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20"
-                                >
-                                    <Trash2 size={16} />
-                                    删除选中 ({selectedPaths.length})
-                                </Button>
-                            )}
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setIsManaging(!isManaging);
-                                    setSelectedPaths([]);
-                                }}
-                                className={cn(
-                                    "rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-10 px-6 transition-all",
-                                    isManaging && "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
-                                )}
+                        ) : (
+                            <div
+                                className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.01] hover:bg-white/5 transition-colors cursor-pointer group"
+                                onClick={() => setIsCollageEditorOpen(true)}
                             >
-                                <Settings2 size={16} />
-                                {isManaging ? '取消选择' : '批量选择'}
-                            </Button>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                style={{ display: 'none' }}
-                                multiple
-                                accept="image/*"
-                                onChange={handleFileChange}
-                            />
-                            <Button
-                                variant="outline"
-                                onClick={handleUploadClick}
-                                disabled={isUploading}
-                                className="rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-10 px-6 transition-all"
-                            >
-                                <Upload size={16} />
-                                {isUploading ? '正在上传...' : '添加图片'}
-                            </Button>
-                        </div>
+                                <ImageIcon size={28} className="text-white/10 group-hover:text-primary transition-colors mb-3" />
+                                <p className="text-white/20 text-sm italic">点击生成风格拼合图</p>
+                                <p className="text-white/10 text-[10px] mt-1">2048 x 2048, 高保真参考图</p>
+                            </div>
+                        )}
                     </div>
 
-                    {style.imagePaths.length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2 ">
-                            {style.imagePaths.map((path, index) => {
-                                const layoutId = `style-image-${style.id}-${index}`;
-                                const isSelected = selectedPaths.includes(path);
+                    {/* Right side: Image Grid (Gallery) */}
+                    <div className="flex-1 w-full space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl text-white/60 font-normal">
+                                    Gallery <span className="text-white/40 ml-1">({style.imagePaths.length})</span>
+                                </span>
+                            </div>
 
-                                return (
-                                    <motion.div
-                                        key={`${path}-${index}`}
-                                        layoutId={layoutId}
-                                        className={cn(
-                                            "group relative aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 bg-white/5",
-                                            isManaging ? "cursor-pointer" : "cursor-zoom-in",
-                                            isSelected ? "border-primary ring-2 ring-primary/50" : "hover:border-primary/50 transition-colors"
-                                        )}
-                                        onClick={() => {
-                                            if (isManaging) {
-                                                setSelectedPaths(prev =>
-                                                    prev.includes(path)
-                                                        ? prev.filter(p => p !== path)
-                                                        : [...prev, path]
-                                                );
-                                            } else {
-                                                setPreviewImage(path);
-                                                setPreviewLayoutId(layoutId);
-                                            }
-                                        }}
-                                        whileHover={{ scale: 1.02 }}
-                                        transition={{
-                                            type: "spring",
-                                            stiffness: 400,
-                                            damping: 35,
-                                            mass: 1
-                                        }}
+                            <div className="flex items-center gap-2">
+                                {isManaging && selectedPaths.length > 0 && (
+                                    <Button
+                                        variant="destructive"
+                                        onClick={handleBatchDelete}
+                                        className="rounded-xl gap-2 h-9 px-4 text-xs transition-all bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20"
                                     >
-                                        <NextImage
-                                            src={formatImageUrl(path)}
-                                            alt={`Style image ${index}`}
-                                            fill
+                                        <Trash2 size={14} />
+                                        删除选中 ({selectedPaths.length})
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsManaging(!isManaging);
+                                        setSelectedPaths([]);
+                                    }}
+                                    className={cn(
+                                        "rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-9 px-4 text-xs transition-all",
+                                        isManaging && "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                                    )}
+                                >
+                                    <Settings2 size={14} />
+                                    {isManaging ? '取消选择' : '批量选择'}
+                                </Button>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    style={{ display: 'none' }}
+                                    multiple
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                />
+                                <Button
+                                    variant="outline"
+                                    onClick={handleUploadClick}
+                                    disabled={isUploading}
+                                    className="rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-9 px-4 text-xs transition-all"
+                                >
+                                    <Upload size={14} />
+                                    {isUploading ? '上传中...' : '添加图片'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {style.imagePaths.length > 0 ? (
+                            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                                {style.imagePaths.map((path, index) => {
+                                    const layoutId = `style-image-${style.id}-${index}`;
+                                    const isSelected = selectedPaths.includes(path);
+
+                                    return (
+                                        <motion.div
+                                            key={`${path}-${index}`}
+                                            layoutId={layoutId}
                                             className={cn(
-                                                "object-cover pointer-events-none transition-opacity",
-                                                isManaging && isSelected ? "opacity-60" : "opacity-100"
+                                                "group relative aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 bg-white/5",
+                                                isManaging ? "cursor-pointer" : "cursor-zoom-in",
+                                                isSelected ? "border-primary ring-2 ring-primary/50" : "hover:border-primary/50 transition-colors"
                                             )}
-                                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
-                                        />
+                                            onClick={() => {
+                                                if (isManaging) {
+                                                    setSelectedPaths(prev =>
+                                                        prev.includes(path)
+                                                            ? prev.filter(p => p !== path)
+                                                            : [...prev, path]
+                                                    );
+                                                } else {
+                                                    setPreviewImage(path);
+                                                    setPreviewLayoutId(layoutId);
+                                                }
+                                            }}
+                                            whileHover={{ scale: 1.02 }}
+                                            transition={{
+                                                type: "spring",
+                                                stiffness: 400,
+                                                damping: 35,
+                                                mass: 1
+                                            }}
+                                        >
+                                            <NextImage
+                                                src={formatImageUrl(path)}
+                                                alt={`Style image ${index}`}
+                                                fill
+                                                className={cn(
+                                                    "object-cover pointer-events-none transition-opacity",
+                                                    isManaging && isSelected ? "opacity-60" : "opacity-100"
+                                                )}
+                                                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
+                                            />
 
-                                        {isManaging && (
-                                            <div className={cn(
-                                                "absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                                                isSelected
-                                                    ? "bg-primary border-primary text-white"
-                                                    : "bg-black/20 border-white/40 text-transparent"
-                                            )}>
-                                                <Check size={14} strokeWidth={3} />
-                                            </div>
-                                        )}
+                                            {isManaging && (
+                                                <div className={cn(
+                                                    "absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+                                                    isSelected
+                                                        ? "bg-primary border-primary text-white"
+                                                        : "bg-black/20 border-white/40 text-transparent"
+                                                )}>
+                                                    <Check size={14} strokeWidth={3} />
+                                                </div>
+                                            )}
 
-                                        {!isManaging && (
-                                            <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <TooltipButton
-                                                    icon={<ImageIcon size={14} />}
-                                                    label="使用此图"
-                                                    tooltipContent="作为参考图使用"
-                                                    tooltipSide="right"
-                                                    variant="secondary"
-                                                    className="h-8 w-8 bg-black/40 hover:bg-black/60 text-white border-none backdrop-blur-md"
-                                                    onClick={(e) => handleUseImage(e, path)}
-                                                />
-                                            </div>
-                                        )}
+                                            {!isManaging && (
+                                                <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <TooltipButton
+                                                        icon={<ImageIcon size={14} />}
+                                                        label="使用此图"
+                                                        tooltipContent="作为参考图使用"
+                                                        tooltipSide="right"
+                                                        variant="secondary"
+                                                        className="h-8 w-8 bg-black/40 hover:bg-black/60 text-white border-none backdrop-blur-md"
+                                                        onClick={(e) => handleUseImage(e, path)}
+                                                    />
+                                                </div>
+                                            )}
 
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] bg-white/[0.01]">
-                            <p className="text-white/20 italic text-lg">暂无关联图片</p>
-                            <p className="text-white/10 text-sm mt-2">在 Gallery 中点击“添加到风格”来丰富此风格的图片</p>
-                        </div>
-                    )}
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
+                                <p className="text-white/20 italic text-lg">暂无关联图片</p>
+                                <p className="text-white/10 text-sm mt-2">从 Gallery 中添加图片来丰富此风格</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
 
