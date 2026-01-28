@@ -48,10 +48,10 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
 
     return (
         <header
-            className="fixed top-2 px-14 left-0 right-0 h-14 z-50 flex items-center justify-between  select-none"
+            className="fixed top-2 px-10 left-0 right-0 h-14 z-50 flex items-center justify-between  select-none"
         >
             <div
-                className="flex items-center cursor-pointer absolute top-4 hover:opacity-80 transition-opacity"
+                className="flex items-center cursor-pointer  hover:opacity-80 transition-opacity"
                 onClick={() => {
                     onTabChange(TabValue.Playground);
                     setViewMode('home');
@@ -104,7 +104,7 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                 </button> */}
             </nav>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center ">
                 {userStore.currentUser ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger className="outline-none">

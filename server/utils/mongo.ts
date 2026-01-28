@@ -12,6 +12,12 @@ export function sanitizeMongoKeys(obj: any): any {
         return obj.map(item => sanitizeMongoKeys(item));
     }
 
+    // Only recurse if it's a plain object (e.g. {}, new Object())
+    // This prevents corruption of specialized objects like MongoDB's ObjectId
+    if (obj.constructor !== Object) {
+        return obj;
+    }
+
     const result: any = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -33,6 +39,12 @@ export function restoreMongoKeys(obj: any): any {
 
     if (Array.isArray(obj)) {
         return obj.map(item => restoreMongoKeys(item));
+    }
+
+    // Only recurse if it's a plain object (e.g. {}, new Object())
+    // This prevents corruption of specialized objects like MongoDB's ObjectId
+    if (obj.constructor !== Object) {
+        return obj;
     }
 
     const result: any = {};
