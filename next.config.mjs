@@ -43,7 +43,7 @@ const nextConfig = {
     }
     return config;
   },
-  // output: "standalone",
+  output: 'standalone',
   env: {
     PORT: process.env.PORT || process.argv.find(arg => arg.startsWith('-p=') || arg.startsWith('--port='))?.split('=')[1] || '3001',
   },

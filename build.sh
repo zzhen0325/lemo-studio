@@ -185,6 +185,26 @@ build_frontend() {
     cp -R "${FRONTEND_DIR}/public" "${output_root}" || log WARN "前端: 拷贝 public 到 output/public 失败"
   fi
 
+  if [[ -d "${FRONTEND_DIR}/.next/standalone" ]]; then
+    cp -R "${FRONTEND_DIR}/.next/standalone" "${output_root}/standalone" || log WARN "前端: 拷贝 .next/standalone 失败"
+  else
+    log WARN "前端: 未找到 .next/standalone"
+  fi
+
+  if [[ -d "${FRONTEND_DIR}/.next/static" ]]; then
+    cp -R "${FRONTEND_DIR}/.next/static" "${output_root}/static" || log WARN "前端: 拷贝 .next/static 失败"
+  fi
+
+  cat > "${output_root}/package.json" <<'EOF'
+{
+  "name": "lemon8-ai-standalone",
+  "private": true,
+  "scripts": {
+    "start": "node standalone/server.js"
+  }
+}
+EOF
+
   log INFO "打包产物已整理到: ${output_root}"
 }
 
