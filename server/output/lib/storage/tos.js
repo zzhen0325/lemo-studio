@@ -12,21 +12,30 @@ class NotImplementedCloudStorage {
         throw new Error(`[CloudStorage] ${method} is not implemented yet`);
     }
     async putObject(_key, _body, _options) {
+        void _key;
+        void _body;
+        void _options;
         this.notImplemented('putObject');
     }
     async getObject(_key) {
+        void _key;
         this.notImplemented('getObject');
     }
     async deleteObject(_key) {
+        void _key;
         this.notImplemented('deleteObject');
     }
     async listObjects(_prefix) {
+        void _prefix;
         this.notImplemented('listObjects');
     }
     async copyObject(_sourceKey, _destinationKey) {
+        void _sourceKey;
+        void _destinationKey;
         this.notImplemented('copyObject');
     }
     getPublicUrl(_key) {
+        void _key;
         this.notImplemented('getPublicUrl');
     }
 }

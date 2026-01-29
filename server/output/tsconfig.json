@@ -13,14 +13,30 @@
     "rootDir": "..",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../*"],
-      "@/components/*": ["../components/*"],
-      "@/lib/*": ["../lib/*"],
-      "@/types/*": ["../types/*"],
-      "@/hooks/*": ["../hooks/*"],
-      "@/styles/*": ["../styles/*"],
-      "@/config/*": ["../config/*"],
-      "@/public/*": ["../public/*"]
+      "@/*": [
+        "../*"
+      ],
+      "@/components/*": [
+        "../components/*"
+      ],
+      "@/lib/*": [
+        "../lib/*"
+      ],
+      "@/types/*": [
+        "../types/*"
+      ],
+      "@/hooks/*": [
+        "../hooks/*"
+      ],
+      "@/styles/*": [
+        "../styles/*"
+      ],
+      "@/config/*": [
+        "../config/*"
+      ],
+      "@/public/*": [
+        "../public/*"
+      ]
     },
     "jsx": "react"
   },
@@ -34,6 +50,7 @@
     "node_modules",
     "dist",
     "**/*.test.ts",
+    "../lib/store",
     "../lib/**/__tests__",
     "../**/*.test.ts"
   ]

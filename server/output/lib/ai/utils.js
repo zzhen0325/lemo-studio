@@ -8,8 +8,10 @@ exports.generateSign = generateSign;
 exports.generateNonce = generateNonce;
 exports.generateTimestamp = generateTimestamp;
 exports.getProxyAgent = getProxyAgent;
+exports.getUndiciDispatcher = getUndiciDispatcher;
 const crypto_1 = __importDefault(require("crypto"));
 const https_proxy_agent_1 = require("https-proxy-agent");
+const undici_1 = require("undici");
 function sha1(message) {
     return crypto_1.default.createHash('sha1').update(message).digest('hex');
 }
@@ -28,4 +30,8 @@ function generateTimestamp() {
 function getProxyAgent() {
     const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
     return proxyUrl ? new https_proxy_agent_1.HttpsProxyAgent(proxyUrl) : undefined;
+}
+function getUndiciDispatcher() {
+    const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    return proxyUrl ? new undici_1.ProxyAgent(proxyUrl) : undefined;
 }

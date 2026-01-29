@@ -26,6 +26,8 @@ let StylesService = class StylesService {
                 imagePaths: (s.imagePaths && s.imagePaths.length > 0
                     ? s.imagePaths
                     : s.previewUrls || []),
+                collageImageUrl: s.collageImageUrl,
+                collageConfig: s.collageConfig,
                 updatedAt: new Date(s.updatedAt || s.createdAt || Date.now()).toISOString(),
             }));
         }
@@ -47,6 +49,12 @@ let StylesService = class StylesService {
                 previewUrls: styleData.imagePaths || [],
                 updatedAt,
             };
+            if (styleData.collageImageUrl !== undefined) {
+                doc.collageImageUrl = styleData.collageImageUrl;
+            }
+            if (styleData.collageConfig !== undefined) {
+                doc.collageConfig = styleData.collageConfig;
+            }
             await this.styleStackModel.updateOne({ _id: styleData.id }, { $set: doc }, { upsert: true });
             return {
                 ...styleData,

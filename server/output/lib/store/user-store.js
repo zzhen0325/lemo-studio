@@ -77,7 +77,7 @@ class UserStore {
                 return false;
             }
         }
-        catch (e) {
+        catch {
             (0, mobx_1.runInAction)(() => {
                 this.error = 'Network error';
             });
@@ -117,7 +117,7 @@ class UserStore {
                 return false;
             }
         }
-        catch (e) {
+        catch {
             (0, mobx_1.runInAction)(() => {
                 this.error = 'Network error';
             });

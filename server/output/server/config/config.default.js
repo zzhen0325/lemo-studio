@@ -10,12 +10,12 @@ const cors_1 = __importDefault(require("../middleware/cors"));
 // 约定：GuluX 服务从 server/ 目录启动，这里将 cwd 提升到仓库根目录，
 // 以保持与 Next 应用中 process.cwd() 的语义一致（指向 lemo-AI-studio 根目录）。
 const workspaceRoot = path_1.default.join(process.cwd(), "..");
-if (process.cwd() !== workspaceRoot) {
-    process.chdir(workspaceRoot);
-}
+// if (process.cwd() !== workspaceRoot) {
+//   process.chdir(workspaceRoot);
+// }
 // 加载 .env.local 环境变量（模拟 Next.js 行为）
 const fs_1 = __importDefault(require("fs"));
-const envLocalPath = path_1.default.join(process.cwd(), ".env.local");
+const envLocalPath = path_1.default.join(workspaceRoot, ".env.local");
 if (fs_1.default.existsSync(envLocalPath)) {
     const envContent = fs_1.default.readFileSync(envLocalPath, "utf8");
     envContent.split("\n").forEach((line) => {

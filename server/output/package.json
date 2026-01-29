@@ -11,13 +11,15 @@
   "dependencies": {
     "@byted/typegoose": "8.3.1",
     "@gulux/gulux": "1.8.9",
+    "dotenv": "^17.2.3",
     "mime-types": "2.1.35",
     "mongoose": "7.8.8",
-    "undici": "6.23.0",
+    "undici": "^6.23.0",
     "uuid": "9.0.1",
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@types/dotenv": "^6.1.1",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
     "typescript": "5.9.3"

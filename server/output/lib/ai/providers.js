@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CozeImageProvider = exports.BytedanceAfrProvider = exports.GoogleGenAIProvider = exports.DoubaoVisionProvider = exports.OpenAICompatibleProvider = void 0;
+exports.CozeChatVisionProvider = exports.CozeImageProvider = exports.BytedanceAfrProvider = exports.GoogleGenAIProvider = exports.DoubaoVisionProvider = exports.OpenAICompatibleProvider = void 0;
 const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
 const utils_1 = require("./utils");
@@ -178,14 +178,14 @@ class GoogleGenAIProvider {
             contents.push({ role: "user", parts: [{ text: input }] });
         }
         const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
-        const agent = (0, utils_1.getProxyAgent)();
+        const dispatcher = (0, utils_1.getUndiciDispatcher)();
         const fetchOptions = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contents }),
         };
-        if (agent) {
-            fetchOptions.agent = agent;
+        if (dispatcher) {
+            fetchOptions.dispatcher = dispatcher;
         }
         try {
             const response = await fetch(url, fetchOptions);
@@ -219,14 +219,14 @@ class GoogleGenAIProvider {
         if (prompt)
             parts.push({ text: prompt });
         const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
-        const agent = (0, utils_1.getProxyAgent)();
+        const dispatcher = (0, utils_1.getUndiciDispatcher)();
         const fetchOptions = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contents: [{ role: "user", parts }] }),
         };
-        if (agent) {
-            fetchOptions.agent = agent;
+        if (dispatcher) {
+            fetchOptions.dispatcher = dispatcher;
         }
         try {
             const response = await fetch(url, fetchOptions);
@@ -262,10 +262,10 @@ class GoogleGenAIProvider {
         }
         else if (img.startsWith("http")) {
             // 下载并转换为 base64
-            const agent = (0, utils_1.getProxyAgent)();
+            const dispatcher = (0, utils_1.getUndiciDispatcher)();
             const fetchOptions = {};
-            if (agent) {
-                fetchOptions.agent = agent;
+            if (dispatcher) {
+                fetchOptions.dispatcher = dispatcher;
             }
             const resp = await fetch(img, fetchOptions);
             if (!resp.ok)
@@ -311,20 +311,21 @@ class GoogleGenAIProvider {
             };
         }
         const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
-        const agent = (0, utils_1.getProxyAgent)();
+        // Note: agent unused here, dispatcher used for undici
         const body = JSON.stringify({
             contents: [{ role: "user", parts }],
             generationConfig: configParams,
         });
         console.log(`[GoogleGenAIProvider] Sending request to: ${url}`);
         // console.log(`[GoogleGenAIProvider] Request body: ${body}`);
+        const dispatcher = (0, utils_1.getUndiciDispatcher)();
         const fetchOptions = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body,
         };
-        if (agent) {
-            fetchOptions.agent = agent;
+        if (dispatcher) {
+            fetchOptions.dispatcher = dispatcher;
         }
         try {
             const response = await fetch(url, fetchOptions);
@@ -849,3 +850,182 @@ class CozeImageProvider {
     }
 }
 exports.CozeImageProvider = CozeImageProvider;
+/**
+ * Coze Chat Vision Provider (for professional image description)
+ */
+class CozeChatVisionProvider {
+    config;
+    constructor(config) {
+        this.config = config;
+    }
+    async describeImage(params) {
+        const { image, prompt, systemPrompt } = params;
+        // 1. Upload image to Coze
+        const fileId = await this.uploadToCoze(image);
+        // 2. Construct messages
+        const contentArray = [];
+        // If systemPrompt is provided (though user said JSON mode doesn't need it, 
+        // we keep it flexible in the provider)
+        if (systemPrompt) {
+            contentArray.push({ type: "text", text: systemPrompt });
+        }
+        contentArray.push({
+            type: "image",
+            file_id: fileId,
+        });
+        if (prompt) {
+            contentArray.push({ type: "text", text: prompt });
+        }
+        else {
+            contentArray.push({ type: "text", text: "请专业地描述这张图片" });
+        }
+        const body = {
+            bot_id: this.config.modelId,
+            user_id: "lemo_describe_" + Math.random().toString(36).substring(7),
+            stream: true,
+            additional_messages: [
+                {
+                    role: "user",
+                    content: JSON.stringify(contentArray),
+                    content_type: "object_string",
+                    type: "question",
+                },
+            ],
+        };
+        const headers = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.config.apiKey}`,
+        };
+        const agent = (0, utils_1.getProxyAgent)();
+        const fetchOptions = {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+        };
+        if (agent) {
+            fetchOptions.agent = agent;
+        }
+        const url = `${this.config.baseURL}`;
+        const response = await fetch(url, fetchOptions);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Coze Vision API Error: ${response.status} - ${errorText}`);
+        }
+        if (!response.body) {
+            throw new Error("No response body from Coze API");
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let text = "";
+        let buffer = "";
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done)
+                    break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split("\n");
+                buffer = lines.pop() || "";
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || !trimmed.startsWith("data:"))
+                        continue;
+                    const dataStr = trimmed.substring(5).trim();
+                    if (dataStr === "[DONE]")
+                        continue;
+                    try {
+                        const data = JSON.parse(dataStr);
+                        // Handle delta and complete messages
+                        if (data.event === "conversation.message.delta" || (data.type === "answer" && data.content)) {
+                            const content = data.content || data.message?.content;
+                            if (content) {
+                                text += content;
+                            }
+                        }
+                        else if (data.event === "conversation.message.completed") {
+                            const content = data.message?.content;
+                            if (content && !text) { // Use it as fallback if delta didn't give us everything
+                                text = content;
+                            }
+                        }
+                    }
+                    catch {
+                        // Ignore parse errors for partial chunks
+                    }
+                }
+            }
+        }
+        finally {
+            reader.releaseLock();
+        }
+        return { text: text.trim() };
+    }
+    async uploadToCoze(imageUrl) {
+        try {
+            let blob;
+            if (imageUrl.startsWith("data:")) {
+                const [header, base64Data] = imageUrl.split(",");
+                const mimeMatch = header.match(/:(.*?);/);
+                const mime = mimeMatch ? mimeMatch[1] : "image/png";
+                const buffer = Buffer.from(base64Data, "base64");
+                blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
+            }
+            else if (imageUrl.startsWith("/") && imageUrl.length < 2048) {
+                const publicPath = path_1.default.join(process.cwd(), "public", imageUrl);
+                const buffer = await fs_1.promises.readFile(publicPath);
+                const ext = path_1.default.extname(publicPath).slice(1) || "png";
+                const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
+                blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
+            }
+            else if (imageUrl.startsWith("http")) {
+                const response = await fetch(imageUrl);
+                if (!response.ok)
+                    throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+                const arrayBuffer = await response.arrayBuffer();
+                const contentType = response.headers.get("content-type") || "image/png";
+                blob = new Blob([arrayBuffer], { type: contentType });
+            }
+            else {
+                const buffer = Buffer.from(imageUrl, "base64");
+                let mime = "image/png";
+                if (buffer.length > 3) {
+                    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)
+                        mime = "image/jpeg";
+                    else if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47)
+                        mime = "image/png";
+                }
+                blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
+            }
+            let uploadUrl = "https://api.coze.cn/v1/files/upload";
+            const baseURL = this.config.baseURL || "";
+            if (baseURL.includes("coze.com")) {
+                uploadUrl = "https://api.coze.com/v1/files/upload";
+            }
+            else if (baseURL.includes("bytedance.net")) {
+                uploadUrl = "https://bot-open-api.bytedance.net/v1/files/upload";
+            }
+            const formData = new FormData();
+            formData.append("file", blob, "image.png");
+            const uploadResponse = await fetch(uploadUrl, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${this.config.apiKey}`,
+                },
+                body: formData,
+            });
+            if (!uploadResponse.ok) {
+                const errorText = await uploadResponse.text();
+                throw new Error(`Coze File Upload failed (${uploadResponse.status}): ${errorText}`);
+            }
+            const result = await uploadResponse.json();
+            if (result.code !== 0) {
+                throw new Error(`Coze File Upload API error: ${result.msg}`);
+            }
+            return result.data.id;
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+}
+exports.CozeChatVisionProvider = CozeChatVisionProvider;

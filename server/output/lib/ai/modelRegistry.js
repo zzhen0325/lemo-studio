@@ -9,6 +9,9 @@ const providers_1 = require("./providers");
 const registry_1 = require("./registry");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const dotenv_1 = __importDefault(require("dotenv"));
+// Load .env.local from project root
+dotenv_1.default.config({ path: path_1.default.join(__dirname, '../../.env.local') });
 // 豆包视觉模型列表（使用 /api/v3/responses 端点）
 const DOUBAO_VISION_MODELS = [
     'doubao-seed-1-8-251228',
@@ -18,7 +21,7 @@ const DOUBAO_VISION_MODELS = [
 // 从providers.json读取配置
 function readProvidersConfig() {
     try {
-        const configPath = path_1.default.join(process.cwd(), 'data/api-config/providers.json');
+        const configPath = path_1.default.join(__dirname, '../../data/api-config/providers.json');
         const content = fs_1.default.readFileSync(configPath, 'utf-8');
         return JSON.parse(content);
     }
@@ -136,6 +139,19 @@ function getProvider(modelId, overrideConfig) {
         baseURL: providerConfig?.baseURL || entry.defaultConfig.baseURL,
         ...overrideConfig
     };
+    // Fallback: Try to load from environment variables if apiKey is missing
+    if (!config.apiKey) {
+        if (entry.providerType === 'coze-image' || entry.providerType === 'coze-vision') {
+            config.apiKey = process.env.COZE_API_TOKEN;
+        }
+        else if (entry.providerType === 'google-genai') {
+            config.apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
+        }
+        else if (entry.providerType === 'openai-compatible' || config.providerId === 'deepseek') {
+            config.apiKey = process.env.DEEPSEEK_API_KEY;
+        }
+        // Add more mappings as needed
+    }
     if (entry.providerType !== 'bytedance-afr' && !config.apiKey) {
         throw new Error(`Missing API Key for model ${modelId} (Provider: ${entry.providerType})`);
     }
@@ -147,6 +163,9 @@ function getProvider(modelId, overrideConfig) {
     }
     else if (entry.providerType === 'coze-image') {
         return new providers_1.CozeImageProvider(config);
+    }
+    else if (entry.providerType === 'coze-vision') {
+        return new providers_1.CozeChatVisionProvider(config);
     }
     else {
         // 检查是否是豆包视觉模型

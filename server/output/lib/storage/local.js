@@ -33,7 +33,9 @@ class LocalStorage {
         const safeKey = key.replace(/\\/g, '/');
         return path_1.default.join(this.root, safeKey);
     }
-    async putObject(key, body, _options) {
+    async putObject(key, body, options) {
+        // options are unused in local storage
+        void options;
         const filePath = this.resolvePath(key);
         const dir = path_1.default.dirname(filePath);
         await ensureDir(dir);

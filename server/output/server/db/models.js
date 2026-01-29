@@ -214,6 +214,8 @@ let StyleStack = class StyleStack {
     prompt;
     imagePaths;
     previewUrls;
+    collageImageUrl;
+    collageConfig;
     createdAt;
     updatedAt;
 };
@@ -238,6 +240,14 @@ __decorate([
     (0, typegoose_1.Prop)({ type: () => [String], default: [] }),
     __metadata("design:type", Array)
 ], StyleStack.prototype, "previewUrls", void 0);
+__decorate([
+    (0, typegoose_1.Prop)(),
+    __metadata("design:type", String)
+], StyleStack.prototype, "collageImageUrl", void 0);
+__decorate([
+    (0, typegoose_1.Prop)({ type: () => Object }),
+    __metadata("design:type", Object)
+], StyleStack.prototype, "collageConfig", void 0);
 exports.StyleStack = StyleStack = __decorate([
     (0, typegoose_1.Database)('default'),
     (0, typegoose_1.modelOptions)({ schemaOptions: { timestamps: true, _id: false } })

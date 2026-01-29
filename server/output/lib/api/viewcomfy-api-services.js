@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PromptResult = exports.inferWithLogsStream = exports.infer = void 0;
-const errors_1 = require("@/app/models/errors");
+const errors_1 = require("../../app/models/errors");
 const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
 function buildFormData(data) {

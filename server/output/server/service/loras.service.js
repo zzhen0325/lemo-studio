@@ -19,7 +19,7 @@ const errorResponseFactory = new errors_1.ErrorResponseFactory();
 let LorasService = class LorasService {
     async listLoras() {
         try {
-            const lorasDir = node_path_1.default.join(process.cwd(), 'public', 'loras');
+            const lorasDir = node_path_1.default.join(process.cwd(), '../public', 'loras');
             const files = await promises_1.default.readdir(lorasDir);
             const metadataFiles = files.filter((file) => file.endsWith('.metadata.json'));
             const lorasData = [];

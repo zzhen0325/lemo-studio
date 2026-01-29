@@ -26,7 +26,7 @@ let AiService = class AiService {
             throw new http_error_1.HttpError(400, `Model ${model} does not support vision tasks`);
         }
         let resolvedSystemPrompt = explicitSystemPrompt;
-        if (!resolvedSystemPrompt && profileId) {
+        if (resolvedSystemPrompt === undefined && profileId) {
             let providerIdForPrompt = 'unknown';
             if (model.includes('gemini') || model.includes('google'))
                 providerIdForPrompt = 'google';
@@ -84,7 +84,7 @@ let AiService = class AiService {
         }
         const providerInstance = (0, modelRegistry_1.getProvider)(model);
         let resolvedSystemPrompt = explicitSystemPrompt;
-        if (!resolvedSystemPrompt && profileId) {
+        if (resolvedSystemPrompt === undefined && profileId) {
             let providerIdForPrompt = 'unknown';
             if (model.includes('doubao'))
                 providerIdForPrompt = 'doubao';

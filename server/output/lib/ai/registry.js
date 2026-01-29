@@ -91,5 +91,16 @@ exports.REGISTRY = [
             apiKey: process.env.COZE_API_TOKEN,
             baseURL: 'https://bot-open-api.bytedance.net/v3/chat'
         }
+    },
+    {
+        id: 'coze-professional-describe',
+        providerType: 'coze-vision',
+        task: ['vision'],
+        defaultConfig: {
+            providerId: 'coze',
+            modelId: '7597298278341804086',
+            apiKey: process.env.COZE_API_TOKEN,
+            baseURL: 'https://bot-open-api.bytedance.net/v3/chat'
+        }
     }
 ];

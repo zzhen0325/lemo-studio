@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getApiBase = getApiBase;
 exports.formatImageUrl = formatImageUrl;
 function getApiBase() {
-    return process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3000/api';
+    return process.env.NEXT_PUBLIC_API_BASE || 'http://10.75.166.66:3000/api';
 }
 function formatImageUrl(url, useProxy = false) {
     if (!url)
@@ -32,10 +32,21 @@ function formatImageUrl(url, useProxy = false) {
     }
     // 如果启用代理且是外部 URL，则包装代理
     if (useProxy && resultUrl.startsWith('http')) {
-        const isLocal = resultUrl.startsWith(siteBase) ||
-            resultUrl.includes('localhost') ||
-            resultUrl.includes('127.0.0.1');
-        if (!isLocal) {
+        let isSameOrigin = false;
+        try {
+            if (typeof window !== 'undefined') {
+                const url = new URL(resultUrl, window.location.origin);
+                const current = new URL(window.location.origin);
+                // 只有协议、域名、端口全等才不需要代理
+                isSameOrigin = (url.protocol === current.protocol &&
+                    url.hostname === current.hostname &&
+                    url.port === current.port);
+            }
+        }
+        catch {
+            // fallback to proxying if URL parsing fails
+        }
+        if (!isSameOrigin) {
             return `${apiBase}/proxy-image?url=${encodeURIComponent(resultUrl)}`;
         }
     }

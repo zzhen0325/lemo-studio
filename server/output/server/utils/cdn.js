@@ -16,7 +16,7 @@ function buildUrl(dir, fileName) {
     return `${CDN_BASE}/${dir}/${fileName}`;
 }
 async function postForm(pathName, form) {
-    const url = `${'https://ife-cdn.tiktok-row.net'}${pathName}`;
+    const url = `${CDN_BASE}${pathName}`;
     let res;
     try {
         res = await (0, undici_1.fetch)(url, {

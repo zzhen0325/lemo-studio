@@ -7,6 +7,7 @@ const middleware_1 = require("zustand/middleware");
 const api_base_1 = require("../api-base");
 const models_1 = require("../constants/models");
 const model_utils_1 = require("../utils/model-utils");
+const uuid_1 = require("uuid");
 exports.usePlaygroundStore = (0, zustand_1.create)()((0, middleware_1.persist)((set, get) => ({
     config: {
         prompt: '',
@@ -329,11 +330,17 @@ exports.usePlaygroundStore = (0, zustand_1.create)()((0, middleware_1.persist)((
             editConfig: undefined,
             isSelectionMode: false,
             selectedHistoryIds: new Set(),
-            visitorId: undefined, // Will be initialized by the component or on first use
+            visitorId: undefined,
             isTldrawEditorOpen: false,
             tldrawEditingImageUrl: "",
             tldrawSnapshot: undefined,
         });
+    },
+    initVisitorId: () => {
+        const state = get();
+        if (!state.visitorId) {
+            set({ visitorId: (0, uuid_1.v4)() });
+        }
     },
     generationHistory: [],
     pendingGenerations: [],
@@ -393,6 +400,7 @@ exports.usePlaygroundStore = (0, zustand_1.create)()((0, middleware_1.persist)((
                     set((state) => {
                         let newItems = [];
                         if (page === 1) {
+                            // 首页加载：如果是手动触发或初次加载，则替换全部数据
                             newItems = data.history;
                         }
                         else {
@@ -417,9 +425,13 @@ exports.usePlaygroundStore = (0, zustand_1.create)()((0, middleware_1.persist)((
         }
     },
     addGalleryItem: (item) => {
-        set((state) => ({
-            galleryItems: [item, ...state.galleryItems]
-        }));
+        set((state) => {
+            if (state.galleryItems.some(i => i.id === item.id))
+                return state;
+            return {
+                galleryItems: [item, ...state.galleryItems]
+            };
+        });
     },
     deleteHistory: async (ids) => {
         try {
@@ -430,7 +442,8 @@ exports.usePlaygroundStore = (0, zustand_1.create)()((0, middleware_1.persist)((
             });
             if (res.ok) {
                 set((state) => ({
-                    generationHistory: state.generationHistory.filter(item => !ids.includes(item.id))
+                    generationHistory: state.generationHistory.filter(item => !ids.includes(item.id)),
+                    galleryItems: state.galleryItems.filter(item => !ids.includes(item.id))
                 }));
             }
         }

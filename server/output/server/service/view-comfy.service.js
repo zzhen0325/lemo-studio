@@ -55,7 +55,7 @@ let ViewComfyConfigService = class ViewComfyConfigService {
             };
         }
         catch (error) {
-            const fallbackPath = path_1.default.join(process.cwd(), 'view_comfy.json');
+            const fallbackPath = path_1.default.join(process.cwd(), '../view_comfy.json');
             try {
                 const fileContent = await fs_1.promises.readFile(fallbackPath, 'utf-8');
                 return JSON.parse(fileContent);
@@ -101,7 +101,7 @@ let ViewComfyConfigService = class ViewComfyConfigService {
             return { message: 'Workflow configuration saved successfully' };
         }
         catch (error) {
-            const fallbackPath = path_1.default.join(process.cwd(), 'view_comfy.json');
+            const fallbackPath = path_1.default.join(process.cwd(), '../view_comfy.json');
             try {
                 await fs_1.promises.writeFile(fallbackPath, JSON.stringify(payload, null, 2), 'utf-8');
                 return { message: 'Configuration saved to view_comfy.json (fallback)' };

@@ -14,6 +14,7 @@ const gulux_1 = require("@gulux/gulux");
 const http_error_1 = require("../utils/http-error");
 const db_1 = require("../db");
 const bytedmongoose_1 = require("@byted/bytedmongoose");
+const mongo_1 = require("../utils/mongo");
 let HistoryService = class HistoryService {
     generationModel;
     imageAssetModel;
@@ -43,36 +44,37 @@ let HistoryService = class HistoryService {
                 .populate(['outputImageId', 'sourceImageId'])
                 .lean();
             const history = items.map((item) => {
-                const outputImage = item.outputImageId;
-                const sourceImage = item.sourceImageId;
-                const storedSourceUrls = item.sourceImageUrls;
-                const singleSourceUrl = sourceImage?.url || item.config?.sourceImageUrl;
+                const restoredItem = (0, mongo_1.restoreMongoKeys)(item);
+                const outputImage = restoredItem.outputImageId;
+                const sourceImage = restoredItem.sourceImageId;
+                const storedSourceUrls = restoredItem.sourceImageUrls;
+                const singleSourceUrl = sourceImage?.url || restoredItem.config?.sourceImageUrl;
                 // 规范化 sourceImageUrls：统一到 config 内
-                const sourceImageUrls = (item.config?.sourceImageUrls && item.config.sourceImageUrls.length > 0)
-                    ? item.config.sourceImageUrls
+                const sourceImageUrls = (restoredItem.config?.sourceImageUrls && restoredItem.config.sourceImageUrls.length > 0)
+                    ? restoredItem.config.sourceImageUrls
                     : storedSourceUrls && storedSourceUrls.length > 0
                         ? storedSourceUrls
                         : (singleSourceUrl ? [singleSourceUrl] : []);
                 // 规范化 localSourceIds：统一到 config 内
-                const localSourceIds = (item.config?.localSourceIds && item.config.localSourceIds.length > 0)
-                    ? item.config.localSourceIds
-                    : item.localSourceIds ||
-                        (item.config?.localSourceId ? [item.config.localSourceId] : []);
+                const localSourceIds = (restoredItem.config?.localSourceIds && restoredItem.config.localSourceIds.length > 0)
+                    ? restoredItem.config.localSourceIds
+                    : restoredItem.localSourceIds ||
+                        (restoredItem.config?.localSourceId ? [restoredItem.config.localSourceId] : []);
                 return {
-                    id: String(item._id),
-                    userId: item.userId || 'anonymous',
-                    projectId: item.projectId || 'default',
-                    outputUrl: outputImage?.url || item.outputUrl,
+                    id: String(restoredItem._id),
+                    userId: restoredItem.userId || 'anonymous',
+                    projectId: restoredItem.projectId || 'default',
+                    outputUrl: outputImage?.url || restoredItem.outputUrl,
                     config: {
-                        ...item.config,
+                        ...restoredItem.config,
                         sourceImageUrls,
                         localSourceIds,
                     },
-                    status: item.status || 'completed',
-                    createdAt: String(item.createdAt || new Date().toISOString()),
-                    progress: item.progress,
-                    progressStage: item.progressStage,
-                    llmResponse: item.llmResponse,
+                    status: restoredItem.status || 'completed',
+                    createdAt: String(restoredItem.createdAt || new Date().toISOString()),
+                    progress: restoredItem.progress,
+                    progressStage: restoredItem.progressStage,
+                    llmResponse: restoredItem.llmResponse,
                 };
             });
             return {
@@ -94,7 +96,8 @@ let HistoryService = class HistoryService {
                 for (const item of items) {
                     if (!item.id || !(0, bytedmongoose_1.isValidObjectId)(item.id))
                         continue;
-                    await this.generationModel.updateOne({ _id: item.id }, { $set: { ...item, outputUrl: item.outputUrl } });
+                    const sanitizedItem = (0, mongo_1.sanitizeMongoKeys)(item);
+                    await this.generationModel.updateOne({ _id: item.id }, { $set: { ...sanitizedItem, outputUrl: sanitizedItem.outputUrl } });
                 }
                 return { success: true };
             }
@@ -138,11 +141,12 @@ let HistoryService = class HistoryService {
                 : item.outputUrl
                     ? await this.generationModel.findOne({ outputUrl: item.outputUrl })
                     : null;
+            const sanitizedRecord = (0, mongo_1.sanitizeMongoKeys)(record);
             if (existing) {
-                await this.generationModel.updateOne({ _id: existing._id }, { $set: record });
+                await this.generationModel.updateOne({ _id: existing._id }, { $set: sanitizedRecord });
             }
             else {
-                const newDoc = await this.generationModel.create(record);
+                const newDoc = await this.generationModel.create(sanitizedRecord);
                 if (item.outputUrl) {
                     await this.imageAssetModel.updateOne({ url: item.outputUrl }, { $set: { type: 'generation', generationId: String(newDoc._id) } }, { upsert: true });
                     const outputImage = await this.imageAssetModel.findOne({ url: item.outputUrl });
