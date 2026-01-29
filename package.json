@@ -8,7 +8,9 @@
     "dev:server": "cd server && npm run dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:lines": "node ./scripts/check-lines.mjs --threshold=500",
+    "check:lines:strict": "node ./scripts/check-lines.mjs --threshold=500 --strict"
   },
   "dependencies": {
     "@byted/typegoose": "^8.3.1",
