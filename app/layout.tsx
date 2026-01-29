@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import "@/styles/globals.css";
 import { ThemeProvider } from "@/components/common/theme-provider";
@@ -8,11 +7,6 @@ import { ViewComfyProvider } from "@/lib/providers/view-comfy-provider";
 import { cn } from "@/lib/utils";
 import ScrollbarVisibility from "@/components/common/scrollbar-visibility";
 import { AppToaster } from "@/components/ui/AppToaster";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
 
 const instrument = localFont({
   src: "../public/Font/InstrumentSerif-Regular.ttf",
@@ -26,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${instrument.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${instrument.variable}`}>
       <head>
         <link rel="preload" href="/Font/InstrumentSerif-Regular.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/images/logo.svg" as="image" />
