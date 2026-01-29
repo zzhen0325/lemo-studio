@@ -1,13 +1,34 @@
-"use client";
-
-import React, { RefObject } from "react";
+import React, { RefObject, useState } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { X, Plus, Sparkles } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useImageSource } from "@/hooks/common/use-image-source";
+
+import { createPortal } from "react-dom";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragOverlay,
+    defaultDropAnimationSideEffects,
+    DragStartEvent,
+    DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    horizontalListSortingStrategy,
+    useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import PromptInput from "@/components/features/playground-v2/PromptInput";
 import ControlToolbar from "@/components/features/playground-v2/ControlToolbar";
@@ -56,6 +77,7 @@ export interface PlaygroundInputSectionProps {
     setIsInputFocused: (val: boolean) => void;
     setPreviewImage: (url: string | null, layoutId?: string) => void;
     removeImage: (index: number) => void;
+    onReorderImages?: (newImages: UploadedImage[]) => void;
     handleFilesUpload: (files: File[] | FileList, target?: 'reference' | 'describe') => void;
     handleOptimizePrompt: () => void;
     handleGenerate: () => void;
@@ -113,6 +135,7 @@ export function PlaygroundInputSection({
     setIsInputFocused,
     setPreviewImage,
     removeImage,
+    onReorderImages,
     handleFilesUpload,
     handleOptimizePrompt,
     handleGenerate,
@@ -138,6 +161,18 @@ export function PlaygroundInputSection({
     disableModelSelection = false,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
+    const [activeId, setActiveId] = useState<string | null>(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5, // Avoid accidental drags
+            }
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     const getCurrentAspectRatio = () => {
         if (config.aspectRatio === 'auto') return 'auto';
@@ -163,6 +198,40 @@ export function PlaygroundInputSection({
             setConfig(prev => ({ ...prev, height: newHeight }));
         }
     };
+
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string);
+        setIsStackHovered(true); // Force stack expand when dragging
+    };
+
+    // Helper function to get consistent ID for an image
+    const getItemId = (img: UploadedImage, index: number) => img.id || img.localId || String(index);
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id && onReorderImages) {
+            // Use consistent ID matching with getItemId
+            const oldIndex = uploadedImages.findIndex((item, idx) => getItemId(item, idx) === active.id);
+            const newIndex = uploadedImages.findIndex((item, idx) => getItemId(item, idx) === over.id);
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newOrder = arrayMove(uploadedImages, oldIndex, newIndex);
+                onReorderImages(newOrder);
+            }
+        }
+
+        setActiveId(null);
+        // We generally leave the stack hovered or let mouse events handle it,
+        // but if we dragged out, it might be stuck.
+        // Let's rely on standard onMouseLeave to close it if the cursor is not over it.
+    };
+
+    const handleDragCancel = () => {
+        setActiveId(null);
+    };
+
+    const items = uploadedImages.map((img, idx) => getItemId(img, idx));
 
     return (
         <div className={cn(
@@ -198,54 +267,99 @@ export function PlaygroundInputSection({
                     "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20  p-2 transition-colors duration-100",
                     showHistory ? "bg-[linear-gradient(180deg,rgba(0,0,0,0.4)_31.44%,rgba(93, 123, 149, 0.78)_100%)]" : "bg-black/40"
                 )}>
-                    <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-hidden">
+                    <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
                         {variant !== 'edit' && (
-                            <div
-                                className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
-                                onMouseEnter={() => setIsStackHovered(true)}
-                                onMouseLeave={() => setIsStackHovered(false)}
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragStart={handleDragStart}
+                                onDragEnd={handleDragEnd}
+                                onDragCancel={handleDragCancel}
+                                modifiers={[restrictToWindowEdges]}
                             >
-                                {/* 图片堆栈 */}
-                                {uploadedImages.map((image, index) => (
-                                    <StackImage
-                                        key={image.id || index}
-                                        image={image}
-                                        index={index}
-                                        isStackHovered={isStackHovered}
-                                        uploadedImagesCount={uploadedImages.length}
-                                        onPreview={setPreviewImage}
-                                        onRemove={removeImage}
-                                    />
-                                ))}
-
-                                {/* 上传按钮 - 作为堆栈的最后一个元素 */}
-                                {!disableImageUpload && (
-                                    <motion.button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        initial={false}
-                                        animate={{
-                                            rotate: 3,
-                                            marginLeft: uploadedImages.length > 0 ? (isStackHovered ? 8 : -36) : 0,
-                                            scale: 1
-                                        }}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        transition={{ type: "tween", duration: 0.05 }}
-                                        style={{
-                                            zIndex: 0,
-                                            position: 'relative'
-                                        }}
-                                        className={cn(
-                                            "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
-                                        )}
+                                <div
+                                    className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
+                                    onMouseEnter={() => setIsStackHovered(true)}
+                                    // Only allow leaving if not currently dragging an item from this list.
+                                    // activeId ensures we keep it open while dragging.
+                                    onMouseLeave={() => !activeId && setIsStackHovered(false)}
+                                >
+                                    <SortableContext
+                                        items={items}
+                                        strategy={horizontalListSortingStrategy}
                                     >
-                                        <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                    </motion.button>
+                                        <AnimatePresence initial={false}>
+                                            {uploadedImages.map((image, index) => {
+                                                const id = getItemId(image, index);
+                                                return (
+                                                    <SortableStackImage
+                                                        key={id}
+                                                        id={id}
+                                                        image={image}
+                                                        index={index}
+                                                        isStackHovered={isStackHovered || !!activeId}
+                                                        uploadedImagesCount={uploadedImages.length}
+                                                        onPreview={setPreviewImage}
+                                                        onRemove={removeImage}
+                                                        isActive={activeId === id}
+                                                        isDraggingAnything={!!activeId}
+                                                    />
+                                                );
+                                            })}
+                                        </AnimatePresence>
+                                    </SortableContext>
+
+                                    {/* Upload Button - keeps its position logic */}
+                                    {!disableImageUpload && (
+                                        <motion.button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            initial={false}
+                                            animate={{
+                                                rotate: activeId ? 0 : 3,
+                                                marginLeft: uploadedImages.length > 0 ? ((isStackHovered || !!activeId) ? 8 : -36) : 0,
+                                                scale: 1
+                                            }}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            transition={activeId ? { duration: 0 } : { type: "tween", duration: 0.2 }}
+                                            style={{
+                                                zIndex: 0,
+                                                position: 'relative'
+                                            }}
+                                            className={cn(
+                                                "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
+                                            )}
+                                        >
+                                            <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                        </motion.button>
+                                    )}
+                                </div>
+
+                                {/* Portal DragOverlay to body to avoid transform pollution from parent containers */}
+                                {typeof document !== 'undefined' && createPortal(
+                                    <DragOverlay
+                                        dropAnimation={{
+                                            sideEffects: defaultDropAnimationSideEffects({
+                                                styles: {
+                                                    active: { opacity: '0.5' },
+                                                },
+                                            }),
+                                        }}
+                                    >
+                                        {activeId ? (
+                                            (() => {
+                                                const image = uploadedImages.find((img, idx) => getItemId(img, idx) === activeId);
+                                                return image ? <StackImageOverlay image={image} /> : null;
+                                            })()
+                                        ) : null}
+                                    </DragOverlay>,
+                                    document.body
                                 )}
-                            </div>
+
+                            </DndContext>
                         )}
 
-                        <div className="flex-1 mt-1 flex items-center gap-2">
+                        <div className="flex-1 mt-1 flex items-center gap-2 overflow-hidden">
                             <div className="flex-1">
                                 <PromptInput
                                     prompt={config.prompt}
@@ -419,13 +533,48 @@ export function PlaygroundInputSection({
     );
 }
 
+function SortableStackImage(props: {
+    id: string;
+    image: UploadedImage;
+    index: number;
+    isStackHovered: boolean;
+    uploadedImagesCount: number;
+    onPreview: (url: string, id: string) => void;
+    onRemove: (index: number) => void;
+    isActive: boolean;
+    isDraggingAnything: boolean;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: props.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0 : 1, // Hide original when dragging
+        zIndex: isDragging ? 999 : (props.uploadedImagesCount - props.index) + 100, // Keep zIndex logic for non-dragging
+        position: 'relative' as const,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="outline-none">
+            <StackImage {...props} />
+        </div>
+    );
+}
+
 function StackImage({
     image,
     index,
     isStackHovered,
-    uploadedImagesCount,
     onPreview,
-    onRemove
+    onRemove,
+    isDraggingAnything
 }: {
     image: UploadedImage;
     index: number;
@@ -433,27 +582,27 @@ function StackImage({
     uploadedImagesCount: number;
     onPreview: (url: string, id: string) => void;
     onRemove: (index: number) => void;
+    isActive?: boolean;
+    isDraggingAnything: boolean;
 }) {
-    const src = useImageSource(image.path || image.previewUrl);
+    // Use previewUrl directly as primary source to avoid flashing during reorder
+    // previewUrl is always available as base64 data URL
+    const finalSrc = image.path || image.previewUrl;
     const rotations = [-6, 4, -2, 3];
-    const finalSrc = src || image.previewUrl;
 
     return (
         <motion.div
             initial={false}
             animate={{
                 marginLeft: index === 0 ? 0 : (isStackHovered ? 8 : -36),
-                rotate: isStackHovered ? 0 : rotations[index % rotations.length],
-                scale: 1
+                rotate: (isDraggingAnything || isStackHovered) ? 0 : rotations[index % rotations.length],
+                scale: 1,
             }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            style={{
-                zIndex: (uploadedImagesCount - index) + 100,
-                position: 'relative'
-            }}
+            transition={isDraggingAnything ? { duration: 0 } : { type: "spring", stiffness: 400, damping: 25 }}
         >
-            <div className="relative group cursor-pointer" onClick={() => !image.isUploading && finalSrc && onPreview(finalSrc, `stack-img-${image.id || index}`)}>
-                <motion.div layoutId={`stack-img-${image.id || index}`} className="relative">
+            <div className="relative group cursor-pointer" onClick={() => !image.isUploading && finalSrc && onPreview(finalSrc, `stack-img-${image.id || image.localId}`)}>
+                {/* Removed layoutId to prevent flash during reorder */}
+                <div className="relative">
                     {finalSrc ? (
                         <Image
                             src={finalSrc}
@@ -465,6 +614,7 @@ function StackImage({
                                 image.isUploading && "opacity-100 "
                             )}
                             unoptimized
+                            draggable={false} // Prevent native drag
                         />
                     ) : (
                         <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/10" />
@@ -474,10 +624,12 @@ function StackImage({
                             <LoadingSpinner size={16} className="text-white" />
                         </div>
                     )}
-                </motion.div>
+                </div>
                 {!image.isUploading && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onRemove(index); }}
+                        // Add onPointerDown to stop propagation so DnD doesn't start when clicking remove
+                        onPointerDown={(e) => e.stopPropagation()}
                         className="absolute -top-1 -right-1 bg-white text-black border border-white/40 rounded-full w-4 h-4 flex items-center justify-center scale-0 group-hover:scale-100 transition-transform duration-100 hover:bg-red-500"
                     >
                         <X className="w-2 h-2" />
@@ -485,5 +637,30 @@ function StackImage({
                 )}
             </div>
         </motion.div>
+    );
+}
+
+// Overlay component for dragging look
+function StackImageOverlay({ image }: { image: UploadedImage }) {
+    return <StackImageOverlayInner image={image} />;
+}
+
+function StackImageOverlayInner({ image }: { image: UploadedImage }) {
+    const src = useImageSource(image?.path || image?.previewUrl);
+    const finalSrc = src || image?.previewUrl;
+
+    if (!image || !finalSrc) return null;
+
+    return (
+        <div className="relative">
+            <Image
+                src={finalSrc}
+                alt="Dragging"
+                width={56}
+                height={56}
+                className="w-14 h-14 object-cover rounded-2xl bg-black border border-primary shadow-2xl scale-110 cursor-grabbing"
+                unoptimized
+            />
+        </div>
     );
 }

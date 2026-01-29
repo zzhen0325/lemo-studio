@@ -1126,6 +1126,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setDescribeImages,
     setIsDraggingOver,
     setIsDraggingOverPanel,
+    onReorderImages: setUploadedImages,
   }), [
     viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused,
     isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver,
@@ -1138,7 +1139,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults,
     setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
-    setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig
+    setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
+    setUploadedImages
   ]);
 
   return (
