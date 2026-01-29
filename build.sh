@@ -43,6 +43,7 @@ EOF
 FRONTEND_ONLY=false
 SERVER_ONLY=false
 SKIP_INSTALL=false
+SERVER_SKIPPED_NO_GULUX=false
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
@@ -174,6 +175,13 @@ build_frontend() {
 build_server() {
   log_section "构建服务端 (Gulux)"
 
+  local gulux_bin="${SERVER_DIR}/node_modules/.bin/gulux"
+  if ! command -v gulux >/dev/null 2>&1 && [[ ! -x "${gulux_bin}" ]]; then
+    log WARN "服务端: 未检测到 gulux CLI，跳过服务端构建"
+    SERVER_SKIPPED_NO_GULUX=true
+    return
+  fi
+
   run_npm_install "${SERVER_DIR}" "服务端"
 
   log INFO "服务端: 运行 npm run build (gulux build)"
@@ -231,7 +239,9 @@ main() {
     echo "- 前端: 已跳过"
   fi
 
-  if [[ "${server_built}" == true ]]; then
+  if [[ "${SERVER_SKIPPED_NO_GULUX}" == true ]]; then
+    echo "- 服务端: 已跳过 (未检测到 gulux CLI)"
+  elif [[ "${server_built}" == true ]]; then
     echo "- 服务端: 已构建 (输出目录: server/output)"
   else
     echo "- 服务端: 已跳过"
