@@ -42,7 +42,7 @@ export function formatImageUrl(url: string | undefined | null, useProxy = false)
                     url.hostname === current.hostname &&
                     url.port === current.port);
             }
-        } catch (e) {
+        } catch {
             // fallback to proxying if URL parsing fails
         }
 

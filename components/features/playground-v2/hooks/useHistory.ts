@@ -42,6 +42,12 @@ export function useHistory(projectId?: string | null) {
             revalidateFirstPage: false,
             persistSize: true,
             dedupingInterval: 5000,
+            // 保持之前的数据，避免加载时闪烁
+            keepPreviousData: true,
+            // 如果有缓存，优先显示缓存数据，同时后台刷新
+            revalidateIfStale: true,
+            // 减少首屏等待时间
+            focusThrottleInterval: 10000,
         }
     );
 
@@ -62,3 +68,4 @@ export function useHistory(projectId?: string | null) {
         mutate
     };
 }
+

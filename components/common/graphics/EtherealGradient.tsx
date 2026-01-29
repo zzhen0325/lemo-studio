@@ -10,6 +10,7 @@ import type { OrbitControls as OrbitControlsType } from 'three-stdlib';
 
 // --- Shader Material Definition (Manual Implementation) ---
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let MeshGradientMaterialClass: any = null;
 
 function getMeshGradientMaterial() {

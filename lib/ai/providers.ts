@@ -264,7 +264,7 @@ export class GoogleGenAIProvider
 
     const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
     const dispatcher = getUndiciDispatcher();
-    const fetchOptions: RequestInit & { dispatcher?: any } = {
+    const fetchOptions: RequestInit & { dispatcher?: unknown } = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents }),
@@ -312,7 +312,7 @@ export class GoogleGenAIProvider
 
     const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
     const dispatcher = getUndiciDispatcher();
-    const fetchOptions: RequestInit & { dispatcher?: any } = {
+    const fetchOptions: RequestInit & { dispatcher?: unknown } = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ role: "user", parts }] }),
@@ -360,7 +360,7 @@ export class GoogleGenAIProvider
     } else if (img.startsWith("http")) {
       // 下载并转换为 base64
       const dispatcher = getUndiciDispatcher();
-      const fetchOptions: RequestInit & { dispatcher?: any } = {};
+      const fetchOptions: RequestInit & { dispatcher?: unknown } = {};
       if (dispatcher) {
         fetchOptions.dispatcher = dispatcher;
       }
@@ -415,7 +415,7 @@ export class GoogleGenAIProvider
     }
 
     const url = `${this.baseURL}/models/${this.modelId}:generateContent?key=${this.apiKey}`;
-    const agent = getProxyAgent();
+    // Note: agent unused here, dispatcher used for undici
     const body = JSON.stringify({
       contents: [{ role: "user", parts }],
       generationConfig: configParams,
@@ -423,7 +423,7 @@ export class GoogleGenAIProvider
     console.log(`[GoogleGenAIProvider] Sending request to: ${url}`);
     // console.log(`[GoogleGenAIProvider] Request body: ${body}`);
     const dispatcher = getUndiciDispatcher();
-    const fetchOptions: RequestInit & { dispatcher?: any } = {
+    const fetchOptions: RequestInit & { dispatcher?: unknown } = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
@@ -1161,7 +1161,7 @@ export class CozeChatVisionProvider implements VisionProvider {
                 text = content;
               }
             }
-          } catch (e) {
+          } catch {
             // Ignore parse errors for partial chunks
           }
         }
