@@ -16,8 +16,7 @@ export interface DescribeRequestBody {
   profileId?: string;
   systemPrompt?: string;
   prompt?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options?: any;
+  options?: Record<string, unknown>;
 }
 
 export interface ImageRequestBody {
@@ -30,8 +29,7 @@ export interface ImageRequestBody {
   imageSize?: string;
   image?: string;
   images?: string[]; // 多张参考图支持
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options?: any;
+  options?: Record<string, unknown>;
 }
 
 export interface TextRequestBody {
@@ -39,8 +37,7 @@ export interface TextRequestBody {
   model: string;
   profileId?: string;
   systemPrompt?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options?: any;
+  options?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -84,8 +81,7 @@ export class AiService {
     return { text: result.text };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public async generateImage(body: ImageRequestBody): Promise<any> {
+  public async generateImage(body: ImageRequestBody): Promise<unknown> {
     const { prompt, model, width, height, batchSize, aspectRatio, image, images, options } = body;
 
     if (!model) {
@@ -108,10 +104,10 @@ export class AiService {
       image,
       images, // 传递多张参考图
       options: {
-        ...options,
+        ...(options || {}),
         // Ensure stream is true for coze-image models if we are expecting a stream
-        stream: options?.stream === true || model === 'coze_seed4'
-      },
+        stream: (options?.stream as boolean | undefined) === true || model === 'coze_seed4'
+      } as Record<string, unknown>,
     };
 
     const result = await (providerInstance as unknown as ImageProvider).generateImage(params);

@@ -19,7 +19,7 @@ export default class ProjectsController {
   }
 
   @Post()
-  public async postProjects(@Body('userId') userId: string | null, @Body('projects') projects: any[]) {
+  public async postProjects(@Body('userId') userId: string | null, @Body('projects') projects: Record<string, unknown>[]) {
     if (!Array.isArray(projects)) {
       throw new HttpError(400, 'projects must be an array');
     }

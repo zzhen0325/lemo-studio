@@ -27,7 +27,7 @@ export class LorasService {
         try {
           const metadataPath = path.join(lorasDir, metadataFile);
           const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-          const metadata = JSON.parse(metadataContent) as any;
+          const metadata = JSON.parse(metadataContent) as Record<string, unknown>;
 
           const modelName = metadataFile.replace('.metadata.json', '') + '.safetensors';
 
@@ -39,10 +39,11 @@ export class LorasService {
           }
 
           let trainedWords: string[] = [];
-          if (metadata.civitai && metadata.civitai.trainedWords) {
-            trainedWords = Array.isArray(metadata.civitai.trainedWords)
-              ? metadata.civitai.trainedWords
-              : [metadata.civitai.trainedWords];
+          const civitai = metadata.civitai as Record<string, unknown> | undefined;
+          if (civitai && civitai.trainedWords) {
+            trainedWords = Array.isArray(civitai.trainedWords)
+              ? (civitai.trainedWords as string[])
+              : [String(civitai.trainedWords)];
           }
 
           const baseModel = typeof metadata.base_model === 'string' ? metadata.base_model : '';

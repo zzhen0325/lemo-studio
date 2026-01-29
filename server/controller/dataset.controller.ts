@@ -3,6 +3,7 @@ import { Body, Controller, Delete, Files, Get, Post, Put, Query } from '@gulux/g
 import { DatasetService } from '../service/dataset.service';
 import type { DatasetQuery, DatasetPostParams, DatasetDeleteParams, DatasetUpdateBody } from '../service/dataset.service';
 import { toFileLike } from '../utils/formdata';
+import type { KoaBodyFile } from '../utils/formdata';
 import { HttpError } from '../utils/http-error';
 import { DatasetDeleteSchema, DatasetPostSchema, DatasetQuerySchema, DatasetUpdateSchema } from '../../lib/schemas/dataset';
 
@@ -29,8 +30,8 @@ export default class DatasetController {
 
   @Post()
   public async postDataset(
-    @Body() body: any,
-    @Files() files: Record<string, any>,
+    @Body() body: Record<string, unknown>,
+    @Files() files: Record<string, unknown>,
   ) {
     const parsed = DatasetPostSchema.safeParse({
       collection: body?.collection,
@@ -41,13 +42,13 @@ export default class DatasetController {
       throw new HttpError(400, 'Invalid payload', parsed.error.flatten());
     }
 
-    const fileLike = toFileLike(files?.file);
+    const fileLike = toFileLike(files?.file as KoaBodyFile | KoaBodyFile[] | undefined);
     const params: DatasetPostParams = {
       file: fileLike
         ? {
-            name: fileLike.name,
-            arrayBuffer: fileLike.arrayBuffer,
-          }
+          name: fileLike.name,
+          arrayBuffer: fileLike.arrayBuffer,
+        }
         : null,
       collection: parsed.data.collection,
       mode: parsed.data.mode,

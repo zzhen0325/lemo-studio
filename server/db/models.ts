@@ -28,8 +28,7 @@ export class ImageAsset {
   public generationId?: string;
 
   @Prop({ type: () => Object })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public meta?: Record<string, any>;
+  public meta?: Record<string, unknown>;
 }
 
 @Database('default')
@@ -67,8 +66,7 @@ export class Generation {
   public outputUrl?: string;
 
   @Prop({ type: () => Object })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public config?: Record<string, any>;
+  public config?: Record<string, unknown>;
 
   @Prop()
   public createdAt?: string;
@@ -90,12 +88,10 @@ export class Preset {
   public coverData?: string; // Base64 data for the cover image
 
   @Prop({ type: () => Object })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public config?: Record<string, any>;
+  public config?: Record<string, unknown>;
 
   @Prop({ type: () => Object })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public editConfig?: Record<string, any>;
+  public editConfig?: Record<string, unknown>;
 
   @Prop()
   public category?: string;
@@ -158,8 +154,7 @@ export class ToolPreset {
   public name!: string;
 
   @Prop({ type: () => Object })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public values?: Record<string, any>;
+  public values?: Record<string, unknown>;
 
   @Prop()
   public thumbnail?: string;
@@ -245,8 +240,7 @@ export class ApiProvider {
   public baseURL?: string;
 
   @Prop({ type: () => [Object] })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public models?: any[];
+  public models?: Record<string, unknown>[];
 
   @Prop({ default: true })
   public isEnabled?: boolean;
@@ -265,8 +259,7 @@ export class ApiSettings {
   public key!: string;
 
   @Prop({ type: () => Object })
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public settings?: Record<string, any>;
+  public settings?: Record<string, unknown>;
 }
 
 export const ImageAssetModel = getModelForClass(ImageAsset);

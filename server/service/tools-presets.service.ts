@@ -3,13 +3,11 @@ import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { ToolPreset as ToolPresetEntity, ImageAsset } from '../db';
-import { uploadBufferToCdn } from '../utils/cdn';
 
 export interface ToolPreset {
   id: string;
   name: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  values: any;
+  values: Record<string, unknown>;
   thumbnail: string;
   timestamp: number;
 }
@@ -28,7 +26,7 @@ export class ToolsPresetsService {
       return presets.map((p) => ({
         id: String(p._id),
         name: p.name,
-        values: p.values,
+        values: (p.values || {}) as Record<string, unknown>,
         thumbnail: p.thumbnail || '',
         timestamp: p.timestamp || 0,
       }));

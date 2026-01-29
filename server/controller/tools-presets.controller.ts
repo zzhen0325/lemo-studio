@@ -2,6 +2,7 @@ import { Inject } from '@gulux/gulux';
 import { Body, Controller, Delete, Files, Get, Post, Query } from '@gulux/gulux/application-http';
 import { ToolsPresetsService } from '../service/tools-presets.service';
 import { buildFormDataLike } from '../utils/formdata';
+import type { KoaBodyFile } from '../utils/formdata';
 import { HttpError } from '../utils/http-error';
 
 /**
@@ -26,9 +27,9 @@ export default class ToolsPresetsController {
   @Post()
   public async postPreset(
     @Body() body: Record<string, unknown>,
-    @Files() files: Record<string, any>,
+    @Files() files: Record<string, unknown>,
   ) {
-    const formData = buildFormDataLike(body, files);
+    const formData = buildFormDataLike(body, files as Record<string, KoaBodyFile | KoaBodyFile[] | undefined>);
     return this.service.savePresetFromFormData(formData as FormData);
   }
 

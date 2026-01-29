@@ -19,7 +19,7 @@ export default class HistoryController {
   }
 
   @Post()
-  public async postHistory(@Body() body: any) {
+  public async postHistory(@Body() body: unknown) {
     return this.service.saveHistory(body);
   }
 

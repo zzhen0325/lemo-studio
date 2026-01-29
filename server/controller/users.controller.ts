@@ -19,12 +19,12 @@ export default class UsersController {
   }
 
   @Post()
-  public async postUsers(@Body() body: any) {
+  public async postUsers(@Body() body: unknown) {
     return this.service.handlePost(body);
   }
 
   @Put()
-  public async putUsers(@Body() body: any) {
+  public async putUsers(@Body() body: unknown) {
     return this.service.updateUser(body);
   }
 }

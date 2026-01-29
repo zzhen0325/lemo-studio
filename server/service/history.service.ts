@@ -52,40 +52,40 @@ export class HistoryService {
         .lean();
 
       const history = items.map((item) => {
-        const restoredItem = restoreMongoKeys(item);
-        const outputImage = restoredItem.outputImageId as unknown as { url?: string } | undefined;
-        const sourceImage = restoredItem.sourceImageId as unknown as { url?: string } | undefined;
-        const storedSourceUrls = (restoredItem as { sourceImageUrls?: string[] }).sourceImageUrls;
-        const singleSourceUrl = sourceImage?.url || restoredItem.config?.sourceImageUrl;
+        const restoredItem = restoreMongoKeys(item) as Record<string, unknown>;
+        const outputImage = restoredItem.outputImageId as { url?: string } | undefined;
+        const storedSourceUrls = (restoredItem as Record<string, unknown>).sourceImageUrls as string[] | undefined;
+        const restoredConfig = (restoredItem.config || {}) as Record<string, unknown>;
+        const singleSourceUrl = outputImage?.url || (restoredConfig.sourceImageUrl as string | undefined);
 
         // 规范化 sourceImageUrls：统一到 config 内
-        const sourceImageUrls = (restoredItem.config?.sourceImageUrls && restoredItem.config.sourceImageUrls.length > 0)
-          ? restoredItem.config.sourceImageUrls
+        const sourceImageUrls = (Array.isArray(restoredConfig.sourceImageUrls) && restoredConfig.sourceImageUrls.length > 0)
+          ? restoredConfig.sourceImageUrls
           : storedSourceUrls && storedSourceUrls.length > 0
             ? storedSourceUrls
             : (singleSourceUrl ? [singleSourceUrl] : []);
 
         // 规范化 localSourceIds：统一到 config 内
-        const localSourceIds = (restoredItem.config?.localSourceIds && restoredItem.config.localSourceIds.length > 0)
-          ? restoredItem.config.localSourceIds
-          : (restoredItem as { localSourceIds?: string[] }).localSourceIds ||
-          (restoredItem.config?.localSourceId ? [restoredItem.config.localSourceId] : []);
+        const localSourceIds = (Array.isArray(restoredConfig.localSourceIds) && restoredConfig.localSourceIds.length > 0)
+          ? restoredConfig.localSourceIds
+          : (restoredItem as Record<string, unknown>).localSourceIds as string[] ||
+          (restoredConfig.localSourceId ? [restoredConfig.localSourceId] : []);
 
         return {
           id: String(restoredItem._id),
-          userId: restoredItem.userId || 'anonymous',
-          projectId: restoredItem.projectId || 'default',
-          outputUrl: outputImage?.url || restoredItem.outputUrl,
+          userId: (restoredItem.userId as string) || 'anonymous',
+          projectId: (restoredItem.projectId as string) || 'default',
+          outputUrl: outputImage?.url || (restoredItem.outputUrl as string | undefined),
           config: {
-            ...restoredItem.config,
+            ...restoredConfig,
             sourceImageUrls,
             localSourceIds,
           },
-          status: restoredItem.status || 'completed',
+          status: (restoredItem.status as 'pending' | 'completed' | 'failed') || 'completed',
           createdAt: String(restoredItem.createdAt || new Date().toISOString()),
-          progress: restoredItem.progress,
-          progressStage: restoredItem.progressStage,
-          llmResponse: restoredItem.llmResponse,
+          progress: restoredItem.progress as number | undefined,
+          progressStage: restoredItem.progressStage as string | undefined,
+          llmResponse: restoredItem.llmResponse as string | undefined,
         } as Generation;
       });
 
@@ -101,32 +101,32 @@ export class HistoryService {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public async saveHistory(body: any): Promise<{ success: true }> {
+  public async saveHistory(body: unknown): Promise<{ success: true }> {
     try {
-      if (body.action === 'batch-update' && Array.isArray(body.items)) {
-        const items = body.items as Generation[];
+      const bodyObj = body as Record<string, unknown>;
+      if (bodyObj.action === 'batch-update' && Array.isArray(bodyObj.items)) {
+        const items = bodyObj.items as Generation[];
         for (const item of items) {
           if (!item.id || !isValidObjectId(item.id)) continue;
           const sanitizedItem = sanitizeMongoKeys(item);
-          await this.generationModel.updateOne({ _id: item.id }, { $set: { ...sanitizedItem, outputUrl: sanitizedItem.outputUrl } });
+          await this.generationModel.updateOne({ _id: item.id }, { $set: sanitizedItem as Partial<GenerationEntity> });
         }
         return { success: true };
       }
 
-      if (body.action === 'sync-image' && body.localId && body.path) {
+      if (bodyObj.action === 'sync-image' && bodyObj.localId && bodyObj.path) {
         // 更新所有匹配 localSourceId 的记录
         await this.generationModel.updateMany(
-          { 'config.localSourceId': body.localId },
+          { 'config.localSourceId': bodyObj.localId },
           {
-            $set: { 'config.sourceImageUrl': body.path },
+            $set: { 'config.sourceImageUrl': bodyObj.path },
             // Also update first element of sourceImageUrls if it exists
           }
         );
         // Update sourceImageUrls array - replace first element
         await this.generationModel.updateMany(
-          { 'config.localSourceId': body.localId, 'config.sourceImageUrls.0': { $exists: true } },
-          { $set: { 'config.sourceImageUrls.0': body.path } }
+          { 'config.localSourceId': bodyObj.localId, 'config.sourceImageUrls.0': { $exists: true } },
+          { $set: { 'config.sourceImageUrls.0': bodyObj.path } }
         );
         return { success: true };
       }
@@ -139,10 +139,8 @@ export class HistoryService {
       const cfg = (item.config || {}) as GenerationConfig;
 
       // 优先从 config 中读取 sourceImageUrls，兼容旧数据结构
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const effectiveSourceImageUrls = cfg.sourceImageUrls || (item as any).sourceImageUrls || [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const effectiveLocalSourceIds = cfg.localSourceIds || (item as any).localSourceIds || [];
+      const effectiveSourceImageUrls = cfg.sourceImageUrls || (item as unknown as Record<string, unknown>).sourceImageUrls || [];
+      const effectiveLocalSourceIds = cfg.localSourceIds || (item as unknown as Record<string, unknown>).localSourceIds || [];
 
       const record = {
         userId: item.userId || 'anonymous',

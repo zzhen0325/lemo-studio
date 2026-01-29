@@ -34,8 +34,7 @@ export default class AiController {
     if (!parsed.success) {
       throw new HttpError(400, 'Invalid request payload', parsed.error.flatten());
     }
-    const result = await this.aiService.generateImage(parsed.data);
-
+    const result = (await this.aiService.generateImage(parsed.data)) as { stream?: unknown };
 
     if (result.stream) {
       res.set('Content-Type', 'text/event-stream');

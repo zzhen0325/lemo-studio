@@ -2,6 +2,7 @@ import { Inject } from '@gulux/gulux';
 import { Controller, Files, Post } from '@gulux/gulux/application-http';
 import { UploadService } from '../service/upload.service';
 import { toFileLike } from '../utils/formdata';
+import type { KoaBodyFile } from '../utils/formdata';
 import { HttpError } from '../utils/http-error';
 
 /**
@@ -14,8 +15,8 @@ export default class UploadController {
   private readonly service!: UploadService;
 
   @Post()
-  public async postUpload(@Files() files: Record<string, any>) {
-    const file = toFileLike(files?.file);
+  public async postUpload(@Files() files: Record<string, unknown>) {
+    const file = toFileLike(files?.file as KoaBodyFile | KoaBodyFile[] | undefined);
     if (!file) {
       throw new HttpError(400, 'file is required');
     }

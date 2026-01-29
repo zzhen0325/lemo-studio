@@ -31,8 +31,8 @@ export class PresetsService {
         id: String(p._id),
         name: p.name,
         coverUrl: p.coverUrl || '',
-        config: (p.config || {}) as Preset['config'],
-        editConfig: p.editConfig as Preset['editConfig'],
+        config: (p.config || {}) as unknown as Preset['config'],
+        editConfig: (p.editConfig as unknown as Preset['editConfig']) || undefined,
         category: p.category,
         projectId: p.projectId,
         createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
@@ -111,14 +111,13 @@ export class PresetsService {
       if (!presetData.id) {
         presetData.id = randomUUID();
       }
-      const id = presetData.id;
 
       if (coverFile && coverFile.size && coverFile.size > 0) {
         const arrayBuffer = await coverFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const base64 = buffer.toString('base64');
         const dataUrl = `data:${coverFile.type || 'image/png'};base64,${base64}`;
-        
+
         presetData.coverUrl = dataUrl;
       }
 
@@ -126,7 +125,7 @@ export class PresetsService {
       // 则直接保存
       const formDataCoverUrl = formData.get('coverUrl') as string | null;
       if (formDataCoverUrl && !formDataCoverUrl.startsWith('local:') && !formDataCoverUrl.startsWith('data:')) {
-          presetData.coverUrl = formDataCoverUrl;
+        presetData.coverUrl = formDataCoverUrl;
       }
 
       await this.presetModel.findOneAndUpdate(

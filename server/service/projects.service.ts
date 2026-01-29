@@ -8,10 +8,10 @@ export class ProjectsService {
   @Inject(Project)
   private projectModel!: ModelType<Project>;
 
-  public async getProjects(userId?: string | null): Promise<{ projects: any[] }> {
+  public async getProjects(userId?: string | null): Promise<{ projects: Record<string, unknown>[] }> {
     try {
       const filter = userId ? { $or: [{ userId }, { userId: { $exists: false } }] } : {};
-      const projects = await this.projectModel.find(filter).sort({ createdAt: -1 }).lean();
+      const projects = await this.projectModel.find(filter).sort({ createdAt: -1 }).lean() as unknown as Record<string, unknown>[];
       return { projects };
     } catch (error) {
       console.error('Failed to load projects', error);
@@ -19,7 +19,7 @@ export class ProjectsService {
     }
   }
 
-  public async saveProjects(userId: string | null, projects: any[]): Promise<void> {
+  public async saveProjects(userId: string | null, projects: Record<string, unknown>[]): Promise<void> {
     if (!Array.isArray(projects)) {
       throw new HttpError(400, 'Invalid payload');
     }
@@ -32,7 +32,7 @@ export class ProjectsService {
       }
 
       await this.projectModel.deleteMany({ userId });
-      const docs = projects.map((p: any) => ({ ...p, userId }));
+      const docs = projects.map((p) => ({ ...p, userId }));
       if (docs.length > 0) {
         await this.projectModel.insertMany(docs);
       }

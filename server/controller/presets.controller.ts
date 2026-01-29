@@ -23,7 +23,7 @@ export default class PresetsController {
   @Post()
   public async postPreset(
     @Body() body: Record<string, unknown>,
-    @Files() files: Record<string, any>,
+    @Files() files: Record<string, unknown>,
   ) {
     const formData = buildFormDataLike(body, files);
     return this.service.savePresetFromFormData(formData as FormData);

@@ -18,8 +18,7 @@ interface IndexData {
 export interface ViewComfyConfigPayload {
   appTitle: string;
   appImg: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  viewComfys: any[];
+  viewComfys: Record<string, unknown>[];
 }
 
 @Injectable()
@@ -32,15 +31,15 @@ export class ViewComfyConfigService {
     return path.join(this.getWorkflowsDir(), 'index.json');
   }
 
-  public async getConfig(): Promise<any> {
+  public async getConfig(): Promise<unknown> {
     const workflowsDir = this.getWorkflowsDir();
     const indexPath = this.getIndexPath();
 
     try {
       const indexContent = await fs.readFile(indexPath, 'utf-8');
-      const indexData = JSON.parse(indexContent) as IndexData & { workflows: any[] };
+      const indexData = JSON.parse(indexContent) as IndexData & { workflows: Record<string, unknown>[] };
 
-      const viewComfys: any[] = [];
+      const viewComfys: Record<string, unknown>[] = [];
       for (const workflow of indexData.workflows) {
         const workflowDir = path.join(workflowsDir, workflow.folder);
         const configPath = path.join(workflowDir, 'config.json');
@@ -98,10 +97,10 @@ export class ViewComfyConfigService {
       };
 
       for (const viewComfy of payload.viewComfys) {
-        const config = viewComfy.viewComfyJSON;
+        const config = viewComfy.viewComfyJSON as Record<string, unknown>;
         const workflowApi = viewComfy.workflowApiJSON;
 
-        const folderName = config.title.replace(/[<>:"/\\|?*]/g, '_').trim();
+        const folderName = (config.title as string).replace(/[<>:"/\\|?*]/g, '_').trim();
         const workflowDir = path.join(workflowsDir, folderName);
 
         await fs.mkdir(workflowDir, { recursive: true });
@@ -115,7 +114,7 @@ export class ViewComfyConfigService {
         ]);
 
         indexData.workflows.push({
-          title: config.title,
+          title: config.title as string,
           folder: folderName,
           id: workflowId,
         });

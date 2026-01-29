@@ -8,23 +8,25 @@ export class UsersService {
   @Inject(User)
   private userModel!: ModelType<User>;
 
-  public async getUsers(userId?: string | null): Promise<{ user?: any; users?: any[] }> {
+  public async getUsers(userId?: string | null): Promise<{ user?: Record<string, unknown>; users?: Record<string, unknown>[] }> {
     try {
       if (userId) {
         const user = await this.userModel.findById(userId).lean();
         if (!user) {
           throw new HttpError(404, 'User not found');
         }
-        const { password, ...safeUser } = user as any;
-        return { user: { ...safeUser, id: String(user._id) } };
+        const safeUser = { ...(user as unknown as Record<string, unknown>) };
+        delete safeUser.password;
+        return { user: { ...safeUser, id: String(user._id) } as Record<string, unknown> };
       }
 
       const users = await this.userModel.find().lean();
       const safeUsers = users.map((u) => {
-        const { password, ...rest } = u as any;
+        const rest = { ...(u as unknown as Record<string, unknown>) };
+        delete rest.password;
         return { ...rest, id: String(u._id) };
       });
-      return { users: safeUsers };
+      return { users: safeUsers as Record<string, unknown>[] };
     } catch (error) {
       if (error instanceof HttpError) throw error;
       console.error('Failed to load users', error);
@@ -32,8 +34,7 @@ export class UsersService {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public async handlePost(body: any): Promise<{ user: any }> {
+  public async handlePost(body: unknown): Promise<{ user: Record<string, unknown> }> {
     try {
       const { action } = body as { action?: string };
 
@@ -54,8 +55,9 @@ export class UsersService {
           createdAt: new Date().toISOString(),
         });
 
-        const { password: _, ...safeUser } = newUser.toObject();
-        return { user: { ...safeUser, id: String(newUser._id) } };
+        const safeUser = { ...(newUser.toObject() as Record<string, unknown>) };
+        delete safeUser.password;
+        return { user: { ...safeUser, id: String(newUser._id) } as Record<string, unknown> };
       }
 
       if (action === 'login') {
@@ -64,8 +66,9 @@ export class UsersService {
         if (!user) {
           throw new HttpError(401, 'Invalid credentials');
         }
-        const { password: _, ...safeUser } = user as any;
-        return { user: { ...safeUser, id: String(user._id) } };
+        const safeUser = { ...(user as unknown as Record<string, unknown>) };
+        delete safeUser.password;
+        return { user: { ...safeUser, id: String(user._id) } as Record<string, unknown> };
       }
 
       throw new HttpError(400, 'Invalid action');
@@ -76,8 +79,7 @@ export class UsersService {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public async updateUser(body: any): Promise<{ user: any }> {
+  public async updateUser(body: unknown): Promise<{ user: Record<string, unknown> }> {
     try {
       const { id, name, avatar, password } = body as {
         id?: string;
@@ -100,8 +102,9 @@ export class UsersService {
       if (password) user.password = password;
 
       await user.save();
-      const { password: _, ...safeUser } = user.toObject();
-      return { user: { ...safeUser, id: String(user._id) } };
+      const safeUser = { ...(user.toObject() as Record<string, unknown>) };
+      delete safeUser.password;
+      return { user: { ...safeUser, id: String(user._id) } as Record<string, unknown> };
     } catch (error) {
       if (error instanceof HttpError) throw error;
       console.error('Update user failed', error);
