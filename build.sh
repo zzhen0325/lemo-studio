@@ -170,6 +170,22 @@ build_frontend() {
   else
     log INFO "前端构建完成，但未检测到 .next 目录，请检查构建日志。"
   fi
+
+  # 整理前端构建产物到根级 output 目录，供统一打包使用
+  local output_root="${REPO_ROOT}/output"
+  mkdir -p "${output_root}"
+
+  if [[ -d "${FRONTEND_DIR}/.next" ]]; then
+    cp -R "${FRONTEND_DIR}/.next" "${output_root}" || log WARN "前端: 拷贝 .next 到 output/.next 失败"
+  else
+    log WARN "前端: 未找到 .next 目录，无法拷贝到 output/.next"
+  fi
+
+  if [[ -d "${FRONTEND_DIR}/public" ]]; then
+    cp -R "${FRONTEND_DIR}/public" "${output_root}" || log WARN "前端: 拷贝 public 到 output/public 失败"
+  fi
+
+  log INFO "打包产物已整理到: ${output_root}"
 }
 
 build_server() {
@@ -245,6 +261,10 @@ main() {
     echo "- 服务端: 已构建 (输出目录: server/output)"
   else
     echo "- 服务端: 已跳过"
+  fi
+
+  if [[ -d "${REPO_ROOT}/output" ]]; then
+    echo "- 打包产物: 已整理 (输出目录: output)"
   fi
   echo "========================================="
 }
