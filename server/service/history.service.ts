@@ -223,8 +223,9 @@ export class HistoryService {
         status: 'pending',
         createdAt: { $lt: tenMinutesAgo }
       });
-      if (result.deletedCount > 0) {
-        console.log(`[HistoryService] Cleaned up ${result.deletedCount} stale generation records.`);
+      const deletedCount = result.deletedCount ?? 0;
+      if (deletedCount > 0) {
+        console.log(`[HistoryService] Cleaned up ${deletedCount} stale generation records.`);
       }
     } catch (error) {
       console.error('[HistoryService] Failed to cleanup stale generations:', error);
