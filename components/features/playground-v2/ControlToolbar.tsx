@@ -198,6 +198,30 @@ export default function ControlToolbar({
     </DropdownMenu>
   );
 
+  // 模型信息映射：包含 logo 和描述
+  const MODEL_INFO: Record<string, { logo: string; description: string }> = {
+    'gemini-3-pro-image-preview': {
+      logo: '/models/gemini.svg',
+      description: 'Google 最强图像生成模型'
+    },
+    'gemini-2.5-flash-image': {
+      logo: '/models/gemini.svg',
+      description: 'Google 快速图像生成模型'
+    },
+    'coze_seed4': {
+      logo: '/models/seed.svg',
+      description: '字节跳动 Seedream 4 模型'
+    },
+    'seed4_2_lemo': {
+      logo: '/models/seed.svg',
+      description: 'Seed 4.2 高质量生成模型'
+    },
+    'lemo_2dillustator': {
+      logo: '/models/seed.svg',
+      description: 'Seed3 Lemo 插画模型'
+    }
+  };
+
   const ModelDropdown = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -208,17 +232,41 @@ export default function ControlToolbar({
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[180px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
-        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'].includes(m.id)).map((model) => (
-          <DropdownMenuItem
-            key={model.id}
-            className="text-white hover:bg-primary rounded-lg cursor-pointer flex items-center gap-2 py-2"
-            onClick={() => handleUnifiedSelectChange(model.id)}
-          >
-            <span className={`w-2 h-2 rounded-full ${selectValue === model.id ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-            {model.displayName}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent className="w-[280px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl p-1" align="start">
+        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'].includes(m.id)).map((model) => {
+          const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
+          return (
+            <DropdownMenuItem
+              key={model.id}
+              className="text-white hover:bg-primary/20 rounded-lg cursor-pointer flex items-center gap-3 py-3 px-3"
+              onClick={() => handleUnifiedSelectChange(model.id)}
+            >
+              {/* 选中指示器 */}
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${selectValue === model.id ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+              {/* 模型 Logo */}
+              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <Image
+                  src={info.logo}
+                  alt={model.displayName}
+                  width={20}
+                  height={20}
+                  className="object-contain"
+                  onError={(e) => {
+                    // 如果图片加载失败，使用首字母作为占位
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML = `<span class="text-white/60 text-sm font-medium">${model.displayName.charAt(0)}</span>`;
+                  }}
+                />
+              </div>
+              {/* 模型名称和描述 */}
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="text-sm font-medium text-white truncate">{model.displayName}</span>
+                <span className="text-xs text-white/50 truncate">{info.description}</span>
+              </div>
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );

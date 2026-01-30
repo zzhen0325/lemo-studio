@@ -41,22 +41,26 @@ export class HistoryService {
         filter.userId = userId;
       }
 
-      const total = await this.generationModel.countDocuments(filter);
+      // 使用估算值加速计数（精确计数在大表上很慢）
+      const total = Object.keys(filter).length === 0
+        ? await this.generationModel.estimatedDocumentCount()
+        : await this.generationModel.countDocuments(filter);
       const items = await this.generationModel
         .find(filter)
         .sort({ createdAt: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
-        .select('-config.editConfig -llmResponse') // 大幅度减少 Payload，列表不需要这些字段
-        .populate(['outputImageId', 'sourceImageId'])
+        .select('-config.editConfig -config.tldrawSnapshot -config.canvasJson -config.referenceImages -llmResponse') // 大幅度减少 Payload
+        // 移除 populate 以加速查询，列表页不需要完整的关联数据
         .lean();
 
       const history = items.map((item) => {
         const restoredItem = restoreMongoKeys(item) as Record<string, unknown>;
-        const outputImage = restoredItem.outputImageId as { url?: string } | undefined;
         const storedSourceUrls = (restoredItem as Record<string, unknown>).sourceImageUrls as string[] | undefined;
         const restoredConfig = (restoredItem.config || {}) as Record<string, unknown>;
-        const singleSourceUrl = outputImage?.url || (restoredConfig.sourceImageUrl as string | undefined);
+        // 直接使用 outputUrl 字段（不再依赖 populate）
+        const outputUrl = (restoredItem.outputUrl as string | undefined) || (restoredConfig.outputUrl as string | undefined);
+        const singleSourceUrl = (restoredConfig.sourceImageUrl as string | undefined);
 
         // 规范化 sourceImageUrls：统一到 config 内
         const sourceImageUrls = (Array.isArray(restoredConfig.sourceImageUrls) && restoredConfig.sourceImageUrls.length > 0)
@@ -75,7 +79,7 @@ export class HistoryService {
           id: String(restoredItem._id),
           userId: (restoredItem.userId as string) || 'anonymous',
           projectId: (restoredItem.projectId as string) || 'default',
-          outputUrl: outputImage?.url || (restoredItem.outputUrl as string | undefined),
+          outputUrl,
           config: {
             ...restoredConfig,
             sourceImageUrls,

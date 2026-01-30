@@ -107,8 +107,8 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
             <div className="flex items-center ">
                 {userStore.currentUser ? (
                     <DropdownMenu>
-                        <DropdownMenuTrigger className="outline-none">
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10">
+                        <DropdownMenuTrigger asChild>
+                            <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10 outline-none">
                                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden">
                                     {userStore.currentUser.avatar ? (
                                         <Image
@@ -126,7 +126,7 @@ export const NewSidebar = observer(({ currentTab, onTabChange }: NewSidebarProps
                                 </div>
                                 <span className="text-xs text-white/80">{userStore.currentUser.name}</span>
                                 <ChevronDown className="w-3 h-3 text-white/50" />
-                            </div>
+                            </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 bg-black/90 border-white/10 backdrop-blur-xl text-white">
                             <div className="px-2 py-1.5 text-xs text-white/50 font-medium">

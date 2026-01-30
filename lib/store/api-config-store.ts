@@ -22,6 +22,10 @@ interface APIConfigState {
     getProviderById: (id: string) => APIProviderConfig | undefined;
     getModelsForTask: (task: 'text' | 'vision' | 'image') => { providerId: string; providerName: string; modelId: string; displayName: string }[];
     getServiceConfig: (service: ServiceType) => ServiceConfig | undefined;
+
+    // 防重复加载标志（内部使用）
+    _configLoading: boolean;
+    _configLoaded: boolean;
 }
 
 const DEFAULT_SERVICE_CONFIG: ServiceConfig = {
@@ -117,9 +121,15 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
     settings: DEFAULT_SETTINGS,
     isLoading: false,
     error: null,
+    // 防重复加载标志
+    _configLoading: false,
+    _configLoaded: false,
 
     fetchConfig: async () => {
-        set({ isLoading: true, error: null });
+        const state = get();
+        // 防止重复加载
+        if (state._configLoading || state._configLoaded) return;
+        set({ isLoading: true, error: null, _configLoading: true });
         try {
             const response = await fetch(`${getApiBase()}/api-config`);
             if (!response.ok) throw new Error('Failed to fetch config');
@@ -156,10 +166,11 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
                     services: mergedServices,
                     comfyUrl: migratedSettings.comfyUrl || ''
                 },
-                isLoading: false
+                isLoading: false,
+                _configLoaded: true
             });
         } catch (error) {
-            set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
+            set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false, _configLoading: false });
         }
     },
 

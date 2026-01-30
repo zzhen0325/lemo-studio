@@ -1,5 +1,6 @@
-import SpiralToolAdapter from './adapters/SpiralToolAdapter';
 import dynamic from 'next/dynamic';
+
+const SpiralToolAdapter = dynamic(() => import('./adapters/SpiralToolAdapter'), { ssr: false });
 
 export interface ToolComponentProps {
   onChange?: (id: string, value: number | string | boolean) => void;

@@ -258,7 +258,7 @@ export type ResultShape = TLBaseShape<'result', {
 export class ResultShapeUtil extends BaseBoxShapeUtil<ResultShape> {
     static override type = 'result' as const;
 
-    override canBind = () => false;
+    override canBind = () => true;
     override canResize = () => true;
 
     override getDefaultProps() {

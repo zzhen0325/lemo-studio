@@ -997,58 +997,80 @@ export const TldrawEditorView = ({
             const bounds = editor.getShapePageBounds(imageShape.id);
             if (bounds) {
                 const arrowId = createShapeId();
-                // 计算 result 形状的位置
-                const resultX = bounds.maxX + 100;
+                // 计算 result 形状的位置，在原图右侧留出足够间距
+                const gap = 150; // 两张图之间的间距
+                const resultX = bounds.maxX + gap;
                 const resultY = bounds.minY;
-                
-                // 计算箭头的初始位置（两个形状的中点）
-                const arrowX = (bounds.maxX + resultX) / 2;
-                const arrowY = bounds.center.y;
-                
-                // 计算相对于箭头位置的 start 和 end（局部坐标）
-                const startX = bounds.maxX - arrowX;
-                const startY = bounds.center.y - arrowY;
-                const endX = resultX - arrowX;
-                const endY = bounds.center.y - arrowY;
-                
+
+                // 箭头起点：原图右边缘中点
+                const startX = bounds.maxX;
+                const startY = bounds.center.y;
+                // 箭头终点：结果图左边缘中点
+                const endX = resultX;
+                const endY = bounds.minY + bounds.height / 2;
+
+                // 先创建 result 形状
                 editor.createShapes([
-                    { 
-                        id: arrowId, 
-                        type: 'arrow', 
-                        x: arrowX, 
-                        y: arrowY, 
-                        props: { 
-                            start: { x: startX, y: startY }, 
-                            end: { x: endX, y: endY }, 
-                            kind: 'arc',
-                            bend: 0.5,
-                            arrowheadStart: 'dot',
-                            arrowheadEnd: 'dot'
-                        } 
-                    },
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     { id: resultId, type: 'result', x: resultX, y: resultY, props: { isLoading: true, version: 1, w: bounds.width, h: bounds.height } } as unknown as import('tldraw').TLShape
                 ]);
-                
-                // 使用双重 requestAnimationFrame 确保形状完全渲染后再创建绑定
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        // 确保形状存在后再创建绑定
-                        const arrowShape = editor.getShape(arrowId);
-                        const resultShape = editor.getShape(resultId);
-                        if (arrowShape && resultShape && imageShape) {
-                            try {
-                                editor.createBindings([
-                                    { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: imageShape.id, props: { terminal: 'start', normalizedAnchor: { x: 1, y: 0.5 }, isPrecise: true } },
-                                    { id: createBindingId(), type: 'arrow', fromId: arrowId, toId: resultId, props: { terminal: 'end', normalizedAnchor: { x: 0, y: 0.5 }, isPrecise: true } }
-                                ]);
-                            } catch (e) {
-                                console.error('Failed to create arrow bindings:', e);
-                            }
+
+                // 创建箭头，使用绝对坐标
+                editor.createShapes([
+                    {
+                        id: arrowId,
+                        type: 'arrow',
+                        x: startX,
+                        y: startY,
+                        props: {
+                            start: { x: 0, y: 0 },
+                            end: { x: endX - startX, y: endY - startY },
+                            arrowheadStart: 'none',
+                            arrowheadEnd: 'none',
+                            color: 'grey',
+                            size: 's',
                         }
-                    });
-                });
+                    }
+                ]);
+
+                // 使用 setTimeout 确保形状完全渲染后再创建绑定
+                setTimeout(() => {
+                    // 确保形状存在后再创建绑定
+                    const arrowShape = editor.getShape(arrowId);
+                    const resultShape = editor.getShape(resultId);
+                    if (arrowShape && resultShape && imageShape) {
+                        try {
+                            editor.createBindings([
+                                {
+                                    id: createBindingId(),
+                                    type: 'arrow',
+                                    fromId: arrowId,
+                                    toId: imageShape.id,
+                                    props: {
+                                        terminal: 'start',
+                                        normalizedAnchor: { x: 1, y: 0.5 },
+                                        isPrecise: true,
+                                        isExact: false
+                                    }
+                                },
+                                {
+                                    id: createBindingId(),
+                                    type: 'arrow',
+                                    fromId: arrowId,
+                                    toId: resultId,
+                                    props: {
+                                        terminal: 'end',
+                                        normalizedAnchor: { x: 0, y: 0.5 },
+                                        isPrecise: true,
+                                        isExact: false
+                                    }
+                                }
+                            ]);
+                        } catch (e) {
+                            console.error('Failed to create arrow bindings:', e);
+                        }
+                    }
+                }, 50);
                 zoomToFitWithUiAvoidance(editor, 200);
                 (window as unknown as { __lastArrowId?: TLShapeId } & Window).__lastArrowId = arrowId;
             }

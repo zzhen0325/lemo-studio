@@ -129,6 +129,11 @@ interface PlaygroundState {
     fetchGallery: (page?: number) => Promise<void>;
     addGalleryItem: (item: Generation) => void;
     deleteHistory: (ids: string[]) => Promise<void>;
+
+    // 防重复加载标志（内部使用）
+    _presetsLoading: boolean;
+    _presetsLoaded: boolean;
+    _galleryLoaded: boolean;
 }
 
 export const usePlaygroundStore = create<PlaygroundState>()(
@@ -148,6 +153,10 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             selectedModel: 'gemini-3-pro-image-preview',
             selectedWorkflowConfig: undefined,
             selectedLoras: [],
+            // 防重复加载标志
+            _presetsLoading: false,
+            _presetsLoaded: false,
+            _galleryLoaded: false,
             hasGenerated: false,
             showHistory: false,
             showGallery: false,
@@ -545,7 +554,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             isFetchingGallery: false,
             fetchGallery: async (page = 1) => {
                 const state = get();
-                if (state.isFetchingGallery) return;
+                // 防止重复加载：首页仅加载一次，除非是翻页
+                if (state.isFetchingGallery || (page === 1 && state._galleryLoaded)) return;
 
                 set({ isFetchingGallery: true });
                 try {
@@ -581,6 +591,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     console.error("Failed to fetch gallery", error);
                 } finally {
                     set({ isFetchingGallery: false });
+                    // 首页加载成功后标记
+                    if (page === 1) set({ _galleryLoaded: true });
                 }
             },
 
@@ -614,6 +626,10 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
             presets: [],
             initPresets: async () => {
+                const state = get();
+                // 防止重复加载
+                if (state._presetsLoading || state._presetsLoaded) return;
+                set({ _presetsLoading: true });
                 try {
                     const [presetsRes, workflowsRes] = await Promise.all([
                         fetch(`${getApiBase()}/presets`),
@@ -679,11 +695,13 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         allPresets = [...allPresets, ...workflowPresets];
                     }
 
-                    set({ presets: allPresets });
+                    set({ presets: allPresets, _presetsLoaded: true });
                     // Initialize categories as well
                     get().initCategories();
                 } catch (e) {
                     console.error("Error fetching presets and workflows:", e);
+                } finally {
+                    set({ _presetsLoading: false });
                 }
             },
 

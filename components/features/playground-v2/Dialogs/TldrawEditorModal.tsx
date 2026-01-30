@@ -70,6 +70,11 @@ export default function TldrawEditorModal({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.2 }}
+                // 阻止拖拽事件冒泡到外层，防止触发 playground 的 describe 面板
+                onDragEnter={(e) => e.stopPropagation()}
+                onDragOver={(e) => e.stopPropagation()}
+                onDragLeave={(e) => e.stopPropagation()}
+                onDrop={(e) => e.stopPropagation()}
             >
                 <header className="absolute top-4 right-4 z-[11000]">
                     <Button variant="default" size="icon" onClick={handleClose} className="rounded-2xl hover:bg-gray-500 border border-gray-500 bg-gray-800 group">

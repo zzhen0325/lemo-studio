@@ -275,9 +275,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const promptWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    initPresets();
-  }, [initPresets]);
+  // initPresets 已在 app/page.tsx 空闲时预加载，此处移除以避免重复请求
 
   // Helper: save history using unified fields
   const saveHistoryToBackend = React.useCallback(async (item: import('@/types/database').Generation) => {
@@ -436,8 +434,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const startTime = new Date().toISOString();
     const batchTaskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
 
-    // Determine the effective batch size: 1 if overriding config (e.g. regenerate), otherwise current batchSize
-    const effectiveBatchSize = configOverride ? 1 : batchSize;
+    // Determine the effective batch size: 4 if overriding config (e.g. regenerate/rerun), otherwise current batchSize
+    const effectiveBatchSize = configOverride ? 4 : batchSize;
 
     // Launch generation tasks
     // Frontend logic: call singleGenerate for each task immediately to show loading cards
@@ -453,8 +451,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         taskId: batchTaskId,
         isPreset: !!(currentConfig.presetName || (configOverride as GenerationConfig)?.presetName)
       };
+      // 优先使用显式传入的 sourceImageUrls（例如 rerun 场景），否则从当前 store 读取
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-      const sourceImageUrls = currentUploadedImages.map(img => img.path || img.previewUrl);
+      const sourceImageUrls = options.sourceImageUrls && options.sourceImageUrls.length > 0
+        ? options.sourceImageUrls
+        : currentUploadedImages.map(img => img.path || img.previewUrl);
 
       // 1. Immediately create and show the pending card
       // 关键修复：普通生成显式禁用 isEdit，逻辑上它不是编辑。
@@ -1154,17 +1155,30 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         onDragEnter={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setIsDraggingOver(true);
-          // 只有在非 Style Tab 下才自动切换到 Describe Tab
-          if (activeTab !== 'describe' && activeTab !== 'style') {
-            setViewMode('dock');
-            setActiveTab('describe');
+
+          // 更严格的判定：只有真正拖入外部文件时才触发
+          const hasFiles = e.dataTransfer?.types?.includes('Files');
+          const hasItems = e.dataTransfer?.items && e.dataTransfer.items.length > 0;
+          const isFileItem = hasItems && Array.from(e.dataTransfer.items).some(
+            item => item.kind === 'file'
+          );
+
+          // 只有确认是文件拖入才设置拖拽状态和切换到 Describe
+          if (hasFiles && isFileItem) {
+            setIsDraggingOver(true);
+            // 只有在非 Style Tab 下才自动切换到 Describe Tab
+            if (activeTab !== 'describe' && activeTab !== 'style') {
+              setViewMode('dock');
+              setActiveTab('describe');
+            }
           }
         }}
         onDragOver={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!isDraggingOver) setIsDraggingOver(true);
+          // 与 onDragEnter 保持一致的文件判定
+          const hasFiles = e.dataTransfer?.types?.includes('Files');
+          if (hasFiles && !isDraggingOver) setIsDraggingOver(true);
         }}
         onDragLeave={(e) => {
           e.preventDefault();
