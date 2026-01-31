@@ -1,5 +1,5 @@
 export function getApiBase(): string {
-    return process.env.NEXT_PUBLIC_API_BASE || 'http://10.75.166.66:3000/api';
+    return process.env.NEXT_PUBLIC_API_BASE || 'http://192.168.31.75:3000/api';
 }
 
 export function formatImageUrl(url: string | undefined | null, useProxy = false): string {

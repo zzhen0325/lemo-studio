@@ -8,7 +8,7 @@ import { GuluXApplication } from '@gulux/gulux';
 
 async function main() {
   const app = await GuluXApplication.start({
-    root:'/Users/bytedance/Desktop/seeseezz/gulux/server',
+    root:'/Users/bytedance/Desktop/seeseezz/lemoai_gulux/Lemon8_ai_studio/server',
     configDir: 'config',
     exclude: 'coverage,test,output,log,.bootstrap.ts,bootstrap.ts'.split(','),
     // @ts-ignore

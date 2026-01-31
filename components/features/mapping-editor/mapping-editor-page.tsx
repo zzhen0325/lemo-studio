@@ -12,7 +12,9 @@ import {
   Plus,
   Search,
   Workflow,
-  ChevronLeft
+  ChevronLeft,
+  Target,
+  CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,21 +23,17 @@ import { MappingConfig, UIComponent } from "@/types/features/mapping-editor";
 import { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import { localStorageManager } from "@/lib/local-storage-manager";
 import { WorkflowAnalyzer } from "@/components/features/mapping-editor/workflow-analyzer";
-import { ParameterMappingPanel } from "@/components/features/mapping-editor/parameter-mapping-panel";
+import { PLAYGROUND_TARGETS } from "@/components/features/mapping-editor/parameter-mapping-panel";
 import { NodeConfigurationDialog } from "@/components/features/mapping-editor/node-configuration-dialog";
 import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import { getApiBase } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { SidebarContent } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 
 interface LocalEditorState {
@@ -338,7 +336,14 @@ export function MappingEditorPage() {
       selectedNode: nodeId,
       selectedParameter: null
     }));
-    // setIsNodeDialogOpen(true); // Removed dialog
+
+    // Scroll to node
+    setTimeout(() => {
+      const element = document.getElementById(`node-${nodeId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   const handleParameterSelect = (nodeId: string, parameterKey: string) => {
@@ -473,43 +478,8 @@ export function MappingEditorPage() {
             sidebarCollapsed && "items-center"
           )}
         >
-          <div className="p-4 flex items-center justify-between border-b border-white/5 h-16">
-            {!sidebarCollapsed && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2"
-              >
-                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
-                  <Workflow className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <span className="font-bold tracking-tight text-sm uppercase text-white/60">Library</span>
-              </motion.div>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="h-8 w-8 text-white/20 hover:text-white hover:bg-white/5 rounded-lg"
-            >
-              <ChevronLeft className={cn("w-4 h-4 transition-transform duration-300", sidebarCollapsed && "rotate-180")} />
-            </Button>
-          </div>
 
-          <SidebarContent className="flex-1 flex flex-col gap-4 p-3 overflow-hidden">
-            {!sidebarCollapsed && (
-              <div className="px-1">
-                <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-primary/50 transition-colors" />
-                  <Input
-                    placeholder="搜索工作流..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 bg-white/[0.03] border-white/5 h-9 text-xs rounded-xl focus:ring-1 focus:ring-primary/20 transition-all"
-                  />
-                </div>
-              </div>
-            )}
+          <SidebarContent className="flex-1 flex flex-col  overflow-hidden">
 
             <ScrollArea className="flex-1 -mx-3 px-3">
               <div className="space-y-1">
@@ -525,11 +495,7 @@ export function MappingEditorPage() {
                   {!sidebarCollapsed && <span className="text-sm font-medium">新建配置</span>}
                 </Button>
 
-                <div className="my-4 px-3 flex items-center gap-2">
-                  <Separator className="flex-1 bg-white/5" />
-                  {!sidebarCollapsed && <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">最近的工作流</span>}
-                  <Separator className="flex-1 bg-white/5" />
-                </div>
+
 
                 {filteredWorkflows.map((wf) => {
                   const isActive = editorState.currentConfig?.title === wf.viewComfyJSON.title;
@@ -559,7 +525,7 @@ export function MappingEditorPage() {
         </motion.aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-white/[0.01]">
+        <div className="flex-1 flex flex-col relative overflow-hidden ">
           <main className="flex-1 flex flex-col relative overflow-hidden z-10">
             {/* Header */}
             <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-white/[0.02] backdrop-blur-sm z-20">
@@ -603,134 +569,182 @@ export function MappingEditorPage() {
               </div>
             </header>
 
-          <div className="flex-1 overflow-hidden relative">
-            <AnimatePresence mode="wait">
-              {!editorState.currentConfig ? (
-                <motion.div
-                  key="empty-state"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.02 }}
-                  className="absolute inset-0 flex items-center justify-center p-12"
-                >
-                  <Card className="max-w-2xl w-full bg-white/[0.01] border-white/5 backdrop-blur-3xl shadow-2xl rounded-[2.5rem] overflow-hidden relative group">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                    <CardHeader className="text-center pt-16 pb-8 relative">
-                      <div className="w-24 h-24 rounded-[2rem] bg-primary/5 border border-primary/10 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_60px_rgba(59,130,246,0.2)] transition-all duration-700">
-                        <Upload className="w-10 h-10 text-primary animate-pulse" />
-                      </div>
-                      <CardTitle className="text-3xl font-bold tracking-tight mb-3 text-white">Initialize Workflow</CardTitle>
-                      <p className="text-zinc-500 text-sm max-w-sm mx-auto leading-relaxed">
-                        Deploy a ComfyUI API definition or select from your neural library to begin parameter synthesis.
-                      </p>
-                    </CardHeader>
-                    <CardContent className="px-16 pb-16 space-y-8 relative">
-                      <div className="grid gap-6">
-                        <div className="space-y-3">
-                          <Label className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] px-1">Deployment Name</Label>
-                          <Input
-                            placeholder="Enter a distinctive title..."
-                            value={configTitle}
-                            onChange={(e) => setConfigTitle(e.target.value)}
-                            className="bg-white/[0.02] border-white/5 h-14 rounded-2xl focus:ring-1 focus:ring-primary/20 transition-all px-5 text-sm"
-                          />
+            {/* Fixed Mapping Parameters Bar - Grid Style */}
+            {editorState.currentConfig && (
+              <div className="px-6 py-6 border-b border-white/5 bg-white/[0.01] backdrop-blur-sm z-20">
+                <div className="flex items-center justify-between mb-4 px-1">
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">
+                    <Target className="w-3.5 h-3.5 text-primary" />
+                    Parameter Synchronization
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] border-white/5 text-white/20 font-mono">
+                      {editorState.currentConfig.uiConfig.components.length} / {PLAYGROUND_TARGETS.length} MAPPED
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+                  {PLAYGROUND_TARGETS.map((target, idx) => {
+                    const mappedComp = editorState.currentConfig?.uiConfig.components.find(
+                      c => c.properties.paramName === target.key
+                    );
+                    const isMapped = !!mappedComp;
+
+                    return (
+                      <button
+                        key={`${target.key}-${idx}`}
+                        disabled={!isMapped}
+                        onClick={() => isMapped && handleNodeSelect(mappedComp.mapping.workflowPath[0])}
+                        className={cn(
+                          "group relative aspect-square rounded-[2rem] transition-all duration-500 flex flex-col items-center justify-center p-3 gap-2 overflow-hidden shadow-2xl shadow-black/20",
+                          isMapped
+                            ? "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40"
+                            : "bg-white/[0.02] border-white/5 opacity-40 grayscale-[0.5] hover:opacity-60 transition-opacity cursor-default"
+                        )}
+                      >
+                        {/* Status Glow / Decoration */}
+                        {isMapped && (
+                          <div className="absolute top-2 right-2">
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="bg-emerald-400 rounded-full p-0.5 shadow-[0_0_10px_rgba(52,211,153,0.5)]"
+                            >
+                              <CheckCircle2 className="w-2.5 h-2.5 text-black" />
+                            </motion.div>
+                          </div>
+                        )}
+
+                        <span className={cn(
+                          "text-2xl mb-1 filter drop-shadow-lg transition-transform duration-500",
+                          isMapped && "group-hover:scale-110"
+                        )}>
+                          {target.icon}
+                        </span>
+
+                        <div className="text-center">
+                          <div className={cn(
+                            "text-[10px] font-bold transition-colors truncate max-w-[80px]",
+                            isMapped ? "text-emerald-400 group-hover:text-emerald-300" : "text-white/40"
+                          )}>
+                            {target.label}
+                          </div>
+                          {isMapped && (
+                            <div className="text-[8px] font-black text-emerald-500/40 uppercase tracking-tighter mt-0.5">
+                              Node #{mappedComp.mapping.workflowPath[0]}
+                            </div>
+                          )}
                         </div>
-                        <div className="relative group/upload">
-                          <Input
-                            type="file"
-                            accept=".json"
-                            onChange={handleWorkflowUpload}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                          />
-                          <div className="border-2 border-dashed border-white/5 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 bg-white/[0.01] group-hover/upload:bg-primary/[0.03] group-hover/upload:border-primary/30 transition-all duration-500">
-                            <Plus className="w-8 h-8 text-zinc-700 group-hover/upload:text-primary group-hover/upload:scale-110 transition-all duration-500" />
-                            <div className="text-center">
+
+                        {/* Hover Overlay */}
+                        {isMapped && (
+                          <div className="absolute inset-0 bg-emerald-400/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-hidden relative">
+              <AnimatePresence mode="wait">
+                {!editorState.currentConfig ? (
+                  <motion.div
+                    key="empty-state"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.02 }}
+                    className="absolute inset-0 flex items-center justify-center p-12"
+                  >
+                    <Card className="max-w-2xl w-full bg-white/[0.01] border-white/5 backdrop-blur-3xl shadow-2xl rounded-[2.5rem] overflow-hidden relative group">
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                      <CardHeader className="text-center pt-16 pb-8 relative">
+                        <div className="w-24 h-24 rounded-[2rem] bg-primary/5 border border-primary/10 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_60px_rgba(59,130,246,0.2)] transition-all duration-700">
+                          <Upload className="w-10 h-10 text-primary animate-pulse" />
+                        </div>
+                        <CardTitle className="text-3xl font-bold tracking-tight mb-3 text-white">Initialize Workflow</CardTitle>
+                        <p className="text-zinc-500 text-sm max-w-sm mx-auto leading-relaxed">
+                          Deploy a ComfyUI API definition or select from your neural library to begin parameter synthesis.
+                        </p>
+                      </CardHeader>
+                      <CardContent className="px-16 pb-16 space-y-8 relative">
+                        <div className="grid gap-6">
+                          <div className="space-y-3">
+                            <Label className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] px-1">Deployment Name</Label>
+                            <Input
+                              placeholder="Enter a distinctive title..."
+                              value={configTitle}
+                              onChange={(e) => setConfigTitle(e.target.value)}
+                              className="bg-white/[0.02] border-white/5 h-14 rounded-2xl focus:ring-1 focus:ring-primary/20 transition-all px-5 text-sm"
+                            />
+                          </div>
+                          <div className="relative group/upload">
+                            <Input
+                              type="file"
+                              accept=".json"
+                              onChange={handleWorkflowUpload}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            <div className="border-2 border-dashed border-white/5 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 bg-white/[0.01] group-hover/upload:bg-primary/[0.03] group-hover/upload:border-primary/30 transition-all duration-500">
+                              <Plus className="w-8 h-8 text-zinc-700 group-hover/upload:text-primary group-hover/upload:scale-110 transition-all duration-500" />
+                              <div className="text-center">
                                 <span className="text-xs font-bold text-zinc-500 group-hover/upload:text-zinc-300 block mb-1">Upload JSON Definition</span>
                                 <span className="text-[10px] text-zinc-700">API format exported from ComfyUI</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-6 py-2">
-                        <Separator className="flex-1 bg-white/5" />
-                        <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em]">OR</span>
-                        <Separator className="flex-1 bg-white/5" />
-                      </div>
+                        <div className="flex items-center gap-6 py-2">
+                          <Separator className="flex-1 bg-white/5" />
+                          <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em]">OR</span>
+                          <Separator className="flex-1 bg-white/5" />
+                        </div>
 
-                      <Button
-                        variant="ghost"
-                        className="w-full h-16 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] transition-all gap-3 shadow-inner"
-                        onClick={() => setIsWorkflowSelectorOpen(true)}
-                      >
-                        <Layers className="w-4 h-4 text-primary" />
-                        Load from Neural Library
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="editor-state"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="h-full"
-                >
-                  <ResizablePanelGroup
-                    direction="horizontal"
+                        <Button
+                          variant="ghost"
+                          className="w-full h-16 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] transition-all gap-3 shadow-inner"
+                          onClick={() => setIsWorkflowSelectorOpen(true)}
+                        >
+                          <Layers className="w-4 h-4 text-primary" />
+                          Load from Neural Library
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="editor-state"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     className="h-full"
                   >
-                    <ResizablePanel defaultSize={65} minSize={40}>
+                    <div className="h-full">
                       <div className="h-full flex flex-col p-6 gap-6">
                         <div className="flex-1 flex flex-col overflow-hidden bg-white/[0.01] border border-white/5 rounded-3xl p-6 backdrop-blur-md">
-                           <WorkflowAnalyzer
+                          <WorkflowAnalyzer
                             workflowApiJSON={editorState.currentConfig.workflowApiJSON}
                             onNodeSelect={handleNodeSelect}
                             onParameterSelect={handleParameterSelect}
                             selectedNode={editorState.selectedNode}
                             selectedParameter={editorState.selectedParameter}
                             existingComponents={editorState.currentConfig.uiConfig.components}
-                          />
-                        </div>
-                      </div>
-                    </ResizablePanel>
-
-                    <ResizableHandle withHandle />
-
-                    <ResizablePanel defaultSize={35} minSize={25}>
-                      <div className="h-full p-6 pl-0">
-                        <div className="h-full bg-white/[0.01] border border-white/5 rounded-3xl p-6 backdrop-blur-md overflow-y-auto">
-                          <ParameterMappingPanel
-                            workflowApiJSON={editorState.currentConfig.workflowApiJSON}
-                            selectedNode={editorState.selectedNode}
-                            selectedParameter={editorState.selectedParameter}
-                            existingComponents={editorState.currentConfig.uiConfig.components}
                             onComponentCreate={handleComponentCreate}
                             onComponentUpdate={handleComponentUpdate}
                             onComponentDelete={handleComponentDelete}
-                            onParameterSelect={handleParameterSelect}
-                            editingComponentIndex={editorState.editingComponentIndex}
-                            onCancelEdit={() => setEditorState(prev => ({ ...prev, editingComponentIndex: null }))}
-                            onEdit={(index: number) => {
-                              setEditorState(prev => ({
-                                ...prev,
-                                editingComponentIndex: index,
-                                selectedParameter: null,
-                                selectedNode: null
-                              }));
-                            }}
                           />
                         </div>
                       </div>
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </main>
-      </div>
-    </TooltipProvider>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </main>
+        </div>
+      </TooltipProvider>
 
       <WorkflowSelectorDialog
         open={isWorkflowSelectorOpen}

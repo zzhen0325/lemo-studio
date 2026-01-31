@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/common/use-toast";
-import MappingEditorPage from "@/pages/mapping-editor-page";
+import MappingEditorPage from "@/components/features/mapping-editor/mapping-editor-page";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 
@@ -166,23 +166,23 @@ export function SettingsView() {
     };
 
     const sidebarItems = [
-        { 
-            id: SettingsTab.Providers, 
-            label: "Model Providers", 
-            icon: Key, 
-            description: "Manage API keys and neural endpoints" 
+        {
+            id: SettingsTab.Providers,
+            label: "Model Providers",
+            icon: Key,
+            description: "Manage API keys and neural endpoints"
         },
-        { 
-            id: SettingsTab.Services, 
-            label: "System Services", 
-            icon: Sparkles, 
-            description: "Configure core AI engines and prompts" 
+        {
+            id: SettingsTab.Services,
+            label: "System Services",
+            icon: Sparkles,
+            description: "Configure core AI engines and prompts"
         },
-        { 
-            id: SettingsTab.MappingEditor, 
-            label: "Workflow Mapper", 
-            icon: Box, 
-            description: "Synthesize parameter interfaces" 
+        {
+            id: SettingsTab.MappingEditor,
+            label: "Workflow Mapper",
+            icon: Box,
+            description: "Synthesize parameter interfaces"
         },
     ];
 
@@ -191,15 +191,15 @@ export function SettingsView() {
 
     return (
         <div className="flex h-full w-full  pt-20 overflow-hidden text-zinc-100 relative"
-         style={{
-                background: "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 75%, #D8C6B8 100%)",
+            style={{
+                background: "linear-gradient(180deg, #0F0F15 0%, #131718 100%)",
             }}>
-         
-            
+
+
             {/* Sidebar */}
-            <aside className="w-72 flex flex-col bg-black/40 backdrop-blur-xl border-r border-white/5 z-10">
-                
-                
+            <aside className="w-72 flex flex-col bg-[#1a1a1a] mb-6 rounded-2xl  ml-4 border border-white/5 z-10">
+
+
                 <div className="px-4 flex-1 overflow-y-auto space-y-2 py-4">
                     {sidebarItems.map((item) => {
                         const isActive = currentTab === item.id;
@@ -224,8 +224,8 @@ export function SettingsView() {
                                 )}
                                 <div className={cn(
                                     "p-2.5 rounded-xl mr-4 transition-all duration-300",
-                                    isActive 
-                                        ? "bg-primary/20 text-primary shadow-[0_0_15px_rgba(59,130,246,0.2)]" 
+                                    isActive
+                                        ? "bg-primary/20 text-primary shadow-[0_0_15px_rgba(59,130,246,0.2)]"
                                         : "bg-white/5 text-zinc-600 group-hover:text-zinc-400"
                                 )}>
                                     <item.icon className="size-4" />
@@ -246,12 +246,7 @@ export function SettingsView() {
                     })}
                 </div>
 
-                <div className="p-6 mt-auto border-t border-white/5 bg-black/20">
-                    <div className="flex items-center gap-3 px-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Core Engine Active</span>
-                    </div>
-                </div>
+
             </aside>
 
             {/* Content Area */}
@@ -276,7 +271,7 @@ export function SettingsView() {
                                         <div className="space-y-3">
                                             <h1 className="text-4xl font-bold tracking-tight text-white">API Providers</h1>
                                             <p className="text-zinc-500 text-sm max-w-2xl leading-relaxed">
-                                                Manage your model provider configurations. Integrate OpenAI-compatible interfaces, 
+                                                Manage your model provider configurations. Integrate OpenAI-compatible interfaces,
                                                 Google GenAI, and custom neural engines into your workflow.
                                             </p>
                                         </div>
@@ -342,7 +337,7 @@ export function SettingsView() {
                                         <div className="space-y-3">
                                             <h1 className="text-4xl font-bold tracking-tight text-white">Service Config</h1>
                                             <p className="text-zinc-500 text-sm max-w-2xl leading-relaxed">
-                                                Assign default model providers for system services. Fine-tune which neural engine 
+                                                Assign default model providers for system services. Fine-tune which neural engine
                                                 powers your workflow analysis and parameter mapping.
                                             </p>
                                         </div>
@@ -399,7 +394,7 @@ export function SettingsView() {
                                                                 </div>
                                                             </div>
                                                         </CollapsibleTrigger>
-                                                        
+
                                                         <CollapsibleContent>
                                                             <div className="p-8 pt-2 space-y-8 border-t border-white/5 bg-black/20">
                                                                 <div className="space-y-3">
@@ -418,8 +413,8 @@ export function SettingsView() {
                                                                         </SelectTrigger>
                                                                         <SelectContent className="bg-zinc-900 border-white/10">
                                                                             {models.map(m => (
-                                                                                <SelectItem 
-                                                                                    key={`${m.providerId}:${m.modelId}`} 
+                                                                                <SelectItem
+                                                                                    key={`${m.providerId}:${m.modelId}`}
                                                                                     value={`${m.providerId}:${m.modelId}`}
                                                                                     className="text-zinc-300 focus:bg-primary/20 focus:text-white transition-colors"
                                                                                 >
@@ -457,7 +452,7 @@ export function SettingsView() {
                                     </div>
 
                                     {/* ComfyUI Global Config */}
-                                    <div className="pt-10 border-t border-white/5">
+                                    <div className="pt-10 ">
                                         <Card className="bg-white/[0.01] border-white/5 overflow-hidden">
                                             <div className="p-8 flex items-center justify-between">
                                                 <div className="flex items-center gap-5">

@@ -40,7 +40,7 @@ interface ParameterMappingPanelProps {
   onEdit?: (index: number) => void;
 }
 
-const PLAYGROUND_TARGETS = [
+export const PLAYGROUND_TARGETS = [
   { key: 'prompt', label: 'Prompt', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '📝' },
   { key: 'width', label: 'Width', type: 'number' as ComponentType, supportedTypes: ['number', 'string'], icon: '📏' },
   { key: 'height', label: 'Height', type: 'number' as ComponentType, supportedTypes: ['number', 'string'], icon: '📏' },

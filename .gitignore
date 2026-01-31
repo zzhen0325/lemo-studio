@@ -126,6 +126,25 @@ temp/
 # macOS
 .DS_Store
 
+# IDE and Editor
+.trae/
+.idea/
+*.swp
+*.swo
+
+# Logs (all locations)
+log/
+logs/
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary test files
+*.diff
+test-*.js
+tsc_output.txt
+
 # Generated images and uploads
 public/outputs/
 public/upload/
