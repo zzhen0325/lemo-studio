@@ -202,11 +202,11 @@ export default function ControlToolbar({
   const MODEL_INFO: Record<string, { logo: string; description: string }> = {
     'gemini-3-pro-image-preview': {
       logo: '/models/gemini.svg',
-      description: 'Google 最强图像生成模型'
+      description: 'Google 最强图像生成模型 pro版 谷歌老挂'
     },
     'gemini-2.5-flash-image': {
       logo: '/models/gemini.svg',
-      description: 'Google 快速图像生成模型'
+      description: '普通版，pro版备胎'
     },
     'coze_seed4': {
       logo: '/models/seed.svg',

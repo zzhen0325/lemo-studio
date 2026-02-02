@@ -420,7 +420,7 @@ const IntegratedInput = ({
 
                         <Button
                             onClick={onGenerate}
-                            className="shrink-0 h-8 px-4 bg-black hover:bg-black/90 text-white rounded-xl font-bold   transition-all active:scale-[0.95] flex items-center justify-center group gap-1.5"
+                            className="shrink-0 h-8 px-4 !bg-black hover:!bg-black/90 text-white rounded-xl font-bold   transition-all active:scale-[0.95] flex items-center justify-center group gap-1.5"
                         >
                             {/* <span className="text-[11px] font-black uppercase tracking-wider">生成</span> */}
                             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -1247,9 +1247,11 @@ export const TldrawEditorView = ({
                 }
                 /* Override tldraw background pattern */
                 .tldraw-custom-container .tl-background,
-                .tldraw-custom-container [class*="background"] {
+                .tldraw-custom-container :not(button)[class*="background"] {
                     background-color: #f5f5f5 !important;
                 }
+               
+              
             `}} />
             <div className="flex-1 relative bg-white flex flex-col overflow-hidden tldraw-custom-container">
                 <Tldraw
@@ -1293,7 +1295,7 @@ export const TldrawEditorView = ({
                 <Dialog open={isNamingDialogOpen} onOpenChange={(open) => {
                     if (!isSaving) setIsNamingDialogOpen(open);
                 }}>
-                    <DialogContent className="sm:max-w-[425px] z-[100001] bg-white border border-gray-200">
+                    <DialogContent className="sm:max-w-[425px] z-[100001] bg-white text-black border border-gray-200">
                         <DialogHeader>
                             <DialogTitle>存为预设</DialogTitle>
                         </DialogHeader>

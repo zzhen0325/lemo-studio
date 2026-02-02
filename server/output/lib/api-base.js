@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getApiBase = getApiBase;
 exports.formatImageUrl = formatImageUrl;
 function getApiBase() {
-    return process.env.NEXT_PUBLIC_API_BASE || 'http://10.75.166.66:3000/api';
+    return process.env.NEXT_PUBLIC_API_BASE || 'http://10.75.175.91:3000/api';
 }
 function formatImageUrl(url, useProxy = false) {
     if (!url)
