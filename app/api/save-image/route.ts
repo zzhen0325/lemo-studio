@@ -12,15 +12,17 @@ const BodySchema = z.object({
 type ImageExt = z.infer<typeof BodySchema>['ext'];
 
 function extractBase64(data: string): { base64: string; mime?: string } {
-  const match = data.match(/^data:(.*?);base64,(.*)$/);
+  const match = data.match(/^data:([^;]+);base64,(.*)$/);
   if (match) {
-    return { base64: match[2], mime: match[1] };
+    return { mime: match[1], base64: match[2] };
   }
   return { base64: data };
 }
 
-function normalizeExt(ext: ImageExt): Exclude<ImageExt, 'jpeg'> {
-  return ext === 'jpeg' ? 'jpg' : ext;
+function normalizeExt(ext: string): string {
+  const e = ext.toLowerCase();
+  if (e === 'jpeg') return 'jpg';
+  return e;
 }
 
 function getExtFromMime(mime: string | null | undefined): Exclude<ImageExt, 'jpeg'> | undefined {
@@ -96,18 +98,18 @@ export async function POST(request: Request) {
       console.log('[API] /api/save-image fetching URL:', imageBase64);
       const downloaded = await fetchImageBuffer(imageBase64);
       console.log('[API] /api/save-image downloaded size:', downloaded.buffer.length, 'mime:', downloaded.mime);
-      const inferredExt = getExtFromMime(downloaded.mime);
-      if (inferredExt) ext = inferredExt;
       inferredMime = downloaded.mime;
+      const inferredExt = getExtFromMime(inferredMime);
+      if (inferredExt) ext = inferredExt;
       imageBuffer = downloaded.buffer;
     } else {
       console.log('[API] /api/save-image processing base64');
       const { base64, mime } = extractBase64(imageBase64);
-      const inferredExt = getExtFromMime(mime);
-      if (inferredExt) ext = inferredExt;
       inferredMime = mime;
+      const inferredExt = getExtFromMime(inferredMime);
+      if (inferredExt) ext = inferredExt;
       imageBuffer = Buffer.from(base64, 'base64');
-      console.log('[API] /api/save-image base64 size:', imageBuffer.length, 'mime:', mime);
+      console.log('[API] /api/save-image base64 size:', imageBuffer.length, 'mime:', inferredMime);
     }
 
     const stamp = Date.now();

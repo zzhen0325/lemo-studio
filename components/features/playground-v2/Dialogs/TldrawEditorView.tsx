@@ -110,6 +110,22 @@ const ToolbarComponent = ({
                         const img = new Image();
                         img.src = dataUrl;
                         await img.decode();
+
+                        // 立即上传到 CDN
+                        fetch(`${getApiBase()}/save-image`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'uploads' })
+                        }).then(resp => resp.json()).then((json: any) => {
+                            if (json?.path) {
+                                editor.updateAsset({
+                                    id: assetId,
+                                    type: 'image',
+                                    props: { src: json.path }
+                                } as any);
+                            }
+                        }).catch(err => console.error('[handleUploadMedia] Instant upload failed:', err));
+
                         editor.createAssets([{
                             id: assetId,
                             type: 'image',
@@ -255,13 +271,33 @@ const AnnotationRow = ({
             const file = (e.target as HTMLInputElement).files?.[0];
             if (file && editor) {
                 const reader = new FileReader();
-                reader.onload = (ev) => {
+                reader.onload = async (ev) => {
                     const dataUrl = ev.target?.result as string;
+                    // 先设置预览
                     editor.updateShape({
                         id: ann.id as TLShapeId,
                         type: 'annotation',
                         props: { referenceImageUrl: dataUrl }
-                    } as unknown as import('tldraw').TLShape);
+                    } as any);
+
+                    // 立即上传
+                    try {
+                        const resp = await fetch(`${getApiBase()}/save-image`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'uploads' })
+                        });
+                        const json = await resp.json() as { path?: string };
+                        if (json?.path) {
+                            editor.updateShape({
+                                id: ann.id as TLShapeId,
+                                type: 'annotation',
+                                props: { referenceImageUrl: json.path }
+                            } as any);
+                        }
+                    } catch (err) {
+                        console.error('[AnnotationRow] Instant upload failed:', err);
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -388,7 +424,7 @@ const IntegratedInput = ({
         <motion.div
             initial={{ opacity: 0, x: -10, scale: 0.95 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
-            className="absolute z-[100] pointer-events-none"
+            className="absolute z-[100]"
             style={{
                 left: imageScreenBounds.left - 400 - 16,
                 top: imageScreenBounds.top,
@@ -512,6 +548,22 @@ export const TldrawEditorView = ({
     useEffect(() => {
         setInternalPrompt(stripRegionInstructions(propsLocalPrompt || ""));
     }, [propsLocalPrompt, stripRegionInstructions]);
+
+    // 统一的图片上传逻辑
+    const uploadImageToCDN = useCallback(async (imageBase64: string) => {
+        try {
+            const resp = await fetch(`${getApiBase()}/save-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64, ext: 'png', subdir: 'uploads' })
+            });
+            const json = await resp.json() as { path?: string };
+            return json?.path;
+        } catch (e) {
+            console.error('[TldrawEditor] Upload failed:', e);
+            return null;
+        }
+    }, []);
 
     // 强制避让 UI 的缩放逻辑：将图片居中于顶部工具栏(64px)和底部输入框(~200px)之间的空隙
     const zoomToFitWithUiAvoidance = useCallback((editor: Editor, animationDuration = 0) => {
@@ -736,22 +788,39 @@ export const TldrawEditorView = ({
         const unsubscribe = editor.store.listen((history) => {
             updateImagesInfo();
 
-            // 监听是否有新图片添加（例如拖拽上传），如果有则触发一次自动缩放
             const changes = history.changes;
             if (changes.added) {
-                const hasNewImage = Object.values(changes.added).some(
+                const addedRecords = Object.values(changes.added);
+
+                // 1. 监听新图片添加逻辑（原有缩放逻辑）
+                const hasNewImage = addedRecords.some(
                     record => record.typeName === 'shape' && (record as import('tldraw').TLShape).type === 'image'
                 );
                 if (hasNewImage) {
-                    // 稍微延迟一下以确保图片已经上屏，并且让 Tldraw 完成自己的默认处理
                     setTimeout(() => {
                         zoomToFitWithUiAvoidance(editor, 200);
                     }, 100);
                 }
+
+                // 2. 即加即传：监听新资产添加，如果是 Base64 则立即上传
+                addedRecords.forEach(record => {
+                    if (record.typeName === 'asset' && record.type === 'image' && (record as any).props?.src?.startsWith('data:')) {
+                        const asset = record as import('tldraw').TLAsset;
+                        uploadImageToCDN(asset.props.src).then(path => {
+                            if (path) {
+                                editor.updateAsset({
+                                    id: asset.id,
+                                    type: 'image',
+                                    props: { src: path }
+                                } as any);
+                            }
+                        });
+                    }
+                });
             }
-        }, { scope: 'all', source: 'user' }); // 仅监听用户操作，避免死循环（不过 added image 通常是用户触发）
+        }, { scope: 'all', source: 'user' });
         return () => unsubscribe();
-    }, [editor, zoomToFitWithUiAvoidance]);
+    }, [editor, zoomToFitWithUiAvoidance, uploadImageToCDN]);
 
     const deleteAnnotationWithRenumber = useCallback((id: string) => {
         if (!editor) return;
@@ -775,54 +844,63 @@ export const TldrawEditorView = ({
     /**
      * 处理 Snapshot 中的 DataURL，将其上传到服务器并替换为路径
      */
-    const prepareSnapshotForSave = useCallback(async (snapshot: TLEditorSnapshot) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const snapshotAny = snapshot as any;
+    const prepareSnapshotForSave = useCallback(async (snapshot: import('tldraw').TLEditorSnapshot) => {
+        if (!snapshot) return snapshot;
+
         // Tldraw 快照结构可能因版本而异，通常包含 store 字段，或者 snapshot 本身就是记录集
-        const store = snapshotAny?.store || snapshotAny;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const store = (snapshot as any).store || snapshot;
 
-        if (!store || typeof store !== 'object') {
-            console.warn('[prepareSnapshotForSave] Invalid snapshot structure:', snapshot);
-            return snapshot;
-        }
+        if (!store || typeof store !== 'object') return snapshot;
 
-        const assetIds = Object.keys(store).filter(id => {
-            const record = store[id];
-            return record &&
-                record.typeName === 'asset' &&
-                record.type === 'image' &&
-                record.props?.src?.startsWith('data:');
-        });
-
-        if (assetIds.length === 0) return snapshot;
-
-        console.log(`[prepareSnapshotForSave] Found ${assetIds.length} dataURL assets to upload.`);
-
-        const assetUploadPromises = assetIds.map(async (id) => {
-            const asset = store[id];
-            const src = asset.props?.src;
+        const uploadImage = async (imageBase64: string) => {
             try {
                 const resp = await fetch(`${getApiBase()}/save-image`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageBase64: src, ext: 'png', subdir: 'uploads' })
+                    body: JSON.stringify({ imageBase64, ext: 'png', subdir: 'uploads' })
                 });
                 const json = await resp.json() as { path?: string };
-                if (json?.path) {
-                    store[id] = {
-                        ...asset,
-                        props: {
-                            ...(asset.props || {}),
-                            src: json.path
-                        }
-                    };
-                }
+                return json?.path;
             } catch (e) {
-                console.error(`[TldrawEditor] Failed to upload asset ${id}:`, e);
+                console.error('[prepareSnapshotForSave] Upload failed:', e);
+                return null;
+            }
+        };
+
+        // 1. 处理资产 (Assets)
+        const assetIds = Object.keys(store).filter(id => {
+            const record = store[id];
+            return record && record.typeName === 'asset' && record.type === 'image' && record.props?.src?.startsWith('data:');
+        });
+
+        // 2. 处理标注形状 (Annotation Shapes)
+        const annotationIds = Object.keys(store).filter(id => {
+            const record = store[id];
+            return record && record.typeName === 'shape' && record.type === 'annotation' && record.props?.referenceImageUrl?.startsWith('data:');
+        });
+
+        if (assetIds.length === 0 && annotationIds.length === 0) return snapshot;
+
+        console.log(`[prepareSnapshotForSave] Found ${assetIds.length} assets and ${annotationIds.length} annotations to upload.`);
+
+        const assetUploadPromises = assetIds.map(async (id) => {
+            const asset = store[id];
+            const path = await uploadImage(asset.props.src);
+            if (path) {
+                store[id] = { ...asset, props: { ...asset.props, src: path } };
             }
         });
 
-        await Promise.all(assetUploadPromises);
+        const annotationUploadPromises = annotationIds.map(async (id) => {
+            const shape = store[id];
+            const path = await uploadImage(shape.props.referenceImageUrl);
+            if (path) {
+                store[id] = { ...shape, props: { ...shape.props, referenceImageUrl: path } };
+            }
+        });
+
+        await Promise.all([...assetUploadPromises, ...annotationUploadPromises]);
         return snapshot;
     }, []);
 
@@ -1002,8 +1080,91 @@ export const TldrawEditorView = ({
             ? `${internalPrompt}\n\n根据图中的标注修改图片，并移除所有的标注元素\n\nRegion Instructions:\n${formattedAnnos.map(ann => `[${ann.label}]: ${ann.description}`).join('\n')}`.trim()
             : internalPrompt;
 
-        if (shouldGenerate && referenceImageUrls.some(url => url.startsWith('data:'))) {
-            // 这里为了简单，我们并行处理所有 dataUrl
+        // --- UI 优先逻辑开始 ---
+        const resultId = createShapeId();
+        let arrowId: import('tldraw').TLShapeId | undefined = undefined;
+
+        if (shouldGenerate && imageShape) {
+            const bounds = editor.getShapePageBounds(imageShape.id);
+            if (bounds) {
+                arrowId = createShapeId();
+                const gap = 150;
+                const resultX = bounds.maxX + gap;
+                const resultY = bounds.minY;
+
+                const startX = bounds.maxX;
+                const startY = bounds.center.y;
+                const endX = resultX;
+                const endY = bounds.minY + bounds.height / 2;
+
+                // 立即创建 Loading 形状
+                editor.createShapes([
+                    { id: resultId, type: 'result', x: resultX, y: resultY, props: { isLoading: true, version: 1, w: bounds.width, h: bounds.height } } as any
+                ]);
+
+                // 立即创建箭头
+                editor.createShapes([
+                    {
+                        id: arrowId,
+                        type: 'arrow',
+                        x: startX,
+                        y: startY,
+                        props: {
+                            start: { x: 0, y: 0 },
+                            end: { x: endX - startX, y: endY - startY },
+                            arrowheadStart: 'none',
+                            arrowheadEnd: 'none',
+                            color: 'grey',
+                            size: 's',
+                        }
+                    }
+                ]);
+
+                // 异步处理绑定和视图缩放
+                setTimeout(() => {
+                    const arrowShape = editor.getShape(arrowId!);
+                    const resultShape = editor.getShape(resultId);
+                    if (arrowShape && resultShape && imageShape) {
+                        try {
+                            editor.createBindings([
+                                {
+                                    id: createBindingId(),
+                                    type: 'arrow',
+                                    fromId: arrowId!,
+                                    toId: imageShape.id,
+                                    props: {
+                                        terminal: 'start',
+                                        normalizedAnchor: { x: 1, y: 0.5 },
+                                        isPrecise: true,
+                                        isExact: false
+                                    }
+                                },
+                                {
+                                    id: createBindingId(),
+                                    type: 'arrow',
+                                    fromId: arrowId!,
+                                    toId: resultId,
+                                    props: {
+                                        terminal: 'end',
+                                        normalizedAnchor: { x: 0, y: 0.5 },
+                                        isPrecise: true,
+                                        isExact: false
+                                    }
+                                }
+                            ]);
+                        } catch (e) {
+                            console.error('Failed to create arrow bindings:', e);
+                        }
+                    }
+                }, 50);
+                zoomToFitWithUiAvoidance(editor, 200);
+                (window as any).__lastArrowId = arrowId;
+            }
+        }
+        // --- UI 优先逻辑结束 ---
+
+        // 接下来执行耗时的异步任务
+        if (referenceImageUrls.some(url => url.startsWith('data:'))) {
             try {
                 const uploadPromises = referenceImageUrls.map(async (url, idx) => {
                     if (url.startsWith('data:')) {
@@ -1025,120 +1186,33 @@ export const TldrawEditorView = ({
         const cleanSnapshot = await prepareSnapshotForSave(editor.getSnapshot());
 
         if (!shouldGenerate) {
-            onSave(referenceImageUrls[0], stripRegionInstructions(internalPrompt), referenceImageUrls.slice(1), false, cleanSnapshot as unknown as TLEditorSnapshot, false, localTaskId);
+            onSave(referenceImageUrls[0], stripRegionInstructions(internalPrompt), referenceImageUrls.slice(1), false, cleanSnapshot as any, false, localTaskId);
             return;
         }
 
-        const resultId = createShapeId();
-        if (imageShape) {
-            const bounds = editor.getShapePageBounds(imageShape.id);
-            if (bounds) {
-                const arrowId = createShapeId();
-                // 计算 result 形状的位置，在原图右侧留出足够间距
-                const gap = 150; // 两张图之间的间距
-                const resultX = bounds.maxX + gap;
-                const resultY = bounds.minY;
-
-                // 箭头起点：原图右边缘中点
-                const startX = bounds.maxX;
-                const startY = bounds.center.y;
-                // 箭头终点：结果图左边缘中点
-                const endX = resultX;
-                const endY = bounds.minY + bounds.height / 2;
-
-                // 先创建 result 形状
-                editor.createShapes([
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    { id: resultId, type: 'result', x: resultX, y: resultY, props: { isLoading: true, version: 1, w: bounds.width, h: bounds.height } } as unknown as import('tldraw').TLShape
-                ]);
-
-                // 创建箭头，使用绝对坐标
-                editor.createShapes([
-                    {
-                        id: arrowId,
-                        type: 'arrow',
-                        x: startX,
-                        y: startY,
-                        props: {
-                            start: { x: 0, y: 0 },
-                            end: { x: endX - startX, y: endY - startY },
-                            arrowheadStart: 'none',
-                            arrowheadEnd: 'none',
-                            color: 'grey',
-                            size: 's',
-                        }
-                    }
-                ]);
-
-                // 使用 setTimeout 确保形状完全渲染后再创建绑定
-                setTimeout(() => {
-                    // 确保形状存在后再创建绑定
-                    const arrowShape = editor.getShape(arrowId);
-                    const resultShape = editor.getShape(resultId);
-                    if (arrowShape && resultShape && imageShape) {
-                        try {
-                            editor.createBindings([
-                                {
-                                    id: createBindingId(),
-                                    type: 'arrow',
-                                    fromId: arrowId,
-                                    toId: imageShape.id,
-                                    props: {
-                                        terminal: 'start',
-                                        normalizedAnchor: { x: 1, y: 0.5 },
-                                        isPrecise: true,
-                                        isExact: false
-                                    }
-                                },
-                                {
-                                    id: createBindingId(),
-                                    type: 'arrow',
-                                    fromId: arrowId,
-                                    toId: resultId,
-                                    props: {
-                                        terminal: 'end',
-                                        normalizedAnchor: { x: 0, y: 0.5 },
-                                        isPrecise: true,
-                                        isExact: false
-                                    }
-                                }
-                            ]);
-                        } catch (e) {
-                            console.error('Failed to create arrow bindings:', e);
-                        }
-                    }
-                }, 50);
-                zoomToFitWithUiAvoidance(editor, 200);
-                (window as unknown as { __lastArrowId?: TLShapeId } & Window).__lastArrowId = arrowId;
-            }
-        }
-
         try {
-            // 实现批量生成逻辑，参考 playground.tsx
             const startTime = new Date().toISOString();
             const batchSizeToUse = localBatchSize;
 
-            // 并行触发所有生成的 loading card
             const genPromises = Array.from({ length: batchSizeToUse }).map(async (_, i) => {
                 const uniqueId = await handleGenerate({
                     configOverride: {
                         prompt: finalPrompt,
                         isEdit: true,
                         model: localModel,
-                        // 根据实施计划，干净启动：清除 loras 和 preset
                         loras: [],
                         isPreset: false,
                         presetName: undefined,
                         imageSize: inputSectionProps?.config.imageSize,
-                        taskId: localTaskId, // 使用本地维护的 taskId 实现分组
+                        taskId: localTaskId,
                         width: inputSectionProps?.config.width || 1024,
                         height: inputSectionProps?.config.height || 1024,
-                        tldrawSnapshot: i === 0 ? (cleanSnapshot as unknown as Record<string, unknown>) : undefined, // 仅第一个记录保存快照
+                        tldrawSnapshot: i === 0 ? (cleanSnapshot as any) : undefined,
                     },
                     sourceImageUrls: referenceImageUrls,
                     localSourceIds: referenceImageUrls.map((_, i) => `ref-${i}`),
                     fixedCreatedAt: startTime,
-                    isBackground: true, // 后台生成
+                    isBackground: true,
                     taskId: localTaskId,
                 });
 
@@ -1287,8 +1361,15 @@ export const TldrawEditorView = ({
                 .tldraw-custom-container :not(button)[class*="background"] {
                     background-color: #f5f5f5 !important;
                 }
-               
-              
+                /* Hide tldraw production license link and watermark */
+                .tlui-license__link,
+                .tl-watermark,
+                .tlui-watermark {
+                    display: none !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    opacity: 0 !important;
+                }
             `}} />
             <div className="flex-1 relative bg-white flex flex-col overflow-hidden tldraw-custom-container">
                 <Tldraw
@@ -1301,6 +1382,7 @@ export const TldrawEditorView = ({
                     shapeUtils={[AnnotationShapeUtil, ResultShapeUtil]}
                     tools={[AnnotationTool]}
                     overrides={tldrawOverrides}
+                    hideWatermark
                 />
 
                 {editor && imagesInfo.map(info => (

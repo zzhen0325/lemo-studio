@@ -917,13 +917,16 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 ...state.config,
                 // Aggressively strip potentially large strings from sourceImageUrls
                 sourceImageUrls: state.config?.sourceImageUrls?.map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url) || [],
-                // Deeply strip editConfig
+                // Deeply strip editConfig and snapshots
                 editConfig: state.config?.editConfig ? {
                     ...state.config.editConfig,
                     canvasJson: {},
                     referenceImages: [], // Remove reference images from persistence
-                    annotations: []
-                } : undefined
+                    annotations: [],
+                    tldrawSnapshot: undefined // CRITICAL: Stop persisting snapshot in editConfig
+                } : undefined,
+                tldrawSnapshot: undefined, // CRITICAL: Stop persisting top-level snapshot in config
+                resultSnapshot: undefined  // Added: results snapshots also heavy
             },
             selectedModel: state.selectedModel,
             selectedWorkflowConfig: state.selectedWorkflowConfig ? {

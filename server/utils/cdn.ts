@@ -83,7 +83,22 @@ export async function uploadBufferToCdn(buffer: Buffer, opts: UploadOptions = {}
   form.set('region', region);
   form.set('fileName', fileName);
   form.set('email', email);
-  form.set('file', new File([buffer], fileName, { type: opts.mimeType || 'image/png' }));
+
+  // Sniff MIME type from buffer headers if not provided or vague
+  let mimeType = opts.mimeType || 'image/png';
+  if (mimeType === 'image/png' || !mimeType) {
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+      mimeType = 'image/jpeg';
+    } else if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+      mimeType = 'image/gif';
+    } else if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
+      mimeType = 'image/webp'; // Simplified check
+    } else if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+      mimeType = 'image/png';
+    }
+  }
+
+  form.set('file', new File([buffer], fileName, { type: mimeType }));
 
   const resp = await postForm<{ fileName?: string; files?: string[]; cdnUrl?: string }>('/cdn/upload', form);
   const finalFileName = resp.fileName || resp.files?.[0] || fileName;
