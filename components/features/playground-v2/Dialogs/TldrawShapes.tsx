@@ -34,6 +34,7 @@ import { TLBaseShape } from 'tldraw';
 
 export type AnnotationShape = TLBaseShape<'annotation', {
     name: string
+    displayName?: string
     content: string
     referenceImageUrl: string
     w: number
@@ -50,6 +51,7 @@ export class AnnotationShapeUtil extends BaseBoxShapeUtil<AnnotationShape> {
     override getDefaultProps() {
         return {
             name: '',
+            displayName: '',
             content: '',
             referenceImageUrl: '',
             w: 100,
@@ -75,18 +77,20 @@ export class AnnotationShapeUtil extends BaseBoxShapeUtil<AnnotationShape> {
                         position: 'absolute',
                         top: -24,
                         left: -2,
-                        backgroundColor: 'rgba(0,0,0,0.6)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.9)',
                         color: 'white',
-                        padding: '2px 8px',
+                        padding: '2px 10px',
                         fontSize: '11px',
-                        borderRadius: '4px 4px 0 0',
+                        borderRadius: '6px 6px 0 0',
                         whiteSpace: 'nowrap',
                         fontWeight: 'bold',
                         pointerEvents: 'none' as const,
                         zIndex: 10,
+                        boxShadow: '0 -2px 10px rgba(239, 68, 68, 0.3)',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.2)',
                     }}
                 >
-                    {shape.props.name}
+                    {shape.props.displayName || shape.props.name}
                 </div>
             </HTMLContainer>
         );

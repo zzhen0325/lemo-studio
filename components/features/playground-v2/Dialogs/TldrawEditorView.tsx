@@ -224,11 +224,23 @@ const AnnotationRow = ({
     editor,
     deleteAnnotation
 }: {
-    ann: TldrawAnnotation,
+    ann: TldrawAnnotation & { displayName?: string },
     editor: Editor | null,
     deleteAnnotation: (id: string) => void
 }) => {
     const [localValue, setLocalValue] = useState(ann.description);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [localDisplayName, setLocalDisplayName] = useState(ann.displayName || '');
+    const nameInputRef = useRef<HTMLInputElement>(null);
+
+    // 同步外部更新
+    useEffect(() => {
+        setLocalValue(ann.description);
+    }, [ann.description]);
+
+    useEffect(() => {
+        setLocalDisplayName(ann.displayName || '');
+    }, [ann.displayName]);
 
     // 同步外部更新（例如从其他地方通过 editor 更新了 content）
     useEffect(() => {
@@ -257,24 +269,63 @@ const AnnotationRow = ({
         input.click();
     };
 
-    const handleRemoveImg = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (editor) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+    const handleNameSubmit = () => {
+        setIsEditingName(false);
+        if (editor && localDisplayName !== ann.displayName) {
             editor.updateShape({
                 id: ann.id as TLShapeId,
                 type: 'annotation',
-                props: { referenceImageUrl: '' }
+                props: { displayName: localDisplayName }
             } as unknown as import('tldraw').TLShape);
         }
     };
 
     return (
-        <div key={ann.id} className="group flex items-center gap-2 bg-gray-50/80 hover:bg-white transition-all rounded-xl pl-1.5 pr-1.5 py-1.5 border border-gray-100 hover:border-red-200">
-            <div className="flex items-center gap-1.5 shrink-0">
+        <div key={ann.id} className="group flex flex-col gap-1.5 bg-gray-50/80 hover:bg-white transition-all rounded-xl p-1.5 border border-gray-100 hover:border-red-200 w-full relative">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 min-w-0 pr-6" onDoubleClick={() => setIsEditingName(true)}>
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+                    {isEditingName ? (
+                        <input
+                            ref={nameInputRef}
+                            autoFocus
+                            className="text-[10px] font-bold text-gray-900 bg-white border border-red-200 rounded px-1 w-full outline-none ring-2 ring-red-100/50"
+                            value={localDisplayName}
+                            onChange={(e) => setLocalDisplayName(e.target.value)}
+                            onBlur={handleNameSubmit}
+                            onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+                        />
+                    ) : (
+                        <>
+                            <span className="text-[10px] font-bold text-gray-700 uppercase tracking-tight truncate max-w-[80px]">
+                                {ann.displayName || ann.label}
+                            </span>
+                            {ann.displayName && (
+                                <span className="text-[9px] text-gray-400 font-medium truncate shrink ml-1 opacity-70">
+                                    ({ann.label})
+                                </span>
+                            )}
+                            <span className="text-[9px] text-gray-300 font-medium truncate shrink ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                (双击重命名)
+                            </span>
+                        </>
+                    )}
+                </div>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 rounded-md hover:bg-red-50 hover:text-red-500 text-gray-300 transition-colors"
+                    onClick={() => deleteAnnotation(ann.id)}
+                >
+                    <X className="w-2.5 h-2.5" />
+                </Button>
+            </div>
+
+            <div className="flex gap-1.5 w-full">
                 {/* 参考图上传预览区域 */}
                 <div
-                    className="relative w-7 h-7 rounded-lg overflow-hidden bg-white border border-gray-200 group/img cursor-pointer flex items-center justify-center shadow-sm"
+                    className="relative w-6 h-6 rounded-md overflow-hidden bg-white border border-gray-200 group/img cursor-pointer flex items-center justify-center shadow-sm shrink-0"
                     onClick={handleUpload}
                 >
                     {ann.referenceImageUrl ? (
@@ -282,54 +333,37 @@ const AnnotationRow = ({
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={ann.referenceImageUrl} alt="Reference" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                <ImageIcon className="w-3 h-3 text-white" />
+                                <ImageIcon className="w-2.5 h-2.5 text-white" />
                             </div>
-                            <button
-                                onClick={handleRemoveImg}
-                                className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-black rounded-full flex items-center justify-center text-white scale-0 group-hover/img:scale-100 transition-transform hover:bg-red-500 z-10"
-                            >
-                                <X className="w-2.5 h-2.5" />
-                            </button>
                         </>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors">
-                            <ImageIcon className="w-3.5 h-3.5" />
+                            <ImageIcon className="w-2.5 h-2.5" />
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1 border-l border-gray-100 pl-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-tight">{ann.label}:</span>
-                </div>
+
+                <input
+                    className="bg-transparent border-none p-0 text-[10px] text-gray-900 focus:outline-none placeholder:text-gray-400 flex-1 min-w-0"
+                    value={localValue}
+                    onChange={(e) => setLocalValue(e.target.value)}
+                    onBlur={() => {
+                        if (editor && localValue !== ann.description) {
+                            editor.updateShape({
+                                id: ann.id as TLShapeId,
+                                type: 'annotation',
+                                props: { content: localValue }
+                            } as unknown as import('tldraw').TLShape);
+                        }
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && editor) {
+                            (e.target as HTMLInputElement).blur();
+                        }
+                    }}
+                    placeholder="说明..."
+                />
             </div>
-            <input
-                className="bg-transparent border-none p-0 text-xs text-gray-900 focus:outline-none placeholder:text-gray-400 min-w-[200px] flex-1"
-                value={localValue}
-                onChange={(e) => setLocalValue(e.target.value)}
-                onBlur={() => {
-                    if (editor && localValue !== ann.description) {
-                        editor.updateShape({
-                            id: ann.id as TLShapeId,
-                            type: 'annotation',
-                            props: { content: localValue }
-                        } as unknown as import('tldraw').TLShape);
-                    }
-                }}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && editor) {
-                        (e.target as HTMLInputElement).blur();
-                    }
-                }}
-                placeholder="输入修改说明..."
-            />
-            <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 rounded-md hover:bg-red-50 hover:text-red-500 text-gray-300 transition-colors"
-                onClick={() => deleteAnnotation(ann.id)}
-            >
-                <X className="w-3 h-3" />
-            </Button>
         </div>
     );
 }
@@ -352,19 +386,30 @@ const IntegratedInput = ({
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: '-50%', scale: 0.9 }}
-            animate={{ opacity: 1, x: '-50%', scale: 1 }}
+            initial={{ opacity: 0, x: -10, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
             className="absolute z-[100] pointer-events-none"
             style={{
-                left: imageScreenBounds.centerX,
-                top: imageScreenBounds.bottom + 16,
-                width: Math.min(700, window.innerWidth - 64)
+                left: imageScreenBounds.left - 400 - 16,
+                top: imageScreenBounds.top,
+                width: 400,
+                height: imageScreenBounds.height
             }}
         >
-            <div className="relative bg-white rounded-3xl shadow-2xl shadow-black/10 border border-white/40 p-1 flex flex-col gap-2 pointer-events-auto">
-                {/* 标注列表 */}
+            <div className="h-full relative bg-white rounded-2xl shadow-xl shadow-black/5 border border-gray-100 p-1 flex flex-col gap-2 pointer-events-auto overflow-hidden">
+                {/* 主输入区域 */}
+                <div className="flex-1 flex flex-col bg-gray-50/50 rounded-xl border border-gray-100 focus-within:bg-white focus-within:border-gray-200 transition-all overflow-hidden h-10 min-h-[40px] max-h-[100px]">
+                    <Textarea
+                        value={localPrompt}
+                        onChange={(e) => setLocalPrompt(e.target.value)}
+                        placeholder="输入全局修改要求..."
+                        className="flex-1 bg-transparent border-none shadow-none focus-visible:ring-0 text-[10px] p-2 resize-none overflow-y-auto custom-scrollbar h-full min-h-full leading-relaxed"
+                    />
+                </div>
+
+                {/* 标注列表 - 如果有则显示在上方或固定区域 */}
                 {annotations.length > 0 && (
-                    <div className="flex flex-wrap gap-2 max-h-[160px] overflow-y-auto custom-scrollbar px-2 py-1">
+                    <div className="flex flex-col gap-1.5 overflow-y-auto custom-scrollbar px-1 py-0.5 border-t border-gray-100 pt-2">
                         {annotations.map((ann) => (
                             <AnnotationRow
                                 key={ann.id}
@@ -376,54 +421,43 @@ const IntegratedInput = ({
                     </div>
                 )}
 
-                {/* 主输入框与生成按钮 */}
-                <div className="relative flex flex-col  bg-gray-50/50 rounded-2xl border border-gray-100 p-1 focus-within:bg-white focus-within:border-gray-200   focus-within:ring-4 focus-within:ring-gray-100/50 transition-all">
-                    <Textarea
-                        value={localPrompt}
-                        onChange={(e) => setLocalPrompt(e.target.value)}
-                        placeholder="输入额外的修改要求..."
-                        className="h-4 max-h-[100px] bg-transparent border-none shadow-none focus-visible:ring-0 text-sm py-2 px-1 resize-none overflow-y-auto custom-scrollbar"
-                    />
+                {/* 底部控制器 */}
+                <div className="flex flex-col gap-1.5 px-0.5 pb-0.5 mt-auto border-t border-gray-100 pt-2 shrink-0">
+                    {/* 模型选择 - 紧凑型 */}
+                    <Select value={selectedModel} onValueChange={setSelectedModel}>
+                        <SelectTrigger className="h-7 px-1.5 bg-white border-gray-100 rounded-lg text-[9px] font-bold text-gray-600 w-full shadow-none focus:ring-0">
+                            <SelectValue placeholder="模型" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border-gray-100 shadow-xl z-[100000]">
+                            {AVAILABLE_MODELS.map(m => (
+                                <SelectItem key={m.id} value={m.id} className="text-[10px] py-1.5">
+                                    {m.displayName}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
 
-                    <div className="flex items-center justify-between gap-2 px-1 pb-1">
-                        <div className="flex items-center gap-2">
-                            {/* 模型选择 */}
-                            <Select value={selectedModel} onValueChange={setSelectedModel}>
-                                <SelectTrigger className="h-8 px-2 bg-white/50 border-gray-100 rounded-xl text-[11px] font-bold text-gray-600 hover:bg-white hover:border-gray-200 transition-all w-[140px] shadow-none focus:ring-0 pointer-events-auto">
-                                    <SelectValue placeholder="选择模型" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-2xl border-gray-100 shadow-xl overflow-hidden z-[100000]">
-                                    {AVAILABLE_MODELS.map(m => (
-                                        <SelectItem key={m.id} value={m.id} className="text-[11px] font-bold py-2 focus:bg-gray-50  focus:text-gray-600 cursor-pointer">
-                                            {m.displayName}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            {/* 数量选择 */}
-                            <div className="flex items-center bg-white/50 border border-gray-100 rounded-xl overflow-hidden h-8">
-                                <div className="px-2 border-r border-gray-100 h-full flex items-center">
-                                    <Layers className="w-3.5 h-3.5 text-gray-400" />
-                                </div>
-                                <select
-                                    value={batchSize}
-                                    onChange={(e) => setBatchSize(Number(e.target.value))}
-                                    className="bg-transparent border-none text-[11px] font-bold text-gray-600 px-2 h-full outline-none cursor-pointer hover:bg-white transition-colors"
-                                >
-                                    {[1, 2, 4, 8].map(n => (
-                                        <option key={n} value={n}>{n} 张</option>
-                                    ))}
-                                </select>
-                            </div>
+                    <div className="flex items-center gap-1">
+                        {/* 数量选择 */}
+                        <div className="flex-1 flex items-center bg-white border border-gray-100 rounded-lg h-7 px-1 overflow-hidden">
+                            <Layers className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                            <select
+                                value={batchSize}
+                                onChange={(e) => setBatchSize(Number(e.target.value))}
+                                className="bg-transparent border-none text-[9px] font-bold text-gray-600 w-full outline-none cursor-pointer text-center"
+                            >
+                                {[1, 2, 4, 8].map(n => (
+                                    <option key={n} value={n}>{n}张</option>
+                                ))}
+                            </select>
                         </div>
 
+                        {/* 生成按钮 */}
                         <Button
                             onClick={onGenerate}
-                            className="shrink-0 h-8 px-4 !bg-black hover:!bg-black/90 text-white rounded-xl font-bold   transition-all active:scale-[0.95] flex items-center justify-center group gap-1.5"
+                            className="w-7 h-7 !bg-black hover:!bg-black/90 text-white rounded-lg p-0 shrink-0"
                         >
-                            {/* <span className="text-[11px] font-black uppercase tracking-wider">生成</span> */}
-                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                            <ArrowRight className="w-3 h-3" />
                         </Button>
                     </div>
                 </div>
@@ -485,26 +519,28 @@ export const TldrawEditorView = ({
         const baseZoom = editor.getZoomLevel();
         const bounds = editor.getSelectionPageBounds() || editor.getCurrentPageBounds();
         if (bounds) {
-            // 1. 设置缩放级别（保持 0.75 系数，给四周留白）
-            const targetZoom = baseZoom * 0.75;
+            // 1. 设置缩放级别（保持 0.8 系数，给四周留白，增加一点比例因为左侧占用较多）
+            const targetZoom = baseZoom * 0.8;
 
             // 2. 计算理想中心位置
-            // 顶部占用 64px, 底部输入框+间距约占用 180px
-            // 画面中心需要向下移动：(底部占用 - 顶部占用) / 2
-            // 在页面空间中，向上移动相机 = 画面下移
-            const offsetInScreen = (180 - 64) / 2;
-            const offsetInPage = offsetInScreen / targetZoom;
+            // 左侧占用 100px + 16px 间距，右侧建议对称留白
+            // 顶部占用 64px
+            const leftOffset = (116) / 2;
+            const topOffset = (64) / 2;
+
+            const xOffsetInPage = leftOffset / targetZoom;
+            const yOffsetInPage = -topOffset / targetZoom;
 
             editor.zoomToBounds(bounds, {
                 targetZoom,
                 animation: { duration: animationDuration }
             });
 
-            // 延迟微调相机位置，确保在 zoomToBounds 之后生效
+            // 延迟微调相机位置
             const camera = editor.getCamera();
             editor.setCamera({
-                x: camera.x,
-                y: camera.y + offsetInPage, // 向下移动相机 = 画面上移，从而避开底部较高的输入框
+                x: camera.x - xOffsetInPage, // 向右移动相机 = 画面左移
+                y: camera.y + yOffsetInPage,
                 z: targetZoom
             }, { animation: { duration: animationDuration } });
         }
@@ -670,7 +706,8 @@ export const TldrawEditorView = ({
                         description: s.props.content || '',
                         referenceImageUrl: s.props.referenceImageUrl || '',
                         color: '#ef4444',
-                        label: s.props.name
+                        label: s.props.name,
+                        displayName: s.props.displayName
                     }))
                     .sort((a, b) => parseInt(a.label.replace('标注', '')) - parseInt(b.label.replace('标注', '')));
 
