@@ -202,7 +202,7 @@ export function SettingsView() {
                 "z-[60] transition-all duration-300",
                 isDesktop
                     ? "absolute left-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4"
-                    : "absolute left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4"
+                    : "relative top-0 flex flex-row justify-center gap-8 mb-6 w-full pt-2"
             )}>
                 {sidebarItems.map((item) => {
                     const isActive = currentTab === item.id;
@@ -235,7 +235,7 @@ export function SettingsView() {
             {/* Content Area */}
             <main className={cn(
                 "flex-1 h-full overflow-hidden flex flex-col z-10 transition-all duration-300",
-                isDesktop ? "pl-32" : "pl-24"
+                isDesktop ? "pl-32" : "pl-0"
             )}>
                 <div className={cn(
                     "flex-1 flex flex-col min-h-0",

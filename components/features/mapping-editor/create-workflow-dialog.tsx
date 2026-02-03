@@ -81,7 +81,7 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="max-w-md bg-zinc-950 border-white/5 rounded-[2rem] overflow-hidden p-0 gap-0 shadow-2xl">
+            <DialogContent className="max-w-md bg-[#18181b] border-white/5 rounded-2xl overflow-hidden p-0 gap-0 ">
                 <DialogHeader className="p-8 pb-4">
                     <DialogTitle className="text-xl font-bold tracking-tight text-white/90 leading-none">
                         新建映射配置
