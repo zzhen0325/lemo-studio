@@ -1,68 +1,32 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Upload,
-  Save,
   Layers,
   Plus,
   Search,
   Workflow,
-  ChevronLeft,
-  Target,
-  CheckCircle2
+  ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 
-import { MappingConfig, UIComponent } from "@/types/features/mapping-editor";
-import { WorkflowApiJSON } from "@/lib/workflow-api-parser";
-import { localStorageManager } from "@/lib/local-storage-manager";
-import { WorkflowAnalyzer } from "@/components/features/mapping-editor/workflow-analyzer";
-import { PLAYGROUND_TARGETS } from "@/components/features/mapping-editor/parameter-mapping-panel";
-import { NodeConfigurationDialog } from "@/components/features/mapping-editor/node-configuration-dialog";
 import WorkflowSelectorDialog from "@/components/features/playground-v2/Dialogs/WorkflowSelectorDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import { getApiBase } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
-import { SidebarContent } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { CreateWorkflowDialog } from "./create-workflow-dialog";
+import Image from "next/image";
 
 
-interface LocalEditorState {
-  currentConfig: MappingConfig | null;
-  selectedNode: string | null;
-  selectedParameter: string | null;
-  selectedComponent: string | null;
-  editingComponentIndex: number | null;
-  isDirty: boolean;
-  isLoading: boolean;
-}
 
 export function MappingEditorPage() {
-  const [editorState, setEditorState] = useState<LocalEditorState>({
-    currentConfig: null,
-    selectedNode: null,
-    selectedParameter: null,
-    selectedComponent: null,
-    editingComponentIndex: null,
-    isDirty: false,
-    isLoading: false
-  });
-
-  const [configTitle, setConfigTitle] = useState("");
   const [isWorkflowSelectorOpen, setIsWorkflowSelectorOpen] = useState(false);
-  const [isNodeDialogOpen, setIsNodeDialogOpen] = useState(false);
   const [workflows, setWorkflows] = useState<IViewComfy[]>([]);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const filteredWorkflows = workflows.filter(wf =>
     wf.viewComfyJSON.title?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -80,686 +44,168 @@ export function MappingEditorPage() {
     }
   }, []);
 
-  const initializeEditor = useCallback(async () => {
-    try {
-      setEditorState(prev => ({ ...prev, isLoading: true }));
+  useEffect(() => {
+    fetchWorkflows();
+  }, [fetchWorkflows]);
 
-      // 加载编辑器设置
-      const settings = await localStorageManager.getEditorSettings();
-      console.log("编辑器设置已加载:", settings);
 
-      // Check for pending workflow from Playground
-      const pendingWorkflowStr = localStorage.getItem("MAPPING_EDITOR_INITIAL_WORKFLOW");
-      if (pendingWorkflowStr) {
-        try {
-          const workflow = JSON.parse(pendingWorkflowStr);
-          // Assuming workflow has workflowApiJSON
-          if (workflow.workflowApiJSON) {
-            const newConfig: MappingConfig = {
-              id: `config_${Date.now()}`,
-              title: workflow.viewComfyJSON?.id || "Untitled Workflow",
-              description: "Imported from Playground",
-              workflowApiJSON: workflow.workflowApiJSON,
-              uiConfig: {
-                layout: { type: "grid", columns: 2, gap: 16 },
-                theme: { primaryColor: "#3b82f6", backgroundColor: "#ffffff" },
-                components: []
-              },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-            setEditorState(prev => ({
-              ...prev,
-              currentConfig: newConfig,
-              isDirty: true
-            }));
-            setConfigTitle(newConfig.title);
-            toast.success("已加载选中的工作流");
-            localStorage.removeItem("MAPPING_EDITOR_INITIAL_WORKFLOW");
-          }
-        } catch (e) {
-          console.error("Failed to parse pending workflow", e);
-        }
-      }
 
-      setEditorState(prev => ({ ...prev, isLoading: false }));
-    } catch (error) {
-      console.error("初始化编辑器失败:", error);
-      toast.error("初始化编辑器失败");
-      setEditorState(prev => ({ ...prev, isLoading: false }));
-    }
-  }, [setConfigTitle]);
 
-  const handleSaveConfig = useCallback(async () => {
-    if (!editorState.currentConfig) {
-      toast.error("没有可保存的配置");
+
+  const handleSelectWorkflow = (workflow: IViewComfy) => {
+    // 页面重构后不再进入编辑模式，而是打开预览或跳转
+    // 目前保留此函数以备扩展，但不执行复杂的编辑器初始化逻辑
+    console.log("Selected workflow:", workflow.viewComfyJSON.title);
+  };
+
+
+
+
+
+  const handleCreateWorkflow = (data: { title: string; coverImg: string; workflowApiJSON: WorkflowApiJSON | null }) => {
+    if (!data.workflowApiJSON) {
+      toast.error("创建失败：缺失 API 定义");
       return;
     }
 
-    try {
-      setEditorState(prev => ({ ...prev, isLoading: true }));
-
-      // 1. Save to local storage (backup)
-      await localStorageManager.saveConfig(editorState.currentConfig);
-
-      // 2. Save to server
-      const updatedWorkflows = workflows.map(wf => {
-        if (wf.viewComfyJSON.title === editorState.currentConfig!.title) {
-          return {
-            ...wf,
-            viewComfyJSON: {
-              ...wf.viewComfyJSON,
-              mappingConfig: {
-                components: editorState.currentConfig!.uiConfig.components
-              }
-            }
-          };
-        }
-        return wf;
-      });
-
-      // Check if it's a new workflow
-      const exists = workflows.some(w => w.viewComfyJSON.title === editorState.currentConfig!.title);
-      if (!exists) {
-        // Create basic ViewComfy structure
-        const newWorkflow: IViewComfy = {
-          viewComfyJSON: {
-            id: editorState.currentConfig.id,
-            title: editorState.currentConfig.title,
-            description: editorState.currentConfig.description || "",
-            inputs: [], // Should ideally be parsed from API
-            advancedInputs: [],
-            previewImages: [],
-            mappingConfig: {
-              components: editorState.currentConfig.uiConfig.components
-            }
-          },
-          workflowApiJSON: editorState.currentConfig.workflowApiJSON
-        };
-        updatedWorkflows.push(newWorkflow);
-      }
-
-      const payload = {
-        appTitle: "ViewComfy",
-        appImg: "",
-        viewComfys: updatedWorkflows
-      };
-
-      const res = await fetch(`${getApiBase()}/view-comfy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to save to server");
-      }
-
-      setEditorState(prev => ({
-        ...prev,
-        isDirty: false,
-        isLoading: false
-      }));
-
-      toast.success("配置已保存到服务器");
-
-      // Refresh list
-      fetchWorkflows();
-
-    } catch (error) {
-      console.error("保存配置失败:", error);
-      toast.error("保存配置失败");
-      setEditorState(prev => ({ ...prev, isLoading: false }));
-    }
-  }, [editorState.currentConfig, workflows, fetchWorkflows]);
-
-  useEffect(() => {
-    // 并行初始化编辑器和加载工作流列表
-    Promise.all([initializeEditor(), fetchWorkflows()]);
-  }, [initializeEditor, fetchWorkflows]);
-
-  // Auto-save effect
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-
-    if (editorState.isDirty && editorState.currentConfig) {
-      timer = setTimeout(() => {
-        handleSaveConfig();
-      }, 30000); // 30 seconds auto-save
-    }
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [editorState.isDirty, editorState.currentConfig, handleSaveConfig]);
-
-
-
-
-
-  const handleWorkflowUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setEditorState(prev => ({ ...prev, isLoading: true }));
-
-      const text = await file.text();
-      const workflowApiJSON: WorkflowApiJSON = JSON.parse(text);
-
-      // 验证工作流格式
-      if (!workflowApiJSON || typeof workflowApiJSON !== 'object') {
-        throw new Error('无效的工作流文件格式');
-      }
-
-
-      // 创建新的映射配置
-      const newConfig: MappingConfig = {
+    const newWorkflow: IViewComfy = {
+      viewComfyJSON: {
         id: `config_${Date.now()}`,
-        title: configTitle || file.name.replace('.json', ''),
-        description: `从 ${file.name} 导入的工作流配置`,
-        workflowApiJSON,
-        uiConfig: {
-          layout: {
-            type: "grid",
-            columns: 2,
-            gap: 16
-          },
-          theme: {
-            primaryColor: "#3b82f6",
-            backgroundColor: "#ffffff"
-          },
+        title: data.title,
+        description: "",
+        inputs: [],
+        advancedInputs: [],
+        previewImages: data.coverImg ? [data.coverImg] : [],
+        mappingConfig: {
           components: []
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      setEditorState(prev => ({
-        ...prev,
-        currentConfig: newConfig,
-        isDirty: true,
-        isLoading: false
-      }));
-
-      toast.success("工作流文件上传成功");
-    } catch (error) {
-      console.error("上传工作流失败:", error);
-      toast.error("上传工作流失败：" + (error as Error).message);
-      setEditorState(prev => ({ ...prev, isLoading: false }));
-    }
-  };
-
-  const handleSelectWorkflow = (workflow: IViewComfy) => {
-    try {
-      if (!workflow.workflowApiJSON) {
-        toast.error("该工作流没有包含 API 定义");
-        return;
-      }
-
-      const existingComponents = (workflow.viewComfyJSON.mappingConfig?.components ?? []) as UIComponent[];
-
-      const newConfig: MappingConfig = {
-        id: workflow.viewComfyJSON.id || `config_${Date.now()}`,
-        title: workflow.viewComfyJSON.title || "Untitled Workflow",
-        description: workflow.viewComfyJSON.description || "",
-        workflowApiJSON: workflow.workflowApiJSON as WorkflowApiJSON,
-        uiConfig: {
-          layout: { type: "grid", columns: 2, gap: 16 },
-          theme: { primaryColor: "#3b82f6", backgroundColor: "#ffffff" },
-          components: existingComponents
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      setEditorState(prev => ({
-        ...prev,
-        currentConfig: newConfig,
-        isDirty: false
-      }));
-      setConfigTitle(newConfig.title);
-      toast.success(`已加载工作流: ${newConfig.title}`);
-    } catch (error) {
-      console.error("加载工作流失败:", error);
-      toast.error("加载工作流失败");
-    }
-  };
-
-
-
-
-
-  const handleNodeSelect = (nodeId: string) => {
-    setEditorState(prev => ({
-      ...prev,
-      selectedNode: nodeId,
-      selectedParameter: null
-    }));
-
-    // Scroll to node
-    setTimeout(() => {
-      const element = document.getElementById(`node-${nodeId}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
-  };
-
-  const handleParameterSelect = (nodeId: string, parameterKey: string) => {
-    setEditorState(prev => ({
-      ...prev,
-      selectedNode: nodeId,
-      selectedParameter: parameterKey
-    }));
-  };
-
-  const handleComponentCreate = (component: UIComponent) => {
-    if (!editorState.currentConfig) return;
-
-    const updatedComponents = [...editorState.currentConfig.uiConfig.components, component];
-
-    const updatedConfig = {
-      ...editorState.currentConfig,
-      uiConfig: {
-        ...editorState.currentConfig.uiConfig,
-        components: updatedComponents
-      },
-      updatedAt: new Date().toISOString()
-    };
-
-    setEditorState(prev => ({
-      ...prev,
-      currentConfig: updatedConfig,
-      isDirty: true
-    }));
-
-    toast.success("组件映射创建成功");
-  };
-
-  const handleComponentUpdate = (index: number, component: UIComponent) => {
-    if (!editorState.currentConfig) return;
-
-    const updatedComponents = [...editorState.currentConfig.uiConfig.components];
-    updatedComponents[index] = component;
-
-    const updatedConfig = {
-      ...editorState.currentConfig,
-      uiConfig: {
-        ...editorState.currentConfig.uiConfig,
-        components: updatedComponents
-      },
-      updatedAt: new Date().toISOString()
-    };
-
-    setEditorState(prev => ({
-      ...prev,
-      currentConfig: updatedConfig,
-      isDirty: true
-    }));
-
-    toast.success("组件映射更新成功");
-  };
-
-  const handleComponentDelete = (index: number) => {
-    if (!editorState.currentConfig) return;
-
-    const updatedComponents = editorState.currentConfig.uiConfig.components.filter((_, i) => i !== index);
-
-    const updatedConfig = {
-      ...editorState.currentConfig,
-      uiConfig: {
-        ...editorState.currentConfig.uiConfig,
-        components: updatedComponents
-      },
-      updatedAt: new Date().toISOString()
-    };
-
-    setEditorState(prev => ({
-      ...prev,
-      currentConfig: updatedConfig,
-      isDirty: true
-    }));
-
-    toast.success("组件映射删除成功");
-  };
-
-  const handleNodeValueUpdate = (nodeId: string, paramKey: string, value: unknown) => {
-    if (!editorState.currentConfig) return;
-
-    const updatedWorkflow = {
-      ...editorState.currentConfig.workflowApiJSON,
-      [nodeId]: {
-        ...editorState.currentConfig.workflowApiJSON[nodeId],
-        inputs: {
-          ...editorState.currentConfig.workflowApiJSON[nodeId].inputs,
-          [paramKey]: value
         }
-      }
+      },
+      workflowApiJSON: data.workflowApiJSON
     };
 
-    const updatedConfig = {
-      ...editorState.currentConfig,
-      workflowApiJSON: updatedWorkflow,
-      updatedAt: new Date().toISOString()
-    };
-
-    setEditorState(prev => ({
-      ...prev,
-      currentConfig: updatedConfig,
-      isDirty: true
-    }));
+    setWorkflows(prev => [newWorkflow, ...prev]);
+    toast.success(`已创建并加载配置: ${data.title}`);
   };
-
-  if (editorState.isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#030303]">
-        <div className="text-center">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-          />
-          <p className="text-white/40 text-sm font-medium tracking-widest uppercase">加载中</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="flex h-full w-full bg-black/10 text-white overflow-hidden selection:bg-primary/30">
+    <div className="flex h-screen w-full bg-[#050505] text-white overflow-hidden selection:bg-primary/30 p-8 md:p-12">
       <TooltipProvider>
-        {/* Sidebar */}
-        <motion.aside
-          initial={false}
-          animate={{ width: sidebarCollapsed ? 64 : 260 }}
-          className={cn(
-            "relative flex flex-col border-r border-white/5 bg-black/0 transition-all duration-300 ease-in-out z-30",
-            sidebarCollapsed && "items-center"
-          )}
-        >
-
-          <SidebarContent className="flex-1 flex flex-col  overflow-hidden">
-
-            <ScrollArea className="flex-1 -mx-3 px-3">
-              <div className="space-y-1">
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start h-10 px-3 rounded-xl transition-all duration-200",
-                    !editorState.currentConfig ? "bg-primary/10 text-primary border border-primary/10" : "text-white/40 hover:bg-white/5 hover:text-white"
-                  )}
-                  onClick={() => setEditorState(prev => ({ ...prev, currentConfig: null }))}
-                >
-                  <Plus className={cn("w-4 h-4", !sidebarCollapsed && "mr-3")} />
-                  {!sidebarCollapsed && <span className="text-sm font-medium">新建配置</span>}
-                </Button>
-
-
-
-                {filteredWorkflows.map((wf) => {
-                  const isActive = editorState.currentConfig?.title === wf.viewComfyJSON.title;
-                  return (
-                    <Button
-                      key={wf.viewComfyJSON.id}
-                      variant="ghost"
-                      className={cn(
-                        "w-full justify-start h-11 px-3 rounded-xl transition-all duration-200 group relative",
-                        isActive ? "bg-white/5 text-white border border-white/10 shadow-lg" : "text-white/40 hover:bg-white/[0.03] hover:text-white"
-                      )}
-                      onClick={() => handleSelectWorkflow(wf)}
-                    >
-                      <Layers className={cn("w-4 h-4", !sidebarCollapsed && "mr-3", isActive ? "text-primary" : "text-white/20")} />
-                      {!sidebarCollapsed && (
-                        <div className="flex flex-col items-start overflow-hidden">
-                          <span className="text-sm font-medium truncate w-full">{wf.viewComfyJSON.title || "未命名工作流"}</span>
-                          {isActive && <motion.div layoutId="active-indicator" className="absolute left-0 w-1 h-5 bg-primary rounded-full" />}
-                        </div>
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </SidebarContent>
-        </motion.aside>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col relative overflow-hidden ">
-          <main className="flex-1 flex flex-col relative overflow-hidden z-10">
-            {/* Header */}
-            <header className="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-white/[0.02] backdrop-blur-sm z-20">
-              <div className="flex items-center gap-4">
-                {editorState.currentConfig ? (
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col">
-                      <h2 className="text-sm font-bold tracking-tight text-white/90 leading-none mb-1">
-                        {editorState.currentConfig.title}
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-tighter">Workflow Module</span>
-                        {editorState.isDirty && (
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
-                            <span className="text-[10px] text-amber-500/80 font-bold uppercase tracking-widest">Unsaved</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.3em]">Module Ready</h2>
-                  </div>
-                )}
-              </div>
-
+        {/* Full Screen Management Layout */}
+        <div className="flex-1 max-w-[1400px] mx-auto flex flex-col gap-10">
+          {/* Top Bar with Branding and Search */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveConfig}
-                  disabled={!editorState.currentConfig || !editorState.isDirty}
-                  className="h-9 px-5 bg-primary/10 border-primary/20 hover:bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-widest transition-all rounded-xl gap-2 disabled:opacity-30 disabled:bg-white/5 disabled:border-white/5 disabled:text-zinc-600"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  Sync Changes
-                </Button>
+                <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.4)]">
+                  <Layers className="w-5 h-5 text-white" />
+                </div>
+                <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">
+                  Mapping <span className="text-primary not-italic">Library</span>
+                </h1>
               </div>
-            </header>
+              <p className="text-zinc-500 text-sm font-medium tracking-wide">管理、映射并部署您的高级 ComfyUI 生产流</p>
+            </div>
 
-            {/* Fixed Mapping Parameters Bar - Grid Style */}
-            {editorState.currentConfig && (
-              <div className="px-6 py-6 border-b border-white/5 bg-white/[0.01] backdrop-blur-sm z-20">
-                <div className="flex items-center justify-between mb-4 px-1">
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">
-                    <Target className="w-3.5 h-3.5 text-primary" />
-                    Parameter Synchronization
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] border-white/5 text-white/20 font-mono">
-                      {editorState.currentConfig.uiConfig.components.length} / {PLAYGROUND_TARGETS.length} MAPPED
-                    </Badge>
-                  </div>
+            <div className="flex items-center gap-6">
+              <div className="relative w-80 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 group-focus-within:text-primary transition-colors duration-300" />
+                <input
+                  type="text"
+                  placeholder="搜索库中的工作流..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-12 border border-white/5 rounded-2xl pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-zinc-900/40 backdrop-blur-xl transition-all duration-300"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Scrolling Grid Area */}
+          <ScrollArea className="flex-1 -mx-4 px-4 mask-fade-bottom">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 pb-32">
+              {/* Add New Configuration Tile */}
+              <button
+                onClick={() => setIsCreateDialogOpen(true)}
+                className="group relative aspect-[4/5] rounded-[2.5rem] border-2 border-dashed border-white/5 bg-white/[0.01] hover:bg-primary/[0.02] hover:border-primary/20 transition-all duration-700 flex flex-col items-center justify-center gap-5 overflow-hidden active:scale-95"
+              >
+                <div className="w-16 h-16 rounded-3xl bg-zinc-900 flex items-center justify-center group-hover:bg-primary group-hover:scale-110 transition-all duration-500 shadow-2xl border border-white/5">
+                  <Plus className="w-8 h-8 text-zinc-600 group-hover:text-white transition-colors" />
+                </div>
+                <div className="text-center px-6">
+                  <span className="text-sm font-bold text-zinc-400 group-hover:text-zinc-100 block mb-1.5 transition-colors">新建配置</span>
+                  <p className="text-[11px] text-zinc-600 font-medium leading-relaxed">
+                    部署新的 API 指令集<br />或从 Neuro 库加载
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
-                  {PLAYGROUND_TARGETS.map((target, idx) => {
-                    const mappedComp = editorState.currentConfig?.uiConfig.components.find(
-                      c => c.properties.paramName === target.key
-                    );
-                    const isMapped = !!mappedComp;
+                {/* Visual Accent */}
+                <div className="absolute inset-0 bg-radial-gradient from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              </button>
 
-                    return (
-                      <button
-                        key={`${target.key}-${idx}`}
-                        disabled={!isMapped}
-                        onClick={() => isMapped && handleNodeSelect(mappedComp.mapping.workflowPath[0])}
-                        className={cn(
-                          "group relative aspect-square rounded-[2rem] transition-all duration-500 flex flex-col items-center justify-center p-3 gap-2 overflow-hidden shadow-2xl shadow-black/20",
-                          isMapped
-                            ? "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40"
-                            : "bg-white/[0.02] border-white/5 opacity-40 grayscale-[0.5] hover:opacity-60 transition-opacity cursor-default"
-                        )}
-                      >
-                        {/* Status Glow / Decoration */}
-                        {isMapped && (
-                          <div className="absolute top-2 right-2">
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="bg-emerald-400 rounded-full p-0.5 shadow-[0_0_10px_rgba(52,211,153,0.5)]"
-                            >
-                              <CheckCircle2 className="w-2.5 h-2.5 text-black" />
-                            </motion.div>
-                          </div>
-                        )}
+              {filteredWorkflows.map((wf) => {
+                const cover = wf.viewComfyJSON.previewImages?.[0];
 
-                        <span className={cn(
-                          "text-2xl mb-1 filter drop-shadow-lg transition-transform duration-500",
-                          isMapped && "group-hover:scale-110"
-                        )}>
-                          {target.icon}
+                return (
+                  <button
+                    key={wf.viewComfyJSON.id}
+                    onClick={() => handleSelectWorkflow(wf)}
+                    className={cn(
+                      "group relative aspect-[4/5] rounded-[2.5rem] border border-white/5 transition-all duration-700 overflow-hidden bg-zinc-900/50 backdrop-blur-sm shadow-xl hover:border-white/10 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-3 active:scale-[0.98]"
+                    )}
+                  >
+                    {/* Cover Image with Ken Burns effect */}
+                    {cover ? (
+                      <Image
+                        src={cover}
+                        alt={wf.viewComfyJSON.title}
+                        fill
+                        className="object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-115 grayscale-[0.2] group-hover:grayscale-0"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-[#0a0a0a] flex items-center justify-center">
+                        <Workflow className="w-12 h-12 text-white/5" />
+                      </div>
+                    )}
+
+                    {/* Sophisticated Overlay */}
+                    <div className="absolute inset-0 flex flex-col justify-end p-8 transition-all duration-700 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90 group-hover:opacity-100">
+                      <div className="flex flex-col gap-2.5 translate-y-3 group-hover:translate-y-0 transition-transform duration-700">
+                        <span className="text-base font-bold text-white leading-tight truncate tracking-tight">
+                          {wf.viewComfyJSON.title || "未命名"}
                         </span>
 
-                        <div className="text-center">
-                          <div className={cn(
-                            "text-[10px] font-bold transition-colors truncate max-w-[80px]",
-                            isMapped ? "text-emerald-400 group-hover:text-emerald-300" : "text-white/40"
-                          )}>
-                            {target.label}
-                          </div>
-                          {isMapped && (
-                            <div className="text-[8px] font-black text-emerald-500/40 uppercase tracking-tighter mt-0.5">
-                              Node #{mappedComp.mapping.workflowPath[0]}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Hover Overlay */}
-                        {isMapped && (
-                          <div className="absolute inset-0 bg-emerald-400/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="flex-1 overflow-hidden relative">
-              <AnimatePresence mode="wait">
-                {!editorState.currentConfig ? (
-                  <motion.div
-                    key="empty-state"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.02 }}
-                    className="absolute inset-0 flex items-center justify-center p-12"
-                  >
-                    <Card className="max-w-2xl w-full bg-white/[0.01] border-white/5 backdrop-blur-3xl shadow-2xl rounded-[2.5rem] overflow-hidden relative group">
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                      <CardHeader className="text-center pt-16 pb-8 relative">
-                        <div className="w-24 h-24 rounded-[2rem] bg-primary/5 border border-primary/10 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_60px_rgba(59,130,246,0.2)] transition-all duration-700">
-                          <Upload className="w-10 h-10 text-primary animate-pulse" />
-                        </div>
-                        <CardTitle className="text-3xl font-bold tracking-tight mb-3 text-white">Initialize Workflow</CardTitle>
-                        <p className="text-zinc-500 text-sm max-w-sm mx-auto leading-relaxed">
-                          Deploy a ComfyUI API definition or select from your neural library to begin parameter synthesis.
-                        </p>
-                      </CardHeader>
-                      <CardContent className="px-16 pb-16 space-y-8 relative">
-                        <div className="grid gap-6">
-                          <div className="space-y-3">
-                            <Label className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em] px-1">Deployment Name</Label>
-                            <Input
-                              placeholder="Enter a distinctive title..."
-                              value={configTitle}
-                              onChange={(e) => setConfigTitle(e.target.value)}
-                              className="bg-white/[0.02] border-white/5 h-14 rounded-2xl focus:ring-1 focus:ring-primary/20 transition-all px-5 text-sm"
-                            />
-                          </div>
-                          <div className="relative group/upload">
-                            <Input
-                              type="file"
-                              accept=".json"
-                              onChange={handleWorkflowUpload}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            />
-                            <div className="border-2 border-dashed border-white/5 rounded-2xl p-10 flex flex-col items-center justify-center gap-4 bg-white/[0.01] group-hover/upload:bg-primary/[0.03] group-hover/upload:border-primary/30 transition-all duration-500">
-                              <Plus className="w-8 h-8 text-zinc-700 group-hover/upload:text-primary group-hover/upload:scale-110 transition-all duration-500" />
-                              <div className="text-center">
-                                <span className="text-xs font-bold text-zinc-500 group-hover/upload:text-zinc-300 block mb-1">Upload JSON Definition</span>
-                                <span className="text-[10px] text-zinc-700">API format exported from ComfyUI</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-6 py-2">
-                          <Separator className="flex-1 bg-white/5" />
-                          <span className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em]">OR</span>
-                          <Separator className="flex-1 bg-white/5" />
-                        </div>
-
-                        <Button
-                          variant="ghost"
-                          className="w-full h-16 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 text-[10px] font-bold uppercase tracking-[0.2em] transition-all gap-3 shadow-inner"
-                          onClick={() => setIsWorkflowSelectorOpen(true)}
-                        >
-                          <Layers className="w-4 h-4 text-primary" />
-                          Load from Neural Library
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="editor-state"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="h-full"
-                  >
-                    <div className="h-full">
-                      <div className="h-full flex flex-col p-6 gap-6">
-                        <div className="flex-1 flex flex-col overflow-hidden bg-white/[0.01] border border-white/5 rounded-3xl p-6 backdrop-blur-md">
-                          <WorkflowAnalyzer
-                            workflowApiJSON={editorState.currentConfig.workflowApiJSON}
-                            onNodeSelect={handleNodeSelect}
-                            onParameterSelect={handleParameterSelect}
-                            selectedNode={editorState.selectedNode}
-                            selectedParameter={editorState.selectedParameter}
-                            existingComponents={editorState.currentConfig.uiConfig.components}
-                            onComponentCreate={handleComponentCreate}
-                            onComponentUpdate={handleComponentUpdate}
-                            onComponentDelete={handleComponentDelete}
-                          />
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-[10px] bg-white/5 border-white/10 text-white/50 font-black uppercase tracking-widest px-2 h-5 rounded-full">
+                            {wf.viewComfyJSON.mappingConfig?.components?.length || 0} Nodes
+                          </Badge>
                         </div>
                       </div>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+
+                    {/* Corner Interaction Hint */}
+                    <div className="absolute top-6 right-6 w-10 h-10 rounded-2xl bg-white/5 backdrop-blur-2xl border border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center -translate-y-4 group-hover:translate-y-0">
+                      <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:text-white transition-colors" />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          </main>
+          </ScrollArea>
         </div>
+
+        <CreateWorkflowDialog
+          open={isCreateDialogOpen}
+          onOpenChange={setIsCreateDialogOpen}
+          onSubmit={handleCreateWorkflow}
+        />
+
       </TooltipProvider>
 
       <WorkflowSelectorDialog
         open={isWorkflowSelectorOpen}
         onOpenChange={setIsWorkflowSelectorOpen}
         onSelect={handleSelectWorkflow}
-      />
-
-      <NodeConfigurationDialog
-        open={isNodeDialogOpen}
-        onOpenChange={setIsNodeDialogOpen}
-        nodeId={editorState.selectedNode}
-        workflowApiJSON={editorState.currentConfig?.workflowApiJSON || null}
-        mappingConfig={editorState.currentConfig}
-        onUpdateValue={handleNodeValueUpdate}
-        onParameterSelect={handleParameterSelect}
       />
     </div>
   );

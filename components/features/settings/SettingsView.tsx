@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    ChevronRight,
     ChevronDown,
     Key,
     Globe,
@@ -28,6 +27,8 @@ import { useToast } from "@/hooks/common/use-toast";
 import MappingEditorPage from "@/components/features/mapping-editor/mapping-editor-page";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { TooltipButton } from "@/components/ui/tooltip-button";
+import { useMediaQuery } from "@/hooks/common/use-media-query";
 
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { APIProviderConfig, ServiceType, SERVICE_METADATA } from "@/lib/api-config/types";
@@ -52,6 +53,7 @@ export function SettingsView() {
     const [currentTab, setCurrentTab] = useState<SettingsTab>(SettingsTab.Providers);
     const { toast } = useToast();
     const [expandedServices, setExpandedServices] = useState<Set<ServiceType>>(new Set(['describe', 'optimize']));
+    const isDesktop = useMediaQuery("(min-width: 1440px)");
 
     // Provider Form Modal State
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -190,67 +192,51 @@ export function SettingsView() {
     const serviceList: ServiceType[] = ['imageGeneration', 'describe', 'optimize', 'translate'];
 
     return (
-        <div className="flex h-full w-full  pt-20 overflow-hidden text-zinc-100 relative"
+        <div className="flex h-full w-full pt-20 overflow-hidden text-zinc-100 relative"
             style={{
                 background: "linear-gradient(180deg, #0F0F15 0%, #131718 100%)",
             }}>
 
-
-            {/* Sidebar */}
-            <aside className="w-72 flex flex-col bg-[#1a1a1a] mb-6 rounded-2xl  ml-4 border border-white/5 z-10">
-
-
-                <div className="px-4 flex-1 overflow-y-auto space-y-2 py-4">
-                    {sidebarItems.map((item) => {
-                        const isActive = currentTab === item.id;
-                        return (
-                            <button
-                                key={item.id}
-                                onClick={() => setCurrentTab(item.id)}
+            {/* Dock Sidebar */}
+            <div className={cn(
+                "z-[60] transition-all duration-300",
+                isDesktop
+                    ? "absolute left-10 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4"
+                    : "absolute left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4"
+            )}>
+                {sidebarItems.map((item) => {
+                    const isActive = currentTab === item.id;
+                    return (
+                        <div key={item.id} className="flex flex-col items-center gap-1">
+                            <TooltipButton
+                                icon={<item.icon className="w-5 h-5" />}
+                                label={item.label}
+                                tooltipContent={item.description}
+                                tooltipSide="right"
                                 className={cn(
-                                    "flex items-center w-full px-4 py-3.5 rounded-2xl transition-all duration-300 group text-left relative overflow-hidden",
+                                    "w-10 h-10 rounded-2xl transition-all duration-200",
                                     isActive
-                                        ? "bg-white/5 text-white shadow-lg border border-white/10"
-                                        : "text-zinc-500 hover:bg-white/[0.02] hover:text-zinc-300 border border-transparent"
+                                        ? "bg-primary/20 text-white border border-white/40 hover:bg-primary/30 hover:border-white/60 hover:scale-105"
+                                        : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:scale-110"
                                 )}
-                            >
-                                {isActive && (
-                                    <motion.div
-                                        layoutId="sidebar-active-pill"
-                                        className="absolute left-0 top-3 bottom-3 w-1 bg-primary rounded-full"
-                                        initial={false}
-                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                    />
-                                )}
-                                <div className={cn(
-                                    "p-2.5 rounded-xl mr-4 transition-all duration-300",
-                                    isActive
-                                        ? "bg-primary/20 text-primary shadow-[0_0_15px_rgba(59,130,246,0.2)]"
-                                        : "bg-white/5 text-zinc-600 group-hover:text-zinc-400"
-                                )}>
-                                    <item.icon className="size-4" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className={cn(
-                                        "text-sm font-semibold transition-colors",
-                                        isActive ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"
-                                    )}>{item.label}</div>
-                                    <div className="text-[10px] text-zinc-600 truncate mt-0.5">{item.description}</div>
-                                </div>
-                                <ChevronRight className={cn(
-                                    "size-3 transition-all duration-300",
-                                    isActive ? "text-primary opacity-100 translate-x-0" : "text-zinc-700 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"
-                                )} />
-                            </button>
-                        );
-                    })}
-                </div>
-
-
-            </aside>
+                                onClick={() => setCurrentTab(item.id)}
+                            />
+                            <span className={cn(
+                                "text-[10px] transition-colors duration-200",
+                                isActive ? "text-primary font-medium" : "text-zinc-500"
+                            )}>
+                                {item.label.split(' ')[1] || item.label}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
 
             {/* Content Area */}
-            <main className="flex-1 h-full overflow-hidden flex flex-col z-10">
+            <main className={cn(
+                "flex-1 h-full overflow-hidden flex flex-col z-10 transition-all duration-300",
+                isDesktop ? "pl-32" : "pl-24"
+            )}>
                 <div className={cn(
                     "flex-1 flex flex-col min-h-0",
                     currentTab !== SettingsTab.MappingEditor && "overflow-y-auto px-12 custom-scrollbar"

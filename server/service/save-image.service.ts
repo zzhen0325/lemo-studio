@@ -102,18 +102,29 @@ export class SaveImageService {
       console.log('[SaveImageService] fetching URL:', imageBase64);
       const downloaded = await fetchImageBuffer(imageBase64);
       console.log('[SaveImageService] downloaded size:', downloaded.buffer.length, 'mime:', downloaded.mime);
-      const inferred = getExtFromMime(downloaded.mime);
-      if (inferred) ext = inferred;
       imageBuffer = downloaded.buffer;
       inferredMime = downloaded.mime;
     } else {
       console.log('[SaveImageService] processing base64');
       const { base64, mime } = extractBase64(imageBase64);
-      const inferred = getExtFromMime(mime);
-      if (inferred) ext = inferred;
       imageBuffer = Buffer.from(base64, 'base64');
       inferredMime = mime;
       console.log('[SaveImageService] base64 size:', imageBuffer.length, 'mime:', mime);
+    }
+
+    // 后验逻辑：如果推断的 MIME 依然无法确定或与内容不符，通过文件头识别
+    if (!inferredMime || inferredMime === 'application/octet-stream') {
+      // 简单识别：JFIF (JPEG) FFD8
+      if (imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8) {
+        inferredMime = 'image/jpeg';
+      } else if (imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50 && imageBuffer[2] === 0x4e && imageBuffer[3] === 0x47) {
+        inferredMime = 'image/png';
+      }
+    }
+
+    const inferredExt = getExtFromMime(inferredMime);
+    if (inferredExt) {
+      ext = inferredExt;
     }
 
     const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;

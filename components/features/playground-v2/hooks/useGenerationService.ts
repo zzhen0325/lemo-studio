@@ -72,7 +72,7 @@ export function useGenerationService() {
             const resp = await fetch(`${getApiBase()}/save-image`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'outputs', metadata })
+                body: JSON.stringify({ imageBase64: dataUrl, subdir: 'outputs', metadata })
             });
             const json = await resp.json();
             if (!resp.ok || !json?.path) {
