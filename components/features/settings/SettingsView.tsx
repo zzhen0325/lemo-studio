@@ -192,10 +192,8 @@ export function SettingsView() {
     const serviceList: ServiceType[] = ['imageGeneration', 'describe', 'optimize', 'translate'];
 
     return (
-        <div className="flex h-full w-full pt-20 overflow-hidden text-zinc-100 relative"
-            style={{
-                background: "linear-gradient(180deg, #0F0F15 0%, #131718 100%)",
-            }}>
+        <div className="flex h-full w-full pt-20 overflow-hidden bg-[111117] text-zinc-100 relative"
+        >
 
             {/* Dock Sidebar */}
             <div className={cn(

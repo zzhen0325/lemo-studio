@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run dev:next",
-    "dev:next": "cross-env NODE_OPTIONS='--inspect' next dev -p 3001",
+    "dev:next": "next dev --turbo -p 3001",
     "dev:server": "cd server && npm run dev",
     "build": "next build",
     "start": "next start",

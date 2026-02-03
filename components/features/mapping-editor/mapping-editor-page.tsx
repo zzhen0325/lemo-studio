@@ -39,8 +39,6 @@ export function MappingEditorPage() {
   );
 
   const [selectedWorkflow, setSelectedWorkflow] = useState<IViewComfy | null>(null);
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [selectedParameter, setSelectedParameter] = useState<string | null>(null);
   const [existingComponents, setExistingComponents] = useState<UIComponent[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -68,8 +66,6 @@ export function MappingEditorPage() {
     console.log("handleSelectWorkflow triggered for:", workflow.viewComfyJSON.id);
     setSelectedWorkflow(workflow);
     setExistingComponents((workflow.viewComfyJSON.mappingConfig?.components as UIComponent[]) || []);
-    setSelectedNode(null);
-    setSelectedParameter(null);
     console.log("State updated: selectedWorkflow set");
   };
 
@@ -146,11 +142,11 @@ export function MappingEditorPage() {
   };
 
   return (
-    <div className="flex h-full w-full text-white overflow-hidden selection:bg-primary/30 p-8 md:p-12">
+    <div className="flex-1  h-full text-white overflow-hidden selection:bg-primary/30 p-8 md:p-12">
       <TooltipProvider>
         {selectedWorkflow ? (
           /* Workflow Detail View */
-          <div className="flex-1 max-w-[1400px] mx-auto flex flex-col gap-6 h-full overflow-hidden">
+          <div className="flex-1  mx-auto flex flex-col gap-6 h-full overflow-hidden">
             {/* Detail Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -158,12 +154,12 @@ export function MappingEditorPage() {
                   variant="ghost"
                   size="icon"
                   onClick={handleBackToLibrary}
-                  className="rounded-xl bg-white/5 border border-white/5 hover:bg-white/10"
+                  className="rounded-xl bg-[#2C2D2F] border border-[#2C2D2F] hover:bg-white/10"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div>
-                  <h1 className="text-2xl font-black tracking-tighter uppercase italic">
+                  <h1 className="text-2xl font-black tracking-tighter uppercase">
                     {selectedWorkflow.viewComfyJSON.title}
                   </h1>
                   <p className="text-zinc-500 text-xs font-medium tracking-wide">ID: {selectedWorkflow.viewComfyJSON.id}</p>
@@ -183,10 +179,7 @@ export function MappingEditorPage() {
               <div className="flex flex-col gap-8 pb-10">
                 {existingComponents.length > 0 && (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3 px-2">
-                      <div className="w-1 h-4 bg-primary rounded-full" />
-                      <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">Mapped Parameters</span>
-                    </div>
+
                     <MappingList
                       components={existingComponents}
                       onEdit={(index) => {
@@ -203,20 +196,10 @@ export function MappingEditorPage() {
 
                 {/* Bottom Panel: Workflow Analyzer */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 px-2 text-white/90">
-                    <div className="w-1 h-4 bg-primary rounded-full" />
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em]">Workflow Analyzer</span>
-                  </div>
+
                   <div className="min-h-[400px]">
                     <WorkflowAnalyzer
                       workflowApiJSON={selectedWorkflow.workflowApiJSON as WorkflowApiJSON}
-                      selectedNode={selectedNode}
-                      selectedParameter={selectedParameter}
-                      onNodeSelect={setSelectedNode}
-                      onParameterSelect={(nodeId, paramKey) => {
-                        setSelectedNode(nodeId);
-                        setSelectedParameter(paramKey);
-                      }}
                       existingComponents={existingComponents}
                       onComponentCreate={(newComp) => setExistingComponents(prev => [...prev, newComp])}
                       onComponentDelete={(index) => {
@@ -230,7 +213,7 @@ export function MappingEditorPage() {
           </div>
         ) : (
           /* Library Grid View */
-          <div className="flex-1 max-w-[1400px] mx-auto flex flex-col gap-10 h-full">
+          <div className="flex-1 mx-auto flex flex-col gap-10 h-full">
             {/* List Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
               <div className="space-y-3">
@@ -253,7 +236,7 @@ export function MappingEditorPage() {
                     placeholder="搜索库中的工作流..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-12 border border-white/5 rounded-2xl pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-zinc-900/40 backdrop-blur-xl transition-all duration-300"
+                    className="w-full h-12 border border-white/5 rounded-2xl pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-[#2C2D2F] transition-all duration-300"
                   />
                 </div>
               </div>
@@ -261,20 +244,18 @@ export function MappingEditorPage() {
 
             {/* Scrolling Grid Area */}
             <ScrollArea className="flex-1 -mx-4 px-4 mask-fade-bottom">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 pb-32">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-8 gap-4 pb-32">
                 {/* Add New Configuration Tile */}
                 <button
                   onClick={() => setIsCreateDialogOpen(true)}
-                  className="group relative aspect-[4/5] rounded-[2.5rem] border-2 border-dashed border-white/5 bg-white/[0.01] hover:bg-primary/[0.02] hover:border-primary/20 transition-all duration-700 flex flex-col items-center justify-center gap-5 overflow-hidden active:scale-95"
+                  className="group relative aspect-[4/5] rounded-3xl border-2 border-dashed border-white/10   bg-[#2c2d2f68] hover:bg-[#31313382] transition-all duration-200 flex flex-col items-center justify-center gap-5 overflow-hidden active:scale-95"
                 >
-                  <div className="w-16 h-16 rounded-3xl bg-zinc-900 flex items-center justify-center group-hover:bg-primary group-hover:scale-110 transition-all duration-500 shadow-2xl border border-white/5">
-                    <Plus className="w-8 h-8 text-zinc-600 group-hover:text-white transition-colors" />
+                  <div className="w-16 h-16 rounded-full bg-[#2c2d2f57] flex items-center justify-center  group-hover:scale-105 transition-all duration-200  ">
+                    <Plus className="w-8 h-8 text-white " />
                   </div>
                   <div className="text-center px-6">
-                    <span className="text-sm font-bold text-zinc-400 group-hover:text-zinc-100 block mb-1.5 transition-colors">新建配置</span>
-                    <p className="text-[11px] text-zinc-600 font-medium leading-relaxed">
-                      部署新的 API 指令集<br />或从 Neuro 库加载
-                    </p>
+                    <span className="text-sm  text-white/50 group-hover:text-white block mb-1.5 transition-colors">ADD WORKFLOW</span>
+
                   </div>
 
                   {/* Visual Accent */}
@@ -289,7 +270,7 @@ export function MappingEditorPage() {
                       key={wf.viewComfyJSON.id}
                       onClick={() => handleSelectWorkflow(wf)}
                       className={cn(
-                        "group relative aspect-[4/5] rounded-[2.5rem] border border-white/5 transition-all duration-700 overflow-hidden bg-zinc-900/50 backdrop-blur-sm shadow-xl hover:border-white/10 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-3 active:scale-[0.98]"
+                        "group relative aspect-[4/5] rounded-3xl   bg-[#2C2D2F] hover:bg-[#313133] transition-all duration-200 flex flex-col items-center justify-center gap-5 overflow-hidden active:scale-95"
                       )}
                     >
                       {/* Cover Image with Ken Burns effect */}
@@ -302,30 +283,27 @@ export function MappingEditorPage() {
                           unoptimized
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-[#0a0a0a] flex items-center justify-center">
+                        <div className="absolute inset-0  bg-[#2C2D2F] hover:bg-[#313133] flex items-center justify-center">
                           <Workflow className="w-12 h-12 text-white/5" />
                         </div>
                       )}
 
                       {/* Sophisticated Overlay */}
-                      <div className="absolute inset-0 flex flex-col justify-end p-8 transition-all duration-700 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90 group-hover:opacity-100 pointer-events-none">
-                        <div className="flex flex-col gap-2.5 translate-y-3 group-hover:translate-y-0 transition-transform duration-700">
-                          <span className="text-base font-bold text-white leading-tight truncate tracking-tight">
+                      <div className="absolute inset-0 flex flex-col justify-end p-8 ">
+                        <div className="flex flex-col gap-2.5 translate-y-3 group-hover:translate-y-0 transition-transform duration-200">
+                          <span className="text-sm  text-white leading-tight truncate ">
                             {wf.viewComfyJSON.title || "未命名"}
                           </span>
 
-                          <div className="flex items-center gap-3">
+                          {/* <div className="flex items-center gap-3">
                             <Badge variant="outline" className="text-[10px] bg-white/5 border-white/10 text-white/50 font-black uppercase tracking-widest px-2 h-5 rounded-full">
                               {wf.viewComfyJSON.mappingConfig?.components?.length || 0} Nodes
                             </Badge>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
 
-                      {/* Corner Interaction Hint */}
-                      <div className="absolute top-6 right-6 w-10 h-10 rounded-2xl bg-white/5 backdrop-blur-2xl border border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center -translate-y-4 group-hover:translate-y-0 pointer-events-none">
-                        <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:text-white transition-colors" />
-                      </div>
+
                     </button>
                   );
                 })}

@@ -41,9 +41,6 @@ interface RawWorkflowNode {
 
 interface WorkflowAnalyzerProps {
   workflowApiJSON: WorkflowApiJSON;
-  selectedNode?: string | null;
-  selectedParameter?: string | null;
-  onNodeSelect?: (nodeId: string) => void;
   onParameterSelect?: (nodeId: string, parameterKey: string) => void;
   existingComponents?: UIComponent[];
   onComponentCreate?: (component: UIComponent) => void;
@@ -61,9 +58,6 @@ interface ParsedNode extends RawWorkflowNode {
 
 export function WorkflowAnalyzer({
   workflowApiJSON,
-  selectedNode,
-  selectedParameter,
-  onNodeSelect,
   onParameterSelect,
   existingComponents = [],
   onComponentCreate,
@@ -142,10 +136,6 @@ export function WorkflowAnalyzer({
     return nodes.sort((a, b) => parseInt(a.id) - parseInt(b.id));
   }, [workflowApiJSON]);
 
-  const handleNodeClick = (nodeId: string) => {
-    onNodeSelect?.(nodeId);
-  };
-
   const getNodeTypeColor = (classType: string): string => {
     const hash = classType.split('').reduce((a, b) => {
       a = ((a << 5) - a) + b.charCodeAt(0);
@@ -179,10 +169,9 @@ export function WorkflowAnalyzer({
       </div>
 
       <ScrollArea className="flex-1 -mx-2 px-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-6">
+        <div className="columns-4 md:columns-6 xl:columns-8 gap-3 pb-6 space-y-3">
           <AnimatePresence mode="popLayout">
             {parsedNodes.map((node, index) => {
-              const isSelected = selectedNode === node.id;
               const mappedParamCount = Object.keys(node.inputs || {}).filter(key =>
                 existingComponents.some(
                   c => c.mapping.workflowPath.includes(node.id) && c.mapping.parameterKey === key
@@ -198,17 +187,14 @@ export function WorkflowAnalyzer({
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.01 }}
-                  onClick={() => handleNodeClick(node.id)}
-                  className="cursor-pointer group"
+                  className="group break-inside-avoid mb-3"
                 >
                   <Card
                     className={cn(
-                      "transition-all duration-500 border-white/5 bg-white/[0.01] hover:bg-white/[0.03] overflow-hidden relative rounded-2xl",
-                      isSelected
-                        ? "border-primary/30 bg-primary/[0.03] shadow-[0_0_30px_rgba(59,130,246,0.1)] ring-1 ring-primary/20"
-                        : isMapped
-                          ? "border-emerald-500/20 bg-emerald-500/[0.02]"
-                          : ""
+                      "transition-all duration-200",
+                      isMapped
+                        ? "border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.05)]"
+                        : "bg-[#131414] hover:bg-[#1a1b1b] border-[#2a2b2b]"
                     )}
                   >
                     <CardContent className="p-4">
@@ -268,16 +254,12 @@ export function WorkflowAnalyzer({
                               c => c.mapping.workflowPath.includes(node.id) && c.mapping.parameterKey === key
                             );
                             const mappedComp = mappedCompIndex >= 0 ? existingComponents[mappedCompIndex] : null;
-                            const isParamSelected = selectedParameter === key && isSelected;
 
                             return (
                               <div
                                 key={key}
                                 className={cn(
-                                  "group/param flex items-center justify-between p-2.5 rounded-xl text-[11px] transition-all duration-300 border bg-black/20",
-                                  isParamSelected
-                                    ? "border-primary/40 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
-                                    : "border-white/[0.03] hover:border-white/10"
+                                  "group/param flex items-center justify-between p-2.5 rounded-xl text-[11px] transition-all duration-300 border bg-black/20 border-white/[0.03] hover:border-white/10"
                                 )}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -391,73 +373,75 @@ export function WorkflowAnalyzer({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </ScrollArea >
 
       {/* Custom Mapping Dialog/Overlay */}
       <AnimatePresence>
-        {editingParam && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md"
-            onClick={() => setEditingParam(null)}
-          >
+        {
+          editingParam && (
             <motion.div
-              initial={{ scale: 0.95, y: 10 }}
-              animate={{ scale: 1, y: 0 }}
-              className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
-              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md"
+              onClick={() => setEditingParam(null)}
             >
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                    <Target className="w-5 h-5 text-primary" />
+              <motion.div
+                initial={{ scale: 0.95, y: 10 }}
+                animate={{ scale: 1, y: 0 }}
+                className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                      <Target className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Create Custom Mapping</h3>
+                      <p className="text-xs text-white/40 font-medium uppercase tracking-widest mt-0.5">Node #{editingParam.nodeId} • {editingParam.key}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Create Custom Mapping</h3>
-                    <p className="text-xs text-white/40 font-medium uppercase tracking-widest mt-0.5">Node #{editingParam.nodeId} • {editingParam.key}</p>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setEditingParam(null)} className="rounded-full hover:bg-white/5">
-                  <X className="w-5 h-5 text-white/20" />
-                </Button>
-              </div>
-
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Display Label</Label>
-                  <Input
-                    className="h-12 bg-white/5 border-white/5 rounded-xl focus:ring-primary/20 transition-all text-sm"
-                    value={editingParam.label}
-                    onChange={e => setEditingParam(prev => prev ? { ...prev, label: e.target.value } : null)}
-                    placeholder="Enter UI label (e.g. Master Scale)..."
-                    autoFocus
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Default Value</Label>
-                  <Input
-                    className="h-12 bg-white/5 border-white/5 rounded-xl text-zinc-500 font-mono text-sm"
-                    value={String(editingParam.defaultValue)}
-                    disabled
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-[11px] font-bold uppercase tracking-widest" onClick={handleCustomMapSubmit}>
-                    Confirm Mapping
-                  </Button>
-                  <Button variant="outline" className="flex-1 h-12 rounded-xl border-white/5 bg-white/5 hover:bg-white/10 text-[11px] font-bold uppercase tracking-widest" onClick={() => setEditingParam(null)}>
-                    Cancel
+                  <Button variant="ghost" size="icon" onClick={() => setEditingParam(null)} className="rounded-full hover:bg-white/5">
+                    <X className="w-5 h-5 text-white/20" />
                   </Button>
                 </div>
-              </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Display Label</Label>
+                    <Input
+                      className="h-12 bg-white/5 border-white/5 rounded-xl focus:ring-primary/20 transition-all text-sm"
+                      value={editingParam.label}
+                      onChange={e => setEditingParam(prev => prev ? { ...prev, label: e.target.value } : null)}
+                      placeholder="Enter UI label (e.g. Master Scale)..."
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Default Value</Label>
+                    <Input
+                      className="h-12 bg-white/5 border-white/5 rounded-xl text-zinc-500 font-mono text-sm"
+                      value={String(editingParam.defaultValue)}
+                      disabled
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-[11px] font-bold uppercase tracking-widest" onClick={handleCustomMapSubmit}>
+                      Confirm Mapping
+                    </Button>
+                    <Button variant="outline" className="flex-1 h-12 rounded-xl border-white/5 bg-white/5 hover:bg-white/10 text-[11px] font-bold uppercase tracking-widest" onClick={() => setEditingParam(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          )
+        }
+      </AnimatePresence >
+    </div >
   );
 }
