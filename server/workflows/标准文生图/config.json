@@ -2,7 +2,9 @@
   "title": "标准文生图",
   "description": "\n输入提示词，浏览右上角模型列表，选择你想要的风格，或者把强度改成0关掉风格效果",
   "viewcomfyEndpoint": "",
-  "previewImages": [],
+  "previewImages": [
+    "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/upload/Flux2-Klein_00137__4ab15af8-9f96-4e0c-a22c-057daed20424.png"
+  ],
   "inputs": [
     {
       "title": "文本",
@@ -461,27 +463,6 @@
           "defaultValue": "flux_realism_lora.safetensors"
         },
         "orderIndex": 1
-      },
-      {
-        "id": "pg_map_1764603348000",
-        "type": "number",
-        "label": "LoRA模型 2 强度 (LoRA 2 Strength)",
-        "properties": {
-          "defaultValue": 0.8000000000000002,
-          "paramName": "lora2_strength",
-          "placeholder": "Mapped to LoRA模型 2 强度 (LoRA 2 Strength)"
-        },
-        "validation": {},
-        "mapping": {
-          "workflowPath": [
-            "147",
-            "inputs",
-            "strength_model"
-          ],
-          "parameterKey": "strength_model",
-          "defaultValue": 0.8000000000000002
-        },
-        "orderIndex": 2
       },
       {
         "id": "pg_map_1766132141502",

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Layers,
   Plus,
   Search,
   Workflow,
-  ChevronRight
+  ChevronRight,
+  ImagePlus
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +23,7 @@ import Image from "next/image";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import { WorkflowAnalyzer } from "./workflow-analyzer";
 import { MappingList } from "./mapping-list";
+import GradualBlur from "@/components/visual-effects/GradualBlur";
 import { ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { UIComponent } from "@/types/features/mapping-editor";
@@ -41,6 +43,8 @@ export function MappingEditorPage() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<IViewComfy | null>(null);
   const [existingComponents, setExistingComponents] = useState<UIComponent[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const uploadFileRef = useRef<HTMLInputElement>(null);
 
   const fetchWorkflows = useCallback(async () => {
     try {
@@ -71,23 +75,76 @@ export function MappingEditorPage() {
 
   const handleBackToLibrary = () => {
     setSelectedWorkflow(null);
-    fetchWorkflows();
+    // 移除 fetchWorkflows() 调用
+    // 理由：handleSaveMapping 已经同步更新了本地 workflows 状态
+    // 如果这里立即重新 fetch，可能会因为后端文件写入延迟导致拉取到不完整甚至空的数据（竞态条件）
+  };
+
+  const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedWorkflow) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("请选择图片文件");
+      return;
+    }
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch(`${getApiBase()}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const uploadedPath = data.path;
+
+        // 更新当前选中的工作流封面状态
+        const updatedWorkflow = {
+          ...selectedWorkflow,
+          viewComfyJSON: {
+            ...selectedWorkflow.viewComfyJSON,
+            previewImages: [uploadedPath] // 统一替换为单张封面
+          }
+        };
+        setSelectedWorkflow(updatedWorkflow);
+        toast.success("图片已上传，请记得点击 Save 保存配置");
+      } else {
+        toast.error("上传图片失败");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("上传图片过程中出错");
+    } finally {
+      setIsUploading(false);
+      // 重置 input 以便下次选择同一张图也能触发 onChange
+      if (uploadFileRef.current) uploadFileRef.current.value = "";
+    }
   };
 
   const handleSaveMapping = async () => {
-    if (!selectedWorkflow) return;
+    if (!selectedWorkflow?.viewComfyJSON?.id) {
+      toast.error("保存失败：未选择有效的工作流");
+      return;
+    }
 
     setIsSaving(true);
     try {
-      const updatedWorkflow = {
-        ...selectedWorkflow,
-        viewComfyJSON: {
-          ...selectedWorkflow.viewComfyJSON,
-          mappingConfig: {
-            ...selectedWorkflow.viewComfyJSON.mappingConfig,
-            components: existingComponents
-          }
+      const updatedViewComfyJSON = {
+        ...selectedWorkflow.viewComfyJSON,
+        mappingConfig: {
+          ...selectedWorkflow.viewComfyJSON.mappingConfig,
+          components: existingComponents
         }
+      };
+
+      const payload = {
+        ...selectedWorkflow,
+        viewComfyJSON: updatedViewComfyJSON
       };
 
       const res = await fetch(`${getApiBase()}/view-comfy/${selectedWorkflow.viewComfyJSON.id}`, {
@@ -95,18 +152,25 @@ export function MappingEditorPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedWorkflow),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         toast.success("配置已保存");
-        setSelectedWorkflow(updatedWorkflow);
+        // 更新当前选中状态
+        setSelectedWorkflow(payload);
+        // 同步更新外部列表状态，避免返回后看到的是旧数据或触发重新拉取时的竞态问题
+        setWorkflows(prev => prev.map(wf =>
+          wf.viewComfyJSON.id === selectedWorkflow.viewComfyJSON.id ? payload : wf
+        ));
       } else {
-        throw new Error("保存失败");
+        const errorData = await res.json().catch(() => ({}));
+        toast.error(`保存失败: ${errorData.message || "服务器错误"}`);
       }
-    } catch (error) {
-      console.error("Failed to save mapping", error);
-      toast.error("保存配置失败");
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Failed to save mapping:", err);
+      toast.error(`保存配置失败: ${err.message || "未知错误"}`);
     } finally {
       setIsSaving(false);
     }
@@ -142,7 +206,7 @@ export function MappingEditorPage() {
   };
 
   return (
-    <div className="flex-1  h-full text-white overflow-hidden selection:bg-primary/30 p-8 md:p-12">
+    <div className="flex-1  h-full text-white overflow-hidden selection:bg-primary/30 p-8 pb-0">
       <TooltipProvider>
         {selectedWorkflow ? (
           /* Workflow Detail View */
@@ -165,17 +229,35 @@ export function MappingEditorPage() {
                   <p className="text-zinc-500 text-xs font-medium tracking-wide">ID: {selectedWorkflow.viewComfyJSON.id}</p>
                 </div>
               </div>
-              <Button
-                onClick={handleSaveMapping}
-                disabled={isSaving}
-                className="bg-primary hover:bg-primary/90 rounded-xl px-6 font-bold uppercase tracking-widest text-xs h-10 gap-2"
-              >
-                <Save className="w-4 h-4" />
-                {isSaving ? "Saving..." : "Save Configuration"}
-              </Button>
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  ref={uploadFileRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleUploadCover}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => uploadFileRef.current?.click()}
+                  disabled={isUploading || isSaving}
+                  className="bg-[#2C2D2F] border-[#2C2D2F] hover:bg-white/10 rounded-xl px-6 font-bold uppercase tracking-widest text-xs h-10 gap-2 text-white/60 hover:text-white"
+                >
+                  <ImagePlus className="w-4 h-4" />
+                  {isUploading ? "Uploading..." : "Upload Cover"}
+                </Button>
+                <Button
+                  onClick={handleSaveMapping}
+                  disabled={isSaving || isUploading}
+                  className="bg-primary hover:bg-primary/90 rounded-xl px-6 font-bold uppercase tracking-widest text-xs h-10 gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
 
-            <ScrollArea className="flex-1 -mx-4 px-4 pb-10">
+            <ScrollArea className="flex-1 w-full pr-4 pb-0">
               <div className="flex flex-col gap-8 pb-10">
                 {existingComponents.length > 0 && (
                   <div className="space-y-4">
@@ -243,7 +325,7 @@ export function MappingEditorPage() {
             </div>
 
             {/* Scrolling Grid Area */}
-            <ScrollArea className="flex-1 -mx-4 px-4 mask-fade-bottom">
+            <ScrollArea className="flex-1 w-full">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-8 gap-4 pb-32">
                 {/* Add New Configuration Tile */}
                 <button
@@ -275,13 +357,23 @@ export function MappingEditorPage() {
                     >
                       {/* Cover Image with Ken Burns effect */}
                       {cover ? (
-                        <Image
-                          src={cover}
-                          alt={wf.viewComfyJSON.title}
-                          fill
-                          className="object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-115 grayscale-[0.2] group-hover:grayscale-0"
-                          unoptimized
-                        />
+                        <>
+                          <Image
+                            src={cover}
+                            alt={wf.viewComfyJSON.title}
+                            fill
+                            className="object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-115 grayscale-[0.2] group-hover:grayscale-0"
+                            unoptimized
+                          />
+                          <GradualBlur
+                            position="bottom"
+                            strength={3}
+                            height="30%"
+                            borderRadius="1.5rem"
+                            zIndex={1}
+                            className="opacity-90 transition-opacity duration-300 group-hover:opacity-100"
+                          />
+                        </>
                       ) : (
                         <div className="absolute inset-0  bg-[#2C2D2F] hover:bg-[#313133] flex items-center justify-center">
                           <Workflow className="w-12 h-12 text-white/5" />
@@ -289,9 +381,9 @@ export function MappingEditorPage() {
                       )}
 
                       {/* Sophisticated Overlay */}
-                      <div className="absolute inset-0 flex flex-col justify-end p-8 ">
+                      <div className="absolute inset-0 flex flex-col justify-end p-8 z-10">
                         <div className="flex flex-col gap-2.5 translate-y-3 group-hover:translate-y-0 transition-transform duration-200">
-                          <span className="text-sm  text-white leading-tight truncate ">
+                          <span className="text-sm font-bold  text-white leading-tight truncate ">
                             {wf.viewComfyJSON.title || "未命名"}
                           </span>
 

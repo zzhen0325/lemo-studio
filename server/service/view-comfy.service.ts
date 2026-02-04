@@ -136,4 +136,40 @@ export class ViewComfyConfigService {
       }
     }
   }
+
+  public async updateWorkflow(id: string, payload: { viewComfyJSON: Record<string, unknown>, workflowApiJSON: Record<string, unknown> }): Promise<{ message: string }> {
+    const workflowsDir = this.getWorkflowsDir();
+    const indexPath = this.getIndexPath();
+
+    try {
+      const indexContent = await fs.readFile(indexPath, 'utf-8');
+      const indexData = JSON.parse(indexContent) as IndexData;
+
+      const workflowIndex = indexData.workflows.findIndex(wf => wf.id === id);
+      if (workflowIndex === -1) {
+        throw new HttpError(404, `Workflow with id ${id} not found`);
+      }
+
+      const workflowItem = indexData.workflows[workflowIndex];
+      const workflowDir = path.join(workflowsDir, workflowItem.folder);
+      const config = payload.viewComfyJSON;
+      const workflowApi = payload.workflowApiJSON;
+
+      await Promise.all([
+        fs.writeFile(path.join(workflowDir, 'config.json'), JSON.stringify(config, null, 2), 'utf-8'),
+        fs.writeFile(path.join(workflowDir, 'workflow.json'), JSON.stringify(workflowApi, null, 2), 'utf-8'),
+      ]);
+
+      if (config.title && (config.title as string) !== workflowItem.title) {
+        indexData.workflows[workflowIndex].title = config.title as string;
+        await fs.writeFile(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
+      }
+
+      return { message: 'Workflow updated successfully' };
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      console.error(`Failed to update workflow ${id}:`, error);
+      throw new HttpError(500, `Failed to update workflow ${id}`, { error });
+    }
+  }
 }

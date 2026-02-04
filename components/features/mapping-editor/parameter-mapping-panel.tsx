@@ -26,30 +26,45 @@ import {
 import { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import { MappingList } from "./mapping-list";
 
+/**
+ * 参数映射面板的属性定义
+ */
 interface ParameterMappingPanelProps {
-  workflowApiJSON: WorkflowApiJSON;
-  selectedNode?: string | null;
-  selectedParameter?: string | null;
-  existingComponents: UIComponent[];
-  onComponentCreate?: (component: UIComponent) => void;
-  onComponentUpdate?: (index: number, component: UIComponent) => void;
-  onComponentDelete?: (index: number) => void;
-  onParameterSelect?: (nodeId: string, parameterKey: string) => void;
-  editingComponentIndex?: number | null;
-  onCancelEdit?: () => void;
-  onEdit?: (index: number) => void;
+  workflowApiJSON: WorkflowApiJSON;    // 工作流的 API JSON 定义
+  selectedNode?: string | null;       // 当前选中的节点 ID
+  selectedParameter?: string | null;  // 当前选中的参数键名
+  existingComponents: UIComponent[];  // 已存在的 UI 组件映射列表
+  onComponentCreate?: (component: UIComponent) => void;      // 创建组件的回调
+  onComponentUpdate?: (index: number, component: UIComponent) => void; // 更新组件的回调
+  onComponentDelete?: (index: number) => void;              // 删除组件的回调
+  onParameterSelect?: (nodeId: string, parameterKey: string) => void; // 选择参数的回调
+  editingComponentIndex?: number | null; // 外部触发的正在编辑的组件索引
+  onCancelEdit?: () => void;            // 取消编辑的回调
+  onEdit?: (index: number) => void;     // 触发编辑的回调
 }
 
+/**
+ * 游乐场（Playground）支持的预定义目标映射类型
+ */
 export const PLAYGROUND_TARGETS = [
   { key: 'prompt', label: 'Prompt', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '📝' },
   { key: 'width', label: 'Width', type: 'number' as ComponentType, supportedTypes: ['number', 'string'], icon: '📏' },
   { key: 'height', label: 'Height', type: 'number' as ComponentType, supportedTypes: ['number', 'string'], icon: '📏' },
+  { key: 'base_model', label: 'Base Model', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🤖' },
+  { key: 'lora1', label: 'LoRA 1', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🧩' },
+  { key: 'lora2', label: 'LoRA 2', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🧩' },
+  { key: 'lora3', label: 'LoRA 3', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🧩' },
+  { key: 'lora1_strength', label: 'LoRA 1 Strength', type: 'number' as ComponentType, supportedTypes: ['number'], icon: '⚖️' },
+  { key: 'lora2_strength', label: 'LoRA 2 Strength', type: 'number' as ComponentType, supportedTypes: ['number'], icon: '⚖️' },
+  { key: 'lora3_strength', label: 'LoRA 3 Strength', type: 'number' as ComponentType, supportedTypes: ['number'], icon: '⚖️' },
   { key: 'batch_size', label: 'Batch Size', type: 'number' as ComponentType, supportedTypes: ['number', 'string'], icon: '🔢' },
-  { key: 'model', label: 'Model', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🤖' },
-  { key: 'lora', label: 'LoRA', type: 'text' as ComponentType, supportedTypes: ['string'], icon: '🧩' },
   { key: 'sourceImageUrl', label: 'Reference Image', type: 'image' as ComponentType, supportedTypes: ['string'], icon: '🖼️' },
 ];
 
+/**
+ * 参数映射面板组件
+ * 用于配置工作流节点参数与 UI 组件之间的映射关系
+ */
 export function ParameterMappingPanel({
   workflowApiJSON,
   selectedNode,
@@ -65,10 +80,12 @@ export function ParameterMappingPanel({
   const [localEditingIndex, setLocalEditingIndex] = useState<number | null>(null);
   const [newComponent, setNewComponent] = useState<Partial<UIComponent> | null>(null);
 
+  // 优先级：外部传入的编辑索引 > 内部维护的编辑索引
   const effectiveEditingIndex = editingComponentIndex !== undefined && editingComponentIndex !== null
     ? editingComponentIndex
     : localEditingIndex;
 
+  // 计算当前选中参数的详细信息
   const selectedParameterInfo = useMemo(() => {
     if (!selectedNode || !selectedParameter || !workflowApiJSON[selectedNode]) return null;
     const node = workflowApiJSON[selectedNode];
@@ -78,12 +95,13 @@ export function ParameterMappingPanel({
       nodeId: selectedNode,
       parameterKey: selectedParameter,
       currentValue: parameterValue,
-      valueType: Array.isArray(parameterValue) ? "connection" : typeof parameterValue,
+      valueType: Array.isArray(parameterValue) ? "connection" : typeof parameterValue, // 数组代表节点间的连接
       isConnection: Array.isArray(parameterValue),
       nodeClass: node.class_type
     };
   }, [selectedNode, selectedParameter, workflowApiJSON]);
 
+  // 检查当前参数是否已经被映射
   const existingMappingIndex = useMemo(() => {
     if (!selectedNode || !selectedParameter) return -1;
     return existingComponents.findIndex(comp =>
@@ -91,6 +109,10 @@ export function ParameterMappingPanel({
     );
   }, [selectedNode, selectedParameter, existingComponents]);
 
+  /**
+   * 处理快速映射逻辑
+   * 将工作流参数直接绑定到预定义的 UI 目标（如 Prompt, Width 等）
+   */
   const handleDirectMapping = (nodeId: string, parameterKey: string, currentValue: unknown, targetKey: string) => {
     const target = PLAYGROUND_TARGETS.find(t => t.key === targetKey);
     if (!target) return;
@@ -98,7 +120,7 @@ export function ParameterMappingPanel({
       id: `pg_map_${Date.now()}`,
       type: target.type,
       label: target.label,
-      properties: { defaultValue: currentValue, paramName: target.key, placeholder: `Mapped to ${target.label}` },
+      properties: { defaultValue: currentValue, paramName: target.key, placeholder: `已映射到 ${target.label}` },
       validation: {},
       mapping: { workflowPath: [nodeId, "inputs", parameterKey], parameterKey: parameterKey, defaultValue: currentValue },
       orderIndex: existingComponents.length
@@ -106,6 +128,9 @@ export function ParameterMappingPanel({
     onComponentCreate?.(component);
   };
 
+  /**
+   * 根据数据类型返回对应的样式颜色
+   */
   const getValueTypeColor = (type: string) => {
     switch (type) {
       case "string": return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
@@ -126,28 +151,31 @@ export function ParameterMappingPanel({
             exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
+            {/* 选中参数详情卡片 */}
             <Card className="bg-white/[0.02] border-white/5 backdrop-blur-3xl overflow-hidden relative">
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/50" />
               <CardHeader className="pb-4 border-b border-white/5">
                 <CardTitle className="text-[12px] font-bold text-white/40 uppercase tracking-[0.2em] flex items-center gap-2">
                   <Sparkles className="w-3 h-3 text-blue-400" />
-                  Selected Parameter
+                  已选择参数 (Selected Parameter)
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-6">
+                {/* 节点与键名展示 */}
                 <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="bg-white/5 border-white/10 text-white/60 font-mono text-[10px] py-1">Node #{selectedParameterInfo.nodeId}</Badge>
+                  <Badge variant="outline" className="bg-white/5 border-white/10 text-white/60 font-mono text-[10px] py-1">节点 #{selectedParameterInfo.nodeId}</Badge>
                   <ArrowRight className="w-3 h-3 text-white/20" />
                   <Badge variant="outline" className="bg-blue-500/10 border-blue-500/20 text-blue-400 font-mono text-[10px] py-1">{selectedParameterInfo.parameterKey}</Badge>
                 </div>
 
+                {/* 节点类型与数据类型 */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Node Type</span>
+                    <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">节点类型</span>
                     <div className="text-xs text-white/60 font-medium truncate">{selectedParameterInfo.nodeClass}</div>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Data Type</span>
+                    <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">数据类型</span>
                     <Badge variant="outline" className={`text-[10px] border leading-relaxed ${getValueTypeColor(selectedParameterInfo.valueType)}`}>
                       {selectedParameterInfo.valueType.toUpperCase()}
                       {selectedParameterInfo.isConnection && <Link className="w-2.5 h-2.5 ml-1 opacity-50" />}
@@ -155,32 +183,36 @@ export function ParameterMappingPanel({
                   </div>
                 </div>
 
+                {/* 当前默认值 */}
                 <div className="space-y-2">
-                  <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Current Value</span>
+                  <span className="text-[10px] text-white/20 uppercase tracking-widest font-bold">当前默认值</span>
                   <div className="p-3 bg-black/20 rounded-xl text-[11px] font-mono text-white/40 border border-white/5 break-all max-h-24 overflow-y-auto leading-relaxed">
                     {JSON.stringify(selectedParameterInfo.currentValue)}
                   </div>
                 </div>
 
+                {/* 映射状态展示：连接、已映射、或待映射 */}
                 {selectedParameterInfo.isConnection ? (
+                  /* 1. 如果是节点连接，不可直接映射 */
                   <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-4">
                     <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
                       <Link className="w-4 h-4 text-amber-500" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-amber-500/80 uppercase tracking-wider">Node Connection</h4>
-                      <p className="text-[11px] text-amber-500/50 mt-1 leading-relaxed"> This parameter is driven by another node and cannot be mapped directly to a UI component.</p>
+                      <h4 className="text-xs font-bold text-amber-500/80 uppercase tracking-wider">节点连接 (Node Connection)</h4>
+                      <p className="text-[11px] text-amber-500/50 mt-1 leading-relaxed">该参数由另一个节点驱动，无法直接映射为 UI 组件。</p>
                     </div>
                   </div>
                 ) : existingMappingIndex >= 0 ? (
-                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-center justify-between">
+                  /* 2. 如果已经映射过，显示已映射状态 */
+                  <div className="p-4 bg-emerald-500/5 border border-emerald-500 rounded-2xl flex items-center justify-between">
                     <div className="flex items-start gap-4">
                       <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                         <Check className="w-4 h-4 text-emerald-500" />
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-emerald-500/80 uppercase tracking-wider">Already Mapped</h4>
-                        <p className="text-[11px] text-emerald-400/30 mt-1 leading-relaxed">Configured and ready. </p>
+                        <h4 className="text-xs font-bold text-emerald-500/80 uppercase tracking-wider">已映射 (Already Mapped)</h4>
+                        <p className="text-[11px] text-emerald-400/30 mt-1 leading-relaxed">已配置并准备就绪。</p>
                       </div>
                     </div>
                     <Button
@@ -193,21 +225,14 @@ export function ParameterMappingPanel({
                     </Button>
                   </div>
                 ) : (
+                  /* 3. 待映射展示快速绑定选项 */
                   <div className="space-y-4 pt-4 border-t border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                       <Zap className="w-3 h-3 text-blue-400" />
-                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Quick Connect</span>
+                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">快速绑定 (Quick Connect)</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {PLAYGROUND_TARGETS.filter(t => {
-                        const valType = selectedParameterInfo.valueType;
-                        if (valType === 'string') {
-                          // Allow mapping both text and image source to a string parameter
-                          return t.supportedTypes.includes('string');
-                        }
-                        if (valType === 'number' && t.supportedTypes.includes('number')) return true;
-                        return false;
-                      }).map((target) => (
+                      {PLAYGROUND_TARGETS.map((target) => (
                         <Button
                           key={target.key}
                           variant="ghost"
@@ -231,35 +256,36 @@ export function ParameterMappingPanel({
                         orderIndex: existingComponents.length
                       })}
                     >
-                      Create Custom Mapping
+                      创建自定义映射 (Create Custom Mapping)
                     </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* 新建映射配置区域 */}
             {newComponent && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <Card className="bg-blue-500/5 border-blue-500/20 backdrop-blur-3xl">
                   <CardHeader className="pb-3 border-b border-blue-500/10">
                     <CardTitle className="text-[11px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
                       <Plus className="w-3 h-3" />
-                      New Mapping Configuration
+                      新建映射配置
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-6 space-y-4">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Component Label</Label>
+                        <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">组件标签</Label>
                         <Input
                           className="bg-white/5 border-white/5 text-white h-10 rounded-lg focus:border-blue-500/50"
                           value={newComponent.label || ""}
                           onChange={(e) => setNewComponent(prev => prev ? { ...prev, label: e.target.value } : null)}
-                          placeholder="Display name in UI..."
+                          placeholder="UI 中显示的名称..."
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Default Value</Label>
+                        <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">默认值</Label>
                         <Input
                           className="bg-white/5 border-white/5 text-white h-10 rounded-lg focus:border-blue-500/50"
                           value={newComponent.properties?.defaultValue || ""}
@@ -269,7 +295,7 @@ export function ParameterMappingPanel({
                     </div>
                     <div className="flex gap-2 pt-2">
                       <Button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold text-[10px] uppercase tracking-widest h-10 rounded-lg" onClick={() => { onComponentCreate?.(newComponent as UIComponent); setNewComponent(null); }}>
-                        Confirm
+                        确认创建
                       </Button>
                       <Button variant="ghost" className="px-3 text-white/40 hover:text-white hover:bg-white/5" onClick={() => setNewComponent(null)}>
                         <X className="w-4 h-4" />
@@ -280,11 +306,12 @@ export function ParameterMappingPanel({
               </motion.div>
             )}
 
+            {/* 编辑存量映射区域 */}
             {effectiveEditingIndex !== null && existingComponents[effectiveEditingIndex] && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <Card className="bg-white/[0.02] border-white/10 backdrop-blur-3xl">
                   <CardHeader className="pb-3 border-b border-white/5">
-                    <CardTitle className="text-[11px] font-bold text-white/40 uppercase tracking-widest">Edit Mapping</CardTitle>
+                    <CardTitle className="text-[11px] font-bold text-white/40 uppercase tracking-widest">编辑映射配置</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-6">
                     <MappingEditor
@@ -298,6 +325,7 @@ export function ParameterMappingPanel({
             )}
           </motion.div>
         ) : (
+          /* 空状态：未选择参数时 */
           <motion.div
             key="empty"
             initial={{ opacity: 0 }}
@@ -307,14 +335,15 @@ export function ParameterMappingPanel({
             <div className="w-20 h-20 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6">
               <Settings className="w-8 h-8 text-white/10" />
             </div>
-            <h3 className="text-sm font-bold text-white/60 uppercase tracking-widest mb-3">Editor Ready</h3>
+            <h3 className="text-sm font-bold text-white/60 uppercase tracking-widest mb-3">编辑器就绪</h3>
             <p className="text-xs text-white/20 leading-relaxed max-w-[240px]">
-              Select a node and pick a parameter from the workflow analyzer to start mapping.
+              请从工作流分析器中选择一个节点并拾取参数，开始进行 UI 映射配置。
             </p>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* 已存在的映射列表展示 */}
       {existingComponents.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -332,12 +361,16 @@ export function ParameterMappingPanel({
   );
 }
 
+/**
+ * 映射编辑器内部子组件
+ * 用于修改已存在的映射标签和属性
+ */
 function MappingEditor({ component, onSave, onCancel }: { component: UIComponent; onSave: (c: UIComponent) => void; onCancel: () => void; }) {
   const [edited, setEdited] = useState<UIComponent>(component);
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">Component Label</Label>
+        <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">组件标签名称</Label>
         <Input
           className="bg-white/5 border-white/5 text-white h-10 rounded-lg"
           value={edited.label}
@@ -346,10 +379,10 @@ function MappingEditor({ component, onSave, onCancel }: { component: UIComponent
       </div>
       <div className="flex gap-2">
         <Button className="flex-1 bg-white text-black hover:bg-white/90 font-bold text-[10px] uppercase tracking-widest h-10 rounded-lg" onClick={() => onSave(edited)}>
-          Save Changes
+          保存修改
         </Button>
         <Button variant="ghost" className="px-3 text-white/40 hover:text-white" onClick={onCancel}>
-          Cancel
+          取消
         </Button>
       </div>
     </div>
