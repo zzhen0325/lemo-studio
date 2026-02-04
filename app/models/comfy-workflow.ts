@@ -22,28 +22,32 @@ export class ComfyWorkflow {
         this.workflowFilePath = path.join(COMFY_WORKFLOWS_DIR, this.workflowFileName);
     }
 
-  public async setViewComfy(viewComfy: IInput[]) {
-    try {
-      for (const input of viewComfy) {
-        const path = input.key.split("-");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let obj: any = this.workflow;
-        for (let i = 0; i < path.length - 1; i++) {
-          if (i === path.length - 1) {
-            continue;
-          }
-          obj = obj[path[i]];
+    public async setViewComfy(viewComfy: IInput[]) {
+        try {
+            for (const input of viewComfy) {
+                const path = input.key.split("-");
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                let obj: any = this.workflow;
+                let skip = false;
+
+                for (let i = 0; i < path.length - 1; i++) {
+                    const part = path[i];
+                    if (obj[part] === undefined) {
+                        console.warn(`[ComfyWorkflow] Path part "${part}" not found for key "${input.key}"`);
+                        skip = true;
+                        break;
+                    }
+                    obj = obj[part];
+                }
+
+                if (skip) continue;
+
+                const lastPart = path[path.length - 1];
+                obj[lastPart] = input.value;
+            }
+        } catch (error) {
+            console.error("[ComfyWorkflow] setViewComfy failed:", error);
         }
-        // if (input.value instanceof File) {
-        //   const filePath = await this.createFileFromInput(input.value);
-        //   obj[path[path.length - 1]] = filePath;
-        // } else {
-          obj[path[path.length - 1]] = input.value;
-        // }
-      }
-    } catch (error) {
-      console.error(error);
-    }
 
         for (const key in this.workflow) {
             const node = this.workflow[key];

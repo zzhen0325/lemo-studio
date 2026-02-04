@@ -1,11 +1,12 @@
 import { Inject } from '@gulux/gulux';
-import { Body, Controller, Get, Post, Put, Param } from '@gulux/gulux/application-http';
+import { Body, Controller, Get, Post, Put, Param, Query } from '@gulux/gulux/application-http';
 import { ViewComfyConfigService } from '../service/view-comfy.service';
 import type { ViewComfyConfigPayload } from '../service/view-comfy.service';
 
 /**
  * ViewComfy 工作流配置：
  * - GET    /api/view-comfy
+ * - GET    /api/view-comfy/:id
  * - POST   /api/view-comfy
  * - PUT    /api/view-comfy/:id
  */
@@ -15,8 +16,13 @@ export default class ViewComfyController {
   private readonly service!: ViewComfyConfigService;
 
   @Get()
-  public async getConfig() {
-    return this.service.getConfig();
+  public async getConfig(@Query('lightweight') lightweight?: string) {
+    return this.service.getConfig(lightweight === 'true');
+  }
+
+  @Get('/:id')
+  public async getWorkflowById(@Param('id') id: string) {
+    return this.service.getWorkflowById(id);
   }
 
   @Post()

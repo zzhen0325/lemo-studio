@@ -101,7 +101,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                     return (
                                         <button
                                             key={preset.id}
-                                            className="group relative flex flex-col items-start overflow-hidden bg-white hover:shadow-[#e7e7e7]  hover:shadow-2xl  border-gray-150 hover:border-gray-400 transition-all rounded-2xl border  p-2 w-full"
+                                            className="group relative flex flex-col items-start overflow-hidden bg-white hover:shadow-[#e7e7e7]  hover:shadow-2xl  border-gray-150 hover:border-gray-1 00 transition-all rounded-2xl border  p-2 w-full"
                                             onClick={() => handlePresetSelect(preset)}
                                         >
                                             <div className="relative w-full aspect-[1/1] rounded-lg bg-black/15 overflow-hidden">

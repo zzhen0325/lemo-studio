@@ -31,7 +31,7 @@ export class ViewComfyConfigService {
     return path.join(this.getWorkflowsDir(), 'index.json');
   }
 
-  public async getConfig(): Promise<unknown> {
+  public async getConfig(lightweight: boolean = false): Promise<unknown> {
     const workflowsDir = this.getWorkflowsDir();
     const indexPath = this.getIndexPath();
 
@@ -46,18 +46,26 @@ export class ViewComfyConfigService {
         const workflowApiPath = path.join(workflowDir, 'workflow.json');
 
         try {
-          const [configContent, workflowApiContent] = await Promise.all([
-            fs.readFile(configPath, 'utf-8'),
-            fs.readFile(workflowApiPath, 'utf-8'),
-          ]);
+          if (lightweight) {
+            const configContent = await fs.readFile(configPath, 'utf-8');
+            const config = JSON.parse(configContent);
+            viewComfys.push({
+              viewComfyJSON: config,
+            });
+          } else {
+            const [configContent, workflowApiContent] = await Promise.all([
+              fs.readFile(configPath, 'utf-8'),
+              fs.readFile(workflowApiPath, 'utf-8'),
+            ]);
 
-          const config = JSON.parse(configContent);
-          const workflowApi = JSON.parse(workflowApiContent);
+            const config = JSON.parse(configContent);
+            const workflowApi = JSON.parse(workflowApiContent);
 
-          viewComfys.push({
-            viewComfyJSON: config,
-            workflowApiJSON: workflowApi,
-          });
+            viewComfys.push({
+              viewComfyJSON: config,
+              workflowApiJSON: workflowApi,
+            });
+          }
         } catch (workflowError) {
           console.error(`Failed to load workflow ${workflow.folder}:`, workflowError);
         }
@@ -171,5 +179,29 @@ export class ViewComfyConfigService {
       console.error(`Failed to update workflow ${id}:`, error);
       throw new HttpError(500, `Failed to update workflow ${id}`, { error });
     }
+  }
+
+  public async getWorkflowById(id: string): Promise<Record<string, unknown>> {
+    const workflowsDir = this.getWorkflowsDir();
+    const indexPath = this.getIndexPath();
+
+    const indexContent = await fs.readFile(indexPath, 'utf-8');
+    const indexData = JSON.parse(indexContent) as IndexData;
+
+    const workflowItem = indexData.workflows.find(wf => wf.id === id);
+    if (!workflowItem) {
+      throw new HttpError(404, `Workflow with id ${id} not found`);
+    }
+
+    const workflowDir = path.join(workflowsDir, workflowItem.folder);
+    const [configContent, workflowApiContent] = await Promise.all([
+      fs.readFile(path.join(workflowDir, 'config.json'), 'utf-8'),
+      fs.readFile(path.join(workflowDir, 'workflow.json'), 'utf-8'),
+    ]);
+
+    return {
+      viewComfyJSON: JSON.parse(configContent),
+      workflowApiJSON: JSON.parse(workflowApiContent),
+    };
   }
 }

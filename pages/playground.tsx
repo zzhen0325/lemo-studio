@@ -100,7 +100,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setSelectedWorkflowConfig = usePlaygroundStore(s => s.setSelectedWorkflowConfig);
   const selectedLoras = usePlaygroundStore(s => s.selectedLoras);
   const setSelectedLoras = usePlaygroundStore(s => s.setSelectedLoras);
-  const initPresets = usePlaygroundStore(s => s.initPresets);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
   // const fetchHistory = usePlaygroundStore(s => s.fetchHistory); // Deprecated in favor of useHistory
@@ -1509,7 +1508,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             {showAllProjects && <AllProjectsView onClose={() => setShowAllProjects(false)} />}
 
-            <WorkflowSelectorDialog open={isWorkflowDialogOpen} onOpenChange={setIsWorkflowDialogOpen} onSelect={(wf) => setSelectedWorkflowConfig(wf)} onEdit={onEditMapping} />
+            <WorkflowSelectorDialog
+              open={isWorkflowDialogOpen}
+              onOpenChange={setIsWorkflowDialogOpen}
+              onSelect={(wf) => {
+                applyWorkflowDefaults(wf);
+                setSelectedWorkflowConfig(wf);
+              }}
+              onEdit={onEditMapping}
+            />
             <BaseModelSelectorDialog open={isBaseModelDialogOpen} onOpenChange={setIsBaseModelDialogOpen} value={config.model || selectedModel} onConfirm={(m) => updateConfig({ model: m })} />
             <LoraSelectorDialog open={isLoraDialogOpen} onOpenChange={setIsLoraDialogOpen} value={selectedLoras} onConfirm={(list) => setSelectedLoras(list)} />
             <PresetGridOverlay

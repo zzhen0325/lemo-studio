@@ -232,10 +232,47 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             })),
 
             setSelectedModel: (model) => set({ selectedModel: model }),
-            setSelectedWorkflowConfig: (workflow: IViewComfy | undefined, presetName?: string) => set((state) => ({
-                selectedWorkflowConfig: workflow,
-                selectedPresetName: workflow ? (presetName || state.selectedPresetName) : undefined
-            })),
+            setSelectedWorkflowConfig: (workflow: IViewComfy | undefined, presetName?: string) => {
+                const state = get();
+
+                // Set immediate basic info
+                set({
+                    selectedWorkflowConfig: workflow,
+                    selectedPresetName: workflow ? (presetName || state.selectedPresetName) : undefined
+                });
+
+                // If it's a lightweight workflow (missing API JSON), fetch full detail
+                if (workflow && workflow.viewComfyJSON && !workflow.workflowApiJSON) {
+                    const workflowId = workflow.viewComfyJSON.id;
+                    if (workflowId) {
+                        fetch(`${getApiBase()}/view-comfy/${workflowId}`)
+                            .then(res => res.json())
+                            .then(fullDetail => {
+                                // Double check if user hasn't switched away
+                                const currentState = get();
+                                if (currentState.selectedWorkflowConfig?.viewComfyJSON?.id === workflowId) {
+                                    set({
+                                        selectedWorkflowConfig: fullDetail
+                                    });
+                                }
+
+                                // Also update it in the presets list so we don't fetch again
+                                set(s => ({
+                                    presets: s.presets.map(p => {
+                                        if (p.workflow_id === workflowId) {
+                                            return {
+                                                ...p,
+                                                _fullWorkflow: fullDetail // Cache it
+                                            };
+                                        }
+                                        return p;
+                                    })
+                                }));
+                            })
+                            .catch(err => console.error("Failed to fetch full workflow detail:", err));
+                    }
+                }
+            },
             setSelectedLoras: (loras) => set({ selectedLoras: loras }),
             setHasGenerated: (val) => set({ hasGenerated: val }),
             setShowHistory: (val) => set({ showHistory: val }),
@@ -633,7 +670,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 try {
                     const [presetsRes, workflowsRes] = await Promise.all([
                         fetch(`${getApiBase()}/presets`),
-                        fetch(`${getApiBase()}/view-comfy`)
+                        fetch(`${getApiBase()}/view-comfy?lightweight=true`)
                     ]);
 
                     let allPresets: Preset[] = [];
@@ -686,6 +723,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
                                     if (inputModel && typeof inputModel.value === 'string') return inputModel.value;
 
+                                    // 如果是轻量级模式，暂显为 Workflow，待后续拉取详情再校准
                                     return 'Workflow';
                                 })(),
                                 workflowName: wf.viewComfyJSON.title

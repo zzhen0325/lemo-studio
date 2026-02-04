@@ -40,10 +40,13 @@ export class ComfyUIService {
 
         const comfyWorkflow = new ComfyWorkflow(workflow);
         await comfyWorkflow.setViewComfy(args.viewComfy.inputs);
+        const finalWorkflow = comfyWorkflow.getWorkflow();
 
         try {
+            console.log(`[ComfyUIService] Final Workflow JSON structure:`, Object.keys(finalWorkflow).length, "nodes");
+            // console.log(`[ComfyUIService] Full Workflow JSON:`, JSON.stringify(finalWorkflow, null, 2));
 
-            const promptData = await this.comfyUIAPIService.queuePrompt(workflow);
+            const promptData = await this.comfyUIAPIService.queuePrompt(finalWorkflow);
             const outputFiles = promptData.outputFiles;
             const comfyUIAPIService = this.comfyUIAPIService;
 

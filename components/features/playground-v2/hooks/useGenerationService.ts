@@ -280,36 +280,70 @@ export function useGenerationService() {
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
+        console.log("[Generation] Starting handleWorkflow:", { uniqueId, taskId, workflowTitle: selectedWorkflowConfig.viewComfyJSON.title });
+
         const effectiveSourceUrls = sourceImageUrls.length > 0 ? sourceImageUrls : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
         const effectiveLocalId = localSourceId || (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages[0]?.id : undefined);
         const effectiveLocalIds = localSourceIds.length > 0 ? localSourceIds : (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages.map(img => img.id).filter((id): id is string => !!id) : []);
         const effectiveSourceUrl = effectiveSourceUrls[0];
-        const flattenInputs = (arr: IMultiValueInput[]) => arr.flatMap(g => g.inputs.map(i => ({ key: i.key, value: i.value, valueType: i.valueType, title: i.title })));
+        const flattenInputs = (arr: IMultiValueInput[]) => (arr || []).flatMap(g => (g.inputs || []).map(i => ({ key: i.key, value: i.value, valueType: i.valueType, title: i.title })));
         const allInputs = [...flattenInputs(selectedWorkflowConfig.viewComfyJSON.inputs), ...flattenInputs(selectedWorkflowConfig.viewComfyJSON.advancedInputs)];
         const mappingConfig = selectedWorkflowConfig.viewComfyJSON.mappingConfig as { components: UIComponent[] } | undefined;
 
+        const isWorkflowId = (id?: string) => !id || id === 'Workflow' || id.startsWith('wf_');
+
         let mappedInputs: { key: string; value: unknown }[] = [];
         if (mappingConfig?.components?.length) {
+            console.log("[Generation] Using MappingConfig to map parameters");
             const paramMap = new Map<string, unknown>();
             mappingConfig.components.forEach(comp => {
                 if (!comp.properties?.paramName || !comp.mapping?.workflowPath) return;
                 const pathKey = comp.mapping.workflowPath.join("-");
-                if (comp.properties.paramName === 'prompt' && currentConfig.prompt) paramMap.set(pathKey, currentConfig.prompt);
-                else if (comp.properties.paramName === 'width') paramMap.set(pathKey, currentConfig.width);
-                else if (comp.properties.paramName === 'height') paramMap.set(pathKey, currentConfig.height);
+                const paramName = comp.properties.paramName;
+
+                if (paramName === 'prompt' && currentConfig.prompt) paramMap.set(pathKey, currentConfig.prompt);
+                else if (paramName === 'width') paramMap.set(pathKey, Math.floor(Number(currentConfig.width) || 1024));
+                else if (paramName === 'height') paramMap.set(pathKey, Math.floor(Number(currentConfig.height) || 1024));
+                else if (paramName === 'base_model' || paramName === 'model') {
+                    const modelToMap = !isWorkflowId(currentConfig.model) ? currentConfig.model : (!isWorkflowId(currentConfig.baseModel) ? currentConfig.baseModel : '');
+                    if (modelToMap) paramMap.set(pathKey, modelToMap);
+                }
+                else if (paramName === 'lora1' && currentConfig.loras?.[0]) paramMap.set(pathKey, currentConfig.loras[0].model_name);
+                else if (paramName === 'lora1_strength' && currentConfig.loras?.[0]) paramMap.set(pathKey, Number(currentConfig.loras[0].strength));
+                else if (paramName === 'lora2' && currentConfig.loras?.[1]) paramMap.set(pathKey, currentConfig.loras[1].model_name);
+                else if (paramName === 'lora2_strength' && currentConfig.loras?.[1]) paramMap.set(pathKey, Number(currentConfig.loras[1].strength));
+                else if (paramName === 'seed' && currentConfig.seed !== undefined) {
+                    const seedVal = currentConfig.seed === -1 ? Math.floor(Math.random() * 1000000000000) : Number(currentConfig.seed);
+                    paramMap.set(pathKey, seedVal);
+                }
+                else if (paramName === 'batch_size' && currentConfig.batchSize !== undefined) paramMap.set(pathKey, Math.max(1, Math.floor(Number(currentConfig.batchSize))));
+                else if (paramName === 'sourceImageUrl' && effectiveSourceUrl) paramMap.set(pathKey, effectiveSourceUrl);
             });
             mappedInputs = allInputs.map(item => ({ key: item.key, value: paramMap.has(item.key) ? paramMap.get(item.key) : item.value }));
         } else {
+            console.log("[Generation] No MappingConfig, falling back to fuzzy matching");
             mappedInputs = allInputs.map(item => {
                 const title = item.title || "";
                 if (/prompt|文本|提示/i.test(title)) return { key: item.key, value: currentConfig.prompt };
-                if (/width/i.test(title)) return { key: item.key, value: currentConfig.width };
-                if (/height/i.test(title)) return { key: item.key, value: currentConfig.height };
+                if (/width/i.test(title)) return { key: item.key, value: Math.floor(Number(currentConfig.width) || 1024) };
+                if (/height/i.test(title)) return { key: item.key, value: Math.floor(Number(currentConfig.height) || 1024) };
+                if (/seed|种子/i.test(title)) {
+                    const seedVal = currentConfig.seed === -1 ? Math.floor(Math.random() * 1000000000000) : Number(currentConfig.seed);
+                    return { key: item.key, value: seedVal };
+                }
+                if (/batch_size|批次|数量/i.test(title)) return { key: item.key, value: Math.max(1, Math.floor(Number(currentConfig.batchSize) || 1)) };
+                if (/model|模型|checkpoint/i.test(title)) {
+                    const modelToMap = !isWorkflowId(currentConfig.model) ? currentConfig.model : (!isWorkflowId(currentConfig.baseModel) ? currentConfig.baseModel : '');
+                    if (modelToMap) return { key: item.key, value: modelToMap };
+                }
                 return { key: item.key, value: item.value };
             });
         }
 
+        console.log("[Generation] Final mappedInputs for ComfyUI:", mappedInputs);
+
         await new Promise<void>((resolve, reject) => {
+            console.log("[Generation] Executing runComfyWorkflow API...");
             runComfyWorkflow({
                 viewComfy: { inputs: mappedInputs as { key: string; value: string | number | boolean | File; }[], textOutputEnabled: selectedWorkflowConfig.viewComfyJSON.textOutputEnabled ?? false },
                 workflow: selectedWorkflowConfig.workflowApiJSON,
@@ -354,7 +388,7 @@ export function useGenerationService() {
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         const effectiveModel = unifiedCfg.model || selectedModel;
-        const isWorkflow = isWorkflowModel(effectiveModel);
+        const isWorkflow = isWorkflowModel(effectiveModel, !!selectedWorkflowConfig);
 
         try {
             if (isMockMode) {
@@ -372,7 +406,7 @@ export function useGenerationService() {
             toast({ title: "生成失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
             return undefined;
         }
-    }, [isMockMode, selectedModel, handleWorkflow, handleUnifiedImageGen, updateHistoryAndSave, setGenerationHistory, toast]);
+    }, [isMockMode, selectedModel, handleWorkflow, handleUnifiedImageGen, updateHistoryAndSave, setGenerationHistory, toast, selectedWorkflowConfig]);
 
     const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
         const { configOverride, fixedCreatedAt, isBackground } = options;
