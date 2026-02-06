@@ -1,4 +1,5 @@
 export const MODEL_ID_WORKFLOW = 'Workflow';
+export const MODEL_ID_FLUX_KLEIN = 'flux_klein';
 
 /**
  * 直接映射到 Workflow 逻辑的基座模型列表

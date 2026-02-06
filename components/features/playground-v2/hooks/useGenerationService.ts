@@ -11,9 +11,10 @@ import { Generation } from "@/types/database";
 import { IMultiValueInput } from "@/lib/workflow-api-parser";
 import { UIComponent } from "@/types/features/mapping-editor";
 import { usePostPlayground } from "@/hooks/features/playground/use-post-playground";
+import { usePostFluxKlein } from "@/hooks/features/playground/use-post-fluxklein";
 import { toUnifiedConfigFromLegacy } from "@/lib/adapters/data-mapping";
 import { getApiBase } from "@/lib/api-base";
-import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
+import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 
 export interface UnifiedModelConfig {
@@ -30,6 +31,7 @@ export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'seed4_2_lemo', displayName: 'Seed4 ' },
     { id: 'lemo_2dillustator', displayName: 'Seed3 Lemo' },
     // { id: 'lemoseedt2i', displayName: 'Seed 4' },
+    { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
 
 ];
 
@@ -58,6 +60,7 @@ export function useGenerationService() {
 
     const { callImage, isLoading: isAIProcessing } = useAIService();
     const { doPost: runComfyWorkflow, loading: isWorkflowProcessing } = usePostPlayground();
+    const { doPost: runFluxKleinWorkflow } = usePostFluxKlein();
 
     // Helper: URL to DataURL
     const blobToDataURL = useCallback((blob: Blob) => new Promise<string>((resolve) => {
@@ -408,6 +411,59 @@ export function useGenerationService() {
         return usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
     }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs]);
 
+    const handleFluxKlein = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
+        const effectiveSourceUrls = sourceImageUrls.length > 0 ? sourceImageUrls : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
+        const effectiveLocalId = localSourceId || (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages[0]?.id : undefined);
+        const effectiveLocalIds = localSourceIds.length > 0 ? localSourceIds : (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages.map(img => img.id).filter((id): id is string => !!id) : []);
+        const effectiveSourceUrl = effectiveSourceUrls[0];
+        const unified = toUnifiedConfigFromLegacy(currentConfig);
+        const seedVal = currentConfig.seed === -1 ? Math.floor(Math.random() * 1000000000000) : (currentConfig.seed !== undefined ? Number(currentConfig.seed) : Math.floor(Math.random() * 1000000000000));
+        const batchSize = Math.max(1, Math.floor(Number(currentConfig.batchSize) || 1));
+
+        await new Promise<void>((resolve, reject) => {
+            runFluxKleinWorkflow({
+                prompt: unified.prompt,
+                width: Math.floor(Number(unified.width) || 1024),
+                height: Math.floor(Number(unified.height) || 1024),
+                seed: seedVal,
+                batchSize,
+                referenceImages: effectiveSourceUrls,
+                onSuccess: async (blobs) => {
+                    try {
+                        if (blobs && blobs.length > 0) {
+                            const dataUrl = await blobToDataURL(blobs[0]);
+                            const metadataConfig: Record<string, unknown> = { ...currentConfig, model: MODEL_ID_FLUX_KLEIN, baseModel: MODEL_ID_FLUX_KLEIN, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
+                            delete metadataConfig.tldrawSnapshot;
+
+                            const savedPath = await saveImageToOutputs(dataUrl, {
+                                config: metadataConfig,
+                                createdAt: generationTime,
+                                sourceImageUrl: effectiveSourceUrl,
+                                sourceImageUrls: effectiveSourceUrls,
+                                localSourceId: effectiveLocalId,
+                                localSourceIds: effectiveLocalIds,
+                                baseModel: MODEL_ID_FLUX_KLEIN,
+                            });
+                            const gen: Generation = {
+                                id: uniqueId,
+                                userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous',
+                                projectId: projectStore.currentProjectId || 'default',
+                                outputUrl: savedPath,
+                                config: { ...toUnifiedConfigFromLegacy(currentConfig), model: MODEL_ID_FLUX_KLEIN, baseModel: MODEL_ID_FLUX_KLEIN, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId },
+                                status: 'completed',
+                                createdAt: generationTime,
+                            };
+                            updateHistoryAndSave(uniqueId, gen);
+                            resolve();
+                        } else reject(new Error("FluxKlein 未返回图片结果"));
+                    } catch (e) { reject(e); }
+                },
+                onError: (err) => reject(err)
+            });
+        });
+        return usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
+    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave]);
+
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
         const effectiveModel = unifiedCfg.model || selectedModel;
@@ -421,6 +477,7 @@ export function useGenerationService() {
                 updateHistoryAndSave(uniqueId, result);
                 return result;
             }
+            if (effectiveModel === MODEL_ID_FLUX_KLEIN) return await handleFluxKlein(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
             if (isWorkflow) return await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
             else return await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
         } catch (err) {
@@ -429,7 +486,7 @@ export function useGenerationService() {
             toast({ title: "生成失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
             return undefined;
         }
-    }, [isMockMode, selectedModel, handleWorkflow, handleUnifiedImageGen, updateHistoryAndSave, setGenerationHistory, toast, selectedWorkflowConfig]);
+    }, [isMockMode, selectedModel, handleWorkflow, handleUnifiedImageGen, handleFluxKlein, updateHistoryAndSave, setGenerationHistory, toast, selectedWorkflowConfig]);
 
     const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
         const { configOverride, fixedCreatedAt, isBackground } = options;

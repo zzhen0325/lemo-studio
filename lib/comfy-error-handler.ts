@@ -33,17 +33,32 @@ export class ComfyErrorHandler {
         }
     }
 
-    private extractErrors(errorDict: ErrorDict): string[] {
-        const errorMessages: string[] = [];
-
-        for (const [, nodeError] of Object.entries(errorDict)) {
-            let errorMsgs = "";
-            for (const error of nodeError.errors) {
-                errorMsgs += `${error.details}: ${error.message}, `;
-            }
-            errorMessages.push(`${nodeError.class_type}: ${errorMsgs}`);
+    private extractErrors(errorDict: unknown): string[] {
+        if (!errorDict || typeof errorDict !== "object") {
+            return [String(errorDict ?? "Unknown error")];
         }
 
-        return errorMessages;
+        const errorMessages: string[] = [];
+        for (const [, nodeError] of Object.entries(errorDict as ErrorDict)) {
+            if (!nodeError || typeof nodeError !== "object") {
+                errorMessages.push(String(nodeError));
+                continue;
+            }
+            const errors = Array.isArray(nodeError.errors) ? nodeError.errors : [];
+            let errorMsgs = "";
+            for (const error of errors) {
+                errorMsgs += `${error.details}: ${error.message}, `;
+            }
+            const classType = nodeError.class_type ? nodeError.class_type : "UnknownNode";
+            if (errorMsgs) {
+                errorMessages.push(`${classType}: ${errorMsgs}`);
+            } else if ("message" in nodeError && typeof (nodeError as { message?: unknown }).message === "string") {
+                errorMessages.push(`${classType}: ${(nodeError as { message: string }).message}`);
+            } else {
+                errorMessages.push(classType);
+            }
+        }
+
+        return errorMessages.length > 0 ? errorMessages : [String(errorDict)];
     }
 }

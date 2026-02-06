@@ -248,6 +248,15 @@ export class ComfyUIAPIService {
                     errors: [ComfyUIConnRefusedError(this.getUrl("http"))]
                 });
             }
+            if (error?.cause?.code === "UND_ERR_CONNECT_TIMEOUT") {
+                const details = typeof error?.cause?.message === "string"
+                    ? error.cause.message
+                    : `Connect timeout: ${this.getUrl("http")}`;
+                throw new ComfyWorkflowError({
+                    message: "Cannot connect to ComfyUI",
+                    errors: [details]
+                });
+            }
             throw error;
         }
     }

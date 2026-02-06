@@ -21,7 +21,7 @@ import type { UploadedImage } from "@/components/features/playground-v2/types";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/components/features/playground-v2/Dialogs/LoraSelectorDialog";
 import { AVAILABLE_MODELS } from "@/components/features/playground-v2/hooks/useGenerationService";
-import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
+import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 
 
@@ -219,6 +219,10 @@ export default function ControlToolbar({
     'lemo_2dillustator': {
       logo: '/models/seed.svg',
       description: 'Seed3 Lemo 插画模型'
+    },
+    [MODEL_ID_FLUX_KLEIN]: {
+      logo: '/models/default.svg',
+      description: 'ComfyUI Flux.2 Klein'
     }
   };
 
@@ -233,7 +237,7 @@ export default function ControlToolbar({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[280px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl p-1" align="start">
-        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'].includes(m.id)).map((model) => {
+        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image', MODEL_ID_FLUX_KLEIN].includes(m.id)).map((model) => {
           const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
           return (
             <DropdownMenuItem

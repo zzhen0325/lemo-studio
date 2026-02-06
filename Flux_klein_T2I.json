@@ -1,0 +1,367 @@
+{
+  "94": {
+    "inputs": {
+      "filename_prefix": "Lemo0205",
+      "images": [
+        "128",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "124": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "125": {
+    "inputs": {
+      "steps": 4,
+      "width": [
+        "137",
+        0
+      ],
+      "height": [
+        "137",
+        1
+      ]
+    },
+    "class_type": "Flux2Scheduler",
+    "_meta": {
+      "title": "Flux2调度器"
+    }
+  },
+  "126": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "129",
+        0
+      ],
+      "positive": [
+        "140:77",
+        0
+      ],
+      "negative": [
+        "140:76",
+        0
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG引导器"
+    }
+  },
+  "127": {
+    "inputs": {
+      "noise": [
+        "138",
+        0
+      ],
+      "guider": [
+        "126",
+        0
+      ],
+      "sampler": [
+        "124",
+        0
+      ],
+      "sigmas": [
+        "125",
+        0
+      ],
+      "latent_image": [
+        "136",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器（高级）"
+    }
+  },
+  "128": {
+    "inputs": {
+      "samples": [
+        "127",
+        0
+      ],
+      "vae": [
+        "132",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "129": {
+    "inputs": {
+      "unet_name": "flux-2-klein-9b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "130": {
+    "inputs": {
+      "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "131": {
+    "inputs": {
+      "text": [
+        "142",
+        0
+      ],
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      },
+      "clip": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "132": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "133": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "megapixels": 1,
+      "resolution_steps": 1,
+      "image": [
+        "147",
+        0
+      ]
+    },
+    "class_type": "ImageScaleToTotalPixels",
+    "_meta": {
+      "title": "缩放图像（像素）"
+    }
+  },
+  "134": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "megapixels": 1,
+      "resolution_steps": 1,
+      "image": [
+        "150",
+        0
+      ]
+    },
+    "class_type": "ImageScaleToTotalPixels",
+    "_meta": {
+      "title": "缩放图像（像素）"
+    }
+  },
+  "135": {
+    "inputs": {
+      "conditioning": [
+        "131",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "条件零化"
+    }
+  },
+  "136": {
+    "inputs": {
+      "width": [
+        "137",
+        0
+      ],
+      "height": [
+        "137",
+        1
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "空Latent图像（Flux2）"
+    }
+  },
+  "137": {
+    "inputs": {
+      "image": [
+        "133",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "获取图像尺寸"
+    }
+  },
+  "138": {
+    "inputs": {
+      "noise_seed": 835256674837893
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "142": {
+    "inputs": {
+      "text": "参考图二的视觉风格、颜色和打光，将图一角色转换为精致的3d渲染质感，光线明亮，专业产品级打光，轮廓光，高饱和度的扁平插画颜色，哑光手办质感，移除柠檬纹理，仅改动质感，背景填充一个纯色，强调衬托出黄色角色，不要影响黄色角色本身的颜色，黄色角色的整体颜色明亮#FFF578",
+      "speak_and_recognation": {
+        "__value__": [
+          false,
+          true
+        ]
+      }
+    },
+    "class_type": "ttN text",
+    "_meta": {
+      "title": "text"
+    }
+  },
+  "147": {
+    "inputs": {
+      "image": "US｜Lemo形象-jimeng-2025-12-09-5552-3D风格的 Lemo 形象，明亮饱和的柠檬黄主体，均匀的黄色，圆润软萌的卡通比例....png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "150": {
+    "inputs": {
+      "image": "pasted/image (3).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "139:76": {
+    "inputs": {
+      "conditioning": [
+        "135",
+        0
+      ],
+      "latent": [
+        "139:78",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "参考Latent"
+    }
+  },
+  "139:78": {
+    "inputs": {
+      "pixels": [
+        "133",
+        0
+      ],
+      "vae": [
+        "132",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE编码"
+    }
+  },
+  "139:77": {
+    "inputs": {
+      "conditioning": [
+        "131",
+        0
+      ],
+      "latent": [
+        "139:78",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "参考Latent"
+    }
+  },
+  "140:76": {
+    "inputs": {
+      "conditioning": [
+        "139:76",
+        0
+      ],
+      "latent": [
+        "140:78",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "参考Latent"
+    }
+  },
+  "140:78": {
+    "inputs": {
+      "pixels": [
+        "134",
+        0
+      ],
+      "vae": [
+        "132",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE编码"
+    }
+  },
+  "140:77": {
+    "inputs": {
+      "conditioning": [
+        "139:77",
+        0
+      ],
+      "latent": [
+        "140:78",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "参考Latent"
+    }
+  }
+}
