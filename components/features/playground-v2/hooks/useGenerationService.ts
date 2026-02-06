@@ -280,6 +280,13 @@ export function useGenerationService() {
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
+
+        // Guard against incomplete workflow data (lightweight presets not fully hydrated)
+        if (!selectedWorkflowConfig.workflowApiJSON) {
+            console.error("[Generation] Missing workflowApiJSON for workflow:", selectedWorkflowConfig.viewComfyJSON?.title);
+            throw new Error("工作流数据不完整，正在重新加载，请稍后重试");
+        }
+
         console.log("[Generation] Starting handleWorkflow:", { uniqueId, taskId, workflowTitle: selectedWorkflowConfig.viewComfyJSON.title });
 
         const effectiveSourceUrls = sourceImageUrls.length > 0 ? sourceImageUrls : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
@@ -317,9 +324,25 @@ export function useGenerationService() {
                     paramMap.set(pathKey, seedVal);
                 }
                 else if (paramName === 'batch_size' && currentConfig.batchSize !== undefined) paramMap.set(pathKey, Math.max(1, Math.floor(Number(currentConfig.batchSize))));
-                else if (paramName === 'sourceImageUrl' && effectiveSourceUrl) paramMap.set(pathKey, effectiveSourceUrl);
+                else if (paramName === 'sourceImageUrl') paramMap.set(pathKey, effectiveSourceUrl || '');
+                else if (/^sourceImageUrl\d+$/.test(paramName)) {
+                    const index = Number(paramName.replace('sourceImageUrl', '')) - 1;
+                    const value = Number.isFinite(index) ? (effectiveSourceUrls[index] || '') : '';
+                    paramMap.set(pathKey, value);
+                }
             });
+
+
+            // 1. Map existing inputs
             mappedInputs = allInputs.map(item => ({ key: item.key, value: paramMap.has(item.key) ? paramMap.get(item.key) : item.value }));
+
+            // 2. Add mapped parameters that are missing from allInputs (e.g. for workflows with empty input definitions)
+            // This is critical for Flux/Klein workflows where inputs might not be fully enumerated in the specific JSON
+            paramMap.forEach((value, key) => {
+                if (!mappedInputs.find(i => i.key === key)) {
+                    mappedInputs.push({ key, value });
+                }
+            });
         } else {
             console.log("[Generation] No MappingConfig, falling back to fuzzy matching");
             mappedInputs = allInputs.map(item => {

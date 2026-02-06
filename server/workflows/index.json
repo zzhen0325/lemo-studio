@@ -1,7 +1,27 @@
 {
-  "appTitle": "ViewComfy",
+  "appTitle": "Mapping Library",
   "appImg": "",
   "workflows": [
+    {
+      "title": "flux2_klein_image_edit_4b多图",
+      "folder": "flux2_klein_image_edit_4b多图",
+      "id": "wf_flux2_klein_image_edit_4b多图"
+    },
+    {
+      "title": "image_flux2_klein_image_edit_4b多图",
+      "folder": "image_flux2_klein_image_edit_4b多图",
+      "id": "wf_image_flux2_klein_image_edit_4b多图"
+    },
+    {
+      "title": "image_flux2_klein_image_edit_4b单图0204",
+      "folder": "image_flux2_klein_image_edit_4b单图0204",
+      "id": "wf_image_flux2_klein_image_edit_4b单图0204"
+    },
+    {
+      "title": "image_flux2_klein_image_edit_4b单图0204",
+      "folder": "image_flux2_klein_image_edit_4b单图0204",
+      "id": "wf_image_flux2_klein_image_edit_4b单图0204"
+    },
     {
       "title": "image_z_image_turbo",
       "folder": "image_z_image_turbo",

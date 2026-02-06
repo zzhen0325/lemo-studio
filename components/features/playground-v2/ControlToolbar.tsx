@@ -271,6 +271,25 @@ export default function ControlToolbar({
     </DropdownMenu>
   );
 
+  const hasBaseModelMapping = React.useMemo(() => {
+    if (!selectedPresetName || !workflows) return true;
+    const currentWorkflow = workflows.find(w => w.viewComfyJSON.title === selectedPresetName);
+    if (!currentWorkflow?.viewComfyJSON.mappingConfig?.components) return false;
+    // 使用 loose type以此避免循环依赖，只检查 id
+    return (currentWorkflow.viewComfyJSON.mappingConfig.components as any[]).some(
+      c => c.id === 'base_model'
+    );
+  }, [selectedPresetName, workflows]);
+
+  const hasLoraMapping = React.useMemo(() => {
+    if (!selectedPresetName || !workflows) return true;
+    const currentWorkflow = workflows.find(w => w.viewComfyJSON.title === selectedPresetName);
+    if (!currentWorkflow?.viewComfyJSON.mappingConfig?.components) return false;
+    return (currentWorkflow.viewComfyJSON.mappingConfig.components as any[]).some(
+      c => typeof c.id === 'string' && c.id.startsWith('lora')
+    );
+  }, [selectedPresetName, workflows]);
+
   return (
     <div ref={containerRef} className="w-full flex-col space-y-2">
 
@@ -308,10 +327,10 @@ export default function ControlToolbar({
             {!disableModelSelection && (
               <>
                 {(!isWorkflowModel(selectedModel) || !selectedPresetName) && <ModelDropdown />}
-                {isWorkflowModel(selectedModel) && selectedPresetName && <BaseModelDropdown />}
+                {isWorkflowModel(selectedModel) && selectedPresetName && hasBaseModelMapping && <BaseModelDropdown />}
               </>
             )}
-            {isWorkflowModel(selectedModel) && selectedPresetName && (
+            {isWorkflowModel(selectedModel) && selectedPresetName && hasLoraMapping && (
               <div className="flex items-center gap-2">
                 <Button variant="default" className={Inputbutton2} onClick={() => onOpenLoraSelector?.()}>
                   LoRA

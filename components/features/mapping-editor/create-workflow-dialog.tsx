@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import Image from "next/image";
+import { getApiBase } from "@/lib/api-base";
 
 interface CreateWorkflowDialogProps {
     open: boolean;
@@ -23,6 +24,7 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
     const [coverImg, setCoverImg] = useState<string>("");
     const [workflowApiJSON, setWorkflowApiJSON] = useState<WorkflowApiJSON | null>(null);
     const [fileName, setFileName] = useState<string>("");
+    const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const jsonInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,18 +40,38 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
         onOpenChange(val);
     };
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 2 * 1024 * 1024) {
                 toast.error("图片大小不能超过 2MB");
                 return;
             }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setCoverImg(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+
+            setIsUploading(true);
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch(`${getApiBase()}/upload`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setCoverImg(data.path);
+                    toast.success("封面上传成功");
+                } else {
+                    toast.error("上传图片失败");
+                }
+            } catch (error) {
+                console.error("Upload error:", error);
+                toast.error("上传图片过程中出错");
+            } finally {
+                setIsUploading(false);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            }
         }
     };
 
@@ -130,9 +152,15 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
                                     ) : (
                                         <div className="flex flex-col items-center gap-2">
                                             <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-500">
-                                                <Upload className="w-5 h-5 text-zinc-500 group-hover:text-primary" />
+                                                {isUploading ? (
+                                                    <div className="w-5 h-5 border-2 border-primary border-t-transparent animate-spin rounded-full" />
+                                                ) : (
+                                                    <Upload className="w-5 h-5 text-zinc-500 group-hover:text-primary" />
+                                                )}
                                             </div>
-                                            <span className="text-xs text-zinc-500 font-medium group-hover:text-zinc-300 transition-colors">上传封面图</span>
+                                            <span className="text-xs text-zinc-500 font-medium group-hover:text-zinc-300 transition-colors">
+                                                {isUploading ? "上传中..." : "上传封面图"}
+                                            </span>
                                         </div>
                                     )}
                                 </AnimatePresence>
@@ -212,8 +240,9 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
                     <Button
                         className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold uppercase tracking-widest text-[10px] shadow-[0_0_20px_rgba(59,130,246,0.3)]"
                         onClick={handleSubmit}
+                        disabled={isUploading}
                     >
-                        创建配置
+                        {isUploading ? "上传中..." : "创建配置"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

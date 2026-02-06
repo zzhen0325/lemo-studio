@@ -308,7 +308,7 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                             <div className="space-y-1">
                                                 {availableModels.map((model, idx) => (
                                                     <FilterItem
-                                                        key={`${model}-${idx}`}
+                                                        key={`filter-model-${model}-${idx}`}
                                                         label={model}
                                                         isSelected={selectedModels.includes(model)}
                                                         onClick={() => toggleModel(model)}
@@ -326,7 +326,7 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                             <div className="space-y-1">
                                                 {availablePresets.map((preset, idx) => (
                                                     <FilterItem
-                                                        key={`${preset}-${idx}`}
+                                                        key={`filter-preset-${preset}-${idx}`}
                                                         label={preset}
                                                         isSelected={selectedPresets.includes(preset)}
                                                         onClick={() => togglePreset(preset)}
@@ -397,7 +397,7 @@ function MasonryGrid<T extends Generation>({
             {columns.map((col, colIndex) => (
                 <div key={colIndex} className="flex flex-col gap-0 flex-1 min-w-0">
                     {col.map(({ item, index }) => (
-                        <React.Fragment key={`${item.id}-${index}`}>
+                        <React.Fragment key={`gallery-col-${colIndex}-item-${item.id}-${index}`}>
                             {renderItem(item, index)}
                         </React.Fragment>
                     ))}

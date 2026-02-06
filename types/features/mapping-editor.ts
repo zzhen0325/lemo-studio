@@ -1,19 +1,20 @@
 import { WorkflowApiJSON, IInputField } from "@/lib/workflow-api-parser";
 
 // 组件类型枚举
-export type ComponentType = 
-  | "text" 
-  | "textarea" 
-  | "number" 
-  | "slider" 
-  | "select" 
-  | "checkbox" 
-  | "radio" 
-  | "image" 
-  | "file" 
-  | "color" 
-  | "date" 
+export type ComponentType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "slider"
+  | "select"
+  | "checkbox"
+  | "radio"
+  | "image"
+  | "file"
+  | "color"
+  | "date"
   | "time"
+  | "reference_image"
   | "switch"; // 添加switch类型
 
 // 验证规则接口

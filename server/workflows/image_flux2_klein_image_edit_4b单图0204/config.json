@@ -1,0 +1,98 @@
+{
+  "id": "wf_image_flux2_klein_image_edit_4b单图0204",
+  "title": "image_flux2_klein_image_edit_4b单图0204",
+  "description": "",
+  "inputs": [],
+  "advancedInputs": [],
+  "previewImages": [
+    "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/upload/00ca50dfdabf4005b37fd241e7dbe8b4~tplv-tb4s082cfz-resize_0_0_20ca463f-f5de-408a-a8ed-203ba7198349.png"
+  ],
+  "mappingConfig": {
+    "components": [
+      {
+        "id": "pg_map_1770207753140",
+        "type": "text",
+        "label": "Prompt",
+        "properties": {
+          "defaultValue": "变成3d卡通镭射风格，材质是透明哑光磨砂，有着Y2K复古风格，塑胶高光贴纸",
+          "paramName": "prompt",
+          "placeholder": "已映射到 Prompt"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "125",
+            "inputs",
+            "text"
+          ],
+          "parameterKey": "text",
+          "defaultValue": "变成3d卡通镭射风格，材质是透明哑光磨砂，有着Y2K复古风格，塑胶高光贴纸"
+        },
+        "orderIndex": 0
+      },
+      {
+        "id": "pg_map_1770208228687",
+        "type": "reference_image",
+        "label": "Reference Image",
+        "properties": {
+          "defaultValue": "d2aaf003-31f3-4e73-b942-951ebe537227__00001_.png [output]",
+          "paramName": "sourceImageUrl",
+          "placeholder": "已映射到 Reference Image"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "124",
+            "inputs",
+            "image"
+          ],
+          "parameterKey": "image",
+          "defaultValue": "d2aaf003-31f3-4e73-b942-951ebe537227__00001_.png [output]"
+        },
+        "orderIndex": 1
+      },
+      {
+        "id": "pg_map_1770264800001",
+        "type": "number",
+        "label": "Seed",
+        "properties": {
+          "defaultValue": -1,
+          "paramName": "seed",
+          "placeholder": "Mapped to Seed"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "102",
+            "inputs",
+            "noise_seed"
+          ],
+          "parameterKey": "noise_seed",
+          "defaultValue": -1
+        },
+        "orderIndex": 2
+      },
+      {
+        "id": "pg_map_1770264800002",
+        "type": "number",
+        "label": "Batch Size",
+        "properties": {
+          "defaultValue": 1,
+          "paramName": "batch_size",
+          "placeholder": "Mapped to Batch Size"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "106",
+            "inputs",
+            "batch_size"
+          ],
+          "parameterKey": "batch_size",
+          "defaultValue": 1
+        },
+        "orderIndex": 3
+      }
+    ]
+  }
+}

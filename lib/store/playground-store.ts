@@ -468,30 +468,43 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             },
 
             remix: (result: Generation) => {
-                set((state) => {
-                    const modelFromConfig = result.config?.baseModel || result.config?.model;
-                    const finalModel = (modelFromConfig as string) || state.selectedModel;
-                    let uiModel = finalModel;
+                const state = get();
+                const modelFromConfig = result.config?.baseModel || result.config?.model;
+                const finalModel = (modelFromConfig as string) || state.selectedModel;
+                let uiModel = finalModel;
 
-                    if (isWorkflowModel(finalModel)) {
-                        uiModel = MODEL_ID_WORKFLOW;
-                    }
+                if (isWorkflowModel(finalModel)) {
+                    uiModel = MODEL_ID_WORKFLOW;
+                }
 
-                    return {
-                        selectedModel: uiModel,
-                        selectedWorkflowConfig: result.config?.presetName ? (state.presets.find(p => p.id === result.id || p.name === result.config.presetName) as unknown as IViewComfy) : (uiModel === MODEL_ID_WORKFLOW ? state.selectedWorkflowConfig : undefined),
-                        selectedLoras: result.config?.loras || [],
-                        selectedPresetName: result.config?.presetName,
-                        config: {
-                            ...state.config,
-                            ...result.config, // 直接合并，因为后端已通过扩散操作补全了
-                            model: finalModel,
-                            baseModel: finalModel,
-                            isPreset: result.config?.isPreset ?? !!(result.config?.presetName),
-                        },
-                        hasGenerated: true
-                    };
+                // 1. Common State Updates
+                set({
+                    selectedModel: uiModel,
+                    selectedLoras: result.config?.loras || [],
+                    selectedPresetName: result.config?.presetName,
+                    config: {
+                        ...state.config,
+                        ...result.config,
+                        model: finalModel,
+                        baseModel: finalModel,
+                        isPreset: result.config?.isPreset ?? !!(result.config?.presetName),
+                    },
+                    hasGenerated: true
                 });
+
+                // 2. Handle Workflow Selection with Hydration Logic
+                if (result.config?.presetName) {
+                    const presetWorkflow = state.presets.find(p => p.id === result.id || p.name === result.config.presetName) as unknown as IViewComfy;
+                    // Invoke the action to ensure full validation/hydration occurs
+                    if (presetWorkflow) {
+                        get().setSelectedWorkflowConfig(presetWorkflow, result.config.presetName);
+                    }
+                } else if (uiModel !== MODEL_ID_WORKFLOW) {
+                    // If switching away from workflow model and no preset involved, clear the workflow config
+                    set({ selectedWorkflowConfig: undefined });
+                }
+                // If uiModel IS Workflow but no specific preset name in result, we keep the *current* workflow (default behavior),
+                // effectively doing nothing to selectedWorkflowConfig.
             },
 
             resetState: () => {
@@ -682,10 +695,26 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
                     if (workflowsRes.ok) {
                         const workflowsData = await workflowsRes.json();
+                    const isValidCoverUrl = (value?: string) => {
+                        if (!value) return false;
+                        if (value.startsWith("/upload/")) return true;
+                        try {
+                            const parsed = new URL(value);
+                            return parsed.protocol === "http:" || parsed.protocol === "https:";
+                        } catch {
+                            return false;
+                        }
+                    };
+                    const getWorkflowCover = (wf: IViewComfy) => {
+                        const coverImage = wf.viewComfyJSON.coverImage;
+                        if (isValidCoverUrl(coverImage)) return coverImage;
+                        const preview = (wf.viewComfyJSON.previewImages || []).find(isValidCoverUrl);
+                        return preview || "";
+                    };
                         const workflowPresets: Preset[] = (workflowsData.viewComfys || []).map((wf: IViewComfy) => ({
                             id: wf.viewComfyJSON.id || `wf_${Date.now()}_${Math.random()}`,
                             name: wf.viewComfyJSON.title || "Untitled Workflow",
-                            coverUrl: wf.viewComfyJSON.previewImages?.[0] || "",
+                        coverUrl: getWorkflowCover(wf),
                             category: 'Workflow',
                             workflow_id: wf.viewComfyJSON.id, // Explicitly add this for handlePresetSelect
                             config: {

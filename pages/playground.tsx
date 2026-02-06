@@ -1541,6 +1541,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         </div>
 
         <ImagePreviewModal
+          key={selectedResult ? `preview-${selectedResult.id}` : 'preview-none'}
           isOpen={isImageModalOpen}
           onClose={closeImageModal}
           result={selectedResult}
@@ -1549,6 +1550,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           onPrev={handlePrevImage}
           hasNext={hasNext}
           hasPrev={hasPrev}
+          onRegenerate={handleRegenerate}
         />
 
         {

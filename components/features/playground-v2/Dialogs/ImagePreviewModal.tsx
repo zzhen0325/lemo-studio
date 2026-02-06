@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ZoomIn, ZoomOut, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight, Maximize, Layers } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
@@ -22,6 +22,7 @@ interface ImagePreviewModalProps {
   onPrev?: () => void;
   hasNext?: boolean;
   hasPrev?: boolean;
+  onRegenerate?: (result: Generation) => void;
 }
 
 export default function ImagePreviewModal({
@@ -32,11 +33,13 @@ export default function ImagePreviewModal({
   onNext,
   onPrev,
   hasNext,
-  hasPrev
+  hasPrev,
+  onRegenerate
 }: ImagePreviewModalProps) {
   const [scale, setScale] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
   const { toast } = useToast();
+  const { applyModel, applyImages } = usePlaygroundStore();
   const [mounted, setMounted] = useState(false);
 
   // 数据已规范化，直接从 config.sourceImageUrls 读取
@@ -89,6 +92,39 @@ export default function ImagePreviewModal({
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(prompt);
     toast({ title: "已复制", description: "提示词已复制到剪贴板" });
+  };
+
+  const handleRerun = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRegenerate && result) {
+      onRegenerate(result);
+      toast({ title: "重运行中", description: "已开始重新生成" });
+      onClose(); // Optional: close modal when rerunning? Maybe better to stay open or close depending on UX. HistoryList logic doesn't seemingly close? GalleryView switches tab.
+      // Replicating GalleryView behavior: switch to dock (not applicable here directly but closing modal seems right if we move to generating state). 
+      // User didn't specify, but closing is safer to show progress.
+      // Actually, if I close, the user sees the generation in progress in the list.
+    }
+  };
+
+  const handleUseAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!config) return;
+
+    // Logic from HistoryList
+    applyModel(config.model, {
+      ...config,
+      loras: config.loras || [],
+      presetName: config.presetName,
+    });
+
+    // Sync reference images to uploadedImages for preview
+    const validSourceUrls = config.sourceImageUrls?.filter(url => !!url) || [];
+    if (validSourceUrls.length > 0) {
+      applyImages(validSourceUrls);
+    }
+
+    toast({ title: "已应用配置", description: "所有参数已应用到当前工作流" });
+    onClose(); // Close modal to show the updated playground
   };
 
   const handleDownload = () => {
@@ -207,11 +243,33 @@ export default function ImagePreviewModal({
                   </Button>
                   <div className="w-px h-4 bg-white/10 mx-1" />
                   <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleReset}>
-                    <RefreshCw className="w-4 h-4" />
+                    <Maximize className="w-4 h-4" />
                   </Button>
                   <div className="w-px h-4 bg-white/10 mx-1" />
                   <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleDownload}>
                     <Download className="w-4 h-4" />
+                  </Button>
+
+                  <div className="w-px h-4 bg-white/10 mx-1" />
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-3 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
+                    onClick={handleRerun}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Rerun</span>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-3 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
+                    onClick={handleUseAll}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Use All</span>
                   </Button>
                   <Button
                     variant="act"
@@ -231,15 +289,20 @@ export default function ImagePreviewModal({
               {/* Reference Image Thumbnails - absolute to Viewport */}
               {sourceUrls.length > 0 && (
                 <div className="absolute top-10 left-6 z-[110] flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
-                  {sourceUrls.map((url, idx) => (
-                    <ReferenceImageItem
-                      key={`ref-${result.id}-${idx}-${url.slice(-10)}`}
-                      url={url}
-                      localId={result.config?.localSourceIds?.[idx]}
-                      generationId={result.id}
-                      index={idx}
-                    />
-                  ))}
+                  {sourceUrls.filter(url => !!url).map((url, idx) => {
+                    const localId = result.config?.localSourceIds?.[idx];
+                    // 使用更加唯一的 ID 组合，结合 localId 或 idx 来保证唯一性
+                    const itemKey = localId ? `ref-${result.id}-${localId}` : `ref-${result.id}-${idx}-${url.slice(-8)}`;
+                    return (
+                      <ReferenceImageItem
+                        key={itemKey}
+                        url={url}
+                        localId={localId}
+                        generationId={result.id}
+                        index={idx}
+                      />
+                    );
+                  })}
                 </div>
               )}
 
@@ -304,11 +367,14 @@ export default function ImagePreviewModal({
                           <span className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-full border border-primary/20">
                             {config?.model || "Standard"}
                           </span>
-                          {config?.loras?.map((l, idx) => (
-                            <span key={idx} className="px-3 py-1.5 bg-white/5 text-white/60 text-xs font-medium rounded-full border border-white/10 truncate max-w-full">
-                              {l.model_name.replace('.safetensors', '')} ({l.strength})
-                            </span>
-                          ))}
+                          {config?.loras?.map((l, idx) => {
+                            const loraKey = `lora-${result.id}-${l.model_name}-${idx}`;
+                            return (
+                              <span key={loraKey} className="px-3 py-1.5 bg-white/5 text-white/60 text-xs font-medium rounded-full border border-white/10 truncate max-w-full">
+                                {l.model_name.replace('.safetensors', '')} ({l.strength})
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
 

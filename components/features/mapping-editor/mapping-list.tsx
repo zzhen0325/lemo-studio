@@ -8,7 +8,7 @@ import {
   ArrowRight,
   Trash2,
 
-  List
+  
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -29,16 +29,20 @@ const PLAYGROUND_TARGETS = [
   { key: 'lora2_strength', label: 'LoRA 2 Strength', type: 'number' as ComponentType, supportedTypes: ['number'], icon: '⚖️' },
   { key: 'lora3_strength', label: 'LoRA 3 Strength', type: 'number' as ComponentType, supportedTypes: ['number'], icon: '⚖️' },
   { key: 'batch_size', label: 'Batch Size', type: 'number' as ComponentType, supportedTypes: ['number', 'string'], icon: '🔢' },
+  { key: 'sourceImageUrl1', label: 'Reference Image 1', type: 'reference_image' as ComponentType, supportedTypes: ['string'], icon: '🖼️' },
+  { key: 'sourceImageUrl2', label: 'Reference Image 2', type: 'reference_image' as ComponentType, supportedTypes: ['string'], icon: '🖼️' },
+  { key: 'sourceImageUrl3', label: 'Reference Image 3', type: 'reference_image' as ComponentType, supportedTypes: ['string'], icon: '🖼️' },
+  { key: 'sourceImageUrl4', label: 'Reference Image 4', type: 'reference_image' as ComponentType, supportedTypes: ['string'], icon: '🖼️' },
 ];
 
 interface MappingListProps {
   components: UIComponent[];
   onDelete: (index: number) => void;
+  onEdit?: (index: number) => void;
   className?: string;
 }
 
 export function MappingList({ components, onDelete, className }: MappingListProps) {
-  if (components.length === 0) return null;
 
 
   return (
@@ -54,7 +58,7 @@ export function MappingList({ components, onDelete, className }: MappingListProp
       </div>
 
       <div
-        className="grid grid-cols-2 sm:grid-cols-3 md:columns-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 w-full"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 w-full"
       >
         <AnimatePresence mode="popLayout">
           {PLAYGROUND_TARGETS.map((target) => {

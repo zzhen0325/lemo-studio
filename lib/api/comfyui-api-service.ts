@@ -306,4 +306,29 @@ export class ComfyUIAPIService {
             }
         }
     }
+
+    public async uploadImage(imageBlob: Blob, filename: string): Promise<string> {
+        const formData = new FormData();
+        formData.append('image', imageBlob, filename);
+        formData.append('type', 'input');
+        formData.append('overwrite', 'true');
+
+        const headers: HeadersInit = {};
+        if (this.apiKey) {
+            headers["Authorization"] = `Bearer ${this.apiKey}`;
+        }
+
+        const response = await fetch(`${this.getUrl("http")}/upload/image`, {
+            method: 'POST',
+            body: formData,
+            headers,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Upload failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result.name;
+    }
 }

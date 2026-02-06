@@ -1,14 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Layers,
-  Info,
   CheckCircle2,
-  Hash,
   Plus,
   Zap,
   Trash2,
@@ -48,6 +45,7 @@ interface WorkflowAnalyzerProps {
   onComponentCreate?: (component: UIComponent) => void; // 创建新映射组件的回调
   onComponentUpdate?: (index: number, component: UIComponent) => void; // 更新组件的回调
   onComponentDelete?: (index: number) => void; // 删除组件的回调
+  onUpdateValue?: (nodeId: string, paramKey: string, value: unknown) => void;
 }
 
 // 经过解析扩展后的节点定义
@@ -64,10 +62,14 @@ export function WorkflowAnalyzer({
   onParameterSelect,
   existingComponents = [],
   onComponentCreate,
-  onComponentDelete
+  onComponentDelete,
+  onUpdateValue
 }: WorkflowAnalyzerProps) {
   // 当前正在通过弹窗编辑标签的临时参数状态
   const [editingParam, setEditingParam] = useState<{ nodeId: string; key: string; label: string; defaultValue: unknown } | null>(null);
+  const isSeedKey = (key: string) => /seed/i.test(key);
+  const isValidPositiveInt = (value: unknown) => Number.isInteger(value) && Number(value) > 0;
+  const createRandomSeed = () => Math.floor(Math.random() * 1_000_000_000) + 1;
 
   /**
    * 快速匹配逻辑：将参数直接映射到 Playground 的预设目标（如种子、步数等）
@@ -159,6 +161,24 @@ export function WorkflowAnalyzer({
     return nodes.sort((a, b) => parseInt(a.id) - parseInt(b.id));
   }, [workflowApiJSON]);
 
+  const seedFixups = useMemo(() => {
+    const updates: { nodeId: string; key: string; value: number }[] = [];
+    Object.entries(workflowApiJSON).forEach(([nodeId, nodeData]) => {
+      Object.entries(nodeData.inputs || {}).forEach(([key, value]) => {
+        if (!isSeedKey(key) || Array.isArray(value)) return;
+        if (!isValidPositiveInt(value)) {
+          updates.push({ nodeId, key, value: createRandomSeed() });
+        }
+      });
+    });
+    return updates;
+  }, [workflowApiJSON]);
+
+  useEffect(() => {
+    if (!onUpdateValue || seedFixups.length === 0) return;
+    seedFixups.forEach(update => onUpdateValue(update.nodeId, update.key, update.value));
+  }, [onUpdateValue, seedFixups]);
+
   /**
    * 根据节点类型字符串生成一致的视觉色调
    */
@@ -182,7 +202,7 @@ export function WorkflowAnalyzer({
   };
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between px-2 mb-2">
         <div className="flex items-center gap-2 text-white/90 text-2xl font-black">
           Workflow Nodes
@@ -192,8 +212,8 @@ export function WorkflowAnalyzer({
         </Badge>
       </div>
 
-      <ScrollArea className="flex-1 px-2">
-        <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-8 gap-3 space-y-3 w-full">
+      <div className="px-2">
+        <div className="columns-2 sm:columns-3 md:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6 gap-3 w-full">
           <AnimatePresence mode="popLayout">
             {parsedNodes.map((node, index) => {
               const mappedParamCount = Object.keys(node.inputs || {}).filter(key =>
@@ -264,6 +284,8 @@ export function WorkflowAnalyzer({
                             );
                             const mappedComp = mappedCompIndex >= 0 ? existingComponents[mappedCompIndex] : null;
 
+                            const isSeedParam = isSeedKey(key) && !isConnection;
+                            const seedValue = isValidPositiveInt(value) ? Number(value) : undefined;
                             return (
                               <div
                                 key={key}
@@ -281,7 +303,14 @@ export function WorkflowAnalyzer({
                                 <div className="flex flex-col  w-full ">
                                   <div className="flex items-center  justify-between ">
 
-                                    <span className={cn("text-sm font-bold", isMapped ? "text-white" : "text-white/60")} title={key}>{key}</span>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className={cn("text-sm font-bold truncate", isMapped ? "text-white" : "text-white/60")} title={key}>{key}</span>
+                                      {isSeedParam && (
+                                        <span className="text-[10px] font-mono text-white/40 truncate">
+                                          {seedValue ?? "—"}
+                                        </span>
+                                      )}
+                                    </div>
 
 
                                     {/* <Badge variant="outline" className={cn(
@@ -294,7 +323,20 @@ export function WorkflowAnalyzer({
 
                                     {/* 断开连接 */}
                                     {!isConnection && (
-                                      <>
+                                      <div className="flex items-center gap-1.5">
+                                        {isSeedParam && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 px-2 text-[10px] font-bold text-white/40 hover:text-white hover:bg-white/10 rounded-lg uppercase tracking-widest"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onUpdateValue?.(node.id, key, createRandomSeed());
+                                            }}
+                                          >
+                                            随机
+                                          </Button>
+                                        )}
                                         {isMapped ? (
                                           <Button
                                             variant="ghost"
@@ -348,7 +390,7 @@ export function WorkflowAnalyzer({
                                             </PopoverContent>
                                           </Popover>
                                         )}
-                                      </>
+                                      </div>
                                     )}
 
 
@@ -389,78 +431,76 @@ export function WorkflowAnalyzer({
             </div>
           )}
         </div>
-      </ScrollArea >
+      </div>
 
       {/* 自定义映射配置弹窗层 */}
       <AnimatePresence>
-        {
-          editingParam && (
+        {editingParam && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md"
+            onClick={() => setEditingParam(null)}
+          >
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md"
-              onClick={() => setEditingParam(null)}
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
+              onClick={e => e.stopPropagation()}
             >
-              <motion.div
-                initial={{ scale: 0.95, y: 10 }}
-                animate={{ scale: 1, y: 0 }}
-                className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
-                onClick={e => e.stopPropagation()}
-              >
-                {/* 弹窗头部 */}
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                      <Target className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Create Custom Mapping</h3>
-                      <p className="text-xs text-white/40 font-medium uppercase tracking-widest mt-0.5">Node #{editingParam.nodeId} • {editingParam.key}</p>
-                    </div>
+              {/* 弹窗头部 */}
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                    <Target className="w-5 h-5 text-primary" />
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setEditingParam(null)} className="rounded-full hover:bg-white/5">
-                    <X className="w-5 h-5 text-white/20" />
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Create Custom Mapping</h3>
+                    <p className="text-xs text-white/40 font-medium uppercase tracking-widest mt-0.5">Node #{editingParam.nodeId} • {editingParam.key}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setEditingParam(null)} className="rounded-full hover:bg-white/5">
+                  <X className="w-5 h-5 text-white/20" />
+                </Button>
+              </div>
+
+              {/* 弹窗内容：标签输入 */}
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Display Label</Label>
+                  <Input
+                    className="h-12 bg-white/5 border-white/5 rounded-xl focus:ring-primary/20 transition-all text-sm"
+                    value={editingParam.label}
+                    onChange={e => setEditingParam(prev => prev ? { ...prev, label: e.target.value } : null)}
+                    placeholder="Enter UI label (e.g. Master Scale)..."
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Default Value</Label>
+                  <Input
+                    className="h-12 bg-white/5 border-white/5 rounded-xl text-zinc-500 font-mono text-sm"
+                    value={String(editingParam.defaultValue)}
+                    disabled
+                  />
+                </div>
+
+                {/* 操作按钮组 */}
+                <div className="flex gap-3 pt-4">
+                  <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-[11px] font-bold uppercase tracking-widest" onClick={handleCustomMapSubmit}>
+                    Confirm Mapping
+                  </Button>
+                  <Button variant="outline" className="flex-1 h-12 rounded-xl border-white/5 bg-white/5 hover:bg-white/10 text-[11px] font-bold uppercase tracking-widest" onClick={() => setEditingParam(null)}>
+                    Cancel
                   </Button>
                 </div>
-
-                {/* 弹窗内容：标签输入 */}
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Display Label</Label>
-                    <Input
-                      className="h-12 bg-white/5 border-white/5 rounded-xl focus:ring-primary/20 transition-all text-sm"
-                      value={editingParam.label}
-                      onChange={e => setEditingParam(prev => prev ? { ...prev, label: e.target.value } : null)}
-                      placeholder="Enter UI label (e.g. Master Scale)..."
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Default Value</Label>
-                    <Input
-                      className="h-12 bg-white/5 border-white/5 rounded-xl text-zinc-500 font-mono text-sm"
-                      value={String(editingParam.defaultValue)}
-                      disabled
-                    />
-                  </div>
-
-                  {/* 操作按钮组 */}
-                  <div className="flex gap-3 pt-4">
-                    <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-[11px] font-bold uppercase tracking-widest" onClick={handleCustomMapSubmit}>
-                      Confirm Mapping
-                    </Button>
-                    <Button variant="outline" className="flex-1 h-12 rounded-xl border-white/5 bg-white/5 hover:bg-white/10 text-[11px] font-bold uppercase tracking-widest" onClick={() => setEditingParam(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
+              </div>
             </motion.div>
-          )
-        }
-      </AnimatePresence >
-    </div >
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

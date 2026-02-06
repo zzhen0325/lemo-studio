@@ -6,8 +6,8 @@ import {
   Plus,
   Search,
   Workflow,
-  ChevronRight,
-  ImagePlus
+  ImagePlus,
+  Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,7 +17,6 @@ import { getApiBase } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
 import { CreateWorkflowDialog } from "./create-workflow-dialog";
 import Image from "next/image";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
@@ -26,7 +25,19 @@ import { MappingList } from "./mapping-list";
 import GradualBlur from "@/components/visual-effects/GradualBlur";
 import { ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { UIComponent } from "@/types/features/mapping-editor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 
 
 
@@ -44,7 +55,58 @@ export function MappingEditorPage() {
   const [existingComponents, setExistingComponents] = useState<UIComponent[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const uploadFileRef = useRef<HTMLInputElement>(null);
+
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleValue, setEditingTitleValue] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const isValidCoverUrl = (value?: string) => {
+    if (!value) return false;
+    if (value.startsWith("/upload/")) return true;
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
+  const getCoverImage = (viewComfyJSON: IViewComfy["viewComfyJSON"]) => {
+    const coverImage = viewComfyJSON.coverImage;
+    if (isValidCoverUrl(coverImage)) return coverImage;
+    const preview = (viewComfyJSON.previewImages || []).find(isValidCoverUrl);
+    return preview;
+  };
+
+  const handleTitleDoubleClick = () => {
+    if (selectedWorkflow) {
+      setEditingTitleValue(selectedWorkflow.viewComfyJSON.title || "");
+      setIsEditingTitle(true);
+    }
+  };
+
+  const handleTitleSave = () => {
+    if (selectedWorkflow && editingTitleValue.trim()) {
+      setSelectedWorkflow({
+        ...selectedWorkflow,
+        viewComfyJSON: {
+          ...selectedWorkflow.viewComfyJSON,
+          title: editingTitleValue.trim()
+        }
+      });
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleTitleSave();
+    } else if (e.key === "Escape") {
+      setIsEditingTitle(false);
+    }
+  };
 
   const fetchWorkflows = useCallback(async () => {
     try {
@@ -62,15 +124,93 @@ export function MappingEditorPage() {
     fetchWorkflows();
   }, [fetchWorkflows]);
 
+  const ensureDefaultMappingComponents = useCallback((workflowApiJSON?: WorkflowApiJSON | null, existingComponents: UIComponent[] = []) => {
+    if (!workflowApiJSON) return existingComponents;
 
+    const seedKeys = new Set(["seed", "noise_seed", "rand_seed"]);
+    const isSeedKey = (key: string) => seedKeys.has(key.toLowerCase());
+    const hasSeed = existingComponents.some(comp => comp.properties?.paramName === "seed" || isSeedKey(comp.mapping?.parameterKey ?? ""));
+    const hasBatchSize = existingComponents.some(comp => comp.properties?.paramName === "batch_size" || comp.mapping?.parameterKey === "batch_size");
+
+    let seedTarget: { nodeId: string; key: string; defaultValue: number } | null = null;
+    let batchTarget: { nodeId: string; key: string; defaultValue: number } | null = null;
+
+    Object.entries(workflowApiJSON).forEach(([nodeId, nodeData]) => {
+      const inputs = nodeData.inputs || {};
+      Object.entries(inputs).forEach(([key, value]) => {
+        if (!seedTarget && isSeedKey(key) && !Array.isArray(value)) {
+          seedTarget = { nodeId, key, defaultValue: -1 };
+        }
+        if (!batchTarget && key === "batch_size" && typeof value === "number") {
+          batchTarget = { nodeId, key, defaultValue: Math.max(1, Math.floor(value)) };
+        }
+      });
+    });
+
+    const components = [...existingComponents];
+    if (!hasSeed && seedTarget) {
+      const target = seedTarget as { nodeId: string; key: string; defaultValue: number };
+      components.push({
+        id: `pg_map_${Date.now()}_seed`,
+        type: "number",
+        label: "Seed",
+        properties: {
+          defaultValue: target.defaultValue,
+          paramName: "seed",
+          placeholder: "Mapped to Seed"
+        },
+        validation: {},
+        mapping: {
+          workflowPath: [target.nodeId, "inputs", target.key],
+          parameterKey: target.key,
+          defaultValue: target.defaultValue
+        },
+        orderIndex: components.length
+      });
+    }
+
+    if (!hasBatchSize && batchTarget) {
+      const target = batchTarget as { nodeId: string; key: string; defaultValue: number };
+      components.push({
+        id: `pg_map_${Date.now()}_batch`,
+        type: "number",
+        label: "Batch Size",
+        properties: {
+          defaultValue: target.defaultValue,
+          paramName: "batch_size",
+          placeholder: "Mapped to Batch Size"
+        },
+        validation: {},
+        mapping: {
+          workflowPath: [target.nodeId, "inputs", target.key],
+          parameterKey: target.key,
+          defaultValue: target.defaultValue
+        },
+        orderIndex: components.length
+      });
+    }
+
+    return components;
+  }, []);
 
 
 
   const handleSelectWorkflow = (workflow: IViewComfy) => {
     console.log("handleSelectWorkflow triggered for:", workflow.viewComfyJSON.id);
-    setSelectedWorkflow(workflow);
-    setExistingComponents((workflow.viewComfyJSON.mappingConfig?.components as UIComponent[]) || []);
-    console.log("State updated: selectedWorkflow set");
+    const baseComponents = (workflow.viewComfyJSON.mappingConfig?.components as UIComponent[]) || [];
+    const ensuredComponents = ensureDefaultMappingComponents(workflow.workflowApiJSON as WorkflowApiJSON | undefined, baseComponents);
+    setSelectedWorkflow({
+      ...workflow,
+      viewComfyJSON: {
+        ...workflow.viewComfyJSON,
+        mappingConfig: {
+          ...workflow.viewComfyJSON.mappingConfig,
+          components: ensuredComponents
+        }
+      }
+    });
+    setExistingComponents(ensuredComponents);
+    console.log("State updated: selectedWorkflow set with default mappings");
   };
 
   const handleBackToLibrary = () => {
@@ -79,6 +219,29 @@ export function MappingEditorPage() {
     // 理由：handleSaveMapping 已经同步更新了本地 workflows 状态
     // 如果这里立即重新 fetch，可能会因为后端文件写入延迟导致拉取到不完整甚至空的数据（竞态条件）
   };
+
+  const handleUpdateNodeValue = useCallback((nodeId: string, paramKey: string, value: unknown) => {
+    setSelectedWorkflow(prev => {
+      if (!prev) return prev;
+      const currentApi = prev.workflowApiJSON as WorkflowApiJSON;
+      if (!currentApi[nodeId]) return prev;
+      const updatedNode = {
+        ...currentApi[nodeId],
+        inputs: {
+          ...(currentApi[nodeId].inputs || {}),
+          [paramKey]: value
+        }
+      };
+      const updatedApi = {
+        ...currentApi,
+        [nodeId]: updatedNode
+      };
+      return {
+        ...prev,
+        workflowApiJSON: updatedApi
+      };
+    });
+  }, []);
 
   const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -108,7 +271,8 @@ export function MappingEditorPage() {
           ...selectedWorkflow,
           viewComfyJSON: {
             ...selectedWorkflow.viewComfyJSON,
-            previewImages: [uploadedPath] // 统一替换为单张封面
+            coverImage: uploadedPath,
+            previewImages: [uploadedPath]
           }
         };
         setSelectedWorkflow(updatedWorkflow);
@@ -143,12 +307,17 @@ export function MappingEditorPage() {
       };
 
       const payload = {
-        ...selectedWorkflow,
-        viewComfyJSON: updatedViewComfyJSON
+        appTitle: "Mapping Library", // 默认标题，或者从状态中获取
+        appImg: "",
+        viewComfys: workflows.map(wf =>
+          wf.viewComfyJSON.id === selectedWorkflow.viewComfyJSON.id
+            ? { ...wf, viewComfyJSON: updatedViewComfyJSON }
+            : wf
+        )
       };
 
-      const res = await fetch(`${getApiBase()}/view-comfy/${selectedWorkflow.viewComfyJSON.id}`, {
-        method: 'PUT',
+      const res = await fetch(`${getApiBase()}/view-comfy`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -158,10 +327,11 @@ export function MappingEditorPage() {
       if (res.ok) {
         toast.success("配置已保存");
         // 更新当前选中状态
-        setSelectedWorkflow(payload);
-        // 同步更新外部列表状态，避免返回后看到的是旧数据或触发重新拉取时的竞态问题
+        const savedWorkflow = { ...selectedWorkflow, viewComfyJSON: updatedViewComfyJSON };
+        setSelectedWorkflow(savedWorkflow);
+        // 同步更新外部列表状态
         setWorkflows(prev => prev.map(wf =>
-          wf.viewComfyJSON.id === selectedWorkflow.viewComfyJSON.id ? payload : wf
+          wf.viewComfyJSON.id === selectedWorkflow.viewComfyJSON.id ? savedWorkflow : wf
         ));
       } else {
         const errorData = await res.json().catch(() => ({}));
@@ -176,15 +346,60 @@ export function MappingEditorPage() {
     }
   };
 
+  const handleDeleteWorkflow = async () => {
+    if (!selectedWorkflow?.viewComfyJSON?.id) {
+      toast.error("删除失败：未选择有效的工作流");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const remainingWorkflows = workflows.filter(
+        wf => wf.viewComfyJSON.id !== selectedWorkflow.viewComfyJSON.id
+      );
+      const payload = {
+        appTitle: "Mapping Library",
+        appImg: "",
+        viewComfys: remainingWorkflows
+      };
+
+      const res = await fetch(`${getApiBase()}/view-comfy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        toast.success("工作流已删除");
+        setWorkflows(remainingWorkflows);
+        setSelectedWorkflow(null);
+        setExistingComponents([]);
+        setIsDeleteDialogOpen(false);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        toast.error(`删除失败: ${errorData.message || "服务器错误"}`);
+      }
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error(`删除失败: ${err.message || "未知错误"}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
 
 
 
-  const handleCreateWorkflow = (data: { title: string; coverImg: string; workflowApiJSON: WorkflowApiJSON | null }) => {
+
+  const handleCreateWorkflow = async (data: { title: string; coverImg: string; workflowApiJSON: WorkflowApiJSON | null }) => {
     if (!data.workflowApiJSON) {
       toast.error("创建失败：缺失 API 定义");
       return;
     }
+
+    const defaultComponents = ensureDefaultMappingComponents(data.workflowApiJSON, []);
 
     const newWorkflow: IViewComfy = {
       viewComfyJSON: {
@@ -193,16 +408,41 @@ export function MappingEditorPage() {
         description: "",
         inputs: [],
         advancedInputs: [],
+        coverImage: data.coverImg || "",
         previewImages: data.coverImg ? [data.coverImg] : [],
         mappingConfig: {
-          components: []
+          components: defaultComponents
         }
       },
       workflowApiJSON: data.workflowApiJSON
     };
 
-    setWorkflows(prev => [newWorkflow, ...prev]);
-    toast.success(`已创建并加载配置: ${data.title}`);
+    const payload = {
+      appTitle: "Mapping Library",
+      appImg: "",
+      viewComfys: [newWorkflow, ...workflows]
+    };
+
+    try {
+      const res = await fetch(`${getApiBase()}/view-comfy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await fetchWorkflows(); // 重新加载以确保存储后的状态（包含后端生成的 ID 等）
+        toast.success(`已创建并持久化配置: ${data.title}`);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        toast.error(`创建失败: ${errorData.message || "服务器错误"}`);
+      }
+    } catch (error) {
+      console.error("Failed to create workflow:", error);
+      toast.error("创建配置过程中出错");
+    }
   };
 
   return (
@@ -223,9 +463,23 @@ export function MappingEditorPage() {
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div>
-                  <h1 className="text-2xl font-black tracking-tighter uppercase">
-                    {selectedWorkflow.viewComfyJSON.title}
-                  </h1>
+                  {isEditingTitle ? (
+                    <Input
+                      autoFocus
+                      value={editingTitleValue}
+                      onChange={(e) => setEditingTitleValue(e.target.value)}
+                      onBlur={handleTitleSave}
+                      onKeyDown={handleTitleKeyDown}
+                      className="text-2xl h-8 font-black tracking-tighter uppercase bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary p-0 w-[400px]"
+                    />
+                  ) : (
+                    <h1
+                      onDoubleClick={handleTitleDoubleClick}
+                      className="text-2xl font-black tracking-tighter  cursor-pointer hover:text-white/80 transition-colors"
+                    >
+                      {selectedWorkflow.viewComfyJSON.title}
+                    </h1>
+                  )}
                   <p className="text-zinc-500 text-xs font-medium tracking-wide">ID: {selectedWorkflow.viewComfyJSON.id}</p>
                 </div>
               </div>
@@ -246,6 +500,46 @@ export function MappingEditorPage() {
                   <ImagePlus className="w-4 h-4" />
                   {isUploading ? "Uploading..." : "Upload Cover"}
                 </Button>
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={isSaving || isUploading}
+                      className="bg-[#2C2D2F] border-[#2C2D2F] hover:bg-red-500/10 rounded-xl px-6 font-bold uppercase tracking-widest text-xs h-10 gap-2 text-red-300/80 hover:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      删除
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-[#18181b] border-white/5 rounded-2xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-white">确认删除工作流？</AlertDialogTitle>
+                      <AlertDialogDescription className="text-white/60">
+                        删除后将无法恢复，请确认是否继续。
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel asChild>
+                        <Button
+                          variant="outline"
+                          className="bg-[#2C2D2F] border-[#2C2D2F] hover:bg-white/10 text-white/70"
+                        >
+                          取消
+                        </Button>
+                      </AlertDialogCancel>
+                      <AlertDialogAction asChild>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDeleteWorkflow}
+                          disabled={isDeleting}
+                          className="rounded-xl px-6 font-bold uppercase tracking-widest text-xs h-10"
+                        >
+                          {isDeleting ? "删除中..." : "确认删除"}
+                        </Button>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Button
                   onClick={handleSaveMapping}
                   disabled={isSaving || isUploading}
@@ -259,27 +553,23 @@ export function MappingEditorPage() {
 
             <ScrollArea className="flex-1 w-full pr-4 pb-0">
               <div className="flex flex-col gap-8 pb-10">
-                {existingComponents.length > 0 && (
-                  <div className="space-y-4">
-
-                    <MappingList
-                      components={existingComponents}
-                      onEdit={(index) => {
-                        // 目前先保持简单，后续根据需要添加编辑弹窗
-                        console.log("Edit component at index", index);
-                      }}
-                      onDelete={(index) => {
-                        setExistingComponents(prev => prev.filter((_, i) => i !== index));
-                      }}
-                    />
-                  </div>
-                )}
+                <div className="space-y-4">
+                  <MappingList
+                    components={existingComponents}
+                    onEdit={(index) => {
+                      // 目前先保持简单，后续根据需要添加编辑弹窗
+                      console.log("Edit component at index", index);
+                    }}
+                    onDelete={(index) => {
+                      setExistingComponents(prev => prev.filter((_, i) => i !== index));
+                    }}
+                  />
+                </div>
 
 
                 {/* Bottom Panel: Workflow Analyzer */}
                 <div className="space-y-4">
-
-                  <div className="min-h-[400px]">
+                  <div>
                     <WorkflowAnalyzer
                       workflowApiJSON={selectedWorkflow.workflowApiJSON as WorkflowApiJSON}
                       existingComponents={existingComponents}
@@ -287,6 +577,7 @@ export function MappingEditorPage() {
                       onComponentDelete={(index) => {
                         setExistingComponents(prev => prev.filter((_, i) => i !== index));
                       }}
+                      onUpdateValue={handleUpdateNodeValue}
                     />
                   </div>
                 </div>
@@ -345,7 +636,7 @@ export function MappingEditorPage() {
                 </button>
 
                 {filteredWorkflows.map((wf) => {
-                  const cover = wf.viewComfyJSON.previewImages?.[0];
+                  const cover = getCoverImage(wf.viewComfyJSON);
 
                   return (
                     <button

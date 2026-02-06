@@ -61,7 +61,7 @@ export class ComfyWorkflow {
                     Object.keys(node.inputs).forEach((key) => {
                         if (
                             SEED_LIKE_INPUT_VALUES.includes(key)
-                            && node.inputs[key] === Number.MIN_VALUE
+                            && !Array.isArray(node.inputs[key])
                         ) {
                             const newSeed = this.getNewSeed();
                             node.inputs[key] = newSeed;

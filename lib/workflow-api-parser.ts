@@ -69,7 +69,7 @@ export function workflowAPItoViewComfy(source: WorkflowApiJSON): IViewComfyBase 
                     input.valueType = "image";
                     input.title = getTitleFromValue(value.class_type, value);
                     input.placeholder = getTitleFromValue(value.class_type, value);
-                    input.value = null;
+                    input.value = "";
                     basicInputs.push({
                         title: getTitleFromValue(value.class_type, value),
                         inputs: [input],
