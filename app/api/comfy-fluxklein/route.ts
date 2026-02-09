@@ -8,6 +8,9 @@ const errorResponseFactory = new ErrorResponseFactory();
 
 export async function POST(request: NextRequest) {
   try {
+    const startAt = Date.now();
+    const traceId = request.headers.get("x-request-id") || request.headers.get("x-tt-logid") || "";
+    console.info("[FluxKlein][NextAPI] request_received", { traceId });
     const body = await request.json();
     const prompt = typeof body?.prompt === "string" ? body.prompt : "";
     const width = Number(body?.width) || 1024;
@@ -18,6 +21,7 @@ export async function POST(request: NextRequest) {
     const apiKey = typeof body?.apiKey === "string" ? body.apiKey : undefined;
     const comfyUrl = typeof body?.comfyUrl === "string" ? body.comfyUrl : undefined;
 
+    const buildStart = Date.now();
     const { workflow, viewComfyInputs } = await buildFluxKleinWorkflow({
       prompt,
       width,
@@ -26,14 +30,22 @@ export async function POST(request: NextRequest) {
       batchSize,
       referenceImages,
     });
+    console.info("[FluxKlein][NextAPI] build_workflow_done", {
+      traceId,
+      elapsedMs: Date.now() - buildStart,
+    });
 
     const viewComfy: IViewComfy = {
       inputs: viewComfyInputs,
       textOutputEnabled: false,
     };
 
-    const comfyUIService = new ComfyUIService({ apiKey, comfyUrl });
+    const comfyUIService = new ComfyUIService({ apiKey, comfyUrl, traceId });
     const stream = await comfyUIService.runWorkflow({ workflow, viewComfy });
+    console.info("[FluxKlein][NextAPI] request_stream_ready", {
+      traceId,
+      elapsedMs: Date.now() - startAt,
+    });
     return new NextResponse<ReadableStream<Uint8Array>>(stream, {
       headers: {
         "Content-Type": "application/octet-stream",

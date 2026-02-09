@@ -20,14 +20,17 @@ export class ComfyUIService {
     private comfyErrorHandler: ComfyErrorHandler;
     private comfyUIAPIService: ComfyUIAPIService;
     private clientId: string;
+    private traceId?: string;
 
     constructor(config?: ComfyUIAPIServiceConfig) {
         this.clientId = crypto.randomUUID();
+        this.traceId = config?.traceId;
         this.comfyErrorHandler = new ComfyErrorHandler();
         this.comfyUIAPIService = new ComfyUIAPIService(this.clientId, config);
     }
 
-    async runWorkflow(args: IComfyInput) {
+    async runWorkflow(args: IComfyInput): Promise<ReadableStream<Uint8Array>> {
+        const startAt = Date.now();
         let workflow = args.workflow;
         const textOutputEnabled = args.viewComfy.textOutputEnabled ?? false;
 
@@ -40,7 +43,12 @@ export class ComfyUIService {
             workflow as Record<string, unknown>
         );
 
+        const syncStart = Date.now();
         await this.syncImagesFromInputs(inputsWithLoadImageDefaults);
+        console.info("[FluxKlein][Server] sync_images_done", {
+            traceId: this.traceId,
+            elapsedMs: Date.now() - syncStart,
+        });
 
         const getWorkflowBatchSize = (wf: Record<string, unknown>) => {
             let maxBatchSize = 1;
@@ -91,7 +99,13 @@ export class ComfyUIService {
                     forceWorkflowBatchSize(finalWorkflow, 1);
                 }
                 console.log(`[ComfyUIService] Final Workflow JSON structure:`, Object.keys(finalWorkflow).length, "nodes");
+                console.info("[FluxKlein][Server] queue_prompt_start", { traceId: this.traceId, index: i + 1 });
                 const promptData = await this.comfyUIAPIService.queuePrompt(finalWorkflow);
+                console.info("[FluxKlein][Server] queue_prompt_done", {
+                    traceId: this.traceId,
+                    promptId: promptData.promptId,
+                    elapsedMs: Date.now() - startAt,
+                });
                 const outputFiles = promptData.outputFiles;
 
                 if (outputFiles.length === 0) {
@@ -105,6 +119,7 @@ export class ComfyUIService {
             }
             const comfyUIAPIService = this.comfyUIAPIService;
             const outputFiles = allOutputFiles;
+            const traceId = this.traceId;
 
             const stream = new ReadableStream<Uint8Array>({
                 start(controller) {
@@ -124,7 +139,12 @@ export class ComfyUIService {
                                 } else {
                                     console.log(`[ComfyUIService] Fetching file data from ComfyUI...`);
                                     const fileInfo = file as { [key: string]: string };
+                                    const fetchStart = Date.now();
                                     outputBuffer = await comfyUIAPIService.getOutputFiles({ file: fileInfo });
+                                    console.info("[FluxKlein][Server] view_file_done", {
+                                        traceId,
+                                        elapsedMs: Date.now() - fetchStart,
+                                    });
                                     mimeType = mime.lookup(fileInfo.filename) || "application/octet-stream";
                                 }
 
@@ -151,6 +171,11 @@ export class ComfyUIService {
                     });
                 },
             });
+            console.info("[FluxKlein][Server] stream_ready", {
+                traceId: this.traceId,
+                elapsedMs: Date.now() - startAt,
+                outputs: outputFiles.length,
+            });
             logger.info('返回 stream ======');
             return stream;
 
@@ -176,6 +201,7 @@ export class ComfyUIService {
                 ],
             });
         }
+        throw new Error("Unhandled workflow error");
     }
 
     private async getLocalWorkflow(): Promise<object> {

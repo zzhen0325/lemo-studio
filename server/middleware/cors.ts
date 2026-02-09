@@ -21,8 +21,8 @@ export default class CorsMiddleware extends GuluXMiddleware {
       res.set('Access-Control-Allow-Origin', '*');
     }
     res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-    res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-tt-logid');
-    res.set('Access-Control-Expose-Headers', 'x-tt-logid');
+    res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-tt-logid,x-request-id');
+    res.set('Access-Control-Expose-Headers', 'x-tt-logid,x-request-id');
     res.set('Access-Control-Max-Age', '86400');
 
     if (req.method === 'OPTIONS') {
@@ -34,4 +34,3 @@ export default class CorsMiddleware extends GuluXMiddleware {
     await next();
   }
 }
-

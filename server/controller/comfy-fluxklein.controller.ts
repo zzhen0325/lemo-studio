@@ -14,10 +14,14 @@ export default class ComfyFluxKleinController {
     @Body() body: Record<string, unknown>,
     @Header('x-tt-logid') logIdHeader?: string,
     @Header('X-TT-LOGID') logIdHeaderUpper?: string,
+    @Header('x-request-id') requestIdHeader?: string,
+    @Header('X-REQUEST-ID') requestIdHeaderUpper?: string,
     @Res() res?: HTTPResponse,
   ) {
     const logId = logIdHeader ?? logIdHeaderUpper;
-    const stream = await this.comfyFluxKleinService.runFluxKleinFromBody(body, logId);
+    const requestId = requestIdHeader ?? requestIdHeaderUpper;
+    const traceId = requestId ?? logId;
+    const stream = await this.comfyFluxKleinService.runFluxKleinFromBody(body, traceId);
     if (res) {
       res.set('Content-Type', 'application/octet-stream');
       res.set('Content-Disposition', 'attachment; filename="generated_images.bin"');

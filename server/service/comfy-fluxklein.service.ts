@@ -22,6 +22,9 @@ type FluxKleinBody = {
 export class ComfyFluxKleinService {
   public async runFluxKleinFromBody(body: FluxKleinBody, logId?: string): Promise<ReadableStream<Uint8Array>> {
     try {
+      const startAt = Date.now();
+      console.info('[FluxKlein][Server] request_received', { traceId: logId ?? '' });
+      const buildStart = Date.now();
       const { workflow, viewComfyInputs } = await buildFluxKleinWorkflow({
         prompt: typeof body.prompt === 'string' ? body.prompt : '',
         width: Number(body.width) || 1024,
@@ -29,6 +32,10 @@ export class ComfyFluxKleinService {
         seed: typeof body.seed === 'number' ? body.seed : undefined,
         batchSize: typeof body.batchSize === 'number' ? body.batchSize : undefined,
         referenceImages: Array.isArray(body.referenceImages) ? body.referenceImages : [],
+      });
+      console.info('[FluxKlein][Server] build_workflow_done', {
+        traceId: logId ?? '',
+        elapsedMs: Date.now() - buildStart,
       });
 
       const viewComfy: IViewComfy = {
@@ -39,10 +46,14 @@ export class ComfyFluxKleinService {
       const apiKey = typeof body.apiKey === 'string' ? body.apiKey : undefined;
       const comfyUrl = typeof body.comfyUrl === 'string' ? body.comfyUrl : undefined;
 
-      const comfyUIService = new ComfyUIService({ apiKey, comfyUrl });
+      const comfyUIService = new ComfyUIService({ apiKey, comfyUrl, traceId: logId });
       const stream = await comfyUIService.runWorkflow({ workflow, viewComfy });
       console.log('[ComfyFluxKleinService] runWorkflow success', { logId: logId ?? '' });
-      return stream as ReadableStream<Uint8Array>;
+      console.info('[FluxKlein][Server] request_stream_ready', {
+        traceId: logId ?? '',
+        elapsedMs: Date.now() - startAt,
+      });
+      return stream;
     } catch (error) {
       console.error('[ComfyFluxKleinService] runWorkflow failed', { logId: logId ?? '', error });
       const responseError = errorResponseFactory.getErrorResponse(error);

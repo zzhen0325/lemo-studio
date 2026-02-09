@@ -33,6 +33,7 @@ export class ComfyImageOutputFile {
 export interface ComfyUIAPIServiceConfig {
     apiKey?: string;
     comfyUrl?: string;
+    traceId?: string;
 }
 
 export class ComfyUIAPIService {
@@ -47,9 +48,11 @@ export class ComfyUIAPIService {
     private wsBaseUrl: string;
     private outputFiles: Array<{ [key: string]: string }>;
     private apiKey?: string;
+    private traceId?: string;
 
     constructor(clientId: string, config?: ComfyUIAPIServiceConfig) {
         this.apiKey = config?.apiKey;
+        this.traceId = config?.traceId;
 
         let url = config?.comfyUrl || process.env.COMFYUI_API_URL || "127.0.0.1:8188";
 
@@ -180,6 +183,7 @@ export class ComfyUIAPIService {
             "client_id": this.clientId,
         }
         try {
+            const requestStart = Date.now();
             const headers: HeadersInit = {
                 "Content-Type": "application/json",
             };
@@ -191,6 +195,12 @@ export class ComfyUIAPIService {
                 method: 'POST',
                 body: JSON.stringify(data),
                 headers,
+            });
+            const responseAt = Date.now();
+            console.info("[FluxKlein][ComfyUI] prompt_response", {
+                traceId: this.traceId,
+                elapsedMs: responseAt - requestStart,
+                status: response.status,
             });
             if (!response.ok) {
 
@@ -226,10 +236,18 @@ export class ComfyUIAPIService {
             }
 
             this.isPromptRunning = true;
+            const waitStart = Date.now();
 
             while (this.isPromptRunning) {
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
+            const waitEnd = Date.now();
+            console.info("[FluxKlein][ComfyUI] prompt_completed", {
+                traceId: this.traceId,
+                promptId: this.promptId,
+                status: this.workflowStatus,
+                elapsedMs: waitEnd - waitStart,
+            });
 
             if (this.workflowStatus === "execution_error") {
                 throw new ComfyWorkflowError({
@@ -266,12 +284,19 @@ export class ComfyUIAPIService {
         const data = new URLSearchParams({ ...file }).toString();
 
         try {
+            const requestStart = Date.now();
             const headers: HeadersInit = {};
             if (this.apiKey) {
                 headers["Authorization"] = `Bearer ${this.apiKey}`;
             }
             const response = await fetch(`${this.getUrl("http")}/view?${encodeURI(data)}`, {
                 headers
+            });
+            const responseAt = Date.now();
+            console.info("[FluxKlein][ComfyUI] view_response", {
+                traceId: this.traceId,
+                elapsedMs: responseAt - requestStart,
+                status: response.status,
             });
             if (!response.ok) {
                 if (response.status === 404) {
@@ -327,10 +352,18 @@ export class ComfyUIAPIService {
             headers["Authorization"] = `Bearer ${this.apiKey}`;
         }
 
+        const requestStart = Date.now();
         const response = await fetch(`${this.getUrl("http")}/upload/image`, {
             method: 'POST',
             body: formData,
             headers,
+        });
+        const responseAt = Date.now();
+        console.info("[FluxKlein][ComfyUI] upload_response", {
+            traceId: this.traceId,
+            elapsedMs: responseAt - requestStart,
+            status: response.status,
+            filename,
         });
 
         if (!response.ok) {
