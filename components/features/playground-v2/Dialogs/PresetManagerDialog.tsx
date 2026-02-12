@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,10 +145,12 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
     const [isAddingCategory, setIsAddingCategory] = useState(false);
     const [newCategoryValue, setNewCategoryValue] = useState('');
 
-    const filteredPresets = presets.filter(p => {
-        const matchesCategory = activeManagerCategory === 'All' || (p.category || 'General') === activeManagerCategory;
-        return matchesCategory;
-    });
+    const filteredPresets = useMemo(
+        () => open
+            ? presets.filter(p => activeManagerCategory === 'All' || (p.category || 'General') === activeManagerCategory)
+            : [],
+        [open, presets, activeManagerCategory]
+    );
 
     // Unified Preset state
     const [formData, setFormData] = useState<Partial<Preset>>({
@@ -307,6 +309,8 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
             }
         }
     };
+
+    if (!open) return null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange} >

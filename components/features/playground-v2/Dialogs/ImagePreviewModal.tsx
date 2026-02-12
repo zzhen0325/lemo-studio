@@ -17,6 +17,7 @@ interface ImagePreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   result?: Generation;
+  isLoadingDetails?: boolean;
   onEdit?: (result: Generation) => void;
   onNext?: () => void;
   onPrev?: () => void;
@@ -29,6 +30,7 @@ export default function ImagePreviewModal({
   isOpen,
   onClose,
   result,
+  isLoadingDetails = false,
   onEdit,
   onNext,
   onPrev,
@@ -69,7 +71,8 @@ export default function ImagePreviewModal({
 
   if (!result) return null;
 
-  const imageUrl = formatImageUrl(result.outputUrl || "");
+  // Modal always uses the original output URL to keep preview quality high.
+  const fullResImageUrl = formatImageUrl(result.outputUrl || "");
   const config = result.config;
   const prompt = config?.prompt || "";
 
@@ -128,8 +131,8 @@ export default function ImagePreviewModal({
   };
 
   const handleDownload = () => {
-    if (imageUrl) {
-      downloadImage(imageUrl, `image-${result.id || Date.now()}.png`);
+    if (fullResImageUrl) {
+      downloadImage(fullResImageUrl, `image-${result.id || Date.now()}.png`);
     }
   };
 
@@ -169,7 +172,7 @@ export default function ImagePreviewModal({
                 onClick={(e) => e.stopPropagation()}
               >
                 <Image
-                  src={imageUrl}
+                  src={fullResImageUrl}
                   alt="Preview"
                   width={1200}
                   height={1200}
@@ -332,14 +335,22 @@ export default function ImagePreviewModal({
                 >
                   <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
                     <h3 className="text-lg text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Details</h3>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-8 h-8 rounded-full text-white/40 hover:text-white hover:bg-white/10"
-                      onClick={onClose}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {isLoadingDetails && (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] text-white/40 font-mono uppercase tracking-widest">
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          Syncing
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-8 h-8 rounded-full text-white/40 hover:text-white hover:bg-white/10"
+                        onClick={onClose}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   <ScrollArea className="flex-1 min-h-0">

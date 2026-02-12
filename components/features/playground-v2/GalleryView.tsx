@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { formatImageUrl } from "@/lib/api-base";
@@ -8,7 +8,6 @@ import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
-import { useImageSource } from '@/hooks/common/use-image-source';
 import { useGenerationService } from "@/components/features/playground-v2/hooks/useGenerationService";
 import { Generation, GenerationConfig } from '@/types/database';
 import {
@@ -20,6 +19,8 @@ import {
     DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 
+const GALLERY_THUMB_QUALITY = 25;
+
 
 
 
@@ -30,10 +31,14 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
     const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
+    const syncGalleryLatest = usePlaygroundStore(s => s.syncGalleryLatest);
+    const prefetchGalleryNext = usePlaygroundStore(s => s.prefetchGalleryNext);
     const galleryPage = usePlaygroundStore(s => s.galleryPage);
     const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
     const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
     const activeTab = usePlaygroundStore(s => s.activeTab);
+    const styles = usePlaygroundStore(s => s.styles);
+    const { handleGenerate } = useGenerationService();
 
     // Responsive column count
     const isSm = useMediaQuery("(min-width: 640px)");
@@ -94,10 +99,8 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
             );
         }
 
-        // Files are already sorted in the API, but we might want to re-sort here just in case of local updates
-        return [...filtered].sort((a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+        // Keep API/store order to avoid expensive re-sort on every render.
+        return filtered;
     }, [galleryItems, searchQuery, selectedModels, selectedPresets]);
 
     const toggleModel = (model: string) => {
@@ -119,16 +122,22 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
     // 初始数据加载现在由 pages/playground.tsx 在页面初始化时统一处理，确保预加载
     // 这里不再需要 useEffect 初始加载
 
+    const galleryScrollRef = useRef<HTMLDivElement>(null);
     const loadMoreRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        if (activeTab !== 'gallery') return;
+
+        const scrollRoot = galleryScrollRef.current;
+        if (!scrollRoot) return;
+
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting && hasMoreGallery && !isFetchingGallery) {
                     fetchGallery(galleryPage + 1);
                 }
             },
-            { threshold: 0.1, rootMargin: '400px' }
+            { threshold: 0, rootMargin: '1400px 0px', root: scrollRoot }
         );
 
         if (loadMoreRef.current) {
@@ -136,9 +145,9 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
         }
 
         return () => observer.disconnect();
-    }, [hasMoreGallery, isFetchingGallery, galleryPage, fetchGallery]);
+    }, [activeTab, hasMoreGallery, isFetchingGallery, galleryPage, fetchGallery]);
 
-    const handleDownload = (e: React.MouseEvent, imageUrl: string, filename: string) => {
+    const handleDownload = useCallback((e: React.MouseEvent, imageUrl: string, filename: string) => {
         e.stopPropagation();
         const link = document.createElement("a");
         link.href = imageUrl;
@@ -146,20 +155,49 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    };
+    }, []);
 
     // Navigation Logic removed as ImagePreviewModal is now global
 
     // 数据加载逻辑：
-    // 1. 如果进入该视图且数据为空，则触发拉取
-    // 2. 切换到 Gallery 标签时自动刷新第一页，确保数据最新
+    // 进入 Gallery 且数据为空时拉取第一页，避免重复刷新造成额外阻塞。
     useEffect(() => {
-        if (activeTab === 'gallery') {
-            if (galleryItems.length === 0 || !isFetchingGallery) {
-                fetchGallery(1).catch(err => console.error("Gallery refresh failed:", err));
-            }
+        if (activeTab !== 'gallery') return;
+        if (galleryItems.length === 0 && !isFetchingGallery) {
+            fetchGallery(1).catch(err => console.error("Gallery initial load failed:", err));
         }
     }, [activeTab, fetchGallery, isFetchingGallery, galleryItems.length]);
+
+    // If gallery cache already exists, silently sync latest page-1 items in background.
+    useEffect(() => {
+        if (activeTab !== 'gallery') return;
+        if (galleryItems.length === 0) return;
+
+        const timer = window.setTimeout(() => {
+            syncGalleryLatest().catch(err => console.error("Gallery latest sync failed:", err));
+        }, 80);
+
+        return () => window.clearTimeout(timer);
+    }, [activeTab, galleryItems.length, syncGalleryLatest]);
+
+    useEffect(() => {
+        if (activeTab !== 'gallery') return;
+        if (galleryItems.length === 0 || !hasMoreGallery || isFetchingGallery) return;
+
+        const timer = window.setTimeout(() => {
+            prefetchGalleryNext().catch(err => console.error("Gallery prefetch failed:", err));
+        }, 120);
+
+        return () => window.clearTimeout(timer);
+    }, [activeTab, galleryItems.length, hasMoreGallery, isFetchingGallery, galleryPage, prefetchGalleryNext]);
+
+    const handleSelectItem = useCallback((item: Generation) => {
+        if (item.status !== 'pending') {
+            onSelectItem?.(item);
+        }
+    }, [onSelectItem]);
+
+    const isInitialLoading = activeTab === 'gallery' && isFetchingGallery && galleryItems.length === 0;
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -223,20 +261,27 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                         </div>
 
 
-                        <div className="flex-1 w-full min-h-0 overflow-y-auto rounded-t-xl">
+                        <div ref={galleryScrollRef} className="flex-1 w-full min-h-0 overflow-y-auto rounded-t-xl">
 
-                            <MasonryGrid
-                                items={sortedHistory}
-                                columnsCount={columnsCount}
-                                renderItem={(item, index) => (
-                                    <GalleryCard
-                                        key={`${item.id}-${index}`}
-                                        item={item}
-                                        onClick={() => item.status !== 'pending' && onSelectItem?.(item)}
-                                        onDownload={handleDownload}
-                                    />
-                                )}
-                            />
+                            {isInitialLoading ? (
+                                <GallerySkeletonGrid columnsCount={columnsCount} />
+                            ) : (
+                                <MasonryGrid
+                                    items={sortedHistory}
+                                    columnsCount={columnsCount}
+                                    scrollContainerRef={galleryScrollRef}
+                                    renderItem={(item, index) => (
+                                        <GalleryCard
+                                            key={`${item.id}-${index}`}
+                                            item={item}
+                                            onSelectItem={handleSelectItem}
+                                            onDownload={handleDownload}
+                                            styles={styles}
+                                            onGenerate={handleGenerate}
+                                        />
+                                    )}
+                                />
+                            )}
 
                             {/* Load More Indicator */}
                             <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
@@ -352,62 +397,142 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 interface MasonryGridProps<T> {
     items: T[];
     columnsCount: number;
+    scrollContainerRef: React.RefObject<HTMLDivElement>;
+    overscan?: number;
+    gap?: number;
     renderItem: (item: T, index: number) => React.ReactNode;
 }
 
 function MasonryGrid<T extends Generation>({
     items,
     columnsCount,
+    scrollContainerRef,
+    overscan = 600,
+    gap = 0,
     renderItem
 }: MasonryGridProps<T>) {
-    // Distribute items into columns with their original index
-    const columns = useMemo(() => {
-        const cols: { item: T; index: number }[][] = Array.from({ length: columnsCount }, () => []);
-        const colHeights = new Array(columnsCount).fill(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [containerWidth, setContainerWidth] = useState(0);
+    const [viewport, setViewport] = useState({ scrollTop: 0, height: 900 });
+    const safeColumnsCount = Math.max(columnsCount, 1);
 
-        items.forEach((item, index) => {
-            // Find the shortest column
+    useEffect(() => {
+        const updateContainerWidth = () => {
+            if (containerRef.current) {
+                setContainerWidth(containerRef.current.clientWidth);
+            }
+        };
+
+        updateContainerWidth();
+
+        let resizeObserver: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+            resizeObserver = new ResizeObserver(updateContainerWidth);
+            resizeObserver.observe(containerRef.current);
+        }
+
+        window.addEventListener('resize', updateContainerWidth);
+
+        return () => {
+            window.removeEventListener('resize', updateContainerWidth);
+            resizeObserver?.disconnect();
+        };
+    }, []);
+
+    useEffect(() => {
+        const scrollNode = scrollContainerRef.current;
+        if (!scrollNode) return;
+
+        const updateViewport = () => {
+            setViewport({
+                scrollTop: scrollNode.scrollTop,
+                height: scrollNode.clientHeight || 900
+            });
+        };
+
+        updateViewport();
+        scrollNode.addEventListener('scroll', updateViewport, { passive: true });
+        window.addEventListener('resize', updateViewport);
+
+        return () => {
+            scrollNode.removeEventListener('scroll', updateViewport);
+            window.removeEventListener('resize', updateViewport);
+        };
+    }, [scrollContainerRef]);
+
+    const layout = useMemo(() => {
+        if (items.length === 0) {
+            return { positionedItems: [] as Array<{ item: T; index: number; key: string; top: number; left: number; width: number; height: number }>, totalHeight: 0 };
+        }
+
+        const usableWidth = Math.max(containerWidth, 1);
+        const columnWidth = (usableWidth - gap * (safeColumnsCount - 1)) / safeColumnsCount;
+        const colHeights = new Array(safeColumnsCount).fill(0);
+
+        const positionedItems = items.map((item, index) => {
             let targetColIndex = 0;
             let minHeight = colHeights[0];
 
-            for (let i = 1; i < columnsCount; i++) {
+            for (let i = 1; i < safeColumnsCount; i++) {
                 if (colHeights[i] < minHeight) {
                     minHeight = colHeights[i];
                     targetColIndex = i;
                 }
             }
 
-            const imgWidth = item.config?.width || 1024;
-            const imgHeight = item.config?.height || 1024;
-            // Use aspect ratio as proxy for height since width is fixed per column
-            const aspectRatio = imgHeight / imgWidth;
+            const imgWidth = Math.max(1, Number(item.config?.width) || 1024);
+            const imgHeight = Math.max(1, Number(item.config?.height) || 1024);
+            const estimatedHeight = columnWidth * (imgHeight / imgWidth);
+            const top = colHeights[targetColIndex];
+            const left = targetColIndex * (columnWidth + gap);
+            const normalizedId = (item.id || '').trim();
 
-            cols[targetColIndex].push({ item, index });
-            colHeights[targetColIndex] += aspectRatio;
+            colHeights[targetColIndex] += estimatedHeight + gap;
+
+            return {
+                item,
+                index,
+                key: normalizedId || `gallery-item-${item.createdAt || 'unknown'}-${index}`,
+                top,
+                left,
+                width: columnWidth,
+                height: estimatedHeight
+            };
         });
 
-        return cols;
-    }, [items, columnsCount]);
+        const totalHeight = Math.max(...colHeights, 0);
 
+        return { positionedItems, totalHeight };
+    }, [items, safeColumnsCount, containerWidth, gap]);
 
-    // 瀑布流布局
+    const startY = Math.max(0, viewport.scrollTop - overscan);
+    const endY = viewport.scrollTop + viewport.height + overscan;
+
+    const visibleItems = useMemo(() => {
+        return layout.positionedItems.filter(({ top, height }) => {
+            const bottom = top + height;
+            return bottom >= startY && top <= endY;
+        });
+    }, [layout.positionedItems, startY, endY]);
+
     return (
-
-        <div className="flex gap-0 w-full ">
-            {columns.map((col, colIndex) => (
-                <div key={colIndex} className="flex flex-col gap-0 flex-1 min-w-0">
-                    {col.map(({ item, index }) => (
-                        <React.Fragment key={`gallery-col-${colIndex}-item-${item.id}-${index}`}>
-                            {renderItem(item, index)}
-                        </React.Fragment>
-                    ))}
-                </div>
-            ))}
+        <div ref={containerRef} className="relative w-full">
+            <div className="relative w-full" style={{ height: `${layout.totalHeight}px` }}>
+                {visibleItems.map(({ item, index, key, top, left, width }) => (
+                    <div
+                        key={key}
+                        className="absolute"
+                        style={{ top, left, width }}
+                    >
+                        {renderItem(item, index)}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
 
-function useInView(options?: IntersectionObserverInit) {
+function useInView(rootMargin = '200px') {
     const [isInView, setIsInView] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -419,42 +544,58 @@ function useInView(options?: IntersectionObserverInit) {
                 setIsInView(true);
                 observer.disconnect();
             }
-        }, options);
+        }, { rootMargin });
 
         observer.observe(ref.current);
 
         return () => {
             observer.disconnect();
         };
-    }, [options]);
+    }, [rootMargin]);
 
     return { ref, isInView };
 }
 
-function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick: () => void, onDownload: (e: React.MouseEvent, url: string, filename: string) => void }) {
+type HandleGenerateFn = ReturnType<typeof useGenerationService>['handleGenerate'];
+
+interface GalleryCardProps {
+    item: Generation;
+    onSelectItem?: (item: Generation) => void;
+    onDownload: (e: React.MouseEvent, url: string, filename: string) => void;
+    styles: Array<{ id: string; name: string }>;
+    onGenerate: HandleGenerateFn;
+}
+
+function GalleryCard({ item, onSelectItem, onDownload, styles, onGenerate }: GalleryCardProps) {
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
-    const { ref, isInView } = useInView({ rootMargin: '200px' });
-    const { applyPrompt, applyModel, applyImages, setUploadedImages, config, setViewMode, setActiveTab, styles, addImageToStyle, applyImage, setSelectedPresetName } = usePlaygroundStore();
-    const { handleGenerate } = useGenerationService();
+    const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
+    const { ref, isInView } = useInView('200px');
     const { toast } = useToast();
 
     // 数据已规范化，直接从 config.sourceImageUrls 读取
     const sourceUrls = item.config?.sourceImageUrls || [];
     const firstSourceUrl = sourceUrls[0];
-    const sourceImage = useImageSource(firstSourceUrl || undefined);
+    const sourceImage = useMemo(
+        () => (firstSourceUrl ? formatImageUrl(firstSourceUrl) : undefined),
+        [firstSourceUrl]
+    );
 
-    const performDownload = () => {
+    const handleCardClick = useCallback(() => {
+        onSelectItem?.(item);
+    }, [onSelectItem, item]);
+
+    const performDownload = useCallback(() => {
         if (!item.outputUrl) return;
         const fakeEvent = { stopPropagation: () => void 0 } as unknown as React.MouseEvent;
         onDownload(fakeEvent, item.outputUrl, item.id || `img_${new Date(item.createdAt).getTime()}`);
-    };
+    }, [item.createdAt, item.id, item.outputUrl, onDownload]);
 
     return (
         <div
             ref={ref}
             className="group relative bg-black/20 border-[0.8px] border-black overflow-hidden  hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
-            onClick={onClick}
+            onClick={handleCardClick}
             onMouseEnter={() => setIsHover(true)}
             onMouseLeave={() => setIsHover(false)}
         >
@@ -477,7 +618,9 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         width={item.config?.width || 1024}
                         height={item.config?.height || 1024}
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw"
-                        quality={75}
+                        quality={GALLERY_THUMB_QUALITY}
+                        loading="lazy"
+                        fetchPriority="low"
                         placeholder="blur"
                         blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
                         className={cn(
@@ -518,7 +661,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
 
                 {/* Floating Actions - consistent with HistoryList */}
                 <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1  bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
+                    <DropdownMenu onOpenChange={setIsStyleMenuOpen}>
                         <DropdownMenuTrigger asChild>
                             <div>
                                 <TooltipButton
@@ -530,30 +673,32 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                                 />
                             </div>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[160px]">
-                            <DropdownMenuLabel className="text-white/40 text-[10px] uppercase tracking-wider px-2 py-1">选择风格堆叠</DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-white/5" />
-                            {styles.length > 0 ? (
-                                styles.map(style => (
-                                    <DropdownMenuItem
-                                        key={style.id}
-                                        className="text-white hover:bg-white/10 rounded-xl cursor-pointer"
-                                        onClick={() => {
-                                            if (item.outputUrl) {
-                                                addImageToStyle(style.id, item.outputUrl);
-                                                toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
-                                            }
-                                        }}
-                                    >
-                                        {style.name}
+                        {isStyleMenuOpen && (
+                            <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[160px]">
+                                <DropdownMenuLabel className="text-white/40 text-[10px] uppercase tracking-wider px-2 py-1">选择风格堆叠</DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-white/5" />
+                                {styles.length > 0 ? (
+                                    styles.map(style => (
+                                        <DropdownMenuItem
+                                            key={style.id}
+                                            className="text-white hover:bg-white/10 rounded-xl cursor-pointer"
+                                            onClick={() => {
+                                                if (item.outputUrl) {
+                                                    usePlaygroundStore.getState().addImageToStyle(style.id, item.outputUrl);
+                                                    toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
+                                                }
+                                            }}
+                                        >
+                                            {style.name}
+                                        </DropdownMenuItem>
+                                    ))
+                                ) : (
+                                    <DropdownMenuItem disabled className="text-white/20 text-xs">
+                                        暂无可用风格
                                     </DropdownMenuItem>
-                                ))
-                            ) : (
-                                <DropdownMenuItem disabled className="text-white/20 text-xs">
-                                    暂无可用风格
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
+                                )}
+                            </DropdownMenuContent>
+                        )}
                     </DropdownMenu>
 
                     <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
@@ -565,7 +710,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
                             if (item.config?.prompt) {
-                                applyPrompt(item.config.prompt);
+                                usePlaygroundStore.getState().applyPrompt(item.config.prompt);
                                 toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
                             }
                         }}
@@ -578,7 +723,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
                             if (item.outputUrl) {
-                                applyImage(item.outputUrl);
+                                usePlaygroundStore.getState().applyImage(item.outputUrl);
                                 toast({ title: "Image Added", description: "图片已添加为参考图" });
                             }
                         }}
@@ -605,6 +750,17 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={async () => {
                             if (!item.config) return;
+                            const store = usePlaygroundStore.getState();
+                            const {
+                                applyImages,
+                                setUploadedImages,
+                                applyModel,
+                                applyPrompt,
+                                setSelectedPresetName,
+                                setViewMode,
+                                setActiveTab,
+                                config: currentConfig
+                            } = store;
 
                             // 1. 同步参考图 - 数据已规范化，直接从 config.sourceImageUrls 读取
                             const sourceUrls = item.config?.sourceImageUrls || [];
@@ -616,12 +772,12 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
 
                             // 2. 应用模型和参数
                             const fullConfig: GenerationConfig = {
-                                ...config,
+                                ...currentConfig,
                                 ...item.config,
                                 prompt: item.config.prompt || '',
-                                width: item.config.width || config.width,
-                                height: item.config.height || config.height,
-                                model: item.config.model || config.model,
+                                width: item.config.width || currentConfig.width,
+                                height: item.config.height || currentConfig.height,
+                                model: item.config.model || currentConfig.model,
                                 isEdit: item.config.isEdit,
                                 editConfig: item.config.editConfig,
                                 parentId: item.config.parentId,
@@ -635,7 +791,7 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                             // 3. 切换视图并触发生成
                             setViewMode('dock');
                             setActiveTab('history');
-                            await handleGenerate({ configOverride: fullConfig });
+                            await onGenerate({ configOverride: fullConfig });
 
                             toast({ title: "Rerunning", description: "正在根据此图片重新生成..." });
                         }}
@@ -650,6 +806,28 @@ function GalleryCard({ item, onClick, onDownload }: { item: Generation, onClick:
                     />
                 </div>
             </div>
+        </div>
+    );
+}
+
+function GallerySkeletonGrid({ columnsCount }: { columnsCount: number }) {
+    const cols = Math.max(columnsCount, 1);
+
+    return (
+        <div className="flex gap-3 w-full">
+            {Array.from({ length: cols }).map((_, colIdx) => (
+                <div key={`gallery-skeleton-col-${colIdx}`} className="flex flex-col gap-3 flex-1 min-w-0">
+                    {Array.from({ length: 3 }).map((__, itemIdx) => (
+                        <div
+                            key={`gallery-skeleton-item-${colIdx}-${itemIdx}`}
+                            className="w-full rounded-xl bg-white/5 border border-white/10 animate-pulse"
+                            style={{
+                                paddingBottom: `${(itemIdx % 3 === 0 ? 140 : itemIdx % 3 === 1 ? 120 : 160)}%`
+                            }}
+                        />
+                    ))}
+                </div>
+            ))}
         </div>
     );
 }

@@ -126,7 +126,13 @@ interface PlaygroundState {
     galleryPage: number;
     hasMoreGallery: boolean;
     isFetchingGallery: boolean;
+    isSyncingGalleryLatest: boolean;
+    galleryLastSyncAt: number | null;
+    isPrefetchingGallery: boolean;
+    galleryPrefetch: { page: number; items: Generation[]; hasMore: boolean } | null;
     fetchGallery: (page?: number) => Promise<void>;
+    syncGalleryLatest: () => Promise<void>;
+    prefetchGalleryNext: () => Promise<void>;
     addGalleryItem: (item: Generation) => void;
     deleteHistory: (ids: string[]) => Promise<void>;
 
@@ -135,6 +141,67 @@ interface PlaygroundState {
     _presetsLoaded: boolean;
     _galleryLoaded: boolean;
 }
+
+const galleryInFlightRequests = new Map<string, Promise<{ history: Generation[]; hasMore: boolean } | null>>();
+
+const fetchGalleryPageFromApi = async (page: number, limit: number) => {
+    const cacheKey = `${page}-${limit}`;
+    const pending = galleryInFlightRequests.get(cacheKey);
+    if (pending) return pending;
+
+    const request = (async () => {
+        const url = new URL(`${getApiBase()}/history`);
+        url.searchParams.set('page', page.toString());
+        url.searchParams.set('limit', limit.toString());
+        url.searchParams.set('lightweight', '1');
+        url.searchParams.set('minimal', '1');
+        // Intentionally NOT setting userId to get public/all data
+
+        const res = await fetch(url.toString());
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        return {
+            history: Array.isArray(data.history) ? (data.history as Generation[]) : [],
+            hasMore: Boolean(data.hasMore)
+        };
+    })();
+
+    galleryInFlightRequests.set(cacheKey, request);
+    try {
+        return await request;
+    } finally {
+        galleryInFlightRequests.delete(cacheKey);
+    }
+};
+
+const mergeUniqueGalleryItems = (existing: Generation[], incoming: Generation[]) => {
+    const existingIds = new Set(existing.map(item => item.id));
+    const uniqueIncoming = incoming.filter(item => !existingIds.has(item.id));
+    return [...existing, ...uniqueIncoming];
+};
+
+const prependUniqueGalleryItems = (existing: Generation[], incoming: Generation[]) => {
+    const existingIds = new Set(existing.map(item => item.id));
+    const uniqueIncoming = incoming.filter(item => !existingIds.has(item.id));
+    return [...uniqueIncoming, ...existing];
+};
+
+const sanitizeUrlsForPersist = (urls?: string[]) =>
+    urls
+        ?.map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url)
+        .filter(Boolean) as string[] | undefined;
+
+const sanitizeGalleryItemsForPersist = (items: Generation[]) =>
+    items.map(item => ({
+        ...item,
+        config: item.config
+            ? {
+                ...item.config,
+                sourceImageUrls: sanitizeUrlsForPersist(item.config.sourceImageUrls)
+            }
+            : item.config
+    }));
 
 export const usePlaygroundStore = create<PlaygroundState>()(
     persist(
@@ -546,6 +613,15 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     isTldrawEditorOpen: false,
                     tldrawEditingImageUrl: "",
                     tldrawSnapshot: undefined,
+                    galleryItems: [],
+                    galleryPage: 1,
+                    hasMoreGallery: true,
+                    isFetchingGallery: false,
+                    isSyncingGalleryLatest: false,
+                    galleryLastSyncAt: null,
+                    isPrefetchingGallery: false,
+                    galleryPrefetch: null,
+                    _galleryLoaded: false,
                 });
             },
 
@@ -602,47 +678,138 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             galleryPage: 1,
             hasMoreGallery: true,
             isFetchingGallery: false,
+            isSyncingGalleryLatest: false,
+            galleryLastSyncAt: null,
+            isPrefetchingGallery: false,
+            galleryPrefetch: null,
             fetchGallery: async (page = 1) => {
                 const state = get();
+                if (page > 1 && page <= state.galleryPage) return;
                 // 防止重复加载：首页仅加载一次，除非是翻页
                 if (state.isFetchingGallery || (page === 1 && state._galleryLoaded)) return;
 
-                set({ isFetchingGallery: true });
-                try {
-                    const limit = 50;
-                    const url = new URL(`${getApiBase()}/history`);
-                    url.searchParams.set('page', page.toString());
-                    url.searchParams.set('limit', limit.toString());
-                    // Intentionally NOT setting userId to get public/all data
+                if (page > 1 && state.galleryPrefetch?.page === page) {
+                    const cachedPage = state.galleryPrefetch;
+                    set((current) => ({
+                        galleryItems: mergeUniqueGalleryItems(current.galleryItems, cachedPage.items),
+                        galleryPage: page,
+                        hasMoreGallery: cachedPage.hasMore,
+                        galleryPrefetch: null
+                    }));
 
-                    const res = await fetch(url.toString());
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.history) {
-                            set((state) => {
-                                let newItems: Generation[] = [];
-                                if (page === 1) {
-                                    // 首页加载：如果是手动触发或初次加载，则替换全部数据
-                                    newItems = data.history;
-                                } else {
-                                    const existingIds = new Set(state.galleryItems.map(item => item.id));
-                                    const uniqueNewItems = data.history.filter((item: Generation) => !existingIds.has(item.id));
-                                    newItems = [...state.galleryItems, ...uniqueNewItems];
-                                }
-                                return {
-                                    galleryItems: newItems,
-                                    galleryPage: page,
-                                    hasMoreGallery: data.hasMore
-                                };
-                            });
-                        }
+                    if (cachedPage.hasMore) {
+                        void get().prefetchGalleryNext();
                     }
+                    return;
+                }
+
+                if (page === 1) {
+                    set({ isFetchingGallery: true, galleryPrefetch: null });
+                } else {
+                    set({ isFetchingGallery: true });
+                }
+
+                let loadedSuccessfully = false;
+                let hasMoreAfterLoad = false;
+                try {
+                    const limit = page === 1 ? 24 : 30;
+                    const data = await fetchGalleryPageFromApi(page, limit);
+                    if (!data) return;
+
+                    loadedSuccessfully = true;
+                    hasMoreAfterLoad = data.hasMore;
+
+                    set((current) => ({
+                        galleryItems: page === 1
+                            ? data.history
+                            : mergeUniqueGalleryItems(current.galleryItems, data.history),
+                        galleryPage: page,
+                        hasMoreGallery: data.hasMore,
+                        galleryLastSyncAt: page === 1 ? Date.now() : current.galleryLastSyncAt,
+                        galleryPrefetch:
+                            current.galleryPrefetch && current.galleryPrefetch.page > page
+                                ? current.galleryPrefetch
+                                : null
+                    }));
                 } catch (error) {
                     console.error("Failed to fetch gallery", error);
                 } finally {
                     set({ isFetchingGallery: false });
                     // 首页加载成功后标记
-                    if (page === 1) set({ _galleryLoaded: true });
+                    if (page === 1 && loadedSuccessfully) set({ _galleryLoaded: true });
+                    if (loadedSuccessfully && hasMoreAfterLoad) {
+                        void get().prefetchGalleryNext();
+                    }
+                }
+            },
+            syncGalleryLatest: async () => {
+                const state = get();
+                if (state.isFetchingGallery || state.isSyncingGalleryLatest) return;
+                if (state.galleryItems.length === 0) return;
+
+                const now = Date.now();
+                if (state.galleryLastSyncAt && now - state.galleryLastSyncAt < 15_000) return;
+
+                set({ isSyncingGalleryLatest: true });
+                try {
+                    const data = await fetchGalleryPageFromApi(1, 24);
+                    if (!data) return;
+
+                    set((current) => {
+                        const merged = prependUniqueGalleryItems(current.galleryItems, data.history);
+                        const hasNewItems = merged.length > current.galleryItems.length;
+                        return {
+                            galleryItems: merged,
+                            hasMoreGallery: current.galleryPage > 1 ? current.hasMoreGallery : data.hasMore,
+                            galleryLastSyncAt: Date.now(),
+                            galleryPrefetch: hasNewItems ? null : current.galleryPrefetch,
+                            _galleryLoaded: merged.length > 0
+                        };
+                    });
+                } catch (error) {
+                    console.error("Failed to sync latest gallery", error);
+                } finally {
+                    set({ isSyncingGalleryLatest: false });
+                }
+            },
+            prefetchGalleryNext: async () => {
+                const state = get();
+                if (state.activeTab !== 'gallery') return;
+                if (!state.hasMoreGallery || state.isFetchingGallery || state.isPrefetchingGallery || state.isSyncingGalleryLatest) return;
+
+                const nextPage = state.galleryPage + 1;
+                if (state.galleryPrefetch?.page === nextPage) return;
+                if (state.galleryPrefetch && state.galleryPrefetch.page > nextPage) return;
+
+                set({ isPrefetchingGallery: true });
+                try {
+                    const data = await fetchGalleryPageFromApi(nextPage, 30);
+                    if (!data) return;
+
+                    set((current) => {
+                        if (current.galleryPage >= nextPage) {
+                            if (current.galleryPrefetch?.page === nextPage) {
+                                return { galleryPrefetch: null };
+                            }
+                            return {};
+                        }
+
+                        if (current.galleryPrefetch && current.galleryPrefetch.page >= nextPage) {
+                            return {};
+                        }
+
+                        return {
+                            galleryPrefetch: {
+                                page: nextPage,
+                                items: data.history,
+                                hasMore: data.hasMore
+                            }
+                        };
+                    });
+                } catch (error) {
+                    console.error("Failed to prefetch gallery", error);
+                } finally {
+                    set({ isPrefetchingGallery: false });
                 }
             },
 
@@ -650,7 +817,9 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 set((state) => {
                     if (state.galleryItems.some(i => i.id === item.id)) return state;
                     return {
-                        galleryItems: [item, ...state.galleryItems]
+                        galleryItems: [item, ...state.galleryItems],
+                        _galleryLoaded: true,
+                        galleryLastSyncAt: Date.now()
                     };
                 });
             },
@@ -666,7 +835,14 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     if (res.ok) {
                         set((state) => ({
                             generationHistory: state.generationHistory.filter(item => !ids.includes(item.id)),
-                            galleryItems: state.galleryItems.filter(item => !ids.includes(item.id))
+                            galleryItems: state.galleryItems.filter(item => !ids.includes(item.id)),
+                            galleryPrefetch: state.galleryPrefetch
+                                ? {
+                                    ...state.galleryPrefetch,
+                                    items: state.galleryPrefetch.items.filter(item => !ids.includes(item.id))
+                                }
+                                : null,
+                            _galleryLoaded: state.galleryItems.some(item => !ids.includes(item.id))
                         }));
                     }
                 } catch (error) {
@@ -1016,6 +1192,13 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             styles: [],           // Completely skip styles persistence
             uploadedImages: [],   // Completely skip uploaded images (often have large previews)
             describeImages: [],
+
+            // Persist gallery cache so refresh can render instantly.
+            galleryItems: sanitizeGalleryItemsForPersist(state.galleryItems),
+            galleryPage: state.galleryPage,
+            hasMoreGallery: state.hasMoreGallery,
+            galleryLastSyncAt: state.galleryLastSyncAt,
+            _galleryLoaded: state.galleryItems.length > 0 || state._galleryLoaded,
         }),
     }
     ));

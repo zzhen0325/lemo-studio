@@ -58,146 +58,30 @@ import {
     arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
-    useSortable,
     rectSortingStrategy,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { useAIService } from "@/hooks/ai/useAIService";
 import { getApiBase } from "@/lib/api-base";
-
-interface SortableImageProps {
-    img: DatasetImage;
-    gridColumns: number;
-    onDelete: (img: DatasetImage) => void;
-    isSelected: boolean;
-    onSelect: (id: string, shiftKey?: boolean) => void;
-}
-
-const SortableImage = ({ img, gridColumns, onDelete, isSelected, onSelect }: SortableImageProps) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: img.id });
-
-    const style = {
-        transform: CSS.Translate.toString(transform),
-        transition,
-        opacity: isDragging ? 0.3 : 1,
-        zIndex: isDragging ? 100 : 'auto',
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            id={img.id}
-            style={style}
-            {...attributes}
-            {...listeners}
-            onClick={(e) => {
-                // If it was a drag, dnd-kit usually handles it, but for a simple click:
-                if (!isDragging) {
-                    onSelect(img.id, e.shiftKey);
-                }
-            }}
-            className={`group relative aspect-square bg-card border rounded-xl overflow-hidden transition-all select-none touch-none ${isSelected
-                ? 'ring-2 ring-primary border-primary shadow-[0_0_15px_oklch(var(--primary)/0.3)]'
-                : 'border-white/10 hover:ring-2 hover:ring-primary/50'
-                }`}
-        >
-            <Image
-                src={img.url}
-                alt={img.filename}
-                fill
-                className={`object-cover transition-transform duration-500 ${isSelected ? 'scale-105' : 'group-hover:scale-110'}`}
-                sizes={`(max-width: 768px) 33vw, ${Math.round(100 / gridColumns)}vw`}
-            />
-
-            {/* Selection Checkbox (always visible when selected, otherwise on hover) */}
-            <div className={`absolute top-2 left-2 z-10 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary' : 'bg-black/20 border-white/50 backdrop-blur-sm'
-                    }`}>
-                    {isSelected && <Plus className="w-3.5 h-3.5 text-primary-foreground rotate-45" />}
-                </div>
-            </div>
-
-            {/* Overlay */}
-            <div className={`absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 ${isDragging ? 'opacity-0' : ''}`}>
-                <div className="flex justify-end">
-                    <div className="bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5 text-[10px] text-white/80 font-mono truncate max-w-full">
-                        {img.filename}
-                    </div>
-                </div>
-
-                <div className="flex justify-center items-end h-full pb-2">
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        className="h-8 w-auto px-4 shadow-lg scale-90 hover:scale-100 transition-transform"
-                        onPointerDown={(e) => e.stopPropagation()} // Prevent drag start on button click
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(img);
-                        }}
-                    >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                    </Button>
-                </div>
-
-                <div className="absolute bottom-2 left-2">
-                    <span className="text-[10px] text-white/60 bg-black/40 px-1 rounded">
-                        <ImageSize src={img.url} />
-                    </span>
-                </div>
-            </div>
-        </div>
-    );
-};
-// ... rest of the file ...
-// Note: I need to target the Main Component's render part again to update DragOverlay
-// This tool call only allows one contiguous block. 
-// I will split this into two tool calls or use multi_replace.
-// But wait, the SortableImage definition is separate from the CollectionDetail return.
-// I can only edit SortableImage here. I'll simply return.
+import { SortableImageCard } from "@/components/features/dataset/collection-detail/SortableImageCard";
+import { ImageSizeBadge } from "@/components/features/dataset/collection-detail/ImageSizeBadge";
+import type { CropMode, DatasetImage, TranslateLang } from "@/components/features/dataset/collection-detail/types";
+import {
+    deleteCollectionImage,
+    deleteCollectionImages,
+    fetchCollectionImages,
+    renameCollection,
+    renameCollectionBatch,
+    saveCollectionOrder,
+    translatePrompt,
+    updateCollectionData,
+    uploadCollectionFile,
+} from "@/components/features/dataset/collection-detail/collection-detail.service";
 
 
 interface CollectionDetailProps {
     collection: DatasetCollection;
     onBack: () => void;
 }
-
-interface DatasetImage {
-    id: string;
-    url: string;
-    prompt: string;
-    filename: string;
-    isOptimizing?: boolean;
-    isTranslating?: boolean;
-    width?: number;
-    height?: number;
-}
-
-
-const ImageSize = ({ src }: { src: string }) => {
-    const [size, setSize] = useState<{ w: number, h: number } | null>(null);
-    useEffect(() => {
-        const img = new window.Image();
-        img.src = src;
-        img.onload = () => {
-            setSize({ w: img.naturalWidth, h: img.naturalHeight });
-        };
-    }, [src]);
-
-    if (!size) return null;
-    return <span className="text-[10px] text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded-md font-mono">{size.w}x{size.h}</span>;
-}
-
-
-
 
 const PROMPT_MODIFIERS = [
     { id: "char_name", label: "角色名", text: "If there is a person/character in the image, they must be referred to as {name}." },
@@ -216,11 +100,11 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     const [isPromptPanelOpen, setIsPromptPanelOpen] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [batchPrefix, setBatchPrefix] = useState("");
-    const [cropMode, setCropMode] = useState<'center' | 'longest'>('center');
+    const [cropMode, setCropMode] = useState<CropMode>('center');
     const [targetSize, setTargetSize] = useState<string>('512');
     const [isBatchRenameDialogOpen, setIsBatchRenameDialogOpen] = useState(false);
     const [renamePrefix, setRenamePrefix] = useState("");
-    const [pendingTask, setPendingTask] = useState<{ type: 'optimize' | 'translate', lang?: 'en' | 'zh' } | null>(null);
+    const [pendingTask, setPendingTask] = useState<{ type: 'optimize' | 'translate', lang?: TranslateLang } | null>(null);
     const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
     const { toast, dismiss } = useToast();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -240,14 +124,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     const handleSaveOrder = useCallback(async (newImages: DatasetImage[]) => {
         try {
             const order = newImages.map(img => img.filename);
-            await fetch(`${getApiBase()}/dataset`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    collection: collection.name,
-                    order
-                })
-            });
+            await saveCollectionOrder(collection.name, order);
         } catch (e) {
             console.error("Failed to save order", e);
         }
@@ -260,7 +137,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         // Measure the dragged element to ensure overlay matches size
         // We need to delay slightly or just grab it directly if it exists
         // Note: The element might be transforming, but initial size should be correct
-        // If we attached id={img.id} to the SortableImage div
+        // If we attached id={img.id} to the SortableImageCard div
         const node = document.getElementById(active.id as string);
         if (node) {
             const rect = node.getBoundingClientRect();
@@ -289,9 +166,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
         setIsProcessing(true);
         try {
-            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(collection.name)}&filename=${encodeURIComponent(img.filename)}`, {
-                method: 'DELETE'
-            });
+            const res = await deleteCollectionImage(collection.name, img.filename);
 
             if (res.ok) {
                 setImages(prev => prev.filter(i => i.id !== img.id));
@@ -319,12 +194,9 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         try {
             const filenames = images
                 .filter(img => selectedIds.has(img.id))
-                .map(img => img.filename)
-                .join(',');
+                .map(img => img.filename);
 
-            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(collection.name)}&filenames=${encodeURIComponent(filenames)}`, {
-                method: 'DELETE'
-            });
+            const res = await deleteCollectionImages(collection.name, filenames);
 
             if (res.ok) {
                 setImages(prev => prev.filter(img => !selectedIds.has(img.id)));
@@ -389,14 +261,10 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 promptsMap[img.filename] = img.prompt;
             });
 
-            const res = await fetch(`${getApiBase()}/dataset`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    collection: collection.name,
-                    prompts: promptsMap,
-                    systemPrompt: systemPrompt
-                })
+            const res = await updateCollectionData({
+                collection: collection.name,
+                prompts: promptsMap,
+                systemPrompt,
             });
 
             if (!res.ok) throw new Error("Batch save failed");
@@ -412,7 +280,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         }
     };
 
-    const processCrop = async (img: DatasetImage, mode: 'center' | 'longest', sizeStr: string): Promise<DatasetImage> => {
+    const processCrop = async (img: DatasetImage, mode: CropMode, sizeStr: string): Promise<DatasetImage> => {
         const image = new window.Image();
         image.src = img.url;
         await new Promise((resolve) => (image.onload = resolve));
@@ -568,7 +436,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     const fetchImages = useCallback(async () => {
         try {
             setIsProcessing(true);
-            const res = await fetch(`${getApiBase()}/dataset?collection=${encodeURIComponent(collection.name)}`);
+            const res = await fetchCollectionImages(collection.name);
             if (!res.ok) {
                 let errMsg = "Failed to load collection images.";
                 try {
@@ -665,15 +533,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
             // 2. 遍历上传图片
             for (let i = 0; i < imageFiles.length; i++) {
                 const file = imageFiles[i];
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('collection', collection.name);
-
-                // 上传图片资产
-                const res = await fetch(`${getApiBase()}/dataset`, {
-                    method: 'POST',
-                    body: formData
-                });
+                const res = await uploadCollectionFile(collection.name, file);
 
                 if (res.ok) {
                     successCount++;
@@ -686,14 +546,10 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
                     // 3. 关联 Prompt (如果存在同名 txt)
                     if (promptText) {
-                        await fetch(`${getApiBase()}/dataset`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                collection: collection.name,
-                                filename: uploadedFileName,
-                                prompt: promptText
-                            })
+                        await updateCollectionData({
+                            collection: collection.name,
+                            filename: uploadedFileName,
+                            prompt: promptText,
                         });
                     }
 
@@ -757,15 +613,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
             // First save any pending prompt changes
             await handleSaveAllData();
 
-            const res = await fetch(`${getApiBase()}/dataset`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    collection: collection.name,
-                    mode: 'batchRename',
-                    prefix: renamePrefix
-                })
-            });
+            const res = await renameCollectionBatch(collection.name, renamePrefix);
 
             if (res.ok) {
                 toast({ title: "Success", description: "Batch rename complete." });
@@ -832,11 +680,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     updatePayload.systemPrompt = systemPrompt;
                 }
 
-                const res = await fetch(`${getApiBase()}/dataset`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatePayload)
-                });
+                const res = await updateCollectionData(updatePayload);
 
                 if (res.ok) {
                     // Clear only what was sent
@@ -975,15 +819,10 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                         setImages(prev => prev.map(i => i.id === img.id ? { ...i, prompt: newPrompt, isOptimizing: false } : i));
 
                         // 2. 立即持久化到服务器 (逐图保存)
-                        await fetch(`${getApiBase()}/dataset`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                collection: collection.name,
-                                prompts: { [img.filename]: newPrompt }
-                            }),
-                            signal: controller.signal
-                        });
+                        await updateCollectionData({
+                            collection: collection.name,
+                            prompts: { [img.filename]: newPrompt },
+                        }, controller.signal);
 
                         success++;
                     } else {
@@ -1073,7 +912,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         }
     };
 
-    const handleTranslatePrompt = async (image: DatasetImage, targetLang: 'en' | 'zh' = 'en') => {
+    const handleTranslatePrompt = async (image: DatasetImage, targetLang: TranslateLang = 'en') => {
         if (!image.prompt) return;
 
         setImages(prev => prev.map(img =>
@@ -1081,14 +920,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         ));
 
         try {
-            const response = await fetch(`${getApiBase()}/translate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text: image.prompt,
-                    target: targetLang
-                }),
-            });
+            const response = await translatePrompt(image.prompt, targetLang);
 
             const data = await response.json();
 
@@ -1131,7 +963,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     };
 
 
-    const handleBatchTranslate = async (targetLang: 'en' | 'zh') => {
+    const handleBatchTranslate = async (targetLang: TranslateLang) => {
         if (isProcessing) {
             setPendingTask({ type: 'translate', lang: targetLang });
             setIsConflictDialogOpen(true);
@@ -1140,7 +972,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         startBatchTranslate(targetLang);
     };
 
-    const handleTranslateSelected = async (targetLang: 'en' | 'zh') => {
+    const handleTranslateSelected = async (targetLang: TranslateLang) => {
         if (selectedIds.size === 0) return;
         if (isProcessing) {
             setPendingTask({ type: 'translate', lang: targetLang });
@@ -1151,7 +983,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         startBatchTranslate(targetLang, targets);
     };
 
-    const startBatchTranslate = async (targetLang: 'en' | 'zh', specificTargets?: DatasetImage[]) => {
+    const startBatchTranslate = async (targetLang: TranslateLang, specificTargets?: DatasetImage[]) => {
         const baseTargets = specificTargets || images;
         if (baseTargets.length === 0) {
             toast({ title: "No images", description: "This collection is empty." });
@@ -1208,15 +1040,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 setImages(prev => prev.map(i => i.id === img.id ? { ...i, isTranslating: true } : i));
 
                 try {
-                    const response = await fetch(`${getApiBase()}/translate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            text: img.prompt,
-                            target: targetLang
-                        }),
-                        signal: controller.signal
-                    });
+                    const response = await translatePrompt(img.prompt, targetLang, controller.signal);
 
                     if (response.ok) {
                         const data = await response.json();
@@ -1226,15 +1050,10 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                         handlePromptChange(img.id, newPrompt);
 
                         // 2. 立即持久化到服务器 (逐图保存)
-                        await fetch(`${getApiBase()}/dataset`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                collection: collection.name,
-                                prompts: { [img.filename]: newPrompt }
-                            }),
-                            signal: controller.signal
-                        });
+                        await updateCollectionData({
+                            collection: collection.name,
+                            prompts: { [img.filename]: newPrompt },
+                        }, controller.signal);
 
                         successCount++;
                     }
@@ -1289,14 +1108,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
         setIsProcessing(true);
         try {
-            const res = await fetch(`${getApiBase()}/dataset`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    collection: collection.name,
-                    newCollectionName: newName.trim()
-                })
-            });
+            const res = await renameCollection(collection.name, newName.trim());
 
             if (res.ok) {
                 toast({ title: "Renamed", description: "Collection renamed successfully." });
@@ -1484,7 +1296,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                     <div className="space-y-2">
                                         <Label className="text-xs">Crop Mode</Label>
                                         <div className="flex gap-2">
-                                            <Select value={cropMode} onValueChange={(v: 'center' | 'longest') => setCropMode(v)}>
+                                            <Select value={cropMode} onValueChange={(v: CropMode) => setCropMode(v)}>
                                                 <SelectTrigger className="w-full h-9 bg-background border-white/10 text-xs">
                                                     <SelectValue placeholder="Mode" />
                                                 </SelectTrigger>
@@ -1920,7 +1732,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                         <span className="text-md font-medium text-white tracking-tight truncate " title={img.filename}>
                                             {img.filename}
                                         </span>
-                                        <ImageSize
+                                        <ImageSizeBadge
                                             src={img.url} />
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -1970,7 +1782,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                                                 <div className="space-y-4">
                                                     <div className="space-y-2">
                                                         <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Crop Mode</Label>
-                                                        <Select value={cropMode} onValueChange={(v: 'center' | 'longest') => setCropMode(v)}>
+                                                        <Select value={cropMode} onValueChange={(v: CropMode) => setCropMode(v)}>
                                                             <SelectTrigger className="w-full h-8 bg-background border-white/10 text-xs">
                                                                 <SelectValue placeholder="Mode" />
                                                             </SelectTrigger>
@@ -2056,7 +1868,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
                             <SortableContext items={images.map(i => i.id)} strategy={rectSortingStrategy}>
                                 {images.map((img: DatasetImage) => (
-                                    <SortableImage
+                                    <SortableImageCard
                                         key={img.id}
                                         img={img}
                                         gridColumns={gridColumns}

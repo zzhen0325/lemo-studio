@@ -249,22 +249,32 @@ export class ComfyUIService {
 
     private async syncImagesFromInputs(inputs: Array<{ value: unknown }>) {
         if (!inputs || !Array.isArray(inputs)) return;
+        const uploadCandidates = inputs
+            .map((input) => ({ input, value: input.value }))
+            .filter(({ value }) =>
+                typeof value === 'string'
+                && (value.startsWith('/upload/')
+                    || value.startsWith('/outputs/')
+                    || value.startsWith('http')
+                    || value.startsWith('data:image'))
+            );
 
-        for (const input of inputs) {
-            const value = input.value;
-            // 识别图片路径 (以 /upload/ 或 /outputs/ 开头，或者 http(s) 开头的 URL，或者 data:image 开头的 base64)
-            if (typeof value === 'string') {
-                if (value.startsWith('/upload/') || value.startsWith('/outputs/') || value.startsWith('http') || value.startsWith('data:image')) {
-                    try {
-                        const filename = await this.uploadImageToComfyUI(value);
-                        // 更新 input 的值为 ComfyUI 返回的文件名
-                        input.value = filename;
-                    } catch (error) {
-                        logger.error(`Failed to upload image ${value} to ComfyUI:`, error);
-                    }
-                }
+        const uploaded = await Promise.all(uploadCandidates.map(async ({ value }) => {
+            try {
+                const filename = await this.uploadImageToComfyUI(value as string);
+                return { filename };
+            } catch (error) {
+                logger.error(`Failed to upload image ${value} to ComfyUI:`, error);
+                return { filename: undefined as string | undefined };
             }
-        }
+        }));
+
+        uploadCandidates.forEach(({ input }, index) => {
+            const filename = uploaded[index]?.filename;
+            if (filename) {
+                input.value = filename;
+            }
+        });
     }
 
     private applyLoadImageDefaults(inputs: IComfyInput["viewComfy"]["inputs"], workflow: Record<string, unknown>) {

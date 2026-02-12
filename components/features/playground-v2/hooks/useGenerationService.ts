@@ -69,6 +69,23 @@ export function useGenerationService() {
         reader.readAsDataURL(blob);
     }), []);
 
+    const toPreviewUrl = useCallback(async (imageUrl: string): Promise<string> => {
+        if (!imageUrl.startsWith('data:')) return imageUrl;
+        try {
+            const blob = await fetch(imageUrl).then(resp => resp.blob());
+            return URL.createObjectURL(blob);
+        } catch (err) {
+            console.error('[toPreviewUrl] Failed to build blob preview URL:', err);
+            return imageUrl;
+        }
+    }, []);
+
+    const revokeIfBlobUrl = useCallback((url: string) => {
+        if (url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+        }
+    }, []);
+
     // Helper: Save to outputs
     const saveImageToOutputs = useCallback(async (dataUrl: string, metadata?: Record<string, unknown>) => {
         try {
@@ -167,6 +184,7 @@ export function useGenerationService() {
 
         const isCoze = modelId === "coze_seed4";
         const processedImages = new Set<string>();
+        const pendingSaveTasks: Promise<void>[] = [];
         let lastSavedPath = "";
 
         const effectiveEditConfig: EditPresetConfig | undefined = (currentConfig.isEdit || currentConfig.editConfig) ? (currentConfig.editConfig || (effectiveSourceUrls.length > 0 ? {
@@ -181,6 +199,11 @@ export function useGenerationService() {
             backgroundColor: 'transparent',
             canvasSize: { width: Number(unified.width), height: Number(unified.height) }
         } : undefined)) : undefined;
+
+        const metadataConfig: Record<string, unknown> = { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
+        delete metadataConfig.tldrawSnapshot;
+
+        const finalGenConfig = { ...unified, model: modelId, baseModel: modelId, loras: undefined, workflowName: undefined, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId, isPreset: !!currentConfig.presetName };
 
         const res = await callImage({
             model: modelId,
@@ -203,15 +226,21 @@ export function useGenerationService() {
                 ));
             }
             if (chunk.images && chunk.images.length > 0) {
-                const savePromises = chunk.images
-                    .filter(imgUrl => !processedImages.has(imgUrl))
-                    .map(async (imgUrl) => {
-                        processedImages.add(imgUrl);
-                        try {
-                            const metadataConfig = { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            delete (metadataConfig as any).tldrawSnapshot;
+                for (const imgUrl of chunk.images.filter(url => !processedImages.has(url))) {
+                    processedImages.add(imgUrl);
+                    const previewUrl = await toPreviewUrl(imgUrl);
+                    setGenerationHistory((prev: Generation[]) => prev.map(item =>
+                        item.id === uniqueId ? {
+                            ...item,
+                            outputUrl: previewUrl,
+                            status: 'completed',
+                            config: { ...item.config, ...finalGenConfig }
+                        } : item
+                    ));
 
+                    const saveTask = (async () => {
+                        let shouldRevokePreview = false;
+                        try {
                             const savedPath = await saveImageToOutputs(imgUrl, {
                                 config: metadataConfig,
                                 createdAt: generationTime,
@@ -221,65 +250,95 @@ export function useGenerationService() {
                                 localSourceIds: effectiveLocalIds,
                                 baseModel: modelId,
                             });
+                            if (!savedPath) return;
                             lastSavedPath = savedPath;
-                            setGenerationHistory((prev: Generation[]) => prev.map(item =>
-                                item.id === uniqueId ? {
-                                    ...item,
-                                    outputUrl: savedPath,
-                                    status: 'completed',
-                                    config: { ...item.config, editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId, sourceImageUrls: effectiveSourceUrls, isPreset: !!currentConfig.presetName }
-                                } : item
-                            ));
-                        } catch (err) { console.error("Failed to save streamed image:", err); }
-                    });
-                await Promise.all(savePromises);
+                            const latestItem = usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
+                            if (!latestItem) return;
+                            updateHistoryAndSave(uniqueId, {
+                                ...latestItem,
+                                config: { ...latestItem.config, loras: undefined, workflowName: undefined },
+                                outputUrl: savedPath,
+                                status: 'completed'
+                            } as Generation);
+                            shouldRevokePreview = savedPath !== previewUrl;
+                        } catch (err) {
+                            console.error("Failed to save streamed image:", err);
+                        } finally {
+                            if (shouldRevokePreview) revokeIfBlobUrl(previewUrl);
+                        }
+                    })();
+                    pendingSaveTasks.push(saveTask);
+                }
             }
         } : undefined);
 
         if (isCoze) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await Promise.allSettled(pendingSaveTasks);
             const finalItemInState = usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
             if (finalItemInState) {
-                const finalOutputUrl = lastSavedPath || finalItemInState.outputUrl;
-                const itemToSave = {
-                    ...finalItemInState,
-                    config: { ...finalItemInState.config, loras: undefined, workflowName: undefined },
-                    outputUrl: finalOutputUrl,
-                    status: finalOutputUrl ? 'completed' : finalItemInState.status
-                } as Generation;
-                updateHistoryAndSave(uniqueId, itemToSave);
-                return itemToSave;
+                if (lastSavedPath && finalItemInState.outputUrl !== lastSavedPath) {
+                    const itemToSave = {
+                        ...finalItemInState,
+                        config: { ...finalItemInState.config, loras: undefined, workflowName: undefined },
+                        outputUrl: lastSavedPath,
+                        status: 'completed'
+                    } as Generation;
+                    updateHistoryAndSave(uniqueId, itemToSave);
+                    return itemToSave;
+                }
+                return finalItemInState;
             }
-        } else if (res?.images && res.images.length > 0) {
+            throw new Error(`${selectedModel} returned empty result`);
+        }
+        if (res?.images && res.images.length > 0) {
             const dataUrl = res.images[0];
-            const metadataConfig = { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            delete (metadataConfig as any).tldrawSnapshot;
-
-            const savedPath = await saveImageToOutputs(dataUrl, {
-                config: metadataConfig,
-                createdAt: generationTime,
-                sourceImageUrl: effectiveSourceUrl,
-                sourceImageUrls: effectiveSourceUrls,
-                localSourceId: effectiveLocalId,
-                localSourceIds: effectiveLocalIds,
-                baseModel: modelId,
-            });
-            const gen: Generation = {
+            const previewUrl = await toPreviewUrl(dataUrl);
+            const previewGen: Generation = {
                 id: uniqueId,
                 userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous',
                 projectId: projectStore.currentProjectId || 'default',
-                outputUrl: savedPath,
-                config: { ...unified, model: modelId, baseModel: modelId, loras: undefined, workflowName: undefined, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId, isPreset: !!currentConfig.presetName },
+                outputUrl: previewUrl,
+                config: finalGenConfig,
                 status: 'completed',
                 createdAt: generationTime,
             };
-            updateHistoryAndSave(uniqueId, gen);
-            return gen;
-        } else {
-            throw new Error(`${selectedModel} returned empty result`);
+            setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
+                ...item,
+                ...previewGen,
+                id: uniqueId,
+                userId: item.userId,
+                projectId: item.projectId,
+                createdAt: item.createdAt,
+            } : item));
+
+            void (async () => {
+                let shouldRevokePreview = false;
+                try {
+                    const savedPath = await saveImageToOutputs(dataUrl, {
+                        config: metadataConfig,
+                        createdAt: generationTime,
+                        sourceImageUrl: effectiveSourceUrl,
+                        sourceImageUrls: effectiveSourceUrls,
+                        localSourceId: effectiveLocalId,
+                        localSourceIds: effectiveLocalIds,
+                        baseModel: modelId,
+                    });
+                    if (!savedPath) return;
+                    updateHistoryAndSave(uniqueId, {
+                        ...previewGen,
+                        outputUrl: savedPath,
+                    });
+                    shouldRevokePreview = savedPath !== previewUrl;
+                } catch (err) {
+                    console.error("Unified save-image background task failed:", err);
+                } finally {
+                    if (shouldRevokePreview) revokeIfBlobUrl(previewUrl);
+                }
+            })();
+            return previewGen;
         }
-    }, [selectedModel, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs]);
+        throw new Error(`${selectedModel} returned empty result`);
+    }, [selectedModel, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl]);
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
@@ -368,7 +427,7 @@ export function useGenerationService() {
 
         console.log("[Generation] Final mappedInputs for ComfyUI:", mappedInputs);
 
-        await new Promise<void>((resolve, reject) => {
+        const previewResult = await new Promise<Generation>((resolve, reject) => {
             console.log("[Generation] Executing runComfyWorkflow API...");
             runComfyWorkflow({
                 viewComfy: { inputs: mappedInputs as { key: string; value: string | number | boolean | File; }[], textOutputEnabled: selectedWorkflowConfig.viewComfyJSON.textOutputEnabled ?? false },
@@ -377,39 +436,61 @@ export function useGenerationService() {
                 onSuccess: async (blobs) => {
                     try {
                         if (blobs && blobs.length > 0) {
-                            const dataUrl = await blobToDataURL(blobs[0]);
                             const metadataConfig = { ...currentConfig, model: MODEL_ID_WORKFLOW, baseModel: currentConfig.model || MODEL_ID_WORKFLOW, workflowName: selectedWorkflowConfig.viewComfyJSON.title, loras: usePlaygroundStore.getState().selectedLoras, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             delete (metadataConfig as any).tldrawSnapshot;
-
-                            const savedPath = await saveImageToOutputs(dataUrl, {
-                                config: metadataConfig,
-                                createdAt: generationTime,
-                                sourceImageUrl: effectiveSourceUrl,
-                                sourceImageUrls: effectiveSourceUrls,
-                                localSourceId: effectiveLocalId,
-                                localSourceIds: effectiveLocalIds,
-                                baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
-                            });
-                            const gen: Generation = {
+                            const previewUrl = URL.createObjectURL(blobs[0]);
+                            const previewGen: Generation = {
                                 id: uniqueId,
                                 userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous',
                                 projectId: projectStore.currentProjectId || 'default',
-                                outputUrl: savedPath,
+                                outputUrl: previewUrl,
                                 config: { ...toUnifiedConfigFromLegacy(currentConfig), model: MODEL_ID_WORKFLOW, baseModel: currentConfig.model || MODEL_ID_WORKFLOW, workflowName: selectedWorkflowConfig.viewComfyJSON.title, loras: usePlaygroundStore.getState().selectedLoras, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId },
                                 status: 'completed',
                                 createdAt: generationTime,
                             };
-                            updateHistoryAndSave(uniqueId, gen);
-                            resolve();
+                            setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
+                                ...item,
+                                ...previewGen,
+                                id: uniqueId,
+                                userId: item.userId,
+                                projectId: item.projectId,
+                                createdAt: item.createdAt,
+                            } : item));
+                            resolve(previewGen);
+                            void (async () => {
+                                let shouldRevokePreview = false;
+                                try {
+                                    const dataUrl = await blobToDataURL(blobs[0]);
+                                    const savedPath = await saveImageToOutputs(dataUrl, {
+                                        config: metadataConfig,
+                                        createdAt: generationTime,
+                                        sourceImageUrl: effectiveSourceUrl,
+                                        sourceImageUrls: effectiveSourceUrls,
+                                        localSourceId: effectiveLocalId,
+                                        localSourceIds: effectiveLocalIds,
+                                        baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
+                                    });
+                                    if (!savedPath) return;
+                                    updateHistoryAndSave(uniqueId, {
+                                        ...previewGen,
+                                        outputUrl: savedPath,
+                                    });
+                                    shouldRevokePreview = true;
+                                } catch (e) {
+                                    console.error("Workflow save-image background task failed:", e);
+                                } finally {
+                                    if (shouldRevokePreview) URL.revokeObjectURL(previewUrl);
+                                }
+                            })();
                         } else reject(new Error("工作流未返回图片结果"));
                     } catch (e) { reject(e); }
                 },
                 onError: (err) => reject(err)
             });
         });
-        return usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
-    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs]);
+        return previewResult;
+    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs, setGenerationHistory]);
 
     const handleFluxKlein = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const effectiveSourceUrls = sourceImageUrls.length > 0 ? sourceImageUrls : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
@@ -420,7 +501,7 @@ export function useGenerationService() {
         const seedVal = currentConfig.seed === -1 ? Math.floor(Math.random() * 1000000000000) : (currentConfig.seed !== undefined ? Number(currentConfig.seed) : Math.floor(Math.random() * 1000000000000));
         const batchSize = Math.max(1, Math.floor(Number(currentConfig.batchSize) || 1));
 
-        await new Promise<void>((resolve, reject) => {
+        const previewResult = await new Promise<Generation>((resolve, reject) => {
             runFluxKleinWorkflow({
                 prompt: unified.prompt,
                 width: Math.floor(Number(unified.width) || 1024),
@@ -431,38 +512,60 @@ export function useGenerationService() {
                 onSuccess: async (blobs) => {
                     try {
                         if (blobs && blobs.length > 0) {
-                            const dataUrl = await blobToDataURL(blobs[0]);
                             const metadataConfig: Record<string, unknown> = { ...currentConfig, model: MODEL_ID_FLUX_KLEIN, baseModel: MODEL_ID_FLUX_KLEIN, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
                             delete metadataConfig.tldrawSnapshot;
-
-                            const savedPath = await saveImageToOutputs(dataUrl, {
-                                config: metadataConfig,
-                                createdAt: generationTime,
-                                sourceImageUrl: effectiveSourceUrl,
-                                sourceImageUrls: effectiveSourceUrls,
-                                localSourceId: effectiveLocalId,
-                                localSourceIds: effectiveLocalIds,
-                                baseModel: MODEL_ID_FLUX_KLEIN,
-                            });
-                            const gen: Generation = {
+                            const previewUrl = URL.createObjectURL(blobs[0]);
+                            const previewGen: Generation = {
                                 id: uniqueId,
                                 userId: userStore.currentUser?.id || usePlaygroundStore.getState().visitorId || 'anonymous',
                                 projectId: projectStore.currentProjectId || 'default',
-                                outputUrl: savedPath,
+                                outputUrl: previewUrl,
                                 config: { ...toUnifiedConfigFromLegacy(currentConfig), model: MODEL_ID_FLUX_KLEIN, baseModel: MODEL_ID_FLUX_KLEIN, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId },
                                 status: 'completed',
                                 createdAt: generationTime,
                             };
-                            updateHistoryAndSave(uniqueId, gen);
-                            resolve();
+                            setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
+                                ...item,
+                                ...previewGen,
+                                id: uniqueId,
+                                userId: item.userId,
+                                projectId: item.projectId,
+                                createdAt: item.createdAt,
+                            } : item));
+                            resolve(previewGen);
+                            void (async () => {
+                                let shouldRevokePreview = false;
+                                try {
+                                    const dataUrl = await blobToDataURL(blobs[0]);
+                                    const savedPath = await saveImageToOutputs(dataUrl, {
+                                        config: metadataConfig,
+                                        createdAt: generationTime,
+                                        sourceImageUrl: effectiveSourceUrl,
+                                        sourceImageUrls: effectiveSourceUrls,
+                                        localSourceId: effectiveLocalId,
+                                        localSourceIds: effectiveLocalIds,
+                                        baseModel: MODEL_ID_FLUX_KLEIN,
+                                    });
+                                    if (!savedPath) return;
+                                    updateHistoryAndSave(uniqueId, {
+                                        ...previewGen,
+                                        outputUrl: savedPath,
+                                    });
+                                    shouldRevokePreview = true;
+                                } catch (e) {
+                                    console.error("FluxKlein save-image background task failed:", e);
+                                } finally {
+                                    if (shouldRevokePreview) URL.revokeObjectURL(previewUrl);
+                                }
+                            })();
                         } else reject(new Error("FluxKlein 未返回图片结果"));
                     } catch (e) { reject(e); }
                 },
                 onError: (err) => reject(err)
             });
         });
-        return usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
-    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave]);
+        return previewResult;
+    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave, setGenerationHistory]);
 
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);

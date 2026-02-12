@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -18,6 +18,9 @@ interface PresetGridOverlayProps {
     externalPresets?: PresetExtended[];
 }
 
+const INITIAL_RENDER_COUNT = 48;
+const RENDER_BATCH_SIZE = 48;
+
 export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
     open = false,
     onOpenChange,
@@ -27,13 +30,28 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
 }) => {
     const storePresets = usePlaygroundStore(s => s.presets);
     const presetCategories = usePlaygroundStore(s => s.presetCategories);
-    const CATEGORIES = ["All", ...presetCategories];
-    const presets = (externalPresets || storePresets) as PresetExtended[];
+    const presets = useMemo(
+        () => (externalPresets || storePresets) as PresetExtended[],
+        [externalPresets, storePresets]
+    );
+    const CATEGORIES = useMemo(() => ["All", ...presetCategories], [presetCategories]);
     const [activeCategory, setActiveCategory] = useState("All");
+    const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-    const filteredPresets = activeCategory === "All"
-        ? presets
-        : presets.filter(p => (p.category || 'General') === activeCategory);
+    const filteredPresets = useMemo(
+        () => activeCategory === "All"
+            ? presets
+            : presets.filter(p => (p.category || 'General') === activeCategory),
+        [activeCategory, presets]
+    );
+
+    const visiblePresets = useMemo(
+        () => filteredPresets.slice(0, visibleCount),
+        [filteredPresets, visibleCount]
+    );
+
+    const canLoadMore = visibleCount < filteredPresets.length;
 
     const handlePresetSelect = (preset: PresetExtended) => {
         onSelectPreset(preset);
@@ -45,6 +63,44 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
         onOpenChange?.(false);
     };
 
+    const handleCategoryChange = (category: string) => {
+        setActiveCategory(category);
+        setVisibleCount(INITIAL_RENDER_COUNT);
+    };
+
+    useEffect(() => {
+        if (open) {
+            setVisibleCount(INITIAL_RENDER_COUNT);
+        }
+    }, [open]);
+
+    useEffect(() => {
+        if (!open || !canLoadMore || !loadMoreRef.current) return;
+
+        const target = loadMoreRef.current;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (!entry?.isIntersecting) return;
+
+                setVisibleCount((prev) => {
+                    if (prev >= filteredPresets.length) return prev;
+                    return Math.min(prev + RENDER_BATCH_SIZE, filteredPresets.length);
+                });
+            },
+            {
+                root: null,
+                rootMargin: "220px 0px",
+                threshold: 0.1
+            }
+        );
+
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [open, canLoadMore, filteredPresets.length]);
+
+    if (!open) return null;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-6xl z-[10001] h-[70vh] p-0 bg-white border-white/10 rounded-3xl shadow-2xl shadow-black/10 overflow-hidden flex flex-col">
@@ -53,7 +109,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                         {CATEGORIES.map(cat => (
                             <button
                                 key={cat}
-                                onClick={() => setActiveCategory(cat)}
+                                onClick={() => handleCategoryChange(cat)}
                                 className={cn(
                                     "px-4 py-2 rounded-xl text-sm font-medium transition-all",
                                     activeCategory === cat
@@ -94,7 +150,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                             </div>
                         ) : (
                             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-6 gap-4 mx-2">
-                                {filteredPresets.map(preset => {
+                                {visiblePresets.map(preset => {
                                     const cover = preset.coverUrl || preset.cover;
                                     const name = preset.name || preset.title || "Untitled";
 
@@ -110,6 +166,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                                         src={cover}
                                                         alt={name}
                                                         fill
+                                                        sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 12vw"
                                                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                                                     />
                                                 ) : (
@@ -131,6 +188,14 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                         </button>
                                     );
                                 })}
+                            </div>
+                        )}
+                        {canLoadMore && (
+                            <div
+                                ref={loadMoreRef}
+                                className="flex justify-center py-4 text-xs text-black/40"
+                            >
+                                Loading more... ({visiblePresets.length}/{filteredPresets.length})
                             </div>
                         )}
                     </div>
