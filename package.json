@@ -10,7 +10,14 @@
     "start": "next start",
     "lint": "next lint",
     "check:lines": "node ./scripts/check-lines.mjs --threshold=500",
-    "check:lines:strict": "node ./scripts/check-lines.mjs --threshold=500 --strict"
+    "check:lines:strict": "node ./scripts/check-lines.mjs --threshold=500 --strict",
+    "check:workflows": "node ./scripts/check-workflows.mjs",
+    "check:workflows:strict": "node ./scripts/check-workflows.mjs --strict",
+    "fix:workflows": "node ./scripts/check-workflows.mjs --fix",
+    "dedup:workflows": "node ./scripts/dedup-workflows.mjs --apply",
+    "check:assets": "node ./scripts/check-assets.mjs",
+    "check:assets:strict": "node ./scripts/check-assets.mjs --strict",
+    "migrate:assets:cdn": "node ./scripts/migrate-assets-to-cdn.mjs --apply"
   },
   "dependencies": {
     "@byted/typegoose": "^8.3.1",

@@ -1,18 +1,48 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import {
+  createGovernedWorkflowEntry,
+  governWorkflowIndex,
+  type WorkflowIndexData,
+  type WorkflowIndexItem,
+} from '@/lib/workflow-governance';
+
+function buildWorkflowsDir() {
+  return path.join(process.cwd(), 'workflows');
+}
+
+function buildIndexPath(workflowsDir: string) {
+  return path.join(workflowsDir, 'index.json');
+}
+
+async function readGovernedIndex(indexPath: string): Promise<WorkflowIndexData> {
+  const indexContent = await fs.readFile(indexPath, 'utf-8');
+  const parsed = JSON.parse(indexContent) as WorkflowIndexData;
+  const { normalized, changed, issues } = governWorkflowIndex(parsed);
+
+  if (issues.length > 0) {
+    for (const issue of issues) {
+      const method = issue.level === 'error' ? 'error' : 'warn';
+      console[method](`[ViewComfyAPI][${issue.code}] ${issue.message}`);
+    }
+  }
+
+  if (changed) {
+    await fs.writeFile(indexPath, JSON.stringify(normalized, null, 2), 'utf-8');
+  }
+
+  return normalized;
+}
 
 export async function GET() {
-  const workflowsDir = path.join(process.cwd(), 'workflows');
-  const indexPath = path.join(workflowsDir, 'index.json');
+  const workflowsDir = buildWorkflowsDir();
+  const indexPath = buildIndexPath(workflowsDir);
 
   try {
-    // Read the main index file
-    const indexContent = await fs.readFile(indexPath, 'utf-8');
-    const indexData = JSON.parse(indexContent);
+    const indexData = await readGovernedIndex(indexPath);
 
-    // Load each workflow's configuration and API data
-    const viewComfys = [];
+    const viewComfys: Array<Record<string, unknown>> = [];
 
     for (const workflow of indexData.workflows) {
       const workflowDir = path.join(workflowsDir, workflow.folder);
@@ -22,125 +52,117 @@ export async function GET() {
       try {
         const [configContent, workflowApiContent] = await Promise.all([
           fs.readFile(configPath, 'utf-8'),
-          fs.readFile(workflowApiPath, 'utf-8')
+          fs.readFile(workflowApiPath, 'utf-8'),
         ]);
 
-        const config = JSON.parse(configContent);
+        const config = JSON.parse(configContent) as Record<string, unknown>;
         const workflowApi = JSON.parse(workflowApiContent);
+
+        if (config.id !== workflow.id) {
+          config.id = workflow.id;
+          await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+        }
 
         viewComfys.push({
           viewComfyJSON: config,
-          workflowApiJSON: workflowApi
+          workflowApiJSON: workflowApi,
         });
       } catch (workflowError) {
-        console.error(`Failed to load workflow ${workflow.folder}:`, workflowError);
-        // Continue loading other workflows even if one fails
+        console.error(`[ViewComfyAPI] Failed to load workflow ${workflow.folder}:`, workflowError);
       }
     }
 
-    // Return data in the same format as the original view_comfy.json
-    const result = {
+    return NextResponse.json({
       appTitle: indexData.appTitle,
       appImg: indexData.appImg,
-      viewComfys: viewComfys
-    };
-
-    return NextResponse.json(result);
+      viewComfys,
+    });
   } catch (error) {
-    // Fallback to original file if workflows directory doesn't exist
     const fallbackPath = path.join(process.cwd(), 'view_comfy.json');
     try {
       const fileContent = await fs.readFile(fallbackPath, 'utf-8');
       const json = JSON.parse(fileContent);
       return NextResponse.json(json);
     } catch (fallbackError) {
-      return NextResponse.json({
-        error: 'Failed to load workflow configuration',
-        details: `Could not load from workflows directory: ${error}. Fallback to view_comfy.json also failed: ${fallbackError}`
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: 'Failed to load workflow configuration',
+          details: `Could not load from workflows directory: ${error}. Fallback to view_comfy.json also failed: ${fallbackError}`,
+        },
+        { status: 500 },
+      );
     }
   }
 }
 
 export async function POST(request: Request) {
-  const workflowsDir = path.join(process.cwd(), 'workflows');
-  const indexPath = path.join(workflowsDir, 'index.json');
+  const workflowsDir = buildWorkflowsDir();
+  const indexPath = buildIndexPath(workflowsDir);
+
+  let updatedData: Record<string, unknown>;
+  try {
+    updatedData = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+  }
 
   try {
-    const updatedData = await request.json();
+    const rawViewComfys = Array.isArray(updatedData.viewComfys)
+      ? (updatedData.viewComfys as Array<Record<string, unknown>>)
+      : [];
 
-    // Ensure workflows directory exists
     await fs.mkdir(workflowsDir, { recursive: true });
 
-    // Define types for index data
-    interface WorkflowIndexItem {
-      title: string;
-      folder: string;
-      id: string;
-    }
-
-    interface IndexData {
-      appTitle: string;
-      appImg: string;
-      workflows: WorkflowIndexItem[];
-    }
-
-    // Update index.json
-    const indexData: IndexData = {
-      appTitle: updatedData.appTitle,
-      appImg: updatedData.appImg,
-      workflows: []
+    const indexData: WorkflowIndexData = {
+      appTitle: String(updatedData.appTitle || 'ViewComfy'),
+      appImg: String(updatedData.appImg || ''),
+      workflows: [],
     };
 
-    // Process each workflow
-    for (let i = 0; i < updatedData.viewComfys.length; i++) {
-      const viewComfy = updatedData.viewComfys[i];
-      const config = viewComfy.viewComfyJSON;
+    const usedFolders = new Set<string>();
+    const usedIds = new Set<string>();
+
+    for (const viewComfy of rawViewComfys) {
+      const config = (viewComfy.viewComfyJSON || {}) as Record<string, unknown>;
       const workflowApi = viewComfy.workflowApiJSON;
+      const title = String(config.title || 'Untitled Workflow');
 
-      // Generate folder name from title, handling special characters
-      const folderName = config.title.replace(/[<>:"/\\|?*]/g, '_').trim();
-      const workflowDir = path.join(workflowsDir, folderName);
+      const entry: WorkflowIndexItem = createGovernedWorkflowEntry(title, usedFolders, usedIds);
+      const workflowDir = path.join(workflowsDir, entry.folder);
 
-      // Create workflow directory
       await fs.mkdir(workflowDir, { recursive: true });
 
-      // Generate unique ID based on folder name
-      const workflowId = `wf_${folderName.toLowerCase()}`;
+      const normalizedConfig = {
+        ...config,
+        id: entry.id,
+        title: entry.title,
+      };
 
-      // Update config.id to stay in sync with index
-      config.id = workflowId;
-
-      // Write config.json and workflow.json
       await Promise.all([
-        fs.writeFile(path.join(workflowDir, 'config.json'), JSON.stringify(config, null, 2), 'utf-8'),
-        fs.writeFile(path.join(workflowDir, 'workflow.json'), JSON.stringify(workflowApi, null, 2), 'utf-8')
+        fs.writeFile(path.join(workflowDir, 'config.json'), JSON.stringify(normalizedConfig, null, 2), 'utf-8'),
+        fs.writeFile(path.join(workflowDir, 'workflow.json'), JSON.stringify(workflowApi ?? {}, null, 2), 'utf-8'),
       ]);
 
-      // Add to index
-      indexData.workflows.push({
-        title: config.title,
-        folder: folderName,
-        id: workflowId
-      });
+      indexData.workflows.push(entry);
     }
 
-    // Write updated index.json
-    await fs.writeFile(indexPath, JSON.stringify(indexData, null, 2), 'utf-8');
+    const { normalized } = governWorkflowIndex(indexData);
+    await fs.writeFile(indexPath, JSON.stringify(normalized, null, 2), 'utf-8');
 
     return NextResponse.json({ message: 'Workflow configuration saved successfully' });
   } catch (error) {
-    // Fallback to original file format
     const fallbackPath = path.join(process.cwd(), 'view_comfy.json');
     try {
-      const updatedData = await request.json();
       await fs.writeFile(fallbackPath, JSON.stringify(updatedData, null, 2), 'utf-8');
       return NextResponse.json({ message: 'Configuration saved to view_comfy.json (fallback)' });
     } catch (fallbackError) {
-      return NextResponse.json({
-        error: 'Failed to save workflow configuration',
-        details: `Could not save to workflows directory: ${error}. Fallback to view_comfy.json also failed: ${fallbackError}`
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: 'Failed to save workflow configuration',
+          details: `Could not save to workflows directory: ${error}. Fallback to view_comfy.json also failed: ${fallbackError}`,
+        },
+        { status: 500 },
+      );
     }
   }
 }

@@ -1,5 +1,6 @@
 import { createRequire } from 'module';
 import path from 'path';
+import fs from 'fs';
 
 const require = createRequire(import.meta.url);
 
@@ -26,8 +27,29 @@ const tldrawAliases = Object.fromEntries(
   })
 );
 
+function loadExternalAssetRedirects() {
+  try {
+    const redirectsPath = path.join(import.meta.dirname, 'config', 'external-asset-redirects.json');
+    if (!fs.existsSync(redirectsPath)) {
+      return [];
+    }
+    const content = fs.readFileSync(redirectsPath, 'utf-8');
+    const parsed = JSON.parse(content);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((item) => item && item.source && item.destination);
+  } catch (error) {
+    console.warn('[next.config] Failed to load external asset redirects:', error);
+    return [];
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return loadExternalAssetRedirects();
+  },
   images: {
     remotePatterns: [
       {

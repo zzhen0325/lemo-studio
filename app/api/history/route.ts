@@ -1,440 +1,720 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
+import mongoose from 'mongoose';
 import { Generation, GenerationConfig } from '@/types/database';
 import { normalizeGeneration } from '@/lib/adapters/data-mapping';
-
+import { connectMongo, GenerationModel } from '@/server/db';
+import { sanitizeMongoKeys, restoreMongoKeys } from '@/server/utils/mongo';
 
 const OUTPUTS_DIR = path.join(process.cwd(), 'public', 'outputs');
 const HISTORY_FILE = path.join(OUTPUTS_DIR, 'history.json');
 const BACKUP_FILE = path.join(OUTPUTS_DIR, 'history.bak.json');
 const OLD_FILE = path.join(OUTPUTS_DIR, 'history.old.json');
 
-// Unified history item uses Generation DTO
+const MAX_HISTORY_ITEMS = 1000;
 
-// Helper to ensure outputs directory exists
+let mongoSeeded = false;
+let historyWriteQueue: Promise<void> = Promise.resolve();
+
+function runWithHistoryWriteLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = historyWriteQueue.then(task, task);
+  historyWriteQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+function normalizePage(raw: string | null): number {
+  const parsed = Number.parseInt(raw || '1', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function normalizeLimit(raw: string | null): number {
+  const parsed = Number.parseInt(raw || '20', 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 20;
+  }
+  return Math.min(parsed, 200);
+}
+
+function sanitizeSourceUrls(urls?: string[]): string[] {
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return [];
+  }
+  return urls.map((url) => {
+    if (typeof url !== 'string') return '';
+    if (url.length > 5000 && url.startsWith('data:')) {
+      return '(large base64 data truncated)';
+    }
+    return url;
+  });
+}
+
+function sanitizeMongoPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  return sanitizeMongoKeys(payload) as Record<string, unknown>;
+}
+
+function buildRecord(item: Generation): Generation {
+  const outputUrl = item.outputUrl || (item.id ? `/outputs/${item.id}.png` : '');
+  const config = (item.config || {}) as GenerationConfig;
+
+  const record: Generation = {
+    id: item.id || path.basename(outputUrl, path.extname(outputUrl)),
+    userId: item.userId || 'anonymous',
+    projectId: item.projectId || 'default',
+    outputUrl,
+    config: {
+      ...config,
+      sourceImageUrls: sanitizeSourceUrls(config.sourceImageUrls),
+      isPreset: config.isPreset ?? !!config.presetName,
+    },
+    status: item.status || 'completed',
+    createdAt: item.createdAt || new Date().toISOString(),
+    progress: item.progress,
+    progressStage: item.progressStage,
+    llmResponse: item.llmResponse,
+  };
+
+  return normalizeGeneration(record);
+}
+
+function buildMongoFilter(item: Generation): Record<string, unknown> | null {
+  const normalized = buildRecord(item);
+
+  if (normalized.id && mongoose.isValidObjectId(normalized.id)) {
+    return { _id: normalized.id };
+  }
+
+  if (normalized.outputUrl) {
+    return { outputUrl: normalized.outputUrl };
+  }
+
+  const taskId = normalized.config?.taskId;
+  if (typeof taskId === 'string' && taskId) {
+    return { 'config.taskId': taskId };
+  }
+
+  return null;
+}
+
+function mapMongoDocToGeneration(doc: Record<string, unknown>): Generation {
+  const restored = restoreMongoKeys(doc) as Record<string, unknown>;
+  const config = (restored.config || {}) as GenerationConfig;
+  const outputUrl = typeof restored.outputUrl === 'string' ? restored.outputUrl : '';
+
+  const generation: Generation = {
+    id: String(restored._id || restored.id || path.basename(outputUrl || '', path.extname(outputUrl || ''))),
+    userId: (restored.userId as string) || 'anonymous',
+    projectId: (restored.projectId as string) || 'default',
+    outputUrl,
+    config: {
+      ...config,
+      sourceImageUrls: sanitizeSourceUrls(config.sourceImageUrls),
+      localSourceIds: Array.isArray(config.localSourceIds) ? config.localSourceIds : [],
+    },
+    status: (restored.status as 'pending' | 'completed' | 'failed') || 'completed',
+    createdAt: String(restored.createdAt || new Date().toISOString()),
+    progress: typeof restored.progress === 'number' ? restored.progress : undefined,
+    progressStage: typeof restored.progressStage === 'string' ? restored.progressStage : undefined,
+    llmResponse: typeof restored.llmResponse === 'string' ? restored.llmResponse : undefined,
+  };
+
+  return normalizeGeneration(generation);
+}
+
 async function ensureOutputsDir() {
+  try {
+    await fs.access(OUTPUTS_DIR);
+  } catch {
+    await fs.mkdir(OUTPUTS_DIR, { recursive: true });
+  }
+}
+
+async function readHistoryFileFallback(): Promise<Generation[] | null> {
+  const filesToTry = [HISTORY_FILE, OLD_FILE, BACKUP_FILE];
+
+  for (const file of filesToTry) {
     try {
-        await fs.access(OUTPUTS_DIR);
+      await fs.access(file);
+      const content = await fs.readFile(file, 'utf-8');
+      const data = JSON.parse(content);
+      if (Array.isArray(data)) {
+        return data.map((item) => normalizeGeneration(item as Generation));
+      }
     } catch {
-        await fs.mkdir(OUTPUTS_DIR, { recursive: true });
+      // Ignore and try next file.
     }
+  }
+
+  return null;
 }
 
-// Robust helper to read history from multiple possible sources
-async function readHistory() {
-    const filesToTry = [HISTORY_FILE, OLD_FILE, BACKUP_FILE];
+async function saveHistoryFileFallback(history: Generation[]): Promise<boolean> {
+  const tmpFile = `${HISTORY_FILE}.tmp`;
+  const itemsToSave = history.slice(0, MAX_HISTORY_ITEMS).map(buildRecord);
 
-    for (const file of filesToTry) {
-        try {
-            await fs.access(file);
-            const content = await fs.readFile(file, 'utf-8');
-            const data = JSON.parse(content);
-            if (Array.isArray(data)) return data;
-        } catch {
-            // console.warn(`Failed to read history from ${path.basename(file)}`);
-        }
-    }
-    return null;
-}
-
-// Atomic write helper with backup
-async function saveHistory(history: Generation[]) {
-    const tmpFile = `${HISTORY_FILE}.tmp`;
-
-    // 1. Sanitize history to prevent RangeError: Invalid string length
-    // Keep only the last 1000 items in the global index to keep it manageable
-    const MAX_HISTORY_ITEMS = 1000;
-    const itemsToSave = history.slice(0, MAX_HISTORY_ITEMS);
-
-    const sanitizedHistory = itemsToSave.map(item => {
-        const newItem = { ...item };
-
-        // Deep sanitize config
-        if (newItem.config) {
-            const config = newItem.config as GenerationConfig;
-            if (config.sourceImageUrls && config.sourceImageUrls.length > 0) {
-                config.sourceImageUrls = config.sourceImageUrls.map(url => {
-                    if (url && url.length > 5000 && url.startsWith('data:')) {
-                        return "(large base64 data truncated)";
-                    }
-                    return url;
-                });
-            }
-        }
-
-        return newItem;
-    });
-
-    // 2. Use compact JSON for the global index if it's still large
-    // Indentation (null, 2) can triple the size of the file
-    const content = JSON.stringify(sanitizedHistory);
+  try {
+    await fs.writeFile(tmpFile, JSON.stringify(itemsToSave), 'utf-8');
 
     try {
-        // 1. 先写入临时文件
-        await fs.writeFile(tmpFile, content, 'utf-8');
-
-        // 2. 如果原文件存在，将其备份为 old
-        try {
-            await fs.access(HISTORY_FILE);
-            await fs.copyFile(HISTORY_FILE, OLD_FILE);
-        } catch { /* ignore if not exists */ }
-
-        // 3. 将 tmp 重命名为正式文件 (原子操作)
-        await fs.rename(tmpFile, HISTORY_FILE);
-
-        // 4. 定期备份 (如果记录数是 50 的倍数，或者 bak 不存在)
-        if (history.length % 50 === 0) {
-            await fs.copyFile(HISTORY_FILE, BACKUP_FILE);
-        } else {
-            try {
-                await fs.access(BACKUP_FILE);
-            } catch {
-                await fs.copyFile(HISTORY_FILE, BACKUP_FILE);
-            }
-        }
-
-        return true;
-    } catch (e) {
-        console.error("Atomic save failed:", e);
-        // 清理临时文件
-        try { await fs.unlink(tmpFile); } catch { }
-        return false;
+      await fs.access(HISTORY_FILE);
+      await fs.copyFile(HISTORY_FILE, OLD_FILE);
+    } catch {
+      // Ignore if not exists.
     }
+
+    await fs.rename(tmpFile, HISTORY_FILE);
+
+    if (history.length % 50 === 0) {
+      await fs.copyFile(HISTORY_FILE, BACKUP_FILE);
+    } else {
+      try {
+        await fs.access(BACKUP_FILE);
+      } catch {
+        await fs.copyFile(HISTORY_FILE, BACKUP_FILE);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[HistoryAPI] Atomic file save failed:', error);
+    try {
+      await fs.unlink(tmpFile);
+    } catch {
+      // Ignore cleanup error.
+    }
+    return false;
+  }
 }
 
+async function readHistoryFromDisk(): Promise<Generation[]> {
+  await ensureOutputsDir();
 
-// NEW: Read history entries directly from the outputs directory
-async function readHistoryFromDisk() {
-    await ensureOutputsDir();
+  const files = await fs.readdir(OUTPUTS_DIR);
+  const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 
-    // 1. Get all image files on disk
-    const files = await fs.readdir(OUTPUTS_DIR);
-    const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+  const items = await Promise.all(
+    files
+      .filter((fileName) => imageExtensions.has(path.extname(fileName).toLowerCase()))
+      .map(async (fileName) => {
+        const baseName = fileName.split('.')[0];
+        const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
+        const outputUrl = `/outputs/${fileName}`;
 
-    // Process image files
-    const items = await Promise.all(
-        files
-            .filter(f => imageExtensions.has(path.extname(f).toLowerCase()))
-            .map(async (filename) => {
-                const baseName = filename.split('.')[0];
-                const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
-                const outputUrl = `/outputs/${filename}`;
+        let metadata: Record<string, unknown> | null = null;
+        try {
+          const jsonContent = await fs.readFile(jsonPath, 'utf-8');
+          metadata = JSON.parse(jsonContent) as Record<string, unknown>;
+        } catch {
+          // Ignore sidecar parse errors.
+        }
 
-                let metadata = null;
-                try {
-                    const jsonContent = await fs.readFile(jsonPath, 'utf-8');
-                    metadata = JSON.parse(jsonContent);
-                } catch { /* No metadata or folder exists */ }
+        let createdAt = metadata?.timestamp as string | undefined;
+        if (!createdAt) {
+          const parts = baseName.split('_');
+          const stampStr = parts[1];
+          if (stampStr && !Number.isNaN(Number(stampStr))) {
+            createdAt = new Date(Number(stampStr)).toISOString();
+          } else {
+            const stats = await fs.stat(path.join(OUTPUTS_DIR, fileName));
+            createdAt = stats.mtime.toISOString();
+          }
+        }
 
-                // Determine timestamp: priority 1: json metadata, priority 2: filename stamp, priority 3: file stat
-                let createdAt = metadata?.timestamp;
-                if (!createdAt) {
-                    const parts = baseName.split('_');
-                    const stampStr = parts[1]; // img_STAMP_RAND
-                    if (stampStr && !isNaN(Number(stampStr))) {
-                        createdAt = new Date(Number(stampStr)).toISOString();
-                    } else {
-                        const stats = await fs.stat(path.join(OUTPUTS_DIR, filename));
-                        createdAt = stats.mtime.toISOString();
-                    }
-                }
+        const baseConfig = ((metadata?.config as Record<string, unknown>) || (metadata?.metadata as Record<string, unknown>) || {}) as Record<string, unknown>;
+        const generation: Generation = {
+          id: baseName,
+          userId: 'anonymous',
+          projectId: (metadata?.projectId as string) || ((metadata?.metadata as Record<string, unknown>)?.projectId as string) || 'default',
+          outputUrl,
+          config: {
+            ...baseConfig,
+            prompt: (baseConfig.prompt as string) || (metadata?.prompt as string) || '',
+            width: Number(baseConfig.width || metadata?.img_width || 1024),
+            height: Number(baseConfig.height || metadata?.img_height || 1024),
+            model: (baseConfig.model as string) || (metadata?.base_model as string) || '',
+            baseModel: (baseConfig.baseModel as string) || (baseConfig.model as string) || (metadata?.base_model as string) || '',
+            sourceImageUrls: (baseConfig.sourceImageUrls as string[]) || (metadata?.sourceImageUrls as string[]) || [],
+          },
+          status: 'completed',
+          createdAt: String((metadata?.createdAt as string) || createdAt),
+        };
 
-                const config: GenerationConfig = (() => {
-                    const baseConfig = metadata?.config || metadata?.metadata || {};
-                    return {
-                        ...baseConfig,
-                        prompt: baseConfig.prompt || metadata?.prompt || '',
-                        width: Number(baseConfig.width || metadata?.img_width || 1024),
-                        height: Number(baseConfig.height || metadata?.img_height || 1024),
-                        model: baseConfig.model || metadata?.base_model || '',
-                        baseModel: baseConfig.baseModel || baseConfig.model || metadata?.base_model || '',
-                        sourceImageUrls: baseConfig.sourceImageUrls || metadata?.sourceImageUrls || [],
-                    };
-                })();
+        return normalizeGeneration(generation);
+      }),
+  );
 
-                const gen: Generation = {
-                    id: baseName,
-                    userId: 'anonymous',
-                    projectId: metadata?.projectId || metadata?.metadata?.projectId || 'default',
-                    outputUrl,
-                    config,
-                    status: 'completed',
-                    createdAt: String(metadata?.createdAt || createdAt),
-                };
-                return gen;
-            })
+  items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return items;
+}
+
+async function updateSidecarMetadata(item: Generation): Promise<void> {
+  const outputUrl = item.outputUrl;
+  if (!outputUrl || !outputUrl.startsWith('/outputs/')) {
+    return;
+  }
+
+  const baseName = path.basename(outputUrl, path.extname(outputUrl));
+  const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
+
+  try {
+    let metadata: Record<string, unknown> = {};
+    try {
+      const content = await fs.readFile(jsonPath, 'utf-8');
+      metadata = JSON.parse(content) as Record<string, unknown>;
+    } catch {
+      // Ignore if sidecar does not exist.
+    }
+
+    const updatedMetadata = {
+      ...metadata,
+      projectId: item.projectId,
+      config: item.config,
+      createdAt: item.createdAt,
+    };
+
+    await fs.writeFile(jsonPath, JSON.stringify(updatedMetadata, null, 2), 'utf-8');
+  } catch (error) {
+    console.warn(`[HistoryAPI] Failed to update sidecar metadata for ${baseName}:`, error);
+  }
+}
+
+async function withMongo<T>(task: () => Promise<T>): Promise<T | null> {
+  try {
+    await connectMongo();
+    return await task();
+  } catch (error) {
+    console.warn('[HistoryAPI] Mongo unavailable, fallback to file storage:', error);
+    return null;
+  }
+}
+
+async function seedMongoFromLegacyIfNeeded(): Promise<void> {
+  if (mongoSeeded) {
+    return;
+  }
+
+  const seeded = await withMongo(async () => {
+    const currentCount = await GenerationModel.estimatedDocumentCount();
+    if (currentCount > 0) {
+      return true;
+    }
+
+    let legacyHistory = await readHistoryFileFallback();
+    if (!legacyHistory || legacyHistory.length === 0) {
+      legacyHistory = await readHistoryFromDisk();
+    }
+
+    if (!legacyHistory || legacyHistory.length === 0) {
+      return true;
+    }
+
+    const operations = legacyHistory
+      .slice(0, MAX_HISTORY_ITEMS)
+      .map((item) => {
+        const record = buildRecord(item);
+        const filter = buildMongoFilter(record);
+        if (!filter) {
+          return null;
+        }
+        return {
+          updateOne: {
+            filter,
+                update: {
+                  $set: sanitizeMongoPayload({
+                    userId: record.userId,
+                    projectId: record.projectId,
+                    outputUrl: record.outputUrl,
+                config: record.config,
+                status: record.status,
+                progress: record.progress,
+                progressStage: record.progressStage,
+                llmResponse: record.llmResponse,
+                createdAt: record.createdAt,
+              }),
+            },
+            upsert: true,
+          },
+        };
+      })
+      .filter(Boolean);
+
+    if (operations.length > 0) {
+      await GenerationModel.bulkWrite(operations as mongoose.mongo.AnyBulkWriteOperation[], { ordered: false });
+    }
+
+    return true;
+  });
+
+  if (seeded) {
+    mongoSeeded = true;
+  }
+}
+
+async function getHistoryFromMongo(params: {
+  page: number;
+  limit: number;
+  projectId?: string | null;
+  userId?: string | null;
+}): Promise<{ history: Generation[]; total: number; hasMore: boolean } | null> {
+  return withMongo(async () => {
+    await seedMongoFromLegacyIfNeeded();
+
+    const filter: Record<string, unknown> = {};
+    if (params.projectId && params.projectId !== 'null' && params.projectId !== 'undefined') {
+      filter.projectId = params.projectId;
+    }
+
+    if (params.userId) {
+      filter.userId = params.userId;
+    }
+
+    const total = await GenerationModel.countDocuments(filter);
+    const docs = await GenerationModel.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((params.page - 1) * params.limit)
+      .limit(params.limit)
+      .lean();
+
+    const history = docs.map((doc) => mapMongoDocToGeneration(doc as unknown as Record<string, unknown>));
+    return {
+      history,
+      total,
+      hasMore: params.page * params.limit < total,
+    };
+  });
+}
+
+async function getHistoryFromFile(params: {
+  page: number;
+  limit: number;
+  projectId?: string | null;
+  userId?: string | null;
+}): Promise<{ history: Generation[]; total: number; hasMore: boolean }> {
+  let history = await readHistoryFileFallback();
+
+  let hasChanges = false;
+  if (!history || history.length === 0) {
+    history = await readHistoryFromDisk();
+    hasChanges = true;
+  } else {
+    try {
+      await ensureOutputsDir();
+      const files = await fs.readdir(OUTPUTS_DIR);
+      const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
+      const existingFiles = new Set(
+        history.map((item) => {
+          const outputUrl = item.outputUrl || '';
+          return path.basename(outputUrl);
+        }),
+      );
+
+      const newFiles = files.filter((fileName) => {
+        const ext = path.extname(fileName).toLowerCase();
+        return imageExtensions.has(ext) && !existingFiles.has(fileName);
+      });
+
+      if (newFiles.length > 0) {
+        const latestFromDisk = await readHistoryFromDisk();
+        const byOutputUrl = new Map<string, Generation>();
+
+        for (const item of latestFromDisk) {
+          byOutputUrl.set(item.outputUrl, item);
+        }
+        for (const item of history) {
+          byOutputUrl.set(item.outputUrl, item);
+        }
+
+        history = Array.from(byOutputUrl.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        hasChanges = true;
+      }
+    } catch (error) {
+      console.error('[HistoryAPI] Incremental disk sync failed:', error);
+    }
+  }
+
+  if (hasChanges && history && history.length > 0) {
+    await saveHistoryFileFallback(history);
+  }
+
+  let filtered = history || [];
+
+  if (params.projectId && params.projectId !== 'null' && params.projectId !== 'undefined') {
+    filtered = filtered.filter((item) => item.projectId === params.projectId);
+  }
+
+  if (params.userId) {
+    filtered = filtered.filter(
+      (item) => item.userId === params.userId || (!item.userId && params.userId === 'user-1') || (item.userId === 'anonymous' && params.userId === 'user-1'),
     );
+  }
 
-    // Filter out potential nulls if any (though not expected here)
-    const validItems = items.filter(Boolean);
+  const total = filtered.length;
+  const startIndex = (params.page - 1) * params.limit;
+  const paged = filtered.slice(startIndex, startIndex + params.limit).map(normalizeGeneration);
 
-    // Sort by timestamp descending
-    validItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    return validItems;
+  return {
+    history: paged,
+    total,
+    hasMore: startIndex + params.limit < total,
+  };
 }
 
 export async function GET(request: Request) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const page = parseInt(searchParams.get('page') || '1');
-        const limit = parseInt(searchParams.get('limit') || '20');
-        const projectId = searchParams.get('projectId');
-        const userId = searchParams.get('userId');
+  try {
+    const { searchParams } = new URL(request.url);
+    const page = normalizePage(searchParams.get('page'));
+    const limit = normalizeLimit(searchParams.get('limit'));
+    const projectId = searchParams.get('projectId');
+    const userId = searchParams.get('userId');
 
-        // 1. 优先读取统一的历史记录文件 (快)
-        let history = await readHistory();
-
-        // 2. 如果没有历史记录文件，或者有新文件未被索引，则执行同步
-        // 快速检查磁盘上的图片文件，看是否都在 history 中
-        let hasChanges = false;
-        if (!history || history.length === 0) {
-            history = await readHistoryFromDisk();
-            hasChanges = true;
-        } else {
-            // 增量同步：检查是否有文件不在 history 中
-            try {
-                await ensureOutputsDir();
-                const files = await fs.readdir(OUTPUTS_DIR);
-                const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp']);
-
-                // 构建现有历史记录的快速查找集合
-                const existingFiles = new Set(history.map((h: Generation) => {
-                    const url = h.outputUrl || '';
-                    return path.basename(url);
-                }));
-
-                const newFiles = files.filter(f => {
-                    const ext = path.extname(f).toLowerCase();
-                    return imageExtensions.has(ext) && !existingFiles.has(f);
-                });
-
-                if (newFiles.length > 0) {
-                    // 只处理新发现的文件
-                    const newItems = await Promise.all(
-                        newFiles.map(async (filename) => {
-                            const baseName = filename.split('.')[0];
-                            const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
-                            const outputUrl = `/outputs/${filename}`;
-
-                            let metadata = null;
-                            try {
-                                const jsonContent = await fs.readFile(jsonPath, 'utf-8');
-                                metadata = JSON.parse(jsonContent);
-                            } catch { /* No metadata */ }
-
-                            let createdAt = metadata?.timestamp;
-                            if (!createdAt) {
-                                const parts = baseName.split('_');
-                                const stampStr = parts[1];
-                                if (stampStr && !isNaN(Number(stampStr))) {
-                                    createdAt = new Date(Number(stampStr)).toISOString();
-                                } else {
-                                    const stats = await fs.stat(path.join(OUTPUTS_DIR, filename));
-                                    createdAt = stats.mtime.toISOString();
-                                }
-                            }
-
-                            const config: GenerationConfig = (() => {
-                                const baseConfig = metadata?.config || metadata?.metadata || {};
-                                return {
-                                    ...baseConfig,
-                                    prompt: baseConfig.prompt || metadata?.prompt || '',
-                                    width: Number(baseConfig.width || metadata?.img_width || 1024),
-                                    height: Number(baseConfig.height || metadata?.img_height || 1024),
-                                    model: baseConfig.model || metadata?.base_model || '',
-                                    baseModel: baseConfig.baseModel || baseConfig.model || metadata?.base_model || '',
-                                    sourceImageUrls: baseConfig.sourceImageUrls || metadata?.sourceImageUrls || [],
-                                };
-                            })();
-
-                            const gen: Generation = {
-                                id: baseName,
-                                userId: 'anonymous',
-                                projectId: metadata?.projectId || metadata?.metadata?.projectId || 'default',
-                                outputUrl,
-                                config,
-                                status: 'completed',
-                                createdAt: String(metadata?.createdAt || createdAt),
-                            };
-                            return gen;
-                        })
-                    );
-
-                    // 合并新数据
-                    history = [...newItems, ...history];
-                    // 重新按时间排序
-                    history.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                    hasChanges = true;
-                }
-            } catch (e) {
-                console.error("Incremental sync failed:", e);
-            }
-        }
-
-        if (hasChanges && history && history.length > 0) {
-            await saveHistory(history);
-        }
-
-        // 3. 按项目过滤
-        if (projectId && projectId !== 'null' && projectId !== 'undefined') {
-            history = history.filter(h => h.projectId === projectId);
-        }
-
-        // 4. 按用户过滤
-        if (userId) {
-            history = history.filter(h => h.userId === userId || (!h.userId && userId === 'user-1') || (h.userId === 'anonymous' && userId === 'user-1'));
-        }
-
-        // 5. 分页处理
-        const total = history.length;
-        const startIndex = (page - 1) * limit;
-        const paginatedHistory = history.slice(startIndex, startIndex + limit);
-
-        // 6. 规范化数据，将旧格式的顶层字段合并到 config 内
-        const normalizedHistory = paginatedHistory.map(normalizeGeneration);
-
-        return NextResponse.json({
-            history: normalizedHistory,
-            total,
-            hasMore: startIndex + limit < total
-        });
-    } catch (error) {
-        console.error('Failed to load history:', error);
-        return NextResponse.json({ error: 'Failed to load history' }, { status: 500 });
+    const mongoResult = await getHistoryFromMongo({ page, limit, projectId, userId });
+    if (mongoResult) {
+      return NextResponse.json(mongoResult);
     }
+
+    const fallbackResult = await getHistoryFromFile({ page, limit, projectId, userId });
+    return NextResponse.json(fallbackResult);
+  } catch (error) {
+    console.error('[HistoryAPI] Failed to load history:', error);
+    return NextResponse.json({ error: 'Failed to load history' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-    try {
-        const body = await request.json();
+  try {
+    const body = await request.json();
 
-        // Handle sync-image
+    return runWithHistoryWriteLock(async () => {
+      const mongoHandled = await withMongo(async () => {
+        await seedMongoFromLegacyIfNeeded();
+
         if (body.action === 'sync-image' && body.localId && body.path) {
-            const { localId, path: serverPath } = body;
-            const history = (await readHistory() || []) as Generation[];
-            let updatedCount = 0;
+          const localId = String(body.localId);
+          const serverPath = String(body.path);
 
-            const updatedHistory = history.map(h => {
-                const config = h.config;
-                if (!config) return h;
+          const docs = await GenerationModel.find({ 'config.localSourceIds': localId }).lean();
+          if (docs.length === 0) {
+            return NextResponse.json({ success: true, updatedCount: 0 });
+          }
 
-                if (config.localSourceIds?.includes(localId)) {
-                    const idx = config.localSourceIds.indexOf(localId);
-                    const sourceUrls = config.sourceImageUrls || [];
-                    if (sourceUrls[idx] !== undefined) {
-                        const newUrls = [...sourceUrls];
-                        newUrls[idx] = serverPath;
-                        updatedCount++;
-                        return {
-                            ...h,
-                            config: { ...config, sourceImageUrls: newUrls }
-                        };
-                    }
-                }
-                return h;
+          const operations: mongoose.mongo.AnyBulkWriteOperation[] = [];
+          let updatedCount = 0;
+
+          for (const doc of docs) {
+            const normalized = mapMongoDocToGeneration(doc as unknown as Record<string, unknown>);
+            const localSourceIds = normalized.config.localSourceIds || [];
+            const sourceImageUrls = normalized.config.sourceImageUrls || [];
+
+            const indexes = localSourceIds
+              .map((id, idx) => (id === localId ? idx : -1))
+              .filter((idx) => idx >= 0);
+
+            if (indexes.length === 0) continue;
+
+            const newUrls = [...sourceImageUrls];
+            for (const idx of indexes) {
+              if (idx < newUrls.length) {
+                newUrls[idx] = serverPath;
+              }
+            }
+
+            updatedCount += indexes.length;
+            const syncFilter = normalized.outputUrl
+              ? { outputUrl: normalized.outputUrl }
+              : { _id: String((doc as { _id: unknown })._id || '') };
+            operations.push({
+              updateOne: {
+                filter: syncFilter as Record<string, unknown>,
+                update: {
+                  $set: sanitizeMongoPayload({
+                    config: {
+                      ...normalized.config,
+                      sourceImageUrls: newUrls,
+                    },
+                  }),
+                },
+              },
             });
+          }
 
-            if (updatedCount > 0) {
-                await saveHistory(updatedHistory);
-            }
+          if (operations.length > 0) {
+            await GenerationModel.bulkWrite(operations, { ordered: false });
+          }
 
-            return NextResponse.json({ success: true, updatedCount });
+          return NextResponse.json({ success: true, updatedCount });
         }
 
-        // Handle batch update
         if (body.action === 'batch-update' && Array.isArray(body.items)) {
-            const items = body.items as Generation[];
-            await ensureOutputsDir();
+          const items = (body.items as Generation[]).map(buildRecord);
+          const operations: mongoose.mongo.AnyBulkWriteOperation[] = [];
 
-            await Promise.all(items.map(async (item) => {
-                if (!item.outputUrl) return;
-                const baseName = path.basename(item.outputUrl, path.extname(item.outputUrl));
-                const jsonPath = path.join(OUTPUTS_DIR, `${baseName}.json`);
+          for (const item of items) {
+            const filter = buildMongoFilter(item);
+            if (!filter) continue;
 
-                try {
-                    let metadata: Partial<Generation> = {};
-                    try {
-                        const content = await fs.readFile(jsonPath, 'utf-8');
-                        metadata = JSON.parse(content);
-                    } catch { /* ignore */ }
+            operations.push({
+              updateOne: {
+                filter: filter as Record<string, unknown>,
+                update: {
+                  $set: sanitizeMongoPayload({
+                    userId: item.userId,
+                    projectId: item.projectId,
+                    outputUrl: item.outputUrl,
+                    config: item.config,
+                    status: item.status,
+                    progress: item.progress,
+                    progressStage: item.progressStage,
+                    llmResponse: item.llmResponse,
+                    createdAt: item.createdAt,
+                  }),
+                },
+                upsert: true,
+              },
+            });
+          }
 
-                    const updatedMetadata = {
-                        ...metadata,
-                        projectId: item.projectId,
-                        config: item.config,
-                    };
+          if (operations.length > 0) {
+            await GenerationModel.bulkWrite(operations, { ordered: false });
+          }
 
-                    await fs.writeFile(jsonPath, JSON.stringify(updatedMetadata, null, 2));
-                } catch (e) {
-                    console.warn(`Failed to update metadata for ${baseName}`, e);
-                }
-            }));
-
-            const history = (await readHistory() || []) as Generation[];
-            for (const item of items) {
-                const idx = history.findIndex(h => h.id === item.id || h.outputUrl === item.outputUrl);
-                if (idx > -1) {
-                    history[idx] = { ...history[idx], ...item };
-                }
-            }
-            await saveHistory(history);
-
-            return NextResponse.json({ success: true });
+          await Promise.all(items.map(updateSidecarMetadata));
+          return NextResponse.json({ success: true });
         }
 
-        // Handle single item save
         const item = body as Generation;
         if (!item || (!item.outputUrl && !item.id)) {
-            return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
+          return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
         }
 
-        // Sanitize incoming item to prevent bloat
-        if (item.config) {
-            const config = item.config as GenerationConfig;
-            if (config.sourceImageUrls && config.sourceImageUrls.length > 0) {
-                config.sourceImageUrls = config.sourceImageUrls.map(url => {
-                    if (url && url.length > 5000 && url.startsWith('data:')) {
-                        return "(large base64 data truncated)";
-                    }
-                    return url;
-                });
+        const record = buildRecord(item);
+        const filter = buildMongoFilter(record);
+        if (!filter) {
+          return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
+        }
+
+        await GenerationModel.updateOne(
+          filter as Record<string, unknown>,
+          {
+            $set: sanitizeMongoPayload({
+              userId: record.userId,
+              projectId: record.projectId,
+              outputUrl: record.outputUrl,
+              config: record.config,
+              status: record.status,
+              progress: record.progress,
+              progressStage: record.progressStage,
+              llmResponse: record.llmResponse,
+              createdAt: record.createdAt,
+            }),
+          },
+          { upsert: true },
+        );
+
+        await updateSidecarMetadata(record);
+        return NextResponse.json({ success: true });
+      });
+
+      if (mongoHandled) {
+        return mongoHandled;
+      }
+
+      if (body.action === 'sync-image' && body.localId && body.path) {
+        const { localId, path: serverPath } = body as { localId: string; path: string };
+        const history = (await readHistoryFileFallback()) || [];
+
+        let updatedCount = 0;
+        const updatedHistory = history.map((item) => {
+          const current = buildRecord(item);
+          const localSourceIds = current.config.localSourceIds || [];
+          const sourceImageUrls = current.config.sourceImageUrls || [];
+
+          if (!localSourceIds.includes(localId)) {
+            return current;
+          }
+
+          const newUrls = [...sourceImageUrls];
+          for (let i = 0; i < localSourceIds.length; i += 1) {
+            if (localSourceIds[i] === localId && i < newUrls.length) {
+              newUrls[i] = serverPath;
+              updatedCount += 1;
             }
-            // Set isPreset flag if not present
-            if (config.isPreset === undefined) {
-                config.isPreset = !!(config.presetName);
-            }
+          }
+
+          return {
+            ...current,
+            config: {
+              ...current.config,
+              sourceImageUrls: newUrls,
+            },
+          };
+        });
+
+        if (updatedCount > 0) {
+          await saveHistoryFileFallback(updatedHistory);
         }
 
-        await ensureOutputsDir();
-        const history = (await readHistory() || []) as Generation[];
-        const outputUrl = item.outputUrl || (item.id ? `/outputs/${item.id}.png` : '');
-        const record: Generation = {
-            id: item.id || path.basename(outputUrl, path.extname(outputUrl)),
-            userId: item.userId || 'anonymous',
-            projectId: item.projectId || 'default',
-            outputUrl,
-            config: item.config,
-            status: item.status || 'completed',
-            createdAt: item.createdAt || new Date().toISOString(),
-        };
+        return NextResponse.json({ success: true, updatedCount });
+      }
 
-        const existsIndex = history.findIndex((h: Generation) => h.outputUrl === record.outputUrl || h.id === record.id);
-        if (existsIndex > -1) {
-            history[existsIndex] = record;
-        } else {
-            history.unshift(record);
+      if (body.action === 'batch-update' && Array.isArray(body.items)) {
+        const items = (body.items as Generation[]).map(buildRecord);
+        const history = ((await readHistoryFileFallback()) || []).map(buildRecord);
+        const indexByKey = new Map<string, number>();
+
+        history.forEach((item, idx) => {
+          const key = item.outputUrl || item.id;
+          indexByKey.set(key, idx);
+        });
+
+        for (const item of items) {
+          const key = item.outputUrl || item.id;
+          const idx = indexByKey.get(key);
+          if (typeof idx === 'number') {
+            history[idx] = { ...history[idx], ...item };
+          } else {
+            history.unshift(item);
+          }
         }
 
-        const success = await saveHistory(history);
+        await Promise.all(items.map(updateSidecarMetadata));
+        const success = await saveHistoryFileFallback(history);
         if (!success) {
-            throw new Error("Failed to perform atomic save");
+          throw new Error('Failed to persist history');
         }
 
         return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error('Failed to save history item:', error);
-        return NextResponse.json({ error: 'Failed to save history item' }, { status: 500 });
-    }
+      }
+
+      const item = body as Generation;
+      if (!item || (!item.outputUrl && !item.id)) {
+        return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
+      }
+
+      const record = buildRecord(item);
+      const history = ((await readHistoryFileFallback()) || []).map(buildRecord);
+      const existsIndex = history.findIndex((row) => row.outputUrl === record.outputUrl || row.id === record.id);
+
+      if (existsIndex >= 0) {
+        history[existsIndex] = record;
+      } else {
+        history.unshift(record);
+      }
+
+      await updateSidecarMetadata(record);
+      const success = await saveHistoryFileFallback(history);
+      if (!success) {
+        throw new Error('Failed to persist history');
+      }
+
+      return NextResponse.json({ success: true });
+    });
+  } catch (error) {
+    console.error('[HistoryAPI] Failed to save history item:', error);
+    return NextResponse.json({ error: 'Failed to save history item' }, { status: 500 });
+  }
 }
