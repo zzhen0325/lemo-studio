@@ -5,6 +5,8 @@ node_modules/
 .next/
 out/
 dist/
+output/
+server/output/
 server/dist/*
 server/output/*
 

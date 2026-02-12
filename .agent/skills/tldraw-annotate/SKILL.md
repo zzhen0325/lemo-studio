@@ -40,7 +40,7 @@ Standard Tldraw UI (menus, toolbars) can be hidden with `hideUi={true}`.
 
 ## Resource Reference
 - **Development Specs**: Read [development.md](references/development.md) for TypeScript interfaces and class implementations.
-- **Project Context**: Based on the specific image studio requirements in `tldraw标注工具.md`.
+- **Project Context**: Based on the specific image studio requirements in `docs/tools/tldraw-annotate.md`.
 
 ## Quality Standards
 - **Strictly No `any`**: Use `unknown` or type parameters like `Parameters<typeof editor.updateShapes>[0][number]` to satisfy Tldraw's complex union types.
