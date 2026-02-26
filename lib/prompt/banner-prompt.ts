@@ -5,7 +5,7 @@ import type {
   BannerTextPositionInstruction,
   BannerTextPositionType,
   BannerTemplateConfig,
-} from '@/components/features/playground-v2/types';
+} from '@/lib/playground/types';
 import {
   compareAnnotationLabels,
   formatAnnotationLabel,

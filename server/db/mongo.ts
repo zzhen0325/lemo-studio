@@ -27,4 +27,3 @@ export async function connectMongo(): Promise<typeof mongoose> {
 export function getMongoose() {
   return mongoose;
 }
-

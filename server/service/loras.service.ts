@@ -1,6 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { ErrorResponseFactory } from '../../app/models/errors';
+import { ErrorResponseFactory } from '../../lib/models/errors';
 import { Injectable } from '@gulux/gulux';
 import { HttpError } from '../utils/http-error';
 

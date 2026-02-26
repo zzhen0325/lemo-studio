@@ -1,4 +1,4 @@
-import type { BannerModelId, BannerTemplateConfig } from '@/components/features/playground-v2/types';
+import type { BannerModelId, BannerTemplateConfig } from '@/lib/playground/types';
 
 export const BANNER_ALLOWED_MODELS: BannerModelId[] = [
   'flux_klein',

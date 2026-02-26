@@ -1,6 +1,6 @@
-import { IViewComfyApp, IViewComfyAppSecrets } from "../../app/models/viewcomfy-app";
+import { IViewComfyApp, IViewComfyAppSecrets } from "../models/viewcomfy-app";
 import { SettingsService } from "./settings-service";
-import { ErrorTypes, ErrorBase } from "../../app/models/errors";
+import { ErrorTypes, ErrorBase } from "../models/errors";
 
 const settingsService = new SettingsService();
 
@@ -67,4 +67,3 @@ export class ViewComfyService {
         return viewComfyAppSecrets;
     }
 }
-

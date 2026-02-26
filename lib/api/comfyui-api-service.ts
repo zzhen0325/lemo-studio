@@ -1,4 +1,4 @@
-import { ComfyWorkflowError } from '../../app/models/errors';
+import { ComfyWorkflowError } from '../models/errors';
 import { ComfyUIConnRefusedError } from '../constants';
 import { Agent as UndiciAgent, fetch as undiciFetch, FormData as UndiciFormData, WebSocket as UndiciWebSocket } from 'undici';
 
@@ -112,7 +112,7 @@ export class ComfyUIAPIService {
     private async connect() {
         try {
             this.ws.onopen = () => {
-                console.log("WebSocket connection opened");
+                return;
             };
 
             this.ws.onmessage = (event) => {
@@ -140,7 +140,7 @@ export class ComfyUIAPIService {
         try {
             event = JSON.parse(eventData) as IComfyUIWSEventData;
         } catch (error) {
-            console.log("Error parsing event data:", eventData);
+            console.warn("Failed to parse ComfyUI websocket event");
             console.error(error);
             return;
         }
@@ -169,7 +169,6 @@ export class ComfyUIAPIService {
                 this.workflowStatus = event.type;
                 break;
             case "executed":
-                console.log("Executed:", event.data);
                 this.parseOutputFiles(event.data);
                 this.workflowStatus = event.type;
                 break;

@@ -4,6 +4,7 @@ import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { ApiProvider, ApiSettings } from '../db';
+import { encryptApiKey, isApiKeyEncrypted, isApiKeyEncryptionEnabled, maskStoredApiKey } from '../utils/secret-crypto';
 
 // 默认设置
 const DEFAULT_SETTINGS: APIConfigSettings = {
@@ -26,6 +27,23 @@ const DEFAULT_SETTINGS: APIConfigSettings = {
   comfyUrl: '',
 };
 
+interface ApiProviderLeanDoc {
+  _id?: unknown;
+  id?: string;
+  name: string;
+  providerType?: string;
+  apiKey?: string;
+  baseURL?: string;
+  models?: Record<string, unknown>[];
+  isEnabled?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+function shouldKeepExistingMaskedApiKey(value: string | undefined): boolean {
+  return typeof value === 'string' && value.startsWith('[MASKED:');
+}
+
 @Injectable()
 export class ApiConfigService {
   @Inject(ApiProvider)
@@ -34,28 +52,58 @@ export class ApiConfigService {
   @Inject(ApiSettings)
   private apiSettingsModel!: ModelType<ApiSettings>;
 
+  private toMaskedProvider(doc: ApiProviderLeanDoc, fallbackDate: string): APIProviderConfig {
+    return {
+      id: doc.id || String(doc._id),
+      name: doc.name,
+      providerType: (doc.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
+      apiKey: maskStoredApiKey(doc.apiKey),
+      baseURL: doc.baseURL,
+      models: (doc.models || []) as unknown as APIProviderConfig['models'],
+      isEnabled: doc.isEnabled ?? true,
+      createdAt: (doc.createdAt as string) || fallbackDate,
+      updatedAt: (doc.updatedAt as string) || fallbackDate,
+    };
+  }
+
+  private async migratePlaintextApiKeys(docs: ApiProviderLeanDoc[]): Promise<void> {
+    if (!isApiKeyEncryptionEnabled()) return;
+
+    const now = new Date().toISOString();
+    const operations: Array<{
+      updateOne: {
+        filter: { _id?: unknown };
+        update: { apiKey: string; updatedAt: string };
+      };
+    }> = [];
+
+    for (const doc of docs) {
+      const storedApiKey = doc.apiKey || '';
+      if (!storedApiKey || isApiKeyEncrypted(storedApiKey)) continue;
+      if (!doc._id) continue;
+
+      operations.push({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { apiKey: encryptApiKey(storedApiKey), updatedAt: now },
+        },
+      });
+    }
+
+    if (operations.length === 0) return;
+
+    await this.apiProviderModel.bulkWrite(operations, { ordered: false });
+    console.info(`[ApiConfigService] Migrated ${operations.length} provider API keys to encrypted storage.`);
+  }
+
   public async getAll(): Promise<APIConfigResponse> {
     try {
       const fallbackDate = new Date().toISOString();
-      const providersRaw = await this.apiProviderModel.find().lean();
-      const providers: APIProviderConfig[] = providersRaw.map((p) => ({
-        id: p.id || String(p._id),
-        name: p.name,
-        providerType: (p.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
-        apiKey: p.apiKey || '',
-        baseURL: p.baseURL,
-        models: (p.models || []) as unknown as APIProviderConfig['models'],
-        isEnabled: p.isEnabled ?? true,
-        createdAt: (p.createdAt as string) || fallbackDate,
-        updatedAt: (p.updatedAt as string) || fallbackDate,
-      }));
+      const providersRaw = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+      await this.migratePlaintextApiKeys(providersRaw);
       const settingsDoc = await this.apiSettingsModel.findOne({ key: 'default' }).lean();
       const settings = (settingsDoc?.settings as unknown as APIConfigSettings) || DEFAULT_SETTINGS;
-
-      const maskedProviders = providers.map((p) => ({
-        ...p,
-        apiKey: p.apiKey ? `[MASKED:${p.apiKey.length}]` : '',
-      }));
+      const maskedProviders = providersRaw.map((doc) => this.toMaskedProvider(doc, fallbackDate));
 
       return { providers: maskedProviders, settings };
     } catch (error) {
@@ -90,10 +138,15 @@ export class ApiConfigService {
           throw new HttpError(404, 'Provider not found');
         }
 
+        const existingStoredApiKey = typeof existing.apiKey === 'string' ? existing.apiKey : '';
+        const incomingApiKey = typeof providerData.apiKey === 'string' ? providerData.apiKey : undefined;
+
         const finalApiKey =
-          providerData.apiKey && providerData.apiKey.startsWith('[MASKED:')
-            ? existing.apiKey
-            : providerData.apiKey;
+          shouldKeepExistingMaskedApiKey(incomingApiKey)
+            ? existingStoredApiKey
+            : incomingApiKey === undefined
+              ? existingStoredApiKey
+              : encryptApiKey(incomingApiKey);
 
         await this.apiProviderModel.updateOne(
           { _id: providerData.id as string },
@@ -110,12 +163,14 @@ export class ApiConfigService {
         );
       } else {
         const newId = providerData.id || randomUUID();
+        const incomingApiKey = typeof providerData.apiKey === 'string' ? providerData.apiKey : '';
+
         await this.apiProviderModel.create({
           _id: newId,
           id: newId,
           name: providerData.name || 'Unnamed Provider',
           providerType: providerData.providerType || 'openai-compatible',
-          apiKey: providerData.apiKey || '',
+          apiKey: encryptApiKey(incomingApiKey),
           baseURL: providerData.baseURL,
           models: providerData.models || [],
           isEnabled: providerData.isEnabled ?? true,
@@ -124,17 +179,10 @@ export class ApiConfigService {
         });
       }
 
-      const providers = (await this.apiProviderModel.find().lean()).map((p) => ({
-        id: p.id || String(p._id),
-        name: p.name,
-        providerType: (p.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
-        apiKey: p.apiKey || '',
-        baseURL: p.baseURL,
-        models: (p.models || []) as unknown as APIProviderConfig['models'],
-        isEnabled: p.isEnabled ?? true,
-        createdAt: (p.createdAt as string) || new Date().toISOString(),
-        updatedAt: (p.updatedAt as string) || new Date().toISOString(),
-      })) as APIProviderConfig[];
+      const fallbackDate = new Date().toISOString();
+      const providersRaw = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+      await this.migratePlaintextApiKeys(providersRaw);
+      const providers = providersRaw.map((doc) => this.toMaskedProvider(doc, fallbackDate));
       return { success: true, providers };
     } catch (error) {
       if (error instanceof HttpError) throw error;

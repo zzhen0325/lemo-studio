@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getApiBase } from '@/lib/api-base';
 import { useToast } from '@/hooks/common/use-toast';
-import { UploadedImage } from '@/components/features/playground-v2/types';
+import { UploadedImage } from '@/lib/playground/types';
 
 export interface UploadOptions {
     onLocalPreview?: (image: UploadedImage) => void;

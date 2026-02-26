@@ -130,7 +130,6 @@ export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfi
         }
 
         if (modelId.endsWith('.safetensors') || modelId.includes('safetensors')) {
-            console.log(`[getProvider] Detected safetensors model: ${modelId}, returning dummy provider.`);
             return {
                 generateImage: async () => ({ images: [] })
             } as ImageProvider;

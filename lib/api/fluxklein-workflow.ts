@@ -28,13 +28,29 @@ async function loadTemplate(name: "t2i" | "i2i"): Promise<Workflow> {
   const cached = templateCache[name];
   if (cached) return cached;
   const fileName = name === "t2i" ? "Flux_klein_T2I.json" : "Flux_klein_I2I.json";
-  const firstPath = path.join(process.cwd(), fileName);
-  let content: string;
-  try {
-    content = await fs.readFile(firstPath, "utf8");
-  } catch {
-    const fallbackPath = path.join(process.cwd(), "..", fileName);
-    content = await fs.readFile(fallbackPath, "utf8");
+  const candidatePaths = [
+    path.join(process.cwd(), "workflows", "templates", "flux-klein", fileName),
+    path.join(process.cwd(), "..", "workflows", "templates", "flux-klein", fileName),
+    // Legacy fallback paths
+    path.join(process.cwd(), fileName),
+    path.join(process.cwd(), "..", fileName),
+  ];
+
+  let content: string | undefined;
+  let lastError: unknown;
+  for (const candidatePath of candidatePaths) {
+    try {
+      content = await fs.readFile(candidatePath, "utf8");
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (!content) {
+    throw new Error(
+      `FluxKlein template not found: ${fileName}. Tried: ${candidatePaths.join(", ")}. ${String(lastError)}`
+    );
   }
   const parsed = JSON.parse(content) as Workflow;
   templateCache[name] = parsed;

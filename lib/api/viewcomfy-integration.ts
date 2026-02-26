@@ -153,7 +153,7 @@ export class ViewComfyIntegration {
         // 处理流式响应
         if (stream) {
           // 这里需要处理ReadableStream，暂时跳过
-          console.log("收到流式响应，需要进一步处理");
+          void stream;
         }
       }
 

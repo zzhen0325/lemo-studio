@@ -109,7 +109,7 @@ export function workflowAPItoViewComfy(source: WorkflowApiJSON): IViewComfyBase 
             }
 
         } catch (e) {
-            console.log("Error", e);
+            console.warn("Failed to parse workflow node input", e);
         }
     }
 
@@ -177,10 +177,10 @@ function parseInputField(args: { node: { key: string, value: any }, path: string
         }
         else if (typeof node.value === 'object' && node.value !== null) {
             // TODO: Handle nested objects
-            console.log("Nested object", node.value);
+            return undefined;
         }
     } catch (e) {
-        console.log("Error", e);
+        console.warn("Failed to parse workflow input field", e);
     }
 
     return input;

@@ -1,4 +1,4 @@
-import { ComfyWorkflowError } from '../../app/models/errors';
+import { ComfyWorkflowError } from '../models/errors';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -104,7 +104,6 @@ export const infer = async ({
 
         const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
-                debugger;
                 const outputsDir = path.join(process.cwd(), 'public', 'outputs');
                 await fs.mkdir(outputsDir, { recursive: true });
                 let i = 0;
@@ -205,13 +204,9 @@ async function consumeEventSource(
                                 promptResult = new PromptResult(
                                     JSON.parse(currentData)
                                 );
-                            } else {
-                                console.log(
-                                    `Unknown event: ${currentEvent}, data: ${currentData}`
-                                );
                             }
                         } catch (e) {
-                            console.log("Invalid JSON: ...");
+                            console.warn("Invalid SSE event payload while parsing prompt result.");
                             console.error(e);
                         }
                         // Reset for next event

@@ -26,6 +26,7 @@ export class HistoryService {
     const { page, limit, projectId, userId } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
+    const debugHistory = process.env.DEBUG_HISTORY === 'true' || process.env.HISTORY_DEBUG === '1';
 
     // 自动清理过期记录：改为概率触发 (1%) 且非阻塞
     if (Math.random() < 0.01) {
@@ -41,6 +42,16 @@ export class HistoryService {
         filter.userId = userId;
       }
 
+      if (debugHistory) {
+        console.info('[HistoryDebug][Server] query', {
+          page: pageNum,
+          limit: limitNum,
+          projectId: projectId || null,
+          userId: userId || null,
+          filter,
+        });
+      }
+
       // 使用估算值加速计数（精确计数在大表上很慢）
       const total = Object.keys(filter).length === 0
         ? await this.generationModel.estimatedDocumentCount()
@@ -53,6 +64,16 @@ export class HistoryService {
         .select('-config.editConfig -config.tldrawSnapshot -config.canvasJson -config.referenceImages -llmResponse') // 大幅度减少 Payload
         // 移除 populate 以加速查询，列表页不需要完整的关联数据
         .lean();
+
+      if (debugHistory) {
+        const sampleUserIds = items.slice(0, 5).map((item) => (item as unknown as { userId?: string }).userId || null);
+        console.info('[HistoryDebug][Server] db_result', {
+          total,
+          fetched: items.length,
+          hasMore: (pageNum - 1) * limitNum + items.length < total,
+          sampleUserIds,
+        });
+      }
 
       const history = items.map((item) => {
         const restoredItem = restoreMongoKeys(item) as Record<string, unknown>;
@@ -105,7 +126,7 @@ export class HistoryService {
     }
   }
 
-  public async saveHistory(body: unknown): Promise<{ success: true }> {
+  public async saveHistory(body: unknown): Promise<{ success: true; migratedCount?: number }> {
     try {
       const bodyObj = body as Record<string, unknown>;
       if (bodyObj.action === 'batch-update' && Array.isArray(bodyObj.items)) {
@@ -133,6 +154,38 @@ export class HistoryService {
           { $set: { 'config.sourceImageUrls.0': bodyObj.path } }
         );
         return { success: true };
+      }
+
+      if (bodyObj.action === 'migrate-user-history') {
+        const fromUserId = typeof bodyObj.fromUserId === 'string' ? bodyObj.fromUserId.trim() : '';
+        const toUserId = typeof bodyObj.toUserId === 'string' ? bodyObj.toUserId.trim() : '';
+
+        if (!fromUserId || !toUserId) {
+          throw new HttpError(400, 'fromUserId and toUserId are required');
+        }
+        if (fromUserId === toUserId) {
+          return { success: true, migratedCount: 0 };
+        }
+
+        const result = await this.generationModel.updateMany(
+          { userId: fromUserId },
+          { $set: { userId: toUserId } },
+        );
+
+        // bytedmongoose/mongoose versions may expose different fields on update result
+        const updateResult = result as unknown as {
+          modifiedCount?: number;
+          nModified?: number;
+          result?: { modifiedCount?: number; nModified?: number };
+        };
+        const migratedCount =
+          updateResult.modifiedCount ??
+          updateResult.nModified ??
+          updateResult.result?.modifiedCount ??
+          updateResult.result?.nModified ??
+          0;
+
+        return { success: true, migratedCount };
       }
 
       const item = body as Generation;
@@ -227,10 +280,7 @@ export class HistoryService {
         status: 'pending',
         createdAt: { $lt: tenMinutesAgo }
       });
-      const deletedCount = result.deletedCount ?? 0;
-      if (deletedCount > 0) {
-        console.log(`[HistoryService] Cleaned up ${deletedCount} stale generation records.`);
-      }
+      void result;
     } catch (error) {
       console.error('[HistoryService] Failed to cleanup stale generations:', error);
     }

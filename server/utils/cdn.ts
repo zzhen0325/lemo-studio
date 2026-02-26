@@ -5,7 +5,7 @@ import { fetch, FormData, File } from 'undici';
 const CDN_BASE = process.env.NODE_ENV === 'development' ? 'https://ife-cdn.tiktok-row.net' : 'https://ife-cdn.byteintl.net';
 const DEFAULT_DIR = process.env.CDN_DIR || 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design';
 const DEFAULT_REGION = process.env.CDN_REGION || 'SG';
-const DEFAULT_EMAIL = process.env.CDN_EMAIL || 'zzhen.0325@bytedance.com';
+const DEFAULT_EMAIL = process.env.CDN_EMAIL || (process.env.NODE_ENV === 'production' ? '' : 'anonymous@localhost');
 
 interface UploadOptions {
   fileName?: string;
@@ -77,6 +77,9 @@ export async function uploadBufferToCdn(buffer: Buffer, opts: UploadOptions = {}
   const dir = opts.dir || DEFAULT_DIR;
   const region = opts.region || DEFAULT_REGION;
   const email = opts.email || DEFAULT_EMAIL;
+  if (!email) {
+    throw new Error('[cdn] Missing CDN email. Set CDN_EMAIL in environment variables.');
+  }
 
   const form = new FormData();
   form.set('dir', dir);
@@ -111,8 +114,6 @@ export async function uploadBufferToCdn(buffer: Buffer, opts: UploadOptions = {}
     throw new Error(`[cdn] Invalid response: missing or malformed cdnUrl. resp=${JSON.stringify(resp)}`);
   }
 
-  console.log('[cdn-upload]', { dir, region, email, finalFileName, cdnUrl: finalUrl });
-
   return {
     url: finalUrl,
     dir,
@@ -126,4 +127,3 @@ export function buildCdnPath(subdir: string, fileName: string, region = DEFAULT_
   void region;
   return buildUrl(dir, fileName);
 }
-

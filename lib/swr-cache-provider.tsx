@@ -1,6 +1,7 @@
 'use client';
 
 import { SWRConfig } from 'swr';
+import { getApiBase } from './api-base';
 import { ReactNode, useEffect, useMemo, useCallback } from 'react';
 
 const CACHE_KEY = 'swr-history-cache';
@@ -143,7 +144,7 @@ export function SWRCacheProvider({ children }: SWRCacheProviderProps) {
 export function preloadHistory(userId?: string, projectId?: string) {
     if (typeof window === 'undefined') return;
 
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE || '';
+    const apiBase = getApiBase();
     const url = new URL(`${apiBase}/history`, window.location.origin);
     url.searchParams.set('page', '1');
     url.searchParams.set('limit', '50');

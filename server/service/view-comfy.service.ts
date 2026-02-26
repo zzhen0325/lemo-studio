@@ -17,6 +17,13 @@ export interface ViewComfyConfigPayload {
 
 @Injectable()
 export class ViewComfyConfigService {
+  private getLegacyFallbackPaths() {
+    return [
+      path.join(process.cwd(), '../config/legacy/view_comfy.json'),
+      path.join(process.cwd(), '../view_comfy.json'),
+    ];
+  }
+
   private getWorkflowsDir() {
     return path.join(process.cwd(), 'workflows');
   }
@@ -96,17 +103,16 @@ export class ViewComfyConfigService {
         viewComfys,
       };
     } catch (error) {
-      const fallbackPath = path.join(process.cwd(), '../view_comfy.json');
-      try {
-        const fileContent = await fs.readFile(fallbackPath, 'utf-8');
-        return JSON.parse(fileContent);
-      } catch (fallbackError) {
-        console.error('Failed to load workflow configuration', error, fallbackError);
-        throw new HttpError(500, 'Failed to load workflow configuration', {
-          error,
-          fallbackError,
-        });
+      for (const fallbackPath of this.getLegacyFallbackPaths()) {
+        try {
+          const fileContent = await fs.readFile(fallbackPath, 'utf-8');
+          return JSON.parse(fileContent);
+        } catch {
+          // try next fallback
+        }
       }
+      console.error('Failed to load workflow configuration', error);
+      throw new HttpError(500, 'Failed to load workflow configuration', { error });
     }
   }
 
@@ -157,10 +163,11 @@ export class ViewComfyConfigService {
       await fs.writeFile(indexPath, JSON.stringify(normalized, null, 2), 'utf-8');
       return { message: 'Workflow configuration saved successfully' };
     } catch (error) {
-      const fallbackPath = path.join(process.cwd(), '../view_comfy.json');
+      const fallbackPath = this.getLegacyFallbackPaths()[0];
       try {
+        await fs.mkdir(path.dirname(fallbackPath), { recursive: true });
         await fs.writeFile(fallbackPath, JSON.stringify(payload, null, 2), 'utf-8');
-        return { message: 'Configuration saved to view_comfy.json (fallback)' };
+        return { message: 'Configuration saved to config/legacy/view_comfy.json (fallback)' };
       } catch (fallbackError) {
         console.error('Failed to save workflow configuration', error, fallbackError);
         throw new HttpError(500, 'Failed to save workflow configuration', {

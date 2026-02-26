@@ -1,6 +1,6 @@
 import { Injectable } from '@gulux/gulux';
 import { ComfyUIService } from '../../lib/api/comfyui-service';
-import { ErrorResponseFactory } from '../../app/models/errors';
+import { ErrorResponseFactory } from '../../lib/models/errors';
 import { HttpError } from '../utils/http-error';
 import { buildFluxKleinWorkflow } from '../../lib/api/fluxklein-workflow';
 import type { IViewComfy } from '../../types/comfy-input';
@@ -46,7 +46,6 @@ export class ComfyFluxKleinService {
 
       const comfyUIService = new ComfyUIService({ apiKey, traceId: logId });
       const stream = await comfyUIService.runWorkflow({ workflow, viewComfy });
-      console.log('[ComfyFluxKleinService] runWorkflow success', { logId: logId ?? '' });
       console.info('[FluxKlein][Server] request_stream_ready', {
         traceId: logId ?? '',
         elapsedMs: Date.now() - startAt,

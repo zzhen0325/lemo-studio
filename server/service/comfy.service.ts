@@ -1,5 +1,5 @@
 import { ComfyUIService } from '../../lib/api/comfyui-service';
-import { ErrorResponseFactory } from '../../app/models/errors';
+import { ErrorResponseFactory } from '../../lib/models/errors';
 import { Injectable } from '@gulux/gulux';
 import { HttpError } from '../utils/http-error';
 import type { IViewComfy } from '../../types/comfy-input';
@@ -30,8 +30,6 @@ export class ComfyService {
 
       const comfyUIService = new ComfyUIService({ apiKey });
       const stream = await comfyUIService.runWorkflow({ workflow, viewComfy });
-
-      console.log('[ComfyService] runWorkflow success', { logId: logId ?? '' });
       return stream as ReadableStream<Uint8Array>;
     } catch (error) {
       console.error('[ComfyService] runWorkflow failed', { logId: logId ?? '', error });

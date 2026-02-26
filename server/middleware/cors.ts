@@ -4,8 +4,27 @@ import type { HTTPRequest, HTTPResponse } from '@gulux/gulux/application-http';
 import type { NextFunction } from '@gulux/application';
 
 /**
- * 简单 CORS 处理中间件，允许前端在不同端口访问本服务。
+ * CORS 中间件：默认仅允许本地开发域名，可通过环境变量扩展。
  */
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+
+function parseAllowedOrigins() {
+  const envOrigins = process.env.CORS_ALLOW_ORIGINS
+    ?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return envOrigins && envOrigins.length > 0 ? envOrigins : DEFAULT_ALLOWED_ORIGINS;
+}
+
+function isOriginAllowed(origin: string, allowedOrigins: string[]) {
+  return allowedOrigins.includes(origin);
+}
+
 @Injectable({ scope: ScopeEnum.SINGLETON })
 export default class CorsMiddleware extends GuluXMiddleware {
   public async use(
@@ -14,9 +33,15 @@ export default class CorsMiddleware extends GuluXMiddleware {
     @Next() next: NextFunction,
   ) {
     const origin = req.get('Origin');
+    const allowedOrigins = parseAllowedOrigins();
+    const allowAll = process.env.CORS_ALLOW_ALL === 'true';
+    const isAllowed = Boolean(origin) && (allowAll || isOriginAllowed(origin, allowedOrigins));
+
     if (origin) {
-      res.set('Access-Control-Allow-Origin', origin);
-      res.set('Access-Control-Allow-Credentials', 'true');
+      if (isAllowed) {
+        res.set('Access-Control-Allow-Origin', origin);
+        res.set('Access-Control-Allow-Credentials', 'true');
+      }
     } else {
       res.set('Access-Control-Allow-Origin', '*');
     }
@@ -26,6 +51,11 @@ export default class CorsMiddleware extends GuluXMiddleware {
     res.set('Access-Control-Max-Age', '86400');
 
     if (req.method === 'OPTIONS') {
+      if (origin && !isAllowed) {
+        res.status = 403;
+        res.body = 'CORS origin not allowed';
+        return;
+      }
       res.status = 204;
       res.body = '';
       return;

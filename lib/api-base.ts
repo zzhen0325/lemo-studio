@@ -1,13 +1,16 @@
 export function getApiBase(): string {
-    const envBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
-    if (envBase) {
-        return envBase.replace(/\/$/, '');
+    // Client side: allow explicit override for LAN/direct mode, otherwise same-origin rewrite.
+    if (typeof window !== 'undefined') {
+        const envBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
+        if (envBase) {
+            return envBase.replace(/\/$/, '');
+        }
+        return '/api';
     }
 
-    if (typeof window !== 'undefined') {
-        const protocol = window.location.protocol || 'http:';
-        const hostname = window.location.hostname || '127.0.0.1';
-        return `${protocol}//${hostname}:3000/api`;
+    const internalBase = process.env.GULUX_API_BASE?.trim() || process.env.INTERNAL_API_BASE?.trim();
+    if (internalBase) {
+        return internalBase.replace(/\/$/, '');
     }
 
     return 'http://127.0.0.1:3000/api';

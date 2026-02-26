@@ -115,10 +115,8 @@ export async function generateImage(
     }
 
     const contentType = response.headers.get('Content-Type');
-    console.log(`[ai-client] response status: ${response.status}, contentType: ${contentType}`);
 
     if (contentType?.includes('text/event-stream') && onStream) {
-        console.log(`[ai-client] starting SSE stream processing`);
         const reader = response.body?.getReader();
         if (!reader) throw new Error('Response body is not readable');
 
@@ -131,7 +129,6 @@ export async function generateImage(
 
             if (value) {
                 const chunkText = decoder.decode(value, { stream: true });
-                console.log(`[ai-client] received chunk (${value.length} bytes)`);
                 buffer += chunkText;
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
@@ -142,7 +139,6 @@ export async function generateImage(
             }
 
             if (done) {
-                console.log(`[ai-client] SSE stream reader done`);
                 break;
             }
         }

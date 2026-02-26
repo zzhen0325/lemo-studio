@@ -281,11 +281,6 @@ export class GoogleGenAIProvider
   private baseURL = "https://generativelanguage.googleapis.com/v1beta";
 
   constructor(config: ModelConfig) {
-    console.log(
-      `[GoogleGenAIProvider] Initializing with model: ${config.modelId
-      }, hasApiKey: ${!!config.apiKey}`
-    );
-
     this.apiKey = config.apiKey!;
     this.modelId = config.modelId;
   }
@@ -405,13 +400,17 @@ export class GoogleGenAIProvider
       if (dispatcher) {
         fetchOptions.dispatcher = dispatcher;
       }
-
-      const resp = await fetch(img, fetchOptions);
-      if (!resp.ok) throw new Error(`Fetch image failed: ${resp.status}`);
-      const buffer = await resp.arrayBuffer();
-      base64Data = Buffer.from(buffer).toString('base64');
-      const contentType = resp.headers.get('content-type');
-      if (contentType) mimeType = contentType;
+      try {
+        const resp = await fetch(img, fetchOptions);
+        if (!resp.ok) throw new Error(`status=${resp.status}`);
+        const buffer = await resp.arrayBuffer();
+        base64Data = Buffer.from(buffer).toString('base64');
+        const contentType = resp.headers.get('content-type');
+        if (contentType) mimeType = contentType;
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Fetch image failed: ${msg}`);
+      }
     }
 
     return {
@@ -437,7 +436,8 @@ export class GoogleGenAIProvider
           parts.push(imagePart);
         } catch (err) {
           console.error(`[GoogleGenAIProvider] Error fetching remote image: ${img}`, err);
-          throw new Error(`无法获取远程图片进行生成: ${img}`);
+          const reason = err instanceof Error ? err.message : String(err);
+          throw new Error(`无法获取远程图片进行生成: ${img}（${reason}）。若处于内网环境，请优先使用本地上传图片，或配置 HTTP_PROXY/HTTPS_PROXY。`);
         }
       }
     }
@@ -461,7 +461,6 @@ export class GoogleGenAIProvider
       contents: [{ role: "user", parts }],
       generationConfig: configParams,
     });
-    console.log(`[GoogleGenAIProvider] Sending request to: ${url}`);
     // console.log(`[GoogleGenAIProvider] Request body: ${body}`);
     const dispatcher = getUndiciDispatcher();
     const fetchOptions: RequestInit & { dispatcher?: unknown } = {
@@ -805,7 +804,6 @@ export class CozeImageProvider implements ImageProvider {
                       images.forEach((img: string) => {
                         if (!generatedImages.includes(img)) {
                           generatedImages.push(img);
-                          console.log(`[CozeImageProvider] Found image URL in stream: ${img}`);
                           // Push to stream immediately for better UX
                           const imgSseData = `data: ${JSON.stringify({ images: [img] })}\n\n`;
                           // console.log(`[CozeImageProvider] Enqueueing image SSE: ${imgSseData.substring(0, 100)}...`);

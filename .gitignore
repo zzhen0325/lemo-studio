@@ -137,6 +137,7 @@ temp/
 # Logs (all locations)
 log/
 logs/
+report/
 
 # Backup files
 *.bak

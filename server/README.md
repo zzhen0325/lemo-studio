@@ -22,3 +22,10 @@ npm start
 ```
 
 > 约定：服务从 `server/` 目录启动时，会将 `process.cwd()` 切换到仓库根目录，以保证文件读写路径与原 Next.js 实现一致（例如 `public/**`、`data/api-config/**` 等）。
+
+## 关键环境变量
+
+- `MONGODB_URI` / `MONGODB_DB`：MongoDB 连接配置。
+- `API_CONFIG_ENCRYPTION_KEY`：用于加密 `api-config` 中保存的 `apiKey`。  
+  - 建议使用 32 字节随机密钥（base64 / base64url / hex 均可）。
+  - 未设置时，系统保持明文兼容模式（仅返回值脱敏）。

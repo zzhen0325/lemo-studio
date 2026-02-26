@@ -1,20 +1,12 @@
 import path from "node:path";
 import type { IComfyInput } from "../../types/comfy-input";
-import { ComfyWorkflow } from "../../app/models/comfy-workflow";
+import { ComfyWorkflow } from "../models/comfy-workflow";
 import fs from "node:fs/promises";
 import { ComfyErrorHandler } from "../comfy-error-handler";
-import { ComfyError, ComfyWorkflowError } from "../../app/models/errors";
+import { ComfyError, ComfyWorkflowError } from "../models/errors";
 import { ComfyUIAPIService, ComfyUIAPIServiceConfig } from "./comfyui-api-service";
 import mime from 'mime-types';
 import { missingViewComfyFileError, viewComfyFileName } from "../constants";
-
-// 简单的日志工具类
-const logger = {
-    log: (message: unknown, ...args: unknown[]) => console.log(message, ...args),
-    info: (message: unknown, ...args: unknown[]) => console.info(message, ...args),
-    error: (message: unknown, ...args: unknown[]) => console.error(message, ...args),
-    warn: (message: unknown, ...args: unknown[]) => console.warn(message, ...args),
-};
 
 export class ComfyUIService {
     private comfyErrorHandler: ComfyErrorHandler;
@@ -98,7 +90,6 @@ export class ComfyUIService {
                 if (batchSize > 1) {
                     forceWorkflowBatchSize(finalWorkflow, 1);
                 }
-                console.log(`[ComfyUIService] Final Workflow JSON structure:`, Object.keys(finalWorkflow).length, "nodes");
                 console.info("[FluxKlein][Server] queue_prompt_start", { traceId: this.traceId, index: i + 1 });
                 const promptData = await this.comfyUIAPIService.queuePrompt(finalWorkflow);
                 console.info("[FluxKlein][Server] queue_prompt_done", {
@@ -123,13 +114,11 @@ export class ComfyUIService {
 
             const stream = new ReadableStream<Uint8Array>({
                 start(controller) {
-                    console.log(`[ComfyUIService] Stream start hook triggered. Files to process: ${outputFiles.length}`);
                     // Execute the processing in a background task so start() returns synchronously
                     (async () => {
                         try {
                             for (let i = 0; i < outputFiles.length; i++) {
                                 const file = outputFiles[i];
-                                console.log(`[ComfyUIService] Processing file ${i + 1}/${outputFiles.length}`);
 
                                 let outputBuffer: Blob;
                                 let mimeType: string;
@@ -137,7 +126,6 @@ export class ComfyUIService {
                                     outputBuffer = new Blob([file], { type: 'text/plain' });
                                     mimeType = 'text/plain';
                                 } else {
-                                    console.log(`[ComfyUIService] Fetching file data from ComfyUI...`);
                                     const fileInfo = file as { [key: string]: string };
                                     const fetchStart = Date.now();
                                     outputBuffer = await comfyUIAPIService.getOutputFiles({ file: fileInfo });
@@ -152,17 +140,14 @@ export class ComfyUIService {
                                 controller.enqueue(new TextEncoder().encode(mimeInfo));
 
                                 const buffer = await outputBuffer.arrayBuffer();
-                                console.log(`[ComfyUIService] Enqueuing binary data. Size: ${buffer.byteLength}`);
                                 controller.enqueue(new Uint8Array(buffer));
 
                                 controller.enqueue(new TextEncoder().encode("--BLOB_SEPARATOR--"));
-                                console.log(`[ComfyUIService] Finished file ${i + 1}`);
                             }
                         } catch (error) {
                             console.error("[ComfyUIService] Stream processing error:", error);
                             controller.error(error);
                         } finally {
-                            console.log("[ComfyUIService] Closing stream controller");
                             controller.close();
                         }
                     })().catch(err => {
@@ -176,12 +161,10 @@ export class ComfyUIService {
                 elapsedMs: Date.now() - startAt,
                 outputs: outputFiles.length,
             });
-            logger.info('返回 stream ======');
             return stream;
 
             // biome-ignore lint/suspicious/noExplicitAny: <explanation>
         } catch (error: unknown) {
-            logger.info("Failed to run the workflow", error);
             console.error({ error });
 
             if (error instanceof ComfyWorkflowError) {
@@ -266,7 +249,7 @@ export class ComfyUIService {
                 const filename = await this.uploadImageToComfyUI(value as string);
                 return { filename };
             } catch (error) {
-                logger.error(`Failed to upload image ${value} to ComfyUI:`, error);
+                console.error(`Failed to upload image ${value} to ComfyUI:`, error);
                 return { filename: undefined as string | undefined };
             }
         }));
@@ -308,6 +291,39 @@ export class ComfyUIService {
         return nextInputs;
     }
 
+    private async resolvePublicFilePath(rawPath: string): Promise<string | undefined> {
+        const cleanedPath = rawPath.split("?")[0].split("#")[0];
+        const normalizedPath = cleanedPath.replace(/^\/+/, '');
+        if (!normalizedPath) return undefined;
+
+        const publicDirs = [
+            path.join(process.cwd(), 'public'),
+            path.join(process.cwd(), '..', 'public'),
+        ];
+
+        for (const publicDir of publicDirs) {
+            const candidate = path.join(publicDir, normalizedPath);
+            try {
+                await fs.access(candidate);
+                return candidate;
+            } catch {
+                // try next candidate
+            }
+        }
+        return undefined;
+    }
+
+    private async readLocalPublicImage(rawPath: string): Promise<{ blob: Blob; filename: string } | undefined> {
+        const absolutePath = await this.resolvePublicFilePath(rawPath);
+        if (!absolutePath) return undefined;
+
+        const fileBuffer = await fs.readFile(absolutePath);
+        const filename = path.basename(absolutePath);
+        const mimeType = (mime.lookup(filename) || 'image/png') as string;
+        const blob = new Blob([Uint8Array.from(fileBuffer)], { type: mimeType });
+        return { blob, filename };
+    }
+
     private async uploadImageToComfyUI(imagePathOrUrl: string): Promise<string> {
         try {
             let blob: Blob;
@@ -324,48 +340,48 @@ export class ComfyUIService {
                 blob = new Blob([Uint8Array.from(buffer)], { type });
                 filename = `upload_${Date.now()}.${mime.extension(type) || 'png'}`;
             } else if (imagePathOrUrl.startsWith('http')) {
-                // URL 下载
-                const response = await fetch(imagePathOrUrl);
-                if (!response.ok) throw new Error(`Failed to fetch image from URL: ${response.statusText}`);
-                blob = await response.blob();
                 const url = new URL(imagePathOrUrl);
                 filename = path.basename(url.pathname);
                 if (!filename || filename.length === 0) filename = `upload_${Date.now()}.png`;
-
-            } else {
-                // 本地文件读取
-                const normalizedPath = imagePathOrUrl.replace(/^\/+/, '');
-                const publicDirs = [
-                    path.join(process.cwd(), 'public'),
-                    path.join(process.cwd(), '..', 'public'),
-                ];
-                let absolutePath: string | undefined;
-                for (const publicDir of publicDirs) {
-                    const candidate = path.join(publicDir, normalizedPath);
-                    try {
-                        await fs.access(candidate);
-                        absolutePath = candidate;
-                        break;
-                    } catch {
-                        // try next candidate
+                // URL 下载；若 URL 指向本地静态资源但端口不可达/返回 404，则回退到 public 文件读取
+                try {
+                    const response = await fetch(imagePathOrUrl);
+                    if (!response.ok) {
+                        throw new Error(`status=${response.status} ${response.statusText}`);
+                    }
+                    blob = await response.blob();
+                } catch (error) {
+                    const localFallback = await this.readLocalPublicImage(url.pathname);
+                    if (localFallback) {
+                        console.warn(`[ComfyUIService] Remote image fetch failed, fallback to local file: ${imagePathOrUrl}`);
+                        blob = localFallback.blob;
+                        filename = localFallback.filename;
+                    } else {
+                        const reason = error instanceof Error ? error.message : String(error);
+                        throw new Error(`Failed to fetch image from URL: ${reason}`);
                     }
                 }
 
-                if (!absolutePath) {
-                    logger.warn(`File not found in known public dirs, skipping upload: ${imagePathOrUrl}`);
-                    // 如果找不到文件，就原样返回，不报错，避免中断流程（可能已经是 ComfyUI 里的文件了？）
-                    // 或者应该抛出错误？目前保持原逻辑的柔性
+            } else {
+                // 本地文件读取
+                const localImage = await this.readLocalPublicImage(imagePathOrUrl);
+                if (!localImage) {
+                    const normalizedForCheck = imagePathOrUrl.replace(/^\/+/, '');
+                    const looksLikePath = imagePathOrUrl.includes('/') || normalizedForCheck.includes('/');
+                    if (looksLikePath) {
+                        throw new Error(`Local image not found: ${imagePathOrUrl}`);
+                    }
+                    console.warn(`File not found in known public dirs, keep original filename: ${imagePathOrUrl}`);
                     return path.basename(imagePathOrUrl);
                 }
 
-                const fileBuffer = await fs.readFile(absolutePath);
-                filename = path.basename(imagePathOrUrl);
-                blob = new Blob([Uint8Array.from(fileBuffer)], { type: (mime.lookup(filename) || 'image/png') as string });
+                filename = localImage.filename;
+                blob = localImage.blob;
             }
 
-            logger.info(`Uploading image to ComfyUI: ${filename} ...`);
+            console.info(`Uploading image to ComfyUI: ${filename} ...`);
             const uploadedName = await this.comfyUIAPIService.uploadImage(blob, filename);
-            logger.info(`Successfully uploaded image to ComfyUI: ${uploadedName}`);
+            console.info(`Successfully uploaded image to ComfyUI: ${uploadedName}`);
             return uploadedName;
 
         } catch (error) {

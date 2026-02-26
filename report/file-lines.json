@@ -1,233 +1,221 @@
 {
-  "generatedAt": "2026-01-29T17:54:51.137Z",
-  "root": "/workspace/iris_563942ca-82a1-4b40-8469-0b77d8b183bb/Lemon8_ai_studio",
+  "generatedAt": "2026-02-26T12:32:07.818Z",
+  "root": "/Users/bytedance/Desktop/seeseezz/gulux",
   "threshold": 500,
   "strict": false,
-  "totalFiles": 302,
-  "totalLines": 48161,
+  "totalFiles": 296,
+  "totalLines": 46972,
   "files": [
     {
-      "path": "components/features/dataset/CollectionDetail.tsx",
-      "lines": 2097
+      "path": "app/studio/playground/_components/containers/PlaygroundPageContainer.tsx",
+      "lines": 1522
     },
     {
-      "path": "pages/playground.tsx",
-      "lines": 1635
-    },
-    {
-      "path": "components/features/playground-v2/HistoryList.tsx",
-      "lines": 1339
-    },
-    {
-      "path": "components/features/playground-v2/Dialogs/TldrawEditorView.tsx",
-      "lines": 1315
-    },
-    {
-      "path": "components/features/playground-v2/hooks/useImageEditor.ts",
+      "path": "app/studio/playground/_components/hooks/useImageEditor.ts",
       "lines": 1301
     },
     {
       "path": "lib/ai/providers.ts",
-      "lines": 1243
+      "lines": 1282
     },
     {
-      "path": "lib/store/playground-store.ts",
-      "lines": 934
+      "path": "app/studio/playground/_components/Banner/BannerModePanel.tsx",
+      "lines": 1248
     },
     {
-      "path": "components/features/playground-v2/Dialogs/PresetManagerDialog.tsx",
-      "lines": 782
+      "path": "app/studio/dataset/_components/CollectionDetail.tsx",
+      "lines": 982
     },
     {
-      "path": "pages/mapping-editor-page.tsx",
-      "lines": 755
+      "path": "app/studio/playground/_components/history/HistoryCards.tsx",
+      "lines": 838
     },
     {
-      "path": "components/features/playground-v2/PlaygroundInputSection.tsx",
+      "path": "app/studio/playground/_components/GalleryView.tsx",
+      "lines": 834
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/TldrawEditorView.tsx",
+      "lines": 817
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/PresetManagerDialog.tsx",
+      "lines": 786
+    },
+    {
+      "path": "app/studio/playground/_components/hooks/useGenerationService.ts",
+      "lines": 762
+    },
+    {
+      "path": "app/studio/mapping-editor/_components/mapping-editor-page.tsx",
+      "lines": 748
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/useCollectionDetailAiWorkflow.tsx",
+      "lines": 718
+    },
+    {
+      "path": "app/studio/playground/_components/PlaygroundInputSection.tsx",
       "lines": 667
     },
     {
-      "path": "components/features/playground-v2/GalleryView.tsx",
-      "lines": 656
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailHeader.tsx",
+      "lines": 569
     },
     {
-      "path": "components/animate-ui/primitives/effects/highlight.tsx",
-      "lines": 652
+      "path": "lib/store/playground-store.ts",
+      "lines": 569
     },
     {
-      "path": "components/animate-ui/primitives/radix/dropdown-menu.tsx",
-      "lines": 564
-    },
-    {
-      "path": "components/features/playground-v2/StyleDetailView.tsx",
+      "path": "app/studio/playground/_components/StyleDetailView.tsx",
       "lines": 552
     },
     {
-      "path": "components/features/settings/SettingsView.tsx",
-      "lines": 523
+      "path": "app/studio/playground/_components/ControlToolbar.tsx",
+      "lines": 532
     },
     {
-      "path": "components/features/tools/ParameterPanel.tsx",
+      "path": "lib/store/playground-store.library-actions.ts",
+      "lines": 522
+    },
+    {
+      "path": "app/studio/settings/_components/SettingsView.tsx",
+      "lines": 513
+    },
+    {
+      "path": "app/studio/mapping-editor/_components/workflow-analyzer.tsx",
+      "lines": 507
+    },
+    {
+      "path": "app/studio/tools/_components/ParameterPanel.tsx",
       "lines": 505
     },
     {
-      "path": "app/api/dataset/route.ts",
-      "lines": 469
-    },
-    {
-      "path": "components/features/playground-v2/ControlToolbar.tsx",
-      "lines": 460
+      "path": "app/studio/playground/_components/Dialogs/ImagePreviewModal.tsx",
+      "lines": 489
     },
     {
       "path": "components/ui/gradient-shader-card.tsx",
       "lines": 460
     },
     {
-      "path": "components/features/playground-v2/hooks/useGenerationService.ts",
-      "lines": 451
+      "path": "app/studio/playground/_components/HistoryList.tsx",
+      "lines": 434
     },
     {
-      "path": "app/api/history/route.ts",
-      "lines": 441
+      "path": "server/service/dataset.service.ts",
+      "lines": 432
     },
     {
-      "path": "components/motion-primitives/morphing-dialog.tsx",
-      "lines": 423
+      "path": "lib/api/comfyui-api-service.ts",
+      "lines": 398
     },
     {
-      "path": "components/features/playground-v2/Dialogs/ImagePreviewModal.tsx",
-      "lines": 412
+      "path": "lib/api/comfyui-service.ts",
+      "lines": 392
     },
     {
       "path": "lib/api/viewcomfy-api-services.ts",
-      "lines": 393
+      "lines": 388
     },
     {
-      "path": "components/common/graphics/GradualBlur.tsx",
-      "lines": 386
-    },
-    {
-      "path": "components/features/playground-v2/ProjectSection/project-sidebar/ProjectSidebar.tsx",
-      "lines": 376
+      "path": "app/studio/mapping-editor/_components/parameter-mapping-panel.tsx",
+      "lines": 384
     },
     {
       "path": "lib/local-storage-manager.ts",
       "lines": 375
     },
     {
-      "path": "components/features/playground-v2/Dialogs/TldrawShapes.tsx",
-      "lines": 364
-    },
-    {
-      "path": "components/animate-ui/primitives/animate/tabs.tsx",
-      "lines": 360
-    },
-    {
-      "path": "components/features/mapping-editor/parameter-mapping-panel.tsx",
-      "lines": 358
+      "path": "app/studio/playground/_components/Dialogs/TldrawShapes.tsx",
+      "lines": 370
     },
     {
       "path": "components/visual-effects/GradualBlur.tsx",
       "lines": 346
     },
     {
-      "path": "components/common/graphics/EtherealGradient.tsx",
-      "lines": 340
-    },
-    {
-      "path": "components/common/graphics/ColorBends.tsx",
-      "lines": 329
+      "path": "app/studio/playground/_components/Dialogs/TldrawEditorWidgets.tsx",
+      "lines": 328
     },
     {
       "path": "components/visual-effects/ColorBends.tsx",
       "lines": 328
     },
     {
-      "path": "server/service/dataset.service.ts",
-      "lines": 322
-    },
-    {
-      "path": "components/features/settings/ProviderFormModal.tsx",
+      "path": "app/studio/playground/_components/StyleCollageEditor.tsx",
       "lines": 314
     },
     {
-      "path": "components/animate-ui/components/radix/dropdown-menu.tsx",
-      "lines": 313
-    },
-    {
-      "path": "components/features/playground-v2/StyleCollageEditor.tsx",
-      "lines": 312
-    },
-    {
-      "path": "lib/api/comfyui-api-service.ts",
-      "lines": 310
+      "path": "app/studio/settings/_components/ProviderFormModal.tsx",
+      "lines": 314
     },
     {
       "path": "components/ui/dotted-glow-background.tsx",
       "lines": 308
     },
     {
+      "path": "lib/store/api-config-store.ts",
+      "lines": 293
+    },
+    {
       "path": "components/visual-effects/PixelCard.tsx",
       "lines": 290
     },
     {
-      "path": "lib/store/api-config-store.ts",
-      "lines": 281
-    },
-    {
-      "path": "app/page.tsx",
-      "lines": 280
-    },
-    {
       "path": "server/db/models.ts",
-      "lines": 278
+      "lines": 283
     },
     {
-      "path": "components/features/mapping-editor/workflow-analyzer.tsx",
-      "lines": 269
+      "path": "lib/prompt/banner-prompt.ts",
+      "lines": 263
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailListItem.tsx",
+      "lines": 260
     },
     {
       "path": "lib/api/viewcomfy-integration.ts",
-      "lines": 256
+      "lines": 257
     },
     {
-      "path": "tests/api/dataset.route.spec.ts",
-      "lines": 247
+      "path": "app/studio/mapping-editor/_components/create-workflow-dialog.tsx",
+      "lines": 252
     },
     {
-      "path": "lib/store/project-store.ts",
+      "path": "lib/store/playground-store.banner-actions.ts",
+      "lines": 248
+    },
+    {
+      "path": "app/globals.css",
       "lines": 246
     },
     {
-      "path": "styles/globals.css",
-      "lines": 246
+      "path": "server/service/view-comfy.service.ts",
+      "lines": 245
     },
     {
-      "path": "components/visual-effects/PixelCard.jsx",
-      "lines": 242
-    },
-    {
-      "path": "components/features/playground-v2/DescribePanel.tsx",
+      "path": "app/studio/playground/_components/DescribePanel.tsx",
       "lines": 239
     },
     {
       "path": "server/service/history.service.ts",
-      "lines": 235
+      "lines": 236
     },
     {
-      "path": "components/features/tools/ToolsView.tsx",
+      "path": "app/studio/tools/_components/ToolsView.tsx",
       "lines": 228
     },
     {
+      "path": "app/studio/dataset/_components/collection-detail/collection-detail.ai.ts",
+      "lines": 224
+    },
+    {
       "path": "types/features/mapping-editor.ts",
-      "lines": 220
+      "lines": 221
     },
     {
-      "path": "components/features/playground-v2/StyleStacksView.tsx",
-      "lines": 218
-    },
-    {
-      "path": "lib/api/comfyui-service.ts",
+      "path": "app/studio/playground/_components/StyleStacksView.tsx",
       "lines": 218
     },
     {
@@ -239,19 +227,35 @@
       "lines": 217
     },
     {
-      "path": "components/features/playground-v2/Dialogs/LoraSelectorDialog.tsx",
-      "lines": 215
+      "path": "app/studio/playground/_components/StyleStackCard.tsx",
+      "lines": 214
     },
     {
-      "path": "components/features/playground-v2/StyleStackCard.tsx",
-      "lines": 214
+      "path": "app/studio/dataset/_components/DatasetManagerView.tsx",
+      "lines": 213
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/LoraSelectorDialog.tsx",
+      "lines": 211
     },
     {
       "path": "lib/providers/view-comfy-provider.tsx",
       "lines": 211
     },
     {
+      "path": "app/studio/playground/_components/PresetGridOverlay.tsx",
+      "lines": 207
+    },
+    {
+      "path": "server/service/api-config.service.ts",
+      "lines": 207
+    },
+    {
       "path": "components/ui/dropdown-menu.tsx",
+      "lines": 206
+    },
+    {
+      "path": "server/service/translate.service.ts",
       "lines": 206
     },
     {
@@ -259,27 +263,35 @@
       "lines": 205
     },
     {
-      "path": "components/layout/sidebar.tsx",
-      "lines": 204
-    },
-    {
-      "path": "components/features/dataset/DatasetManagerView.tsx",
-      "lines": 202
-    },
-    {
       "path": "pixelGRID/MediaCanvas.tsx",
       "lines": 202
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/TldrawEditorPanels.tsx",
+      "lines": 194
     },
     {
       "path": "scripts/migrate-history.ts",
       "lines": 194
     },
     {
+      "path": "app/studio/playground/_hooks/use-post-fluxklein.tsx",
+      "lines": 193
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/collection-detail.upload.ts",
+      "lines": 189
+    },
+    {
       "path": "pixelGRID/ControlPanel.tsx",
       "lines": 186
     },
     {
-      "path": "components/features/mapping-editor/node-configuration-dialog.tsx",
+      "path": "tests/schemas/dataset.spec.ts",
+      "lines": 186
+    },
+    {
+      "path": "app/studio/mapping-editor/_components/node-configuration-dialog.tsx",
       "lines": 183
     },
     {
@@ -288,6 +300,10 @@
     },
     {
       "path": "lib/ai/modelRegistry.ts",
+      "lines": 182
+    },
+    {
+      "path": "app/studio/mapping-editor/_components/mapping-list.tsx",
       "lines": 181
     },
     {
@@ -295,39 +311,35 @@
       "lines": 179
     },
     {
-      "path": "app/api/api-config/route.ts",
-      "lines": 178
+      "path": "lib/api/fluxklein-workflow.ts",
+      "lines": 179
     },
     {
       "path": "components/ui/spiral.tsx",
       "lines": 178
     },
     {
-      "path": "components/layout/NewSidebar.tsx",
-      "lines": 176
+      "path": "lib/ai/client.ts",
+      "lines": 173
+    },
+    {
+      "path": "tests/server/api-config.service.spec.ts",
+      "lines": 173
+    },
+    {
+      "path": "app/studio/tools/_components/tool-configs.ts",
+      "lines": 172
     },
     {
       "path": "components/visual-effects/AnimatedList.tsx",
       "lines": 172
     },
     {
-      "path": "components/features/tools/tool-configs.ts",
+      "path": "app/studio/dataset/_components/collection-detail/collection-detail.utils.ts",
       "lines": 171
     },
     {
-      "path": "lib/ai/client.ts",
-      "lines": 170
-    },
-    {
-      "path": "hooks/features/playground/use-post-playground.tsx",
-      "lines": 169
-    },
-    {
-      "path": "tests/api/ai.route.spec.ts",
-      "lines": 168
-    },
-    {
-      "path": "components/common/graphics/FlowingGradient.tsx",
+      "path": "server/service/ai.service.ts",
       "lines": 166
     },
     {
@@ -336,7 +348,11 @@
     },
     {
       "path": "server/service/presets.service.ts",
-      "lines": 165
+      "lines": 163
+    },
+    {
+      "path": "app/studio/playground/_components/containers/hooks/useResultModalState.ts",
+      "lines": 162
     },
     {
       "path": "lib/adapters/data-mapping.ts",
@@ -344,30 +360,22 @@
     },
     {
       "path": "lib/swr-cache-provider.tsx",
-      "lines": 161
+      "lines": 162
     },
     {
-      "path": "server/service/ai.service.ts",
-      "lines": 161
+      "path": "app/studio/_components/StudioSidebar.tsx",
+      "lines": 160
     },
     {
-      "path": "server/service/api-config.service.ts",
-      "lines": 159
-    },
-    {
-      "path": "components/features/playground-v2/Dialogs/AddToProjectDialog.tsx",
+      "path": "app/studio/tools/_components/WebGLRenderer.tsx",
       "lines": 158
     },
     {
-      "path": "components/features/tools/WebGLRenderer.tsx",
-      "lines": 158
+      "path": "app/studio/playground/_components/Dialogs/tldraw-editor-helpers.ts",
+      "lines": 156
     },
     {
-      "path": "app/api/users/route.ts",
-      "lines": 157
-    },
-    {
-      "path": "components/features/settings/ProviderCard.tsx",
+      "path": "app/studio/settings/_components/ProviderCard.tsx",
       "lines": 156
     },
     {
@@ -379,7 +387,7 @@
       "lines": 156
     },
     {
-      "path": "components/motion-primitives/glow-effect.tsx",
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailListView.tsx",
       "lines": 152
     },
     {
@@ -387,67 +395,63 @@
       "lines": 152
     },
     {
+      "path": "app/studio/playground/_hooks/use-post-playground.tsx",
+      "lines": 151
+    },
+    {
       "path": "components/visual-effects/Silk.tsx",
       "lines": 151
     },
     {
-      "path": "components/features/auth/UserProfileDialog.tsx",
+      "path": "types/database.ts",
+      "lines": 149
+    },
+    {
+      "path": "app/studio/_components/auth/UserProfileDialog.tsx",
       "lines": 147
     },
     {
-      "path": "app/api/view-comfy/route.ts",
-      "lines": 146
+      "path": "lib/store/playground-store.types.ts",
+      "lines": 147
     },
     {
-      "path": "lib/api/PlaygroundV2.ts",
-      "lines": 146
+      "path": "server/service/save-image.service.ts",
+      "lines": 147
     },
     {
       "path": "components/ui/warp-flow-card.tsx",
       "lines": 143
     },
     {
-      "path": "server/service/save-image.service.ts",
-      "lines": 143
-    },
-    {
-      "path": "components/features/playground-v2/PresetGridOverlay.tsx",
-      "lines": 142
-    },
-    {
       "path": "components/ui/alert-dialog.tsx",
       "lines": 142
     },
     {
-      "path": "components/features/dataset/CollectionList.tsx",
+      "path": "app/studio/dataset/_components/CollectionList.tsx",
       "lines": 141
     },
     {
-      "path": "server/service/view-comfy.service.ts",
-      "lines": 140
+      "path": "app/studio/playground/_components/containers/components/PlaygroundDockSidebar.tsx",
+      "lines": 141
     },
     {
-      "path": "hooks/features/useCozeWorkflow.ts",
-      "lines": 137
+      "path": "lib/workflow-governance.ts",
+      "lines": 139
     },
     {
-      "path": "components/features/playground-v2/PromptInput.tsx",
-      "lines": 134
+      "path": "app/studio/playground/_components/PromptInput.tsx",
+      "lines": 133
     },
     {
       "path": "components/ui/ShinyText.tsx",
       "lines": 133
     },
     {
-      "path": "app/api/save-image/route.ts",
-      "lines": 132
-    },
-    {
-      "path": "app/api/tools/presets/route.ts",
-      "lines": 131
-    },
-    {
       "path": "pixelGRID/constants.tsx",
+      "lines": 130
+    },
+    {
+      "path": "server/utils/cdn.ts",
       "lines": 130
     },
     {
@@ -455,15 +459,7 @@
       "lines": 129
     },
     {
-      "path": "tests/schemas/dataset.spec.ts",
-      "lines": 127
-    },
-    {
-      "path": "components/features/mapping-editor/mapping-list.tsx",
-      "lines": 126
-    },
-    {
-      "path": "types/database.ts",
+      "path": "server/service/comfy-proxy.service.ts",
       "lines": 126
     },
     {
@@ -471,27 +467,43 @@
       "lines": 125
     },
     {
+      "path": "lib/playground/types.ts",
+      "lines": 125
+    },
+    {
+      "path": "lib/store/playground-store.helpers.ts",
+      "lines": 124
+    },
+    {
       "path": "components/ui/dialog.tsx",
       "lines": 122
+    },
+    {
+      "path": "lib/storage/local.ts",
+      "lines": 121
     },
     {
       "path": "components/ui/drawer.tsx",
       "lines": 119
     },
     {
-      "path": "components/features/auth/AuthDialog.tsx",
+      "path": "app/studio/_components/auth/AuthDialog.tsx",
       "lines": 118
     },
     {
-      "path": "components/features/playground-v2/Dialogs/BaseModelSelectorDialog.tsx",
+      "path": "app/studio/playground/_components/Dialogs/BaseModelSelectorDialog.tsx",
       "lines": 118
     },
     {
-      "path": "components/features/playground-v2/Dialogs/WorkflowSelectorDialog.tsx",
+      "path": "app/studio/playground/_components/Dialogs/WorkflowSelectorDialog.tsx",
       "lines": 115
     },
     {
-      "path": "components/features/playground-v2/SimpleImagePreview.tsx",
+      "path": "app/studio/playground/_components/SimpleImagePreview.tsx",
+      "lines": 115
+    },
+    {
+      "path": "app/studio/playground/_components/containers/components/PlaygroundDockPanels.tsx",
       "lines": 115
     },
     {
@@ -507,11 +519,7 @@
       "lines": 115
     },
     {
-      "path": "server/utils/cdn.ts",
-      "lines": 115
-    },
-    {
-      "path": "components/common/graphics/BackgroundImage.tsx",
+      "path": "server/utils/secret-crypto.ts",
       "lines": 112
     },
     {
@@ -519,68 +527,64 @@
       "lines": 112
     },
     {
-      "path": "lib/storage/local.ts",
+      "path": "app/studio/dataset/_components/collection-detail/collection-detail.service.ts",
       "lines": 110
+    },
+    {
+      "path": "server/controller/comfy-proxy.controller.ts",
+      "lines": 110
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/TldrawEditorModal.tsx",
+      "lines": 109
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailGridView.tsx",
+      "lines": 108
+    },
+    {
+      "path": "server/controller/dataset.controller.ts",
+      "lines": 107
     },
     {
       "path": "components/ui/hero.tsx",
       "lines": 106
     },
     {
+      "path": "app/studio/dataset/_components/collection-detail/SortableImageCard.tsx",
+      "lines": 104
+    },
+    {
       "path": "components/ui/autosize-text-area.tsx",
       "lines": 104
     },
     {
-      "path": "components/features/tools/adapters/PixelGridAdapter.tsx",
+      "path": "app/studio/tools/_components/adapters/PixelGridAdapter.tsx",
       "lines": 103
+    },
+    {
+      "path": "config/banner-templates.ts",
+      "lines": 103
+    },
+    {
+      "path": "lib/models/comfy-workflow.ts",
+      "lines": 102
     },
     {
       "path": "lib/api-config/types.ts",
       "lines": 101
     },
     {
-      "path": "components/animate-ui/primitives/animate/slot.tsx",
+      "path": "app/studio/dataset/_components/collection-detail/PromptTextareas.tsx",
       "lines": 100
-    },
-    {
-      "path": "app/api/loras/route.ts",
-      "lines": 99
-    },
-    {
-      "path": "app/models/comfy-workflow.ts",
-      "lines": 98
     },
     {
       "path": "hooks/common/use-image-upload.ts",
       "lines": 98
     },
     {
-      "path": "components/features/playground-v2/ProjectSection/project-sidebar/AllProjectsView.tsx",
-      "lines": 97
-    },
-    {
       "path": "server/service/tools-presets.service.ts",
       "lines": 96
-    },
-    {
-      "path": "app/api/presets/route.ts",
-      "lines": 95
-    },
-    {
-      "path": "components/features/playground-v2/Dialogs/TldrawEditorModal.tsx",
-      "lines": 95
-    },
-    {
-      "path": "lib/store/__tests__/project-store.test.ts",
-      "lines": 94
-    },
-    {
-      "path": "app/api/projects/route.ts",
-      "lines": 93
-    },
-    {
-      "path": "components/animate-ui/components/animate/tabs.tsx",
-      "lines": 91
     },
     {
       "path": "components/ui/PixelDistortion.tsx",
@@ -591,15 +595,11 @@
       "lines": 88
     },
     {
-      "path": "app/api/styles/route.ts",
-      "lines": 87
-    },
-    {
       "path": "scripts/test-gemini.ts",
       "lines": 86
     },
     {
-      "path": "app/models/errors.ts",
+      "path": "lib/models/errors.ts",
       "lines": 85
     },
     {
@@ -607,11 +607,7 @@
       "lines": 84
     },
     {
-      "path": "app/api/comfy/route.ts",
-      "lines": 83
-    },
-    {
-      "path": "hooks/features/byte-artist/useImageEditing.ts",
+      "path": "app/studio/playground/_components/containers/components/PlaygroundHomeActions.tsx",
       "lines": 83
     },
     {
@@ -619,39 +615,23 @@
       "lines": 82
     },
     {
-      "path": "app/api/ai/image/route.ts",
-      "lines": 80
-    },
-    {
       "path": "components/ui/loading-spinner.tsx",
       "lines": 79
-    },
-    {
-      "path": "server/controller/dataset.controller.ts",
-      "lines": 78
     },
     {
       "path": "server/service/loras.service.ts",
       "lines": 78
     },
     {
-      "path": "components/common/graphics/Noise.tsx",
-      "lines": 77
-    },
-    {
       "path": "components/ui/card.tsx",
       "lines": 77
     },
     {
-      "path": "app/api/ai/text/route.ts",
-      "lines": 76
-    },
-    {
-      "path": "hooks/features/byte-artist/useImageGeneration.ts",
+      "path": "server/controller/ai.controller.ts",
       "lines": 74
     },
     {
-      "path": "server/controller/ai.controller.ts",
+      "path": "server/utils/formdata.ts",
       "lines": 74
     },
     {
@@ -659,47 +639,43 @@
       "lines": 73
     },
     {
-      "path": "hooks/features/byte-artist/usePromptOptimization.ts",
-      "lines": 73
-    },
-    {
       "path": "lib/ai/types.ts",
       "lines": 73
-    },
-    {
-      "path": "components/features/playground-v2/hooks/useHistory.ts",
-      "lines": 72
-    },
-    {
-      "path": "components/features/playground-v2/types.ts",
-      "lines": 71
     },
     {
       "path": "components/visual-effects/AnimatedList.css",
       "lines": 71
     },
     {
+      "path": "app/studio/playground/_components/GoogleApiStatus.tsx",
+      "lines": 70
+    },
+    {
       "path": "lib/api/viewcomfy-service.ts",
-      "lines": 71
-    },
-    {
-      "path": "app/models/viewcomfy-api-param-builder.ts",
       "lines": 70
     },
     {
-      "path": "components/features/playground-v2/GoogleApiStatus.tsx",
+      "path": "lib/models/viewcomfy-api-param-builder.ts",
       "lines": 70
     },
     {
-      "path": "components/features/playground-v2/hooks/usePromptOptimization.ts",
+      "path": "app/studio/layout.tsx",
       "lines": 69
     },
     {
-      "path": "components/features/playground-v2/HistoryLoadingSkeleton.tsx",
+      "path": "app/studio/playground/_components/hooks/usePromptOptimization.ts",
+      "lines": 69
+    },
+    {
+      "path": "server/config/config.default.ts",
+      "lines": 69
+    },
+    {
+      "path": "app/studio/playground/_components/HistoryLoadingSkeleton.tsx",
       "lines": 68
     },
     {
-      "path": "components/features/playground-v2/StylesMarquee.tsx",
+      "path": "app/studio/playground/_components/StylesMarquee.tsx",
       "lines": 68
     },
     {
@@ -711,28 +687,40 @@
       "lines": 68
     },
     {
-      "path": "server/utils/formdata.ts",
-      "lines": 68
-    },
-    {
       "path": "tests/storage/local.spec.ts",
       "lines": 68
     },
     {
-      "path": "app/api/ai/describe/route.ts",
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailPrefixBar.tsx",
       "lines": 67
     },
     {
-      "path": "components/features/playground-v2/constants/aspect-ratio.ts",
+      "path": "app/studio/playground/_components/constants/aspect-ratio.ts",
       "lines": 67
+    },
+    {
+      "path": "server/middleware/cors.ts",
+      "lines": 67
+    },
+    {
+      "path": "app/studio/playground/_components/hooks/useHistory.ts",
+      "lines": 66
+    },
+    {
+      "path": "lib/api-base.ts",
+      "lines": 66
     },
     {
       "path": "lib/ai/hooks.ts",
       "lines": 65
     },
     {
-      "path": "components/motion-primitives/progressive-blur.tsx",
-      "lines": 64
+      "path": "lib/comfy-error-handler.ts",
+      "lines": 65
+    },
+    {
+      "path": "lib/utils/annotation-label.ts",
+      "lines": 65
     },
     {
       "path": "config/system-prompts.ts",
@@ -743,20 +731,24 @@
       "lines": 63
     },
     {
+      "path": "lib/schemas/dataset.ts",
+      "lines": 63
+    },
+    {
+      "path": "lib/utils/download.ts",
+      "lines": 63
+    },
+    {
       "path": "components/ui/item.tsx",
       "lines": 62
     },
     {
-      "path": "server/config/config.default.ts",
-      "lines": 62
+      "path": "server/service/comfy-fluxklein.service.ts",
+      "lines": 61
     },
     {
       "path": "server/utils/mongo.ts",
       "lines": 61
-    },
-    {
-      "path": "app/api/dataset/sync/route.ts",
-      "lines": 60
     },
     {
       "path": "components/ui/alert.tsx",
@@ -775,31 +767,23 @@
       "lines": 59
     },
     {
-      "path": "app/api/translate/route.ts",
-      "lines": 58
-    },
-    {
-      "path": "server/service/translate.service.ts",
-      "lines": 58
-    },
-    {
-      "path": "app/api/upload/route.ts",
-      "lines": 57
-    },
-    {
       "path": "components/ui/tabs.tsx",
       "lines": 56
     },
     {
-      "path": "lib/api-base.ts",
+      "path": "tests/server/secret-crypto.spec.ts",
       "lines": 56
+    },
+    {
+      "path": "app/layout.tsx",
+      "lines": 55
     },
     {
       "path": "hooks/use-data-state.tsx",
       "lines": 55
     },
     {
-      "path": "components/features/playground-v2/DescriptionCardsView.tsx",
+      "path": "app/studio/playground/_components/DescriptionCardsView.tsx",
       "lines": 54
     },
     {
@@ -827,24 +811,16 @@
       "lines": 52
     },
     {
-      "path": "components/ui/resizable.tsx",
-      "lines": 50
+      "path": "lib/store/playground-store.persist.ts",
+      "lines": 51
     },
     {
-      "path": "lib/comfy-error-handler.ts",
+      "path": "components/ui/resizable.tsx",
       "lines": 50
     },
     {
       "path": "server/service/dataset-sync.service.ts",
       "lines": 50
-    },
-    {
-      "path": "app/api/check-google-api/route.ts",
-      "lines": 49
-    },
-    {
-      "path": "app/layout.tsx",
-      "lines": 49
     },
     {
       "path": "components/ui/scroll-area.tsx",
@@ -855,15 +831,15 @@
       "lines": 49
     },
     {
-      "path": "types/coze-workflow.ts",
-      "lines": 49
-    },
-    {
       "path": "lib/storage/tos.ts",
       "lines": 48
     },
     {
-      "path": "components/features/playground-v2/PromptContext.tsx",
+      "path": "app/studio/playground/_components/PromptContext.tsx",
+      "lines": 46
+    },
+    {
+      "path": "app/studio/playground/_components/hooks/useGroupedHistory.ts",
       "lines": 46
     },
     {
@@ -871,28 +847,12 @@
       "lines": 45
     },
     {
-      "path": "lib/schemas/dataset.ts",
-      "lines": 45
-    },
-    {
       "path": "server/controller/tools-presets.controller.ts",
-      "lines": 45
-    },
-    {
-      "path": "server/service/projects.service.ts",
       "lines": 45
     },
     {
       "path": "types/global.d.ts",
       "lines": 45
-    },
-    {
-      "path": "components/motion-primitives/border-trail.tsx",
-      "lines": 44
-    },
-    {
-      "path": "server/service/comfy.service.ts",
-      "lines": 44
     },
     {
       "path": "server/controller/api-config.controller.ts",
@@ -903,11 +863,15 @@
       "lines": 43
     },
     {
+      "path": "app/studio/playground/_components/hooks/useHistoryDragTransfer.ts",
+      "lines": 42
+    },
+    {
       "path": "hooks/common/use-toast.ts",
       "lines": 42
     },
     {
-      "path": "components/features/tools/adapters/SpiralToolAdapter.tsx",
+      "path": "app/studio/tools/_components/adapters/SpiralToolAdapter.tsx",
       "lines": 41
     },
     {
@@ -919,27 +883,23 @@
       "lines": 41
     },
     {
+      "path": "server/service/comfy.service.ts",
+      "lines": 41
+    },
+    {
       "path": "public/css/style.css",
       "lines": 40
     },
     {
-      "path": "lib/utils/download.ts",
+      "path": "server/controller/view-comfy.controller.ts",
       "lines": 38
     },
     {
-      "path": "server/middleware/cors.ts",
-      "lines": 38
-    },
-    {
-      "path": "components/features/playground-v2/PlaygroundBackground.tsx",
+      "path": "app/studio/playground/_components/PlaygroundBackground.tsx",
       "lines": 37
     },
     {
       "path": "components/ui/badge.tsx",
-      "lines": 37
-    },
-    {
-      "path": "components/visual-effects/PixelCard.css",
       "lines": 37
     },
     {
@@ -951,11 +911,7 @@
       "lines": 37
     },
     {
-      "path": "app/api/presets/categories/route.ts",
-      "lines": 36
-    },
-    {
-      "path": "components/common/graphics/GradualBlur.css",
+      "path": "server/controller/comfy-fluxklein.controller.ts",
       "lines": 35
     },
     {
@@ -975,6 +931,10 @@
       "lines": 34
     },
     {
+      "path": "app/studio/mapping-editor/page.tsx",
+      "lines": 33
+    },
+    {
       "path": "components/ui/error-alert-dialog.tsx",
       "lines": 33
     },
@@ -983,15 +943,15 @@
       "lines": 32
     },
     {
+      "path": "app/studio/playground/page.tsx",
+      "lines": 31
+    },
+    {
       "path": "components/ui/checkbox.tsx",
       "lines": 31
     },
     {
       "path": "components/ui/tooltip.tsx",
-      "lines": 31
-    },
-    {
-      "path": "pages/_app.tsx",
       "lines": 31
     },
     {
@@ -1011,8 +971,8 @@
       "lines": 31
     },
     {
-      "path": "server/db/mongo.ts",
-      "lines": 31
+      "path": "app/studio/dataset/_components/collection-detail/ImageSizeBadge.tsx",
+      "lines": 30
     },
     {
       "path": "components/ui/switch.tsx",
@@ -1023,11 +983,19 @@
       "lines": 30
     },
     {
-      "path": "server/controller/projects.controller.ts",
+      "path": "server/db/mongo.ts",
       "lines": 30
     },
     {
+      "path": "app/studio/gallery/page.tsx",
+      "lines": 29
+    },
+    {
       "path": "components/ui/slider.tsx",
+      "lines": 29
+    },
+    {
+      "path": "server/controller/dataset-sync.controller.ts",
       "lines": 29
     },
     {
@@ -1039,7 +1007,7 @@
       "lines": 28
     },
     {
-      "path": "components/motion-primitives/useClickOutside.tsx",
+      "path": "app/studio/playground/_components/history/types.ts",
       "lines": 27
     },
     {
@@ -1051,8 +1019,8 @@
       "lines": 26
     },
     {
-      "path": "server/controller/view-comfy.controller.ts",
-      "lines": 26
+      "path": "app/studio/_lib/navigation.ts",
+      "lines": 25
     },
     {
       "path": "components/ui/AppToaster.tsx",
@@ -1067,7 +1035,7 @@
       "lines": 24
     },
     {
-      "path": "server/controller/dataset-sync.controller.ts",
+      "path": "lib/env/public.ts",
       "lines": 24
     },
     {
@@ -1077,6 +1045,18 @@
     {
       "path": "hooks/common/use-media-query.ts",
       "lines": 21
+    },
+    {
+      "path": "app/studio/dataset/page.tsx",
+      "lines": 20
+    },
+    {
+      "path": "app/studio/settings/page.tsx",
+      "lines": 20
+    },
+    {
+      "path": "app/studio/tools/page.tsx",
+      "lines": 20
     },
     {
       "path": "lib/storage/index.ts",
@@ -1107,15 +1087,11 @@
       "lines": 18
     },
     {
-      "path": "test-mongo-bug.js",
-      "lines": 18
+      "path": "app/studio/dataset/_components/collection-detail/types.ts",
+      "lines": 16
     },
     {
-      "path": "lib/utils/model-utils.ts",
-      "lines": 17
-    },
-    {
-      "path": "components/features/mapping-editor/constants.ts",
+      "path": "app/studio/mapping-editor/_components/constants.ts",
       "lines": 16
     },
     {
@@ -1127,6 +1103,14 @@
       "lines": 16
     },
     {
+      "path": "lib/utils/model-utils.ts",
+      "lines": 16
+    },
+    {
+      "path": "lib/constants/models.ts",
+      "lines": 14
+    },
+    {
       "path": "lib/constants.ts",
       "lines": 14
     },
@@ -1135,19 +1119,15 @@
       "lines": 14
     },
     {
-      "path": "lib/constants/models.ts",
-      "lines": 13
-    },
-    {
       "path": "server/utils/http-error.ts",
       "lines": 13
     },
     {
-      "path": "app/models/viewcomfy-app.ts",
+      "path": "components/ui/collapsible.tsx",
       "lines": 12
     },
     {
-      "path": "components/ui/collapsible.tsx",
+      "path": "lib/models/viewcomfy-app.ts",
       "lines": 12
     },
     {
@@ -1163,10 +1143,6 @@
       "lines": 12
     },
     {
-      "path": "components/common/graphics/ColorBends.css",
-      "lines": 11
-    },
-    {
       "path": "components/common/loader.tsx",
       "lines": 11
     },
@@ -1175,15 +1151,7 @@
       "lines": 11
     },
     {
-      "path": "components/common/graphics/Noise.css",
-      "lines": 9
-    },
-    {
       "path": "app/template.tsx",
-      "lines": 8
-    },
-    {
-      "path": "next-env.d.ts",
       "lines": 8
     },
     {
@@ -1191,16 +1159,20 @@
       "lines": 7
     },
     {
-      "path": "components/visual-effects/DarkVeil.css",
+      "path": "next-env.d.ts",
+      "lines": 7
+    },
+    {
+      "path": "app/page.tsx",
       "lines": 6
     },
     {
-      "path": "components/deploy/deploy-dialog.tsx",
-      "lines": 5
+      "path": "app/studio/page.tsx",
+      "lines": 6
     },
     {
-      "path": "components/features/view-comfy/view-comfy-page.tsx",
-      "lines": 5
+      "path": "components/visual-effects/DarkVeil.css",
+      "lines": 6
     },
     {
       "path": "types/input.ts",
@@ -1213,104 +1185,138 @@
     {
       "path": "server/db/index.ts",
       "lines": 4
+    },
+    {
+      "path": "app/studio/playground/_components/types.ts",
+      "lines": 2
     }
   ],
   "exceeded": [
     {
-      "path": "components/features/dataset/CollectionDetail.tsx",
-      "lines": 2097,
-      "overBy": 1597,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
+      "path": "app/studio/playground/_components/containers/PlaygroundPageContainer.tsx",
+      "lines": 1522,
+      "overBy": 1022,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
-      "path": "pages/playground.tsx",
-      "lines": 1635,
-      "overBy": 1135,
-      "suggestion": "页面文件过大，建议将复杂布局拆分为多个子组件，并将数据请求与副作用提取到独立 hooks 或 service 模块。"
-    },
-    {
-      "path": "components/features/playground-v2/HistoryList.tsx",
-      "lines": 1339,
-      "overBy": 839,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "components/features/playground-v2/Dialogs/TldrawEditorView.tsx",
-      "lines": 1315,
-      "overBy": 815,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "components/features/playground-v2/hooks/useImageEditor.ts",
+      "path": "app/studio/playground/_components/hooks/useImageEditor.ts",
       "lines": 1301,
       "overBy": 801,
-      "suggestion": "自定义 Hook 逻辑过于庞大，建议拆分为多个职责单一的 hooks，并将通用工具提取到独立 util 文件。"
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
       "path": "lib/ai/providers.ts",
-      "lines": 1243,
-      "overBy": 743,
+      "lines": 1282,
+      "overBy": 782,
       "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
+    },
+    {
+      "path": "app/studio/playground/_components/Banner/BannerModePanel.tsx",
+      "lines": 1248,
+      "overBy": 748,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/dataset/_components/CollectionDetail.tsx",
+      "lines": 982,
+      "overBy": 482,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/history/HistoryCards.tsx",
+      "lines": 838,
+      "overBy": 338,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/GalleryView.tsx",
+      "lines": 834,
+      "overBy": 334,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/TldrawEditorView.tsx",
+      "lines": 817,
+      "overBy": 317,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/PresetManagerDialog.tsx",
+      "lines": 786,
+      "overBy": 286,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/hooks/useGenerationService.ts",
+      "lines": 762,
+      "overBy": 262,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/mapping-editor/_components/mapping-editor-page.tsx",
+      "lines": 748,
+      "overBy": 248,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/useCollectionDetailAiWorkflow.tsx",
+      "lines": 718,
+      "overBy": 218,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/PlaygroundInputSection.tsx",
+      "lines": 667,
+      "overBy": 167,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailHeader.tsx",
+      "lines": 569,
+      "overBy": 69,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
       "path": "lib/store/playground-store.ts",
-      "lines": 934,
-      "overBy": 434,
+      "lines": 569,
+      "overBy": 69,
       "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
     },
     {
-      "path": "components/features/playground-v2/Dialogs/PresetManagerDialog.tsx",
-      "lines": 782,
-      "overBy": 282,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "pages/mapping-editor-page.tsx",
-      "lines": 755,
-      "overBy": 255,
-      "suggestion": "页面文件过大，建议将复杂布局拆分为多个子组件，并将数据请求与副作用提取到独立 hooks 或 service 模块。"
-    },
-    {
-      "path": "components/features/playground-v2/PlaygroundInputSection.tsx",
-      "lines": 667,
-      "overBy": 167,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "components/features/playground-v2/GalleryView.tsx",
-      "lines": 656,
-      "overBy": 156,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "components/animate-ui/primitives/effects/highlight.tsx",
-      "lines": 652,
-      "overBy": 152,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "components/animate-ui/primitives/radix/dropdown-menu.tsx",
-      "lines": 564,
-      "overBy": 64,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "components/features/playground-v2/StyleDetailView.tsx",
+      "path": "app/studio/playground/_components/StyleDetailView.tsx",
       "lines": 552,
       "overBy": 52,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/ControlToolbar.tsx",
+      "lines": 532,
+      "overBy": 32,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "lib/store/playground-store.library-actions.ts",
+      "lines": 522,
+      "overBy": 22,
       "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
     },
     {
-      "path": "components/features/settings/SettingsView.tsx",
-      "lines": 523,
-      "overBy": 23,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
+      "path": "app/studio/settings/_components/SettingsView.tsx",
+      "lines": 513,
+      "overBy": 13,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
-      "path": "components/features/tools/ParameterPanel.tsx",
+      "path": "app/studio/mapping-editor/_components/workflow-analyzer.tsx",
+      "lines": 507,
+      "overBy": 7,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/tools/_components/ParameterPanel.tsx",
       "lines": 505,
       "overBy": 5,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     }
   ]
 }

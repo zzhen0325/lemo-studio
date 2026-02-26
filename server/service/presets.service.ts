@@ -50,8 +50,6 @@ export class PresetsService {
       const files = await fs.readdir(PRESET_DIR);
       const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'categories.json');
 
-      console.log(`Starting migration of ${jsonFiles.length} presets from files...`);
-
       for (const file of jsonFiles) {
         try {
           const id = path.basename(file, '.json');
