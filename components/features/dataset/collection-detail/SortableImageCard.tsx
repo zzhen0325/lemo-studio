@@ -60,6 +60,7 @@ export function SortableImageCard({
         src={img.url}
         alt={img.filename}
         fill
+        unoptimized
         className={`object-cover transition-transform duration-500 ${isSelected ? 'scale-105' : 'group-hover:scale-110'}`}
         sizes={`(max-width: 768px) 33vw, ${Math.round(100 / gridColumns)}vw`}
       />
