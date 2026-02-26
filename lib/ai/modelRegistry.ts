@@ -10,6 +10,8 @@ dotenv.config({ path: path.join(__dirname, '../../.env.local') });
 
 // 豆包视觉模型列表（使用 /api/v3/responses 端点）
 const DOUBAO_VISION_MODELS = [
+    'doubao-seed-2-0-lite-260215',
+    'doubao-seed-2-0-pro-260215',
     'doubao-seed-1-8-251228',
     'doubao-1-8-pro',
     'doubao-1.5-vision'

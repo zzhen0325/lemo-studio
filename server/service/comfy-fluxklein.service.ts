@@ -15,7 +15,6 @@ type FluxKleinBody = {
   batchSize?: number;
   referenceImages?: string[];
   apiKey?: string;
-  comfyUrl?: string;
 };
 
 @Injectable()
@@ -44,9 +43,8 @@ export class ComfyFluxKleinService {
       };
 
       const apiKey = typeof body.apiKey === 'string' ? body.apiKey : undefined;
-      const comfyUrl = typeof body.comfyUrl === 'string' ? body.comfyUrl : undefined;
 
-      const comfyUIService = new ComfyUIService({ apiKey, comfyUrl, traceId: logId });
+      const comfyUIService = new ComfyUIService({ apiKey, traceId: logId });
       const stream = await comfyUIService.runWorkflow({ workflow, viewComfy });
       console.log('[ComfyFluxKleinService] runWorkflow success', { logId: logId ?? '' });
       console.info('[FluxKlein][Server] request_stream_ready', {

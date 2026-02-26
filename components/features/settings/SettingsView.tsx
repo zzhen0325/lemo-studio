@@ -53,6 +53,8 @@ export function SettingsView() {
     const [currentTab, setCurrentTab] = useState<SettingsTab>(SettingsTab.Providers);
     const { toast } = useToast();
     const [expandedServices, setExpandedServices] = useState<Set<ServiceType>>(new Set(['describe', 'optimize']));
+    const [comfyUrlDraft, setComfyUrlDraft] = useState("");
+    const comfyUrlFromEnv = process.env.NEXT_PUBLIC_COMFYUI_URL || "";
     const isDesktop = useMediaQuery("(min-width: 1440px)");
 
     // Provider Form Modal State
@@ -76,6 +78,10 @@ export function SettingsView() {
     useEffect(() => {
         fetchConfig();
     }, [fetchConfig]);
+
+    useEffect(() => {
+        setComfyUrlDraft(comfyUrlFromEnv || settings.comfyUrl || "");
+    }, [comfyUrlFromEnv, settings.comfyUrl]);
 
     // Handlers
     const handleOpenAddProvider = () => {
@@ -118,7 +124,10 @@ export function SettingsView() {
 
     const handleSaveSettings = async () => {
         try {
-            await updateSettings(settings);
+            await updateSettings({
+                ...settings,
+                comfyUrl: (comfyUrlFromEnv || comfyUrlDraft).trim()
+            });
             toast({ title: "保存成功", description: "设置已更新" });
         } catch {
             toast({ title: "保存失败", variant: "destructive" });
@@ -445,7 +454,7 @@ export function SettingsView() {
                                                     </div>
                                                     <div>
                                                         <h3 className="text-lg font-bold text-white tracking-tight">ComfyUI Endpoint</h3>
-                                                        <p className="text-xs text-zinc-500 mt-0.5 font-medium">Global ComfyUI server connection parameters</p>
+                                                        <p className="text-xs text-zinc-500 mt-0.5 font-medium">Managed by env `COMFYUI_API_URL` (read-only here)</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex-1 max-w-md ml-12">
@@ -453,13 +462,14 @@ export function SettingsView() {
                                                         <Input
                                                             type="text"
                                                             placeholder="http://127.0.0.1:8188/"
-                                                            value={settings.comfyUrl || ''}
-                                                            onChange={(e) => updateSettings({ ...settings, comfyUrl: e.target.value })}
-                                                            className="bg-white/[0.02] border-white/5 h-12 rounded-xl focus:ring-1 focus:ring-primary/20 transition-all px-4 font-mono text-sm"
+                                                            value={comfyUrlFromEnv || comfyUrlDraft}
+                                                            readOnly
+                                                            disabled
+                                                            className="bg-white/[0.02] border-white/5 h-12 rounded-xl transition-all px-4 font-mono text-sm opacity-80 cursor-not-allowed"
                                                         />
                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                            <span className="text-[9px] font-bold text-zinc-600 uppercase">Live</span>
+                                                            <span className="text-[9px] font-bold text-zinc-600 uppercase">ENV</span>
                                                         </div>
                                                     </div>
                                                 </div>

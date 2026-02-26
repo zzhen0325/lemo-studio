@@ -1,5 +1,6 @@
 import { ComfyWorkflowError } from '../../app/models/errors';
 import { ComfyUIConnRefusedError } from '../constants';
+import { Agent as UndiciAgent, fetch as undiciFetch, FormData as UndiciFormData, WebSocket as UndiciWebSocket } from 'undici';
 
 type ComfyUIWSEventType = "status" | "executing" | "execution_cached" | "progress" | "executed" | "execution_error" | "execution_success";
 
@@ -32,13 +33,15 @@ export class ComfyImageOutputFile {
 
 export interface ComfyUIAPIServiceConfig {
     apiKey?: string;
+    // Deprecated: endpoint is now unified to COMFYUI_API_URL.
     comfyUrl?: string;
     traceId?: string;
 }
 
 export class ComfyUIAPIService {
     private baseUrl: string;
-    private ws: WebSocket;
+    private ws: UndiciWebSocket;
+    private dispatcher: UndiciAgent;
     private clientId: string;
     private promptId: string | undefined = undefined;
     private isPromptRunning: boolean;
@@ -54,7 +57,11 @@ export class ComfyUIAPIService {
         this.apiKey = config?.apiKey;
         this.traceId = config?.traceId;
 
-        let url = config?.comfyUrl || process.env.COMFYUI_API_URL || "127.0.0.1:8188";
+        const envComfyUrl = (process.env.COMFYUI_API_URL || "").trim();
+        let url = envComfyUrl || "127.0.0.1:8188";
+        if (config?.comfyUrl && config.comfyUrl !== envComfyUrl) {
+            console.warn("[ComfyUIAPIService] Ignoring request comfyUrl and using COMFYUI_API_URL");
+        }
 
         // Basic protocol handling
         if (url.startsWith("https://")) {
@@ -77,8 +84,14 @@ export class ComfyUIAPIService {
 
         this.baseUrl = url;
         this.clientId = clientId;
+        this.dispatcher = new UndiciAgent({
+            connect: { timeout: 15_000 }
+        });
+        console.info("[ComfyUIAPIService] Using endpoint", { traceId: this.traceId, endpoint: this.getUrl("http") });
         try {
-            this.ws = new WebSocket(`${this.getUrl("ws")}/ws?clientId=${this.clientId}`);
+            this.ws = new UndiciWebSocket(`${this.getUrl("ws")}/ws?clientId=${this.clientId}`, {
+                dispatcher: this.dispatcher
+            });
             this.connect();
         } catch (error) {
             console.error(error);
@@ -191,10 +204,11 @@ export class ComfyUIAPIService {
                 headers["Authorization"] = `Bearer ${this.apiKey}`;
             }
 
-            const response = await fetch(`${this.getUrl("http")}/prompt`, {
+            const response = await undiciFetch(`${this.getUrl("http")}/prompt`, {
                 method: 'POST',
                 body: JSON.stringify(data),
                 headers,
+                dispatcher: this.dispatcher,
             });
             const responseAt = Date.now();
             console.info("[FluxKlein][ComfyUI] prompt_response", {
@@ -204,9 +218,13 @@ export class ComfyUIAPIService {
             });
             if (!response.ok) {
 
-                let resError: IComfyUIError | string;
+                let resError: unknown;
                 try {
-                    const responseError = await response.json();
+                    const responseError = await response.json() as {
+                        error?: { message?: string };
+                        node_errors?: { [key: number]: IComfyUINodeError[] };
+                        [key: string]: unknown;
+                    };
                     if (responseError.error?.message) {
                         resError = {
                             message: responseError.error.message,
@@ -228,7 +246,7 @@ export class ComfyUIAPIService {
                 throw new Error("No response body");
             }
 
-            const responseData = await response.json();
+            const responseData = await response.json() as { prompt_id?: string };
             this.promptId = responseData.prompt_id;
 
             if (this.promptId === undefined) {
@@ -289,8 +307,9 @@ export class ComfyUIAPIService {
             if (this.apiKey) {
                 headers["Authorization"] = `Bearer ${this.apiKey}`;
             }
-            const response = await fetch(`${this.getUrl("http")}/view?${encodeURI(data)}`, {
-                headers
+            const response = await undiciFetch(`${this.getUrl("http")}/view?${encodeURI(data)}`, {
+                headers,
+                dispatcher: this.dispatcher,
             });
             const responseAt = Date.now();
             console.info("[FluxKlein][ComfyUI] view_response", {
@@ -310,7 +329,9 @@ export class ComfyUIAPIService {
                 throw responseError;
             }
 
-            return await response.blob();
+            const contentType = response.headers.get("content-type") || "application/octet-stream";
+            const outputData = await response.arrayBuffer();
+            return new Blob([outputData], { type: contentType });
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
@@ -342,7 +363,7 @@ export class ComfyUIAPIService {
     }
 
     public async uploadImage(imageBlob: Blob, filename: string): Promise<string> {
-        const formData = new FormData();
+        const formData = new UndiciFormData();
         formData.append('image', imageBlob, filename);
         formData.append('type', 'input');
         formData.append('overwrite', 'true');
@@ -353,10 +374,11 @@ export class ComfyUIAPIService {
         }
 
         const requestStart = Date.now();
-        const response = await fetch(`${this.getUrl("http")}/upload/image`, {
+        const response = await undiciFetch(`${this.getUrl("http")}/upload/image`, {
             method: 'POST',
             body: formData,
             headers,
+            dispatcher: this.dispatcher,
         });
         const responseAt = Date.now();
         console.info("[FluxKlein][ComfyUI] upload_response", {
@@ -370,7 +392,7 @@ export class ComfyUIAPIService {
             throw new Error(`Upload failed: ${response.status}`);
         }
 
-        const result = await response.json();
-        return result.name;
+        const result = await response.json() as { name?: string };
+        return result.name || filename;
     }
 }

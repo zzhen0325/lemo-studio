@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import CollectionList from "./CollectionList";
 import CollectionDetail from "./CollectionDetail";
 import JSZip from "jszip";
@@ -19,7 +19,12 @@ export default function DatasetManagerView() {
     const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
     const [collections, setCollections] = useState<DatasetCollection[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const selectedCollectionIdRef = useRef<string | null>(null);
     const { toast } = useToast();
+
+    useEffect(() => {
+        selectedCollectionIdRef.current = selectedCollectionId;
+    }, [selectedCollectionId]);
 
     const fetchCollections = async () => {
         try {
@@ -148,12 +153,18 @@ export default function DatasetManagerView() {
         // 实时同步逻辑：EventSource 监听
         const eventSource = new EventSource(`${getApiBase()}/dataset/sync`);
 
-        eventSource.onmessage = (event) => {
+        const handleSyncMessage = (event: MessageEvent) => {
             if (event.data === 'refresh') {
-                console.log('Real-time sync: refreshing collections...');
+                if (selectedCollectionIdRef.current) {
+                    return;
+                }
                 fetchCollections();
             }
         };
+
+        // Backward compatibility: support both named SSE events and default messages
+        eventSource.addEventListener('sync', handleSyncMessage as EventListener);
+        eventSource.onmessage = handleSyncMessage;
 
         eventSource.onerror = (error) => {
             console.error('SSE Error:', error);
@@ -161,6 +172,7 @@ export default function DatasetManagerView() {
         };
 
         return () => {
+            eventSource.removeEventListener('sync', handleSyncMessage as EventListener);
             eventSource.close();
         };
     }, []);
@@ -169,10 +181,10 @@ export default function DatasetManagerView() {
 
     return (
         <div className="relative  h-full pt-12 w-full px-8"
-         
+
         >
             <div className="relative z-10 flex flex-col h-full w-full mx-auto text-foreground">
-                <div className="flex-1 min-h-0 overflow-y-auto">
+                <div id="dataset-scroll-container" className="flex-1 min-h-0 overflow-y-auto w-full">
                     {!selectedCollectionId ? (
                         <CollectionList
                             collections={collections}
@@ -183,7 +195,6 @@ export default function DatasetManagerView() {
                             onDelete={handleDeleteCollection}
                             onCopy={handleCopyCollection}
                             onExport={handleExportCollection}
-                            className="w-full mx-auto"
                         />
                     ) : (
                         <CollectionDetail

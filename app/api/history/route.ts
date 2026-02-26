@@ -198,6 +198,31 @@ function toMinimalGalleryHistoryItem(item: Generation): Generation {
         canvasSize: { width: 0, height: 0 },
       } as EditPresetConfig)
       : undefined,
+    generationMode: config.generationMode === 'banner' ? 'banner' : 'playground',
+    bannerTemplateId: typeof config.bannerTemplateId === 'string' ? config.bannerTemplateId : undefined,
+    bannerFields: config.bannerFields && typeof config.bannerFields === 'object'
+      ? {
+        mainTitle: typeof config.bannerFields.mainTitle === 'string' ? config.bannerFields.mainTitle : '',
+        subTitle: typeof config.bannerFields.subTitle === 'string' ? config.bannerFields.subTitle : '',
+        timeText: typeof config.bannerFields.timeText === 'string' ? config.bannerFields.timeText : '',
+        extraDesc: typeof config.bannerFields.extraDesc === 'string' ? config.bannerFields.extraDesc : '',
+      }
+      : undefined,
+    bannerTextPositions: Array.isArray(config.bannerTextPositions)
+      ? config.bannerTextPositions
+        .filter((item) => Boolean(item) && typeof item === 'object')
+        .map((item, index) => ({
+          id: typeof item.id === 'string' ? item.id : `banner-text-position-${index + 1}`,
+          label: typeof item.label === 'string' ? item.label : '',
+          type: item.type === 'mainTitle' || item.type === 'subTitle' || item.type === 'timeText' || item.type === 'custom'
+            ? item.type
+            : 'custom',
+          x: typeof item.x === 'number' ? item.x : undefined,
+          y: typeof item.y === 'number' ? item.y : undefined,
+          note: typeof item.note === 'string' ? item.note : '',
+        }))
+      : undefined,
+    bannerPromptFinal: typeof config.bannerPromptFinal === 'string' ? config.bannerPromptFinal : undefined,
   };
 
   return normalizeGeneration({
@@ -288,6 +313,10 @@ async function getHistoryItemFromMongo(params: {
         'config.isEdit': 1,
         'config.parentId': 1,
         'config.editConfig.originalImageUrl': 1,
+        'config.generationMode': 1,
+        'config.bannerTemplateId': 1,
+        'config.bannerFields': 1,
+        'config.bannerPromptFinal': 1,
       });
     } else if (params.lightweight) {
       query = query.select({
@@ -652,6 +681,10 @@ async function getHistoryFromMongo(params: {
         'config.isEdit': 1,
         'config.parentId': 1,
         'config.editConfig.originalImageUrl': 1,
+        'config.generationMode': 1,
+        'config.bannerTemplateId': 1,
+        'config.bannerFields': 1,
+        'config.bannerPromptFinal': 1,
       });
     } else if (params.lightweight) {
       query = query.select({

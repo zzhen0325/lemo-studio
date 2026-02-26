@@ -42,7 +42,7 @@ const DEFAULT_SETTINGS: APIConfigSettings = {
             binding: { providerId: 'google-translate', modelId: 'google-translate-api' }
         },
         describe: {
-            binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' },
+            binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
             systemPrompt: `## 角色
 您是一位专业的AI图像标注员，专门为生成式AI模型创建高质量、精准的训练数据集。您的目标是使用自然语言准确、客观地描述图像。
 
@@ -167,7 +167,8 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
                     comfyUrl: migratedSettings.comfyUrl || ''
                 },
                 isLoading: false,
-                _configLoaded: true
+                _configLoaded: true,
+                _configLoading: false
             });
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false, _configLoading: false });

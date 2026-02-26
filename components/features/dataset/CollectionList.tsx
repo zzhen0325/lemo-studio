@@ -44,8 +44,8 @@ export default function CollectionList({
         );
     }
     return (
-       
-        <div className={`space-y-6 w-[80%] p-8 pt-14  ${className || ''}`}
+
+        <div className={`space-y-6 w-full max-w-7xl mx-auto  pt-14 ${className || ''}`}
         >
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-foreground">Datasets</h1>
@@ -67,15 +67,15 @@ export default function CollectionList({
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                 {collections.map((col) => (
                     <Card
                         key={col.id}
-                        className="bg-card border-white/10 overflow-hidden hover:border-white/20 transition-all cursor-pointer group"
+                        className="bg-card border-white/5 overflow-hidden hover:border-primary/30 transition-all duration-300 cursor-pointer group hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1"
                         onClick={() => onSelect(col.id)}
                     >
                         <CardContent className="p-0 aspect-square relative">
-                            <div className="grid grid-cols-2 grid-rows-2 h-full gap-0.5 bg-muted">
+                            <div className="grid grid-cols-2 grid-rows-2 h-full gap-[1px] bg-background/50 p-[1px]">
                                 {[0, 1, 2, 3].map((i) => (
                                     <div key={i} className="relative bg-muted/50 flex items-center justify-center overflow-hidden">
                                         {col.previews[i] ? (
@@ -93,10 +93,10 @@ export default function CollectionList({
                             </div>
 
                         </CardContent>
-                        <CardFooter className="p-4 flex  justify-between items-center bg-card/50">
-                            <div className="flex flex-col">
-                                <h3 className="font-semibold text-lg text-card-foreground">{col.name}</h3>
-                                <p className="text-sm text-muted-foreground">{col.imageCount} images</p>
+                        <CardFooter className="p-4 flex justify-between items-center bg-card/80 backdrop-blur-sm border-t border-white/5">
+                            <div className="flex flex-col flex-1 min-w-0 pr-2">
+                                <h3 className="font-semibold text-base text-card-foreground truncate transition-colors group-hover:text-primary">{col.name}</h3>
+                                <p className="text-xs text-muted-foreground/70">{col.imageCount} images</p>
 
                             </div>
 

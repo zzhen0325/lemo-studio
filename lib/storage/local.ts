@@ -26,12 +26,23 @@ export class LocalStorage implements IStorage {
   private root: string;
 
   constructor(rootDir: string = DATASET_ROOT) {
-    this.root = rootDir;
+    this.root = path.resolve(rootDir);
   }
 
   private resolvePath(key: string): string {
-    const safeKey = key.replace(/\\/g, '/');
-    return path.join(this.root, safeKey);
+    const safeKey = key.replace(/\\/g, '/').replace(/^\/+/, '');
+    const segments = safeKey.split('/').filter(Boolean);
+    if (segments.some((segment) => segment === '.' || segment === '..')) {
+      throw new Error(`Invalid storage key: ${key}`);
+    }
+
+    const resolved = path.resolve(this.root, safeKey || '.');
+    const rootPrefix = `${this.root}${path.sep}`;
+    if (resolved !== this.root && !resolved.startsWith(rootPrefix)) {
+      throw new Error(`Path traversal detected for key: ${key}`);
+    }
+
+    return resolved;
   }
 
   public async putObject(key: string, body: Buffer | Uint8Array | string, options?: PutObjectOptions): Promise<{ url?: string }> {

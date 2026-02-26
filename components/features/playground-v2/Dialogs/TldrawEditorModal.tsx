@@ -8,6 +8,7 @@ import { PlaygroundInputSectionProps } from '../PlaygroundInputSection';
 import { TLEditorSnapshot } from 'tldraw';
 import { TldrawEditorView } from './TldrawEditorView';
 import { EditPresetConfig } from '../types';
+import type { AnnotationLabelConfig } from '@/lib/utils/annotation-label';
 
 interface TldrawEditorModalProps {
     isOpen: boolean;
@@ -17,6 +18,9 @@ interface TldrawEditorModalProps {
     inputSectionProps?: PlaygroundInputSectionProps;
     initialSnapshot?: TLEditorSnapshot;
     onSaveAsPreset?: (editConfig: EditPresetConfig, name?: string) => void;
+    initialPrompt?: string;
+    editorMode?: 'default' | 'banner';
+    annotationLabelConfig?: AnnotationLabelConfig;
 }
 
 export default function TldrawEditorModal({
@@ -26,7 +30,10 @@ export default function TldrawEditorModal({
     onSave,
     inputSectionProps,
     initialSnapshot,
-    onSaveAsPreset
+    onSaveAsPreset,
+    initialPrompt,
+    editorMode = 'default',
+    annotationLabelConfig
 }: TldrawEditorModalProps) {
     const [mounted, setMounted] = useState(false);
     const [localPrompt, setLocalPrompt] = useState("");
@@ -40,9 +47,9 @@ export default function TldrawEditorModal({
 
     useEffect(() => {
         if (isOpen) {
-            setLocalPrompt(storePrompt);
+            setLocalPrompt(initialPrompt ?? storePrompt);
         }
-    }, [isOpen, storePrompt]);
+    }, [isOpen, storePrompt, initialPrompt]);
 
     const handleClose = () => {
         if (editorRef.current) {
@@ -91,6 +98,8 @@ export default function TldrawEditorModal({
                     initialSnapshot={initialSnapshot}
                     editorRef={editorRef}
                     onSaveAsPreset={onSaveAsPreset}
+                    editorMode={editorMode}
+                    annotationLabelConfig={annotationLabelConfig}
                 />
             </motion.div>
         </AnimatePresence>,

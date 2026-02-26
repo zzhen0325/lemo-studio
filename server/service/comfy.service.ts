@@ -27,9 +27,8 @@ export class ComfyService {
 
     try {
       const apiKey = formData.get('apiKey') as string | undefined;
-      const comfyUrl = formData.get('comfyUrl') as string | undefined;
 
-      const comfyUIService = new ComfyUIService({ apiKey, comfyUrl });
+      const comfyUIService = new ComfyUIService({ apiKey });
       const stream = await comfyUIService.runWorkflow({ workflow, viewComfy });
 
       console.log('[ComfyService] runWorkflow success', { logId: logId ?? '' });

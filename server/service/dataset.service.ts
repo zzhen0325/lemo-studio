@@ -21,9 +21,11 @@ export interface DatasetFileLike {
 
 export interface DatasetPostParams {
   file?: DatasetFileLike | null;
+  files?: DatasetFileLike[];
   collection: string;
   mode?: string | null;
   newName?: string | null;
+  promptMap?: Record<string, string>;
 }
 
 export interface DatasetDeleteParams {
@@ -36,6 +38,7 @@ export interface DatasetUpdateBody {
   collection: string;
   filename?: string;
   prompt?: string;
+  promptLang?: 'zh' | 'en';
   prompts?: Record<string, string>;
   systemPrompt?: string;
   order?: string[];
@@ -44,8 +47,34 @@ export interface DatasetUpdateBody {
   newCollectionName?: string;
 }
 
+type PromptLang = 'zh' | 'en';
+
+function resolvePromptLang(lang?: string): PromptLang {
+  return lang === 'en' ? 'en' : 'zh';
+}
+
 function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function resolvePromptFromMap(
+  promptMap: Record<string, string>,
+  originalName: string,
+  safeName: string,
+  fileIndex: number,
+): string {
+  const originalBase = originalName.replace(/\.[^/.]+$/, '');
+  const safeBase = safeName.replace(/\.[^/.]+$/, '');
+
+  return (
+    promptMap[`#${fileIndex}`]
+    || promptMap[String(fileIndex)]
+    || promptMap[safeName]
+    || promptMap[originalName]
+    || promptMap[safeBase]
+    || promptMap[originalBase]
+    || ''
+  );
 }
 
 @Injectable()
@@ -79,7 +108,9 @@ export class DatasetService {
             id: e.fileName,
             filename: e.fileName,
             url: e.url,
-            prompt: e.prompt || '',
+            promptZh: e.promptZh || e.prompt || '',
+            promptEn: e.promptEn || '',
+            prompt: e.promptZh || e.prompt || e.promptEn || '',
           }))
           .sort((a, b) => {
             const ia = orderMap.get(a.filename);
@@ -123,7 +154,12 @@ export class DatasetService {
 
   public async postDataset(params: DatasetPostParams): Promise<unknown> {
     try {
-      const { file, collection, mode, newName } = params;
+      const { file, collection, mode, newName, promptMap = {} } = params;
+      const files = params.files && params.files.length > 0
+        ? params.files
+        : file
+          ? [file]
+          : [];
 
       if (!collection) {
         throw new HttpError(400, 'Collection name is required');
@@ -139,11 +175,15 @@ export class DatasetService {
           throw new HttpError(409, 'Collection already exists');
         }
 
-        const sourceEntries = await this.datasetEntryModel.find({ collection }).lean();
+        const sourceEntries = await this.datasetEntryModel.find({ collectionName: collection }).lean();
         const sessionData = sourceEntries.map((e) => ({
-          ...e,
-          _id: undefined,
-          collection: newName,
+          collectionName: newName,
+          fileName: e.fileName,
+          url: e.url,
+          prompt: e.prompt,
+          promptZh: e.promptZh,
+          promptEn: e.promptEn,
+          order: e.order,
         }));
 
         await this.datasetCollectionModel.create({
@@ -164,40 +204,98 @@ export class DatasetService {
         { upsert: true },
       );
 
-      if (!file) {
+      if (mode === 'batchUpload' && files.length === 0) {
+        throw new HttpError(400, 'At least one file is required for batchUpload');
+      }
+
+      if (files.length === 0) {
         datasetEvents.emit(DATASET_SYNC_EVENT);
         return { success: true, message: 'Collection created' };
       }
 
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const safeName = sanitizeFileName(file.name);
       const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${collection}`;
-      const cdn = await uploadBufferToCdn(buffer, { fileName: safeName, dir, region: 'SG' });
+      let currentCount = await this.datasetEntryModel.countDocuments({ collectionName: collection });
+      const collectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+      const existingOrder = new Set(collectionMeta?.order || []);
+      const orderToAppend: string[] = [];
+      const uploaded: Array<{ filename: string; url: string; prompt: string }> = [];
 
-      await this.imageAssetModel.create({
-        url: cdn.url,
-        dir: cdn.dir,
-        fileName: cdn.fileName,
-        region: 'SG',
-        type: 'dataset',
-        meta: { collection },
-      });
+      for (let index = 0; index < files.length; index += 1) {
+        const currentFile = files[index];
+        const buffer = Buffer.from(await currentFile.arrayBuffer());
+        const safeName = sanitizeFileName(currentFile.name);
+        const cdn = await uploadBufferToCdn(buffer, { fileName: safeName, dir, region: 'SG' });
+        const prompt = resolvePromptFromMap(promptMap, currentFile.name, cdn.fileName, index);
 
-      const currentCount = await this.datasetEntryModel.countDocuments({ collectionName: collection });
-      await this.datasetEntryModel.create({
-        collectionName: collection,
-        fileName: cdn.fileName,
-        url: cdn.url,
-        order: currentCount,
-      });
+        await this.imageAssetModel.create({
+          url: cdn.url,
+          dir: cdn.dir,
+          fileName: cdn.fileName,
+          region: 'SG',
+          type: 'dataset',
+          meta: { collection },
+        });
 
-      await this.datasetCollectionModel.updateOne(
-        { name: collection },
-        { $push: { order: cdn.fileName } },
-      );
+        const existingEntry = await this.datasetEntryModel.findOne({
+          collectionName: collection,
+          fileName: cdn.fileName,
+        }).lean();
+
+        if (existingEntry) {
+          const nextPromptZh = prompt || existingEntry.promptZh || existingEntry.prompt || '';
+          const nextPromptEn = existingEntry.promptEn || '';
+          await this.datasetEntryModel.updateOne(
+            { collectionName: collection, fileName: cdn.fileName },
+            {
+              url: cdn.url,
+              prompt: nextPromptZh || nextPromptEn,
+              promptZh: nextPromptZh,
+              promptEn: nextPromptEn,
+            },
+          );
+        } else {
+          await this.datasetEntryModel.create({
+            collectionName: collection,
+            fileName: cdn.fileName,
+            url: cdn.url,
+            prompt: prompt || '',
+            promptZh: prompt || '',
+            promptEn: '',
+            order: currentCount,
+          });
+          currentCount += 1;
+        }
+
+        if (!existingOrder.has(cdn.fileName)) {
+          existingOrder.add(cdn.fileName);
+          orderToAppend.push(cdn.fileName);
+        }
+
+        uploaded.push({
+          filename: cdn.fileName,
+          url: cdn.url,
+          prompt,
+        });
+      }
+
+      if (orderToAppend.length > 0) {
+        await this.datasetCollectionModel.updateOne(
+          { name: collection },
+          { $push: { order: { $each: orderToAppend } } },
+        );
+      }
 
       datasetEvents.emit(DATASET_SYNC_EVENT);
-      return { success: true, path: cdn.url };
+
+      if (mode === 'batchUpload' || files.length > 1) {
+        return {
+          success: true,
+          message: `Uploaded ${uploaded.length} files`,
+          uploaded,
+        };
+      }
+
+      return { success: true, path: uploaded[0]?.url };
     } catch (error) {
       console.error('Dataset Upload Error:', error);
       if (error instanceof HttpError) throw error;
@@ -253,6 +351,7 @@ export class DatasetService {
   public async updateDataset(body: DatasetUpdateBody): Promise<unknown> {
     try {
       const { collection, filename, prompt, systemPrompt, order } = body;
+      const writePromptLang = resolvePromptLang(body.promptLang);
 
       if (!collection) {
         throw new HttpError(400, 'Collection name is required');
@@ -263,14 +362,25 @@ export class DatasetService {
       }
 
       if (filename) {
-        await this.datasetEntryModel.updateOne({ collectionName: collection, fileName: filename }, { prompt });
+        const promptStr = typeof prompt === 'string' ? prompt : '';
+        await this.datasetEntryModel.updateOne(
+          { collectionName: collection, fileName: filename },
+          writePromptLang === 'en'
+            ? { prompt: promptStr, promptEn: promptStr }
+            : { prompt: promptStr, promptZh: promptStr },
+        );
       }
 
       if (body.prompts) {
         const updates = Object.entries(body.prompts);
         for (const [fileName, p] of updates) {
           const promptStr = typeof p === 'string' ? p : '';
-          await this.datasetEntryModel.updateOne({ collectionName: collection, fileName }, { prompt: promptStr });
+          await this.datasetEntryModel.updateOne(
+            { collectionName: collection, fileName },
+            writePromptLang === 'en'
+              ? { prompt: promptStr, promptEn: promptStr }
+              : { prompt: promptStr, promptZh: promptStr },
+          );
         }
       }
 

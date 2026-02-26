@@ -78,7 +78,12 @@ export class AiService {
     };
 
     const result = await (providerInstance as { describeImage: (p: VisionGenerationInput) => Promise<{ text: string }> }).describeImage(params);
-    return { text: result.text };
+    const text = result.text?.trim() || '';
+    if (!text) {
+      const hasSystemPrompt = Boolean(resolvedSystemPrompt && resolvedSystemPrompt.trim());
+      throw new HttpError(502, `Model returned empty text (hasSystemPrompt=${hasSystemPrompt})`);
+    }
+    return { text };
   }
 
   public async generateImage(body: ImageRequestBody): Promise<unknown> {

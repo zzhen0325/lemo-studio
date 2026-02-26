@@ -32,15 +32,13 @@ export const usePostPlayground = () => {
 
             try {
                 const storedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+                let apiKeyFromLocalStorage: string | undefined;
                 if (storedSettings) {
                     const settings = JSON.parse(storedSettings);
-                    if (settings.apiKey) formData.append('apiKey', settings.apiKey);
-
-                    // 优先级: viewcomfyEndpoint > settings.comfyUrl
-                    const effectiveComfyUrl = viewcomfyEndpoint || settings.comfyUrl;
-                    if (effectiveComfyUrl) formData.append('comfyUrl', effectiveComfyUrl);
-                } else if (viewcomfyEndpoint) {
-                    formData.append('comfyUrl', viewcomfyEndpoint);
+                    if (settings.apiKey) apiKeyFromLocalStorage = settings.apiKey;
+                }
+                if (apiKeyFromLocalStorage) {
+                    formData.append('apiKey', apiKeyFromLocalStorage);
                 }
             } catch (e) {
                 console.error("Failed to load settings", e);

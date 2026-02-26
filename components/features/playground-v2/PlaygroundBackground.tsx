@@ -11,23 +11,23 @@ export function PlaygroundBackground() {
         className="absolute inset-0 transition-all duration-1000"
         style={{
           background: showHistory
-            ? "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 75%, #D8C6B8 100%)"
-            : "linear-gradient(180deg, #0F0F15 0%, #131718 10%, #1079BB 50%, #FBC6E2 74.56%, #FFD7B8 87.73%, #EB9469 100%)",
+            ? "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #2B3033 100%)"
+            : "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 60%, #FBC6E2 80.56%, #FFD7B8 92%, #EB9469 100%)",
         }}
       />
       {!showHistory && (
         <ColorBends
-          colors={["#0f5179ff"]}
-          rotation={120}
+          colors={["#3387CC7D"]}
+          rotation={20}
           opacity={0.1}
           speed={0.2}
           scale={3}
-          frequency={1.2}
+          frequency={1.5}
           warpStrength={1.1}
           mouseInfluence={0.8}
           parallax={1}
-          noise={0.08}
-          blur={0.1}
+          noise={0.1}
+          blur={0.3}
           transparent
         />
       )}

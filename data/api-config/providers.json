@@ -20,6 +20,14 @@
           "text",
           "vision"
         ]
+      },
+      {
+        "modelId": "doubao-seed-2-0-lite-260215",
+        "displayName": "Doubao Seed 2.0 Lite (视觉)",
+        "task": [
+          "text",
+          "vision"
+        ]
       }
     ],
     "isEnabled": true,

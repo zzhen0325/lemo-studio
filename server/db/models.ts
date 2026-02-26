@@ -179,6 +179,12 @@ export class DatasetEntry {
   public prompt?: string;
 
   @Prop()
+  public promptZh?: string;
+
+  @Prop()
+  public promptEn?: string;
+
+  @Prop()
   public systemPrompt?: string;
 
   @Prop()
@@ -274,4 +280,3 @@ export const ProjectModel = getModelForClass(Project);
 export const UserModel = getModelForClass(User);
 export const ApiProviderModel = getModelForClass(ApiProvider);
 export const ApiSettingsModel = getModelForClass(ApiSettings);
-

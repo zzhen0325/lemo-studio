@@ -14,6 +14,7 @@ import { usePostPlayground } from "@/hooks/features/playground/use-post-playgrou
 import { usePostFluxKlein } from "@/hooks/features/playground/use-post-fluxklein";
 import { toUnifiedConfigFromLegacy } from "@/lib/adapters/data-mapping";
 import { getApiBase } from "@/lib/api-base";
+import { getBannerTemplateById } from "@/config/banner-templates";
 import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 
@@ -594,27 +595,68 @@ export function useGenerationService() {
     const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
         const { configOverride, fixedCreatedAt, isBackground } = options;
         const generationTime = fixedCreatedAt || new Date().toISOString();
-        const freshConfig = usePlaygroundStore.getState().config;
-        const currentLoras = usePlaygroundStore.getState().selectedLoras;
-        const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-        const sourceImageUrls = options.sourceImageUrls || currentUploadedImages.map(img => img.path || img.previewUrl);
-        const localSourceIds = options.localSourceIds || currentUploadedImages.map(img => img.id).filter((id): id is string => !!id);
-        const localSourceId = localSourceIds[0];
-        const editConfig = options.editConfig || configOverride?.editConfig || freshConfig.editConfig;
-        const isEdit = options.isEdit !== undefined ? options.isEdit : (configOverride?.isEdit || freshConfig.isEdit || false);
-        const sourceImageUrl = sourceImageUrls[0];
-        const width = configOverride?.width || freshConfig.width;
-        const height = configOverride?.height || freshConfig.height;
+        const storeState = usePlaygroundStore.getState();
+        const freshConfig = storeState.config;
+        const currentLoras = storeState.selectedLoras;
+        const currentUploadedImages = storeState.uploadedImages;
+        let sourceImageUrls = options.sourceImageUrls || currentUploadedImages.map(img => img.path || img.previewUrl);
+        let localSourceIds = options.localSourceIds || currentUploadedImages.map(img => img.id).filter((id): id is string => !!id);
+        let localSourceId: string | undefined = localSourceIds[0];
+        const taskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
+        const combinedConfig = { ...freshConfig, ...(configOverride && typeof configOverride === 'object' ? configOverride : {}) };
 
+        const activeBannerData = storeState.activeTab === 'banner' ? storeState.activeBannerData : null;
+        if (activeBannerData) {
+            const template = getBannerTemplateById(activeBannerData.templateId);
+            if (!template) {
+                toast({ title: "Banner 生成失败", description: "未找到 Banner 模版配置", variant: "destructive" });
+                return;
+            }
+
+            const promptFinal = (activeBannerData.promptFinal || '').trim();
+            if (!promptFinal) {
+                toast({ title: "Banner 生成失败", description: "最终 Prompt 为空，请先填写内容", variant: "destructive" });
+                return;
+            }
+
+            sourceImageUrls = (options.sourceImageUrls && options.sourceImageUrls.length > 0)
+                ? options.sourceImageUrls
+                : [template.baseImageUrl];
+            localSourceIds = [];
+            localSourceId = undefined;
+
+            combinedConfig.prompt = promptFinal;
+            combinedConfig.model = activeBannerData.model;
+            combinedConfig.baseModel = activeBannerData.model;
+            combinedConfig.width = template.width;
+            combinedConfig.height = template.height;
+            combinedConfig.isEdit = true;
+            combinedConfig.parentId = undefined;
+            combinedConfig.editConfig = undefined;
+            combinedConfig.generationMode = 'banner';
+            combinedConfig.bannerTemplateId = template.id;
+            combinedConfig.bannerFields = activeBannerData.fields;
+            combinedConfig.bannerTextPositions = activeBannerData.textPositions || [];
+            combinedConfig.bannerPromptFinal = promptFinal;
+            combinedConfig.sourceImageUrls = sourceImageUrls;
+            combinedConfig.isPreset = false;
+            combinedConfig.presetName = undefined;
+            combinedConfig.workflowName = undefined;
+        }
+
+        const editConfig = options.editConfig || configOverride?.editConfig || combinedConfig.editConfig || freshConfig.editConfig;
+        const isEdit = options.isEdit !== undefined ? options.isEdit : Boolean(combinedConfig.isEdit);
+        const width = combinedConfig.width || freshConfig.width;
+        const height = combinedConfig.height || freshConfig.height;
+        const parentId = options.parentId || configOverride?.parentId || combinedConfig.parentId;
+        const finalLoras = activeBannerData ? [] : currentLoras;
+
+        const sourceImageUrl = sourceImageUrls[0];
         const displayEditConfig = isEdit ? (editConfig ? {
             ...editConfig,
             referenceImages: sourceImageUrls.map((url, idx) => ({ id: editConfig.referenceImages?.[idx]?.id || `ref-${idx}`, dataUrl: url, label: editConfig.referenceImages?.[idx]?.label || `Image ${idx + 1}` })),
             originalImageUrl: sourceImageUrl || editConfig.originalImageUrl || '',
         } : (sourceImageUrls.length > 0 ? { canvasJson: {}, referenceImages: sourceImageUrls.map((url, idx) => ({ id: `ref-${idx}`, dataUrl: url, label: `Image ${idx + 1}` })), originalImageUrl: sourceImageUrl || '', annotations: [], backgroundColor: 'transparent', canvasSize: { width: Number(width), height: Number(height) } } : undefined)) : undefined;
-
-        const parentId = options.parentId || configOverride?.parentId || freshConfig.parentId;
-        const taskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
-        const combinedConfig = { ...freshConfig, ...(configOverride && typeof configOverride === 'object' ? configOverride : {}) };
         const unifiedCfg = toUnifiedConfigFromLegacy(combinedConfig);
         const effectiveModel = unifiedCfg.model || usePlaygroundStore.getState().selectedModel;
         const isWorkflow = isWorkflowModel(effectiveModel);
@@ -622,7 +664,16 @@ export function useGenerationService() {
         let finalPresetName = combinedConfig.presetName;
         if (!finalPresetName && isWorkflow) finalPresetName = combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title;
 
-        const finalConfig: GenerationConfig = { ...combinedConfig, loras: currentLoras, presetName: finalPresetName, baseModel: effectiveModel, workflowName: isWorkflow ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined, editConfig: displayEditConfig, isEdit, parentId };
+        const finalConfig: GenerationConfig = {
+            ...combinedConfig,
+            loras: finalLoras,
+            presetName: finalPresetName,
+            baseModel: effectiveModel,
+            workflowName: isWorkflow ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined,
+            editConfig: displayEditConfig,
+            isEdit,
+            parentId
+        };
         setHasGenerated(true);
         const configForHistory = { ...finalConfig };
         if (!isWorkflow) { configForHistory.loras = undefined; configForHistory.workflowName = undefined; }
@@ -631,7 +682,7 @@ export function useGenerationService() {
         setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
         if (isBackground) return uniqueId;
         return await executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
-    }, [setHasGenerated, setGenerationHistory, executeGeneration]);
+    }, [setHasGenerated, setGenerationHistory, executeGeneration, toast]);
 
     const syncHistoryConfig = useCallback(async (updates: { id?: string; taskId?: string; config: Partial<GenerationConfig> }) => {
         const { id, taskId, config: newConfig } = updates;

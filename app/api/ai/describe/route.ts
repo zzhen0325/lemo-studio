@@ -52,8 +52,21 @@ export async function POST(req: NextRequest) {
         };
 
         const result = await providerInstance.describeImage(params);
+        const text = result.text?.trim() || '';
 
-        return NextResponse.json({ text: result.text });
+        if (!text) {
+            const hasSystemPrompt = Boolean(resolvedSystemPrompt && resolvedSystemPrompt.trim());
+            return NextResponse.json(
+                {
+                    error: `Model returned empty text (hasSystemPrompt=${hasSystemPrompt})`,
+                    model,
+                    hasSystemPrompt,
+                },
+                { status: 502 }
+            );
+        }
+
+        return NextResponse.json({ text });
 
     } catch (error: unknown) {
         console.error("Unified Describe API Error:", error);

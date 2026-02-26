@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS: APIConfigSettings = {
             binding: { providerId: 'google-translate', modelId: 'google-translate-api' }
         },
         describe: {
-            binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' },
+            binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
             systemPrompt: ''
         },
         optimize: {

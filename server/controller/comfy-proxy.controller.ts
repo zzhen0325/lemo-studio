@@ -15,14 +15,12 @@ export default class ComfyProxyController {
     body: unknown,
     files: Record<string, unknown> | undefined,
     res?: HTTPResponse,
-    headerComfyUrl?: string,
     headerApiKey?: string,
     authorization?: string,
   ) {
     const pathValue = query.path;
     const path = Array.isArray(pathValue) ? pathValue[0] : pathValue;
     const apiKey = headerApiKey || (typeof query.apiKey === 'string' ? query.apiKey : undefined) || (typeof query.comfyApiKey === 'string' ? query.comfyApiKey : undefined);
-    const comfyUrl = headerComfyUrl || (typeof query.comfyUrl === 'string' ? query.comfyUrl : undefined);
 
     const response = await this.comfyProxyService.proxyRequest({
       method,
@@ -31,7 +29,6 @@ export default class ComfyProxyController {
       body,
       files,
       apiKey,
-      comfyUrl,
       authorization,
     });
 
@@ -56,12 +53,11 @@ export default class ComfyProxyController {
   @Get()
   public async getProxy(
     @Query() query: Record<string, string | string[] | undefined>,
-    @Header('x-comfy-url') headerComfyUrl?: string,
     @Header('x-comfy-api-key') headerApiKey?: string,
     @Header('authorization') authorization?: string,
     @Res() res?: HTTPResponse,
   ) {
-    return this.handleRequest('GET', query, undefined, undefined, res, headerComfyUrl, headerApiKey, authorization);
+    return this.handleRequest('GET', query, undefined, undefined, res, headerApiKey, authorization);
   }
 
   @Post()
@@ -69,12 +65,11 @@ export default class ComfyProxyController {
     @Query() query: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Files() files: Record<string, unknown>,
-    @Header('x-comfy-url') headerComfyUrl?: string,
     @Header('x-comfy-api-key') headerApiKey?: string,
     @Header('authorization') authorization?: string,
     @Res() res?: HTTPResponse,
   ) {
-    return this.handleRequest('POST', query, body, files, res, headerComfyUrl, headerApiKey, authorization);
+    return this.handleRequest('POST', query, body, files, res, headerApiKey, authorization);
   }
 
   @Put()
@@ -82,12 +77,11 @@ export default class ComfyProxyController {
     @Query() query: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Files() files: Record<string, unknown>,
-    @Header('x-comfy-url') headerComfyUrl?: string,
     @Header('x-comfy-api-key') headerApiKey?: string,
     @Header('authorization') authorization?: string,
     @Res() res?: HTTPResponse,
   ) {
-    return this.handleRequest('PUT', query, body, files, res, headerComfyUrl, headerApiKey, authorization);
+    return this.handleRequest('PUT', query, body, files, res, headerApiKey, authorization);
   }
 
   @Patch()
@@ -95,23 +89,21 @@ export default class ComfyProxyController {
     @Query() query: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
     @Files() files: Record<string, unknown>,
-    @Header('x-comfy-url') headerComfyUrl?: string,
     @Header('x-comfy-api-key') headerApiKey?: string,
     @Header('authorization') authorization?: string,
     @Res() res?: HTTPResponse,
   ) {
-    return this.handleRequest('PATCH', query, body, files, res, headerComfyUrl, headerApiKey, authorization);
+    return this.handleRequest('PATCH', query, body, files, res, headerApiKey, authorization);
   }
 
   @Delete()
   public async deleteProxy(
     @Query() query: Record<string, string | string[] | undefined>,
     @Body() body: unknown,
-    @Header('x-comfy-url') headerComfyUrl?: string,
     @Header('x-comfy-api-key') headerApiKey?: string,
     @Header('authorization') authorization?: string,
     @Res() res?: HTTPResponse,
   ) {
-    return this.handleRequest('DELETE', query, body, undefined, res, headerComfyUrl, headerApiKey, authorization);
+    return this.handleRequest('DELETE', query, body, undefined, res, headerApiKey, authorization);
   }
 }

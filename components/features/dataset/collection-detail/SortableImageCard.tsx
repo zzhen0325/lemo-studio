@@ -64,9 +64,9 @@ export function SortableImageCard({
         sizes={`(max-width: 768px) 33vw, ${Math.round(100 / gridColumns)}vw`}
       />
 
-      <div className={`absolute top-2 left-2 z-10 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-primary border-primary' : 'bg-black/20 border-white/50 backdrop-blur-sm'}`}>
-          {isSelected && <Plus className="w-3.5 h-3.5 text-primary-foreground rotate-45" />}
+      <div className={`absolute top-3 left-3 z-10 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-md transition-colors ${isSelected ? 'bg-primary border-primary' : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'}`}>
+          {isSelected && <Plus className="w-4 h-4 text-primary-foreground rotate-45" />}
         </div>
       </div>
 
@@ -93,10 +93,8 @@ export function SortableImageCard({
           </Button>
         </div>
 
-        <div className="absolute bottom-2 left-2">
-          <span className="text-[10px] text-white/60 bg-black/40 px-1 rounded">
-            <ImageSizeBadge src={img.url} />
-          </span>
+        <div className="absolute bottom-3 left-3 opacity-80 group-hover:opacity-100 transition-opacity">
+          <ImageSizeBadge src={img.url} />
         </div>
       </div>
     </div>

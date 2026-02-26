@@ -4,9 +4,9 @@ import { ApplicationConfig } from "@gulux/gulux";
 import GlobalExceptionMiddleware from "../middleware/global-exception";
 import CorsMiddleware from "../middleware/cors";
 
-// 约定：GuluX 服务从 server/ 目录启动，这里将 cwd 提升到仓库根目录，
-// 以保持与 Next 应用中 process.cwd() 的语义一致（指向 lemo-AI-studio 根目录）。
-const workspaceRoot = path.join(process.cwd(), "..");
+// 约定：GuluX 服务通常从 server/ 目录启动；若从仓库根目录启动也能兼容。
+const cwd = process.cwd();
+const workspaceRoot = cwd.endsWith(`${path.sep}server`) ? path.join(cwd, "..") : cwd;
 // if (process.cwd() !== workspaceRoot) {
 //   process.chdir(workspaceRoot);
 // }
@@ -14,6 +14,11 @@ const workspaceRoot = path.join(process.cwd(), "..");
 // 加载 .env.local 环境变量（模拟 Next.js 行为）
 import fs from "fs";
 const envLocalPath = path.join(workspaceRoot, ".env.local");
+const forceOverrideEnvKeys = new Set([
+  "COMFYUI_API_URL",
+  "COMFYUI_SECURE",
+  "NEXT_PUBLIC_COMFYUI_URL",
+]);
 if (fs.existsSync(envLocalPath)) {
   const envContent = fs.readFileSync(envLocalPath, "utf8");
   envContent.split("\n").forEach((line) => {
@@ -23,13 +28,15 @@ if (fs.existsSync(envLocalPath)) {
       if (firstEqIndex !== -1) {
         const key = trimmedLine.substring(0, firstEqIndex).trim();
         const value = trimmedLine.substring(firstEqIndex + 1).trim().replace(/^['"](.*)['"]$/, "$1");
-        if (key && !process.env[key]) {
+        if (!key) return;
+        if (forceOverrideEnvKeys.has(key) || !process.env[key]) {
           process.env[key] = value;
         }
       }
     }
   });
 }
+console.info("[ServerConfig] COMFYUI_API_URL resolved", process.env.COMFYUI_API_URL || "");
 
 const config: ApplicationConfig = {
   name: "lemo-ai-studio-server",

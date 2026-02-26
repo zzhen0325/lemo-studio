@@ -12,6 +12,7 @@ export interface ComfyProxyRequest {
   body?: unknown;
   files?: Record<string, unknown>;
   apiKey?: string;
+  // Deprecated: endpoint is now unified to COMFYUI_API_URL.
   comfyUrl?: string;
   authorization?: string;
 }
@@ -24,8 +25,8 @@ export interface ComfyProxyResponse {
 
 @Injectable()
 export class ComfyProxyService {
-  private buildBaseUrl(comfyUrl?: string) {
-    let url = comfyUrl || process.env.COMFYUI_API_URL || '127.0.0.1:8188';
+  private buildBaseUrl() {
+    let url = process.env.COMFYUI_API_URL || '127.0.0.1:8188';
     let secure = false;
     if (url.startsWith('https://')) {
       secure = true;
@@ -91,7 +92,7 @@ export class ComfyProxyService {
   }
 
   public async proxyRequest(request: ComfyProxyRequest): Promise<ComfyProxyResponse> {
-    const baseUrl = this.buildBaseUrl(request.comfyUrl);
+    const baseUrl = this.buildBaseUrl();
     const targetUrl = this.buildTargetUrl(baseUrl, request.path, request.query);
     const headers = new Headers();
     if (request.apiKey) {

@@ -18,7 +18,8 @@ export interface ClientGenerationParams {
 export interface ClientDescribeParams {
     model: string;
     image: string; // Base64 or URL
-    input?: string; // Optional prompt along with image
+    prompt?: string; // Optional prompt along with image
+    input?: string; // Deprecated alias of prompt
     profileId?: string;
     systemPrompt?: string;
     options?: ProviderOptions;
@@ -64,13 +65,19 @@ export async function generateText(params: ClientGenerationParams): Promise<{ te
 }
 
 export async function describeImage(params: ClientDescribeParams): Promise<{ text: string }> {
+    const { input, prompt, ...rest } = params;
+    const payload = {
+        ...rest,
+        prompt: prompt ?? input,
+    };
+
     const response = await fetch(`${getApiBase()}/ai/describe`, {
 
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(params)
+        body: JSON.stringify(payload)
     });
 
     if (!response.ok) {

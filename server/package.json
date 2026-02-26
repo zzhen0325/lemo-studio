@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "dev": "PORT=3000 NODE_ENV=development DOAS_ZONE=boe GULUX_ENV=dev:http,dev PSM=i18n_fe.opera.node  ROUTE_IP=common-consul-boe.bytedance.net gulux dev ",
+    "dev": "PORT=3000 HOST=0.0.0.0 NODE_ENV=development DOAS_ZONE=boe GULUX_ENV=dev:http,dev PSM=i18n_fe.opera.node  ROUTE_IP=common-consul-boe.bytedance.net gulux dev ",
     "start": "NODE_ENV=production gulux start",
     "build": "npx @gulux/gulux build"
   },

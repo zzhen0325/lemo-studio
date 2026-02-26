@@ -17,6 +17,24 @@ export interface SelectedLora {
   strength: number;
 }
 
+export interface BannerGenerationFields {
+  mainTitle: string;
+  subTitle: string;
+  timeText: string;
+  extraDesc: string;
+}
+
+export type BannerTextPositionType = 'mainTitle' | 'subTitle' | 'timeText' | 'custom';
+
+export interface BannerTextPositionInstruction {
+  id: string;
+  label: string;
+  type: BannerTextPositionType;
+  x?: number;
+  y?: number;
+  note?: string;
+}
+
 export interface Project {
   id: string;
   userId?: string;
@@ -45,6 +63,11 @@ export interface GenerationConfig {
   taskId?: string;
   workflowName?: string;
   tldrawSnapshot?: Record<string, unknown>;
+  generationMode?: 'playground' | 'banner';
+  bannerTemplateId?: string;
+  bannerFields?: BannerGenerationFields;
+  bannerTextPositions?: BannerTextPositionInstruction[];
+  bannerPromptFinal?: string;
   [key: string]: unknown;
 }
 

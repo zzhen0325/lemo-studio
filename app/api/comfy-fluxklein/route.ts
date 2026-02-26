@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
     const batchSize = typeof body?.batchSize === "number" ? body.batchSize : undefined;
     const referenceImages = Array.isArray(body?.referenceImages) ? body.referenceImages : [];
     const apiKey = typeof body?.apiKey === "string" ? body.apiKey : undefined;
-    const comfyUrl = typeof body?.comfyUrl === "string" ? body.comfyUrl : undefined;
 
     const buildStart = Date.now();
     const { workflow, viewComfyInputs } = await buildFluxKleinWorkflow({
@@ -40,7 +39,7 @@ export async function POST(request: NextRequest) {
       textOutputEnabled: false,
     };
 
-    const comfyUIService = new ComfyUIService({ apiKey, comfyUrl, traceId });
+    const comfyUIService = new ComfyUIService({ apiKey, traceId });
     const stream = await comfyUIService.runWorkflow({ workflow, viewComfy });
     console.info("[FluxKlein][NextAPI] request_stream_ready", {
       traceId,

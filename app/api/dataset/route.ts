@@ -21,9 +21,20 @@ const IMAGE_EXT_REGEX = /\.(jpg|jpeg|png|webp|gif)$/i;
 
 interface CollectionMetadata {
   prompts: Record<string, string>;
+  promptsZh: Record<string, string>;
+  promptsEn: Record<string, string>;
   systemPrompt: string;
   order: string[];
 }
+
+interface UploadedImagePayload {
+  filename: string;
+  url: string;
+  prompt: string;
+}
+
+type PromptLang = 'zh' | 'en';
+const DEFAULT_PROMPT_LANG: PromptLang = 'zh';
 
 function buildPublicUrlFromKey(key: string): string {
   return storage.getPublicUrl(key.replace(/^\/+/, ''));
@@ -34,13 +45,18 @@ async function getMetadata(collection: string): Promise<CollectionMetadata> {
   try {
     const buf = await storage.getObject(metaKey);
     const raw = JSON.parse(buf.toString('utf-8')) as Partial<CollectionMetadata>;
+    const legacyPrompts = raw.prompts || {};
+    const promptsZh = raw.promptsZh || legacyPrompts;
+    const promptsEn = raw.promptsEn || {};
     return {
-      prompts: raw.prompts || {},
+      prompts: raw.prompts || promptsZh,
+      promptsZh,
+      promptsEn,
       systemPrompt: raw.systemPrompt || '',
       order: Array.isArray(raw.order) ? raw.order : [],
     };
   } catch {
-    return { prompts: {}, systemPrompt: '', order: [] };
+    return { prompts: {}, promptsZh: {}, promptsEn: {}, systemPrompt: '', order: [] };
   }
 }
 
@@ -49,6 +65,8 @@ async function saveMetadata(collection: string, data: CollectionMetadata): Promi
   const payload = JSON.stringify(
     {
       prompts: data.prompts || {},
+      promptsZh: data.promptsZh || {},
+      promptsEn: data.promptsEn || {},
       systemPrompt: data.systemPrompt || '',
       order: Array.isArray(data.order) ? data.order : [],
     },
@@ -56,6 +74,28 @@ async function saveMetadata(collection: string, data: CollectionMetadata): Promi
     2,
   );
   await storage.putObject(metaKey, Buffer.from(payload, 'utf-8'));
+}
+
+function getLocalizedPrompt(metadata: CollectionMetadata, filename: string, lang: PromptLang): string {
+  if (lang === 'en') {
+    return metadata.promptsEn[filename] || '';
+  }
+  return metadata.promptsZh[filename] || '';
+}
+
+function setLocalizedPrompt(
+  metadata: CollectionMetadata,
+  filename: string,
+  text: string,
+  lang: PromptLang,
+) {
+  if (lang === 'en') {
+    metadata.promptsEn[filename] = text;
+  } else {
+    metadata.promptsZh[filename] = text;
+  }
+  // Backward compatibility for existing clients that only read `prompts`.
+  metadata.prompts[filename] = text;
 }
 
 function parseQuery<T extends DatasetQueryInput | DatasetDeleteInput>(
@@ -67,6 +107,88 @@ function parseQuery<T extends DatasetQueryInput | DatasetDeleteInput>(
     return null;
   }
   return parsed.data as T;
+}
+
+function sanitizeFileName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function parsePromptMap(raw: FormDataEntryValue | null): Record<string, string> {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.entries(parsed).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (typeof value === 'string') {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
+function getPromptForUploadedFile(
+  promptMap: Record<string, string>,
+  originalName: string,
+  safeName: string,
+  fileIndex: number,
+): string {
+  const originalBase = originalName.replace(/\.[^/.]+$/, '');
+  const safeBase = safeName.replace(/\.[^/.]+$/, '');
+  return (
+    promptMap[`#${fileIndex}`] ||
+    promptMap[String(fileIndex)] ||
+    promptMap[safeName] ||
+    promptMap[originalName] ||
+    promptMap[safeBase] ||
+    promptMap[originalBase] ||
+    ''
+  );
+}
+
+function isUploadFile(entry: FormDataEntryValue): entry is File {
+  return typeof entry === 'object'
+    && entry !== null
+    && 'arrayBuffer' in entry
+    && 'name' in entry;
+}
+
+async function uploadBatchFiles(
+  collectionName: string,
+  files: File[],
+  promptMap: Record<string, string>,
+): Promise<UploadedImagePayload[]> {
+  const metadata = await getMetadata(collectionName);
+  const uploaded: UploadedImagePayload[] = [];
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const safeName = sanitizeFileName(file.name);
+    const key = `${collectionName}/${safeName}`;
+    const result = await storage.putObject(key, buffer, { contentType: file.type });
+    const prompt = getPromptForUploadedFile(promptMap, file.name, safeName, index);
+
+    if (!metadata.order.includes(safeName)) {
+      metadata.order.push(safeName);
+    }
+    if (prompt) {
+      setLocalizedPrompt(metadata, safeName, prompt, DEFAULT_PROMPT_LANG);
+    }
+
+    uploaded.push({
+      filename: safeName,
+      url: result.url ?? buildPublicUrlFromKey(key),
+      prompt,
+    });
+  }
+
+  await saveMetadata(collectionName, metadata);
+  return uploaded;
 }
 
 export async function GET(request: Request) {
@@ -85,6 +207,7 @@ export async function GET(request: Request) {
   try {
     if (collectionName) {
       const metadata = await getMetadata(collectionName);
+      let metadataChanged = false;
       const prefix = `${collectionName}/`;
       const objects = await storage.listObjects(prefix);
 
@@ -96,21 +219,29 @@ export async function GET(request: Request) {
       const images = await Promise.all(
         imageObjects.map(async (obj) => {
           const filename = path.basename(obj.key);
-          let prompt = metadata.prompts[filename] || '';
+          let promptZh = getLocalizedPrompt(metadata, filename, 'zh');
+          const promptEn = getLocalizedPrompt(metadata, filename, 'en');
+          let prompt = metadata.prompts[filename] || promptZh || promptEn || '';
 
-          if (!prompt) {
+          if (!promptZh && !promptEn && !prompt) {
             const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
             const txtKey = `${collectionName}/${nameWithoutExt}.txt`;
             try {
               const buf = await storage.getObject(txtKey);
               const txtContent = buf.toString('utf-8').trim();
               if (txtContent) {
+                promptZh = txtContent;
+                setLocalizedPrompt(metadata, filename, txtContent, 'zh');
                 prompt = txtContent;
-                metadata.prompts[filename] = prompt;
+                metadataChanged = true;
               }
             } catch {
               // ignore missing txt
             }
+          }
+
+          if (!prompt) {
+            prompt = promptZh || promptEn || '';
           }
 
           return {
@@ -118,6 +249,8 @@ export async function GET(request: Request) {
             filename,
             url: buildPublicUrlFromKey(obj.key),
             prompt,
+            promptZh,
+            promptEn,
           };
         }),
       );
@@ -137,7 +270,7 @@ export async function GET(request: Request) {
         images.sort((a, b) => a.filename.localeCompare(b.filename));
       }
 
-      if (Object.keys(metadata.prompts).length > 0) {
+      if (metadataChanged) {
         await saveMetadata(collectionName, metadata);
       }
 
@@ -198,6 +331,9 @@ export async function POST(request: Request) {
 
     const body = parsed.data;
     const file = formData.get('file') as File | null;
+    const batchFiles = formData
+      .getAll('files')
+      .filter((entry): entry is File => isUploadFile(entry));
     const collectionName = body.collection;
     const mode = body.mode ?? undefined;
 
@@ -230,6 +366,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: 'Collection duplicated' });
     }
 
+    if (mode === 'batchUpload') {
+      const files = batchFiles.length > 0 ? batchFiles : file ? [file] : [];
+      if (files.length === 0) {
+        return NextResponse.json({ error: 'At least one file is required for batchUpload' }, { status: 400 });
+      }
+
+      const promptMap = parsePromptMap(formData.get('promptMap'));
+      const uploaded = await uploadBatchFiles(collectionName, files, promptMap);
+      datasetEvents.emit(DATASET_SYNC_EVENT);
+      return NextResponse.json({
+        success: true,
+        message: `Uploaded ${uploaded.length} files`,
+        uploaded,
+      });
+    }
+
     if (!file) {
       // 创建空集合：只需写入一个空的 metadata.json 即可
       const meta = await getMetadata(collectionName);
@@ -239,7 +391,7 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeName = sanitizeFileName(file.name);
     const key = `${collectionName}/${safeName}`;
 
     const result = await storage.putObject(key, buffer, { contentType: file.type });
@@ -307,8 +459,16 @@ export async function DELETE(request: Request) {
           console.warn(`Could not delete image object: ${key}`, e);
         }
 
-        if (metadata.prompts[f]) {
+        if (metadata.prompts[f] !== undefined) {
           delete metadata.prompts[f];
+          metadataDirty = true;
+        }
+        if (metadata.promptsZh[f] !== undefined) {
+          delete metadata.promptsZh[f];
+          metadataDirty = true;
+        }
+        if (metadata.promptsEn[f] !== undefined) {
+          delete metadata.promptsEn[f];
           metadataDirty = true;
         }
         if (metadata.order && metadata.order.includes(f)) {
@@ -346,18 +506,32 @@ export async function PUT(request: Request) {
     }
 
     const body: DatasetUpdateInput = parsed.data;
-    const { collection, filename, prompt, systemPrompt, order, mode, prefix, newCollectionName } = body;
+    const {
+      collection,
+      filename,
+      prompt,
+      promptLang,
+      systemPrompt,
+      order,
+      mode,
+      prefix,
+      newCollectionName,
+    } = body;
 
     const collectionName = collection;
 
     const metadata = await getMetadata(collectionName);
 
+    const writePromptLang: PromptLang = promptLang ?? DEFAULT_PROMPT_LANG;
+
     if (filename) {
-      metadata.prompts[filename] = prompt ?? '';
+      setLocalizedPrompt(metadata, filename, prompt ?? '', writePromptLang);
     }
 
     if (body.prompts) {
-      Object.assign(metadata.prompts, body.prompts);
+      Object.entries(body.prompts).forEach(([fileName, text]) => {
+        setLocalizedPrompt(metadata, fileName, text ?? '', writePromptLang);
+      });
     }
 
     if (systemPrompt !== undefined) {
@@ -396,6 +570,8 @@ export async function PUT(request: Request) {
       }
 
       const newPrompts: Record<string, string> = {};
+      const newPromptsZh: Record<string, string> = {};
+      const newPromptsEn: Record<string, string> = {};
       const newOrder: string[] = [];
 
       for (let i = 0; i < sortedFiles.length; i++) {
@@ -411,14 +587,27 @@ export async function PUT(request: Request) {
           await storage.deleteObject(oldKey);
         }
 
-        if (metadata.prompts[oldName]) {
+        if (Object.prototype.hasOwnProperty.call(metadata.prompts, oldName)) {
           newPrompts[newName] = metadata.prompts[oldName];
+        } else if (Object.prototype.hasOwnProperty.call(metadata.promptsZh, oldName)) {
+          newPrompts[newName] = metadata.promptsZh[oldName];
+        } else if (Object.prototype.hasOwnProperty.call(metadata.promptsEn, oldName)) {
+          newPrompts[newName] = metadata.promptsEn[oldName];
+        }
+
+        if (Object.prototype.hasOwnProperty.call(metadata.promptsZh, oldName)) {
+          newPromptsZh[newName] = metadata.promptsZh[oldName];
+        }
+        if (Object.prototype.hasOwnProperty.call(metadata.promptsEn, oldName)) {
+          newPromptsEn[newName] = metadata.promptsEn[oldName];
         }
 
         newOrder.push(newName);
       }
 
       metadata.prompts = newPrompts;
+      metadata.promptsZh = newPromptsZh;
+      metadata.promptsEn = newPromptsEn;
       metadata.order = newOrder;
 
       await saveMetadata(collectionName, metadata);

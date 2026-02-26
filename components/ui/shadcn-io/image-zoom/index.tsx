@@ -31,7 +31,7 @@ export const ImageZoom = ({
             '[&_[data-rmiz-content="found"]_svg]:cursor-zoom-in',
             '[&_[data-rmiz-content="found"]_[role="img"]]:cursor-zoom-in',
             '[&_[data-rmiz-content="found"]_[data-zoom]]:cursor-zoom-in',
-            '[&_[data-rmiz-content]]:h-full [&_[data-rmiz-content]]:w-full',
+            '[&_[data-rmiz-content]]:relative [&_[data-rmiz-content]]:h-full [&_[data-rmiz-content]]:w-full',
             className
         )}
     >

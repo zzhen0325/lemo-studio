@@ -68,3 +68,62 @@ export const VISION_DESCRIBE_SYSTEM_PROMPT: SystemInstruction = `## 角色
 [主体] -> [动作/姿势] -> [服装] -> [背景] -> [文字信息]
 
 注意：**除了 4 个描述内容及其之间的 '|||' 分隔符外，不要返回任何额外文字。**`;
+
+// ==========================================
+// Banner Template Mode Types
+// ==========================================
+
+export type BannerModelId = 'flux_klein' | 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview';
+
+export interface BannerFields {
+  mainTitle: string;
+  subTitle: string;
+  timeText: string;
+  extraDesc: string;
+}
+
+export interface BannerRegionInstruction {
+  id: string;
+  label: string;
+  description: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  referenceImageUrl?: string;
+}
+
+export type BannerTextPositionType = 'mainTitle' | 'subTitle' | 'timeText' | 'custom';
+
+export interface BannerTextPositionInstruction {
+  id: string;
+  label: string;
+  type: BannerTextPositionType;
+  x?: number;
+  y?: number;
+  note?: string;
+}
+
+export interface BannerTemplateConfig {
+  id: string;
+  name: string;
+  thumbnailUrl: string;
+  baseImageUrl: string;
+  width: number;
+  height: number;
+  defaultModel: BannerModelId;
+  allowedModels: BannerModelId[];
+  defaultFields: BannerFields;
+  promptTemplate: string;
+}
+
+export interface BannerModeActiveData {
+  templateId: string;
+  model: BannerModelId;
+  fields: BannerFields;
+  regions: BannerRegionInstruction[];
+  textPositions: BannerTextPositionInstruction[];
+  promptFinal: string;
+  promptEdited: boolean;
+  editorSnapshot?: Record<string, unknown>;
+}

@@ -2,6 +2,8 @@ export interface DatasetImage {
   id: string;
   url: string;
   prompt: string;
+  promptZh?: string;
+  promptEn?: string;
   filename: string;
   isOptimizing?: boolean;
   isTranslating?: boolean;

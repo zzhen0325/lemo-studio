@@ -27,21 +27,19 @@ export const usePostFluxKlein = () => {
     const startAt = nowMs();
     try {
       let apiKey: string | undefined;
-      let comfyUrl: string | undefined;
 
       try {
         const storedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
         if (storedSettings) {
           const settings = JSON.parse(storedSettings);
           if (settings.apiKey) apiKey = settings.apiKey;
-          if (settings.comfyUrl) comfyUrl = settings.comfyUrl;
         }
       } catch (e) {
         console.error("Failed to load settings", e);
       }
 
       const apiBase = getApiBase();
-      console.info("[FluxKlein][Front] request_start", { requestId, apiBase });
+      console.info("[FluxKlein][Front] request_start", { requestId, apiBase, comfyUrlSource: "server-env-COMFYUI_API_URL" });
       const response = await fetch(`${apiBase}/comfy-fluxklein`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-request-id": requestId },
@@ -53,7 +51,6 @@ export const usePostFluxKlein = () => {
           batchSize,
           referenceImages,
           apiKey,
-          comfyUrl,
         }),
       });
       const responseAt = nowMs();

@@ -49,6 +49,19 @@ describe('/api/dataset route', () => {
     expect(json.collections).toEqual([]);
   });
 
+  it('GET returns 400 for unsafe collection query', async () => {
+    const { GET } = await importRoutes();
+
+    const req = new Request(
+      `http://localhost/api/dataset?collection=${encodeURIComponent('../outside')}`,
+    );
+    const res = await GET(req);
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe('Invalid query parameters');
+  });
+
   it('GET with collection returns images with metadata and urls', async () => {
     const collection = 'set-1';
 
@@ -135,6 +148,46 @@ describe('/api/dataset route', () => {
     expect(keys).toContain(keyFromPath);
   });
 
+  it('POST with batchUpload uploads multiple files and associates prompts', async () => {
+    const { POST } = await importRoutes();
+
+    const formData = new FormData();
+    formData.set('collection', 'set-batch');
+    formData.set('mode', 'batchUpload');
+    formData.set('promptMap', JSON.stringify({
+      img1: 'prompt one',
+      img2: 'prompt two',
+      '#0': 'prompt one',
+      '#1': 'prompt two',
+    }));
+
+    formData.append('files', new File(['img1'], 'img1.png', { type: 'image/png' }), 'img1.png');
+    formData.append('files', new File(['img2'], 'img2.png', { type: 'image/png' }), 'img2.png');
+
+    const postReq = new Request('http://localhost/api/dataset', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const postRes = await POST(postReq);
+    expect(postRes.status).toBe(200);
+    const postJson = (await postRes.json()) as {
+      success: boolean;
+      uploaded: { filename: string; prompt: string }[];
+    };
+    expect(postJson.success).toBe(true);
+    expect(postJson.uploaded).toHaveLength(2);
+    expect(postJson.uploaded.some((item) => item.prompt === 'prompt one')).toBe(true);
+    expect(postJson.uploaded.some((item) => item.prompt === 'prompt two')).toBe(true);
+
+    const metadataBuffer = await storage.getObject('set-batch/metadata.json');
+    const metadata = JSON.parse(metadataBuffer.toString('utf-8')) as {
+      prompts: Record<string, string>;
+    };
+    const promptValues = Object.values(metadata.prompts || {});
+    expect(promptValues.some((value) => value === 'prompt one' || value === 'prompt two')).toBe(true);
+  });
+
   it('DELETE with filenames deletes those files and updates message', async () => {
     const collection = 'set-1';
     await storage.putObject(`${collection}/a.jpg`, Buffer.from('a'));
@@ -157,6 +210,20 @@ describe('/api/dataset route', () => {
     const remaining = await storage.listObjects(`${collection}/`);
     const remainingImageKeys = remaining.filter((o) => o.key.endsWith('.jpg'));
     expect(remainingImageKeys.length).toBe(0);
+  });
+
+  it('DELETE returns 400 for unsafe filenames query', async () => {
+    const { DELETE } = await importRoutes();
+
+    const req = new Request(
+      `http://localhost/api/dataset?collection=set-1&filenames=${encodeURIComponent('a.jpg,../b.jpg')}`,
+      { method: 'DELETE' },
+    );
+
+    const res = await DELETE(req);
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe('Invalid query');
   });
 
   it('PUT with batchRename renames images with prefix and preserves count', async () => {
@@ -227,6 +294,60 @@ describe('/api/dataset route', () => {
       'new-set/img2.png',
       'new-set/metadata.json',
     ]);
+  });
+
+  it('PUT with promptLang preserves zh/en prompt versions independently', async () => {
+    const collection = 'multi-lang';
+    await storage.putObject(`${collection}/img1.jpg`, Buffer.from('1'));
+    await storage.putObject(
+      `${collection}/metadata.json`,
+      Buffer.from(
+        JSON.stringify({
+          prompts: { 'img1.jpg': '中文1' },
+          promptsZh: { 'img1.jpg': '中文1' },
+          promptsEn: { 'img1.jpg': 'English1' },
+          systemPrompt: '',
+          order: ['img1.jpg'],
+        }),
+        'utf-8',
+      ),
+    );
+
+    const { PUT, GET } = await importRoutes();
+
+    const putEnReq = createJsonRequest('http://localhost/api/dataset', 'PUT', {
+      collection,
+      prompts: { 'img1.jpg': 'English2' },
+      promptLang: 'en',
+    });
+    const putEnRes = await PUT(putEnReq);
+    expect(putEnRes.status).toBe(200);
+
+    const getAfterEn = await GET(new Request(`http://localhost/api/dataset?collection=${collection}`));
+    expect(getAfterEn.status).toBe(200);
+    const enJson = (await getAfterEn.json()) as {
+      images: Array<{ filename: string; promptZh?: string; promptEn?: string }>;
+    };
+    expect(enJson.images[0].filename).toBe('img1.jpg');
+    expect(enJson.images[0].promptZh).toBe('中文1');
+    expect(enJson.images[0].promptEn).toBe('English2');
+
+    const putZhReq = createJsonRequest('http://localhost/api/dataset', 'PUT', {
+      collection,
+      prompts: { 'img1.jpg': '中文2' },
+      promptLang: 'zh',
+    });
+    const putZhRes = await PUT(putZhReq);
+    expect(putZhRes.status).toBe(200);
+
+    const getAfterZh = await GET(new Request(`http://localhost/api/dataset?collection=${collection}`));
+    expect(getAfterZh.status).toBe(200);
+    const zhJson = (await getAfterZh.json()) as {
+      images: Array<{ filename: string; promptZh?: string; promptEn?: string }>;
+    };
+    expect(zhJson.images[0].filename).toBe('img1.jpg');
+    expect(zhJson.images[0].promptZh).toBe('中文2');
+    expect(zhJson.images[0].promptEn).toBe('English2');
   });
 
   it('returns 400 on invalid PUT payload (missing collection)', async () => {

@@ -23,6 +23,48 @@ import {
 const bufferToArrayBuffer = (buf: Buffer): ArrayBuffer =>
   Uint8Array.from(buf).buffer;
 
+type DoubaoResponseContentItem = { type?: string; text?: string };
+type DoubaoResponseOutputItem = {
+  type?: string;
+  content?: DoubaoResponseContentItem[];
+};
+type DoubaoResponse = {
+  output?: DoubaoResponseOutputItem[];
+  output_text?: string | string[];
+};
+
+function extractDoubaoOutputText(data: DoubaoResponse): string {
+  const outputs = Array.isArray(data.output) ? data.output : [];
+
+  // Preferred path: message node contains final output_text.
+  const messageOutput = outputs.find((item) => item?.type === "message");
+  const messageText = messageOutput?.content?.find(
+    (content) => content?.type === "output_text" && typeof content.text === "string"
+  )?.text;
+  if (messageText) {
+    return messageText;
+  }
+
+  // Fallback: some models may put output_text in other output nodes.
+  for (const output of outputs) {
+    const text = output?.content?.find(
+      (content) => content?.type === "output_text" && typeof content.text === "string"
+    )?.text;
+    if (text) {
+      return text;
+    }
+  }
+
+  if (typeof data.output_text === "string") {
+    return data.output_text;
+  }
+  if (Array.isArray(data.output_text)) {
+    return data.output_text.join("");
+  }
+
+  return "";
+}
+
 export class OpenAICompatibleProvider implements TextProvider {
   private config: ModelConfig;
 
@@ -140,21 +182,16 @@ export class DoubaoVisionProvider implements TextProvider, VisionProvider {
       throw new Error(`Doubao API Error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-
-    // 豆包响应格式: output数组中可能有reasoning和message两种类型
-    // 需要找到type为message的output，然后从其content中找到output_text
-    const typedData = data as {
-      output?: {
-        type: string;
-        content?: { type: string; text?: string }[];
-      }[];
-    };
-
-    // 找到message类型的output
-    const messageOutput = typedData.output?.find((o) => o.type === "message");
-    const text =
-      messageOutput?.content?.find((c) => c.type === "output_text")?.text || "";
+    const data = (await response.json()) as DoubaoResponse;
+    const text = extractDoubaoOutputText(data);
+    if (!text.trim()) {
+      const outputTypes = Array.isArray(data.output)
+        ? data.output.map((item) => item?.type || "unknown").join(",")
+        : "none";
+      throw new Error(
+        `Doubao API returned empty output_text (output types: ${outputTypes})`
+      );
+    }
 
     return { text };
   }
@@ -218,12 +255,16 @@ export class DoubaoVisionProvider implements TextProvider, VisionProvider {
       );
     }
 
-    const data = (await response.json()) as {
-      output?: { content?: { type: string; text?: string }[] }[];
-    };
-    const text =
-      data.output?.[0]?.content?.find((c) => c.type === "output_text")?.text ||
-      "";
+    const data = (await response.json()) as DoubaoResponse;
+    const text = extractDoubaoOutputText(data);
+    if (!text.trim()) {
+      const outputTypes = Array.isArray(data.output)
+        ? data.output.map((item) => item?.type || "unknown").join(",")
+        : "none";
+      throw new Error(
+        `Doubao Vision returned empty output_text (output types: ${outputTypes}). Please verify image input.`
+      );
+    }
 
     return { text };
   }

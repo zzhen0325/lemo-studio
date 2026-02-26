@@ -267,250 +267,250 @@ export function PlaygroundInputSection({
                     "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20  p-2 transition-colors duration-100",
                     showHistory ? "bg-[linear-gradient(180deg,rgba(0,0,0,0.4)_31.44%,rgba(93, 123, 149, 0.78)_100%)]" : "bg-black/40"
                 )}>
-                    <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
-                        {variant !== 'edit' && (
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragStart={handleDragStart}
-                                onDragEnd={handleDragEnd}
-                                onDragCancel={handleDragCancel}
-                                modifiers={[restrictToWindowEdges]}
-                            >
-                                <div
-                                    className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
-                                    onMouseEnter={() => setIsStackHovered(true)}
-                                    // Only allow leaving if not currently dragging an item from this list.
-                                    // activeId ensures we keep it open while dragging.
-                                    onMouseLeave={() => !activeId && setIsStackHovered(false)}
-                                >
-                                    <SortableContext
-                                        items={items}
-                                        strategy={horizontalListSortingStrategy}
-                                    >
-                                        <AnimatePresence initial={false}>
-                                            {uploadedImages.map((image, index) => {
-                                                const id = getItemId(image, index);
-                                                return (
-                                                    <SortableStackImage
-                                                        key={id}
-                                                        id={id}
-                                                        image={image}
-                                                        index={index}
-                                                        isStackHovered={isStackHovered || !!activeId}
-                                                        uploadedImagesCount={uploadedImages.length}
-                                                        onPreview={setPreviewImage}
-                                                        onRemove={removeImage}
-                                                        isActive={activeId === id}
-                                                        isDraggingAnything={!!activeId}
-                                                    />
-                                                );
-                                            })}
-                                        </AnimatePresence>
-                                    </SortableContext>
-
-                                    {/* Upload Button - keeps its position logic */}
-                                    {!disableImageUpload && (
-                                        <motion.button
-                                            onClick={() => fileInputRef.current?.click()}
-                                            initial={false}
-                                            animate={{
-                                                rotate: activeId ? 0 : 3,
-                                                marginLeft: uploadedImages.length > 0 ? ((isStackHovered || !!activeId) ? 8 : -36) : 0,
-                                                scale: 1
-                                            }}
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            transition={activeId ? { duration: 0 } : { type: "tween", duration: 0.2 }}
-                                            style={{
-                                                zIndex: 0,
-                                                position: 'relative'
-                                            }}
-                                            className={cn(
-                                                "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
-                                            )}
-                                        >
-                                            <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                        </motion.button>
-                                    )}
-                                </div>
-
-                                {/* Portal DragOverlay to body to avoid transform pollution from parent containers */}
-                                {typeof document !== 'undefined' && createPortal(
-                                    <DragOverlay
-                                        dropAnimation={{
-                                            sideEffects: defaultDropAnimationSideEffects({
-                                                styles: {
-                                                    active: { opacity: '0.5' },
-                                                },
-                                            }),
-                                        }}
-                                    >
-                                        {activeId ? (
-                                            (() => {
-                                                const image = uploadedImages.find((img, idx) => getItemId(img, idx) === activeId);
-                                                return image ? <StackImageOverlay image={image} /> : null;
-                                            })()
-                                        ) : null}
-                                    </DragOverlay>,
-                                    document.body
-                                )}
-
-                            </DndContext>
-                        )}
-
-                        <div className="flex-1 mt-1 flex items-center gap-2 overflow-hidden">
-                            <div className="flex-1">
-                                <PromptInput
-                                    prompt={config.prompt}
-                                    onPromptChange={(val) => setConfig(prev => ({ ...prev, prompt: val }))}
-                                    uploadedImages={uploadedImages}
-                                    onRemoveImage={removeImage}
-                                    isOptimizing={isOptimizing}
-                                    onOptimize={handleOptimizePrompt}
-                                    selectedAIModel={selectedAIModel}
-                                    onAIModelChange={setSelectedAIModel}
-                                    onAddImages={handleFilesUpload}
-                                    onFocusChange={setIsInputFocused}
-                                    isDraggingOver={isDraggingOver}
-                                    onDraggingOverChange={setIsDraggingOver}
-                                />
-                            </div>
+                        <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
                             {variant !== 'edit' && (
-                                <Button
-                                    variant="light"
-                                    size="sm"
-                                    className="h-4 w-4 absolute right-4 top-4 rounded-2xl disabled:opacity-100"
-                                    disabled={isOptimizing}
-                                    onClick={() => {
-                                        if (!isOptimizing) {
-                                            handleOptimizePrompt();
-                                        }
-                                    }}
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragStart={handleDragStart}
+                                    onDragEnd={handleDragEnd}
+                                    onDragCancel={handleDragCancel}
+                                    modifiers={[restrictToWindowEdges]}
                                 >
-                                    <motion.div
-                                        animate={isOptimizing ? {
-                                            filter: [
-                                                "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))",
-                                                "drop-shadow(0 0 14px rgba(202, 255, 196, 1))",
-                                                "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))"
-                                            ]
-                                        } : {}}
-                                        transition={{
-                                            duration: 1,
-                                            repeat: Infinity,
-                                            ease: "easeInOut"
-                                        }}
-                                        className="flex items-center justify-center"
+                                    <div
+                                        className="flex items-center shrink-0 ml-1 h-14 self-start mt-4 mb-4"
+                                        onMouseEnter={() => setIsStackHovered(true)}
+                                        // Only allow leaving if not currently dragging an item from this list.
+                                        // activeId ensures we keep it open while dragging.
+                                        onMouseLeave={() => !activeId && setIsStackHovered(false)}
                                     >
-                                        <Sparkles className="w-2 h-2" />
-                                    </motion.div>
-                                </Button>
+                                        <SortableContext
+                                            items={items}
+                                            strategy={horizontalListSortingStrategy}
+                                        >
+                                            <AnimatePresence initial={false}>
+                                                {uploadedImages.map((image, index) => {
+                                                    const id = getItemId(image, index);
+                                                    return (
+                                                        <SortableStackImage
+                                                            key={id}
+                                                            id={id}
+                                                            image={image}
+                                                            index={index}
+                                                            isStackHovered={isStackHovered || !!activeId}
+                                                            uploadedImagesCount={uploadedImages.length}
+                                                            onPreview={setPreviewImage}
+                                                            onRemove={removeImage}
+                                                            isActive={activeId === id}
+                                                            isDraggingAnything={!!activeId}
+                                                        />
+                                                    );
+                                                })}
+                                            </AnimatePresence>
+                                        </SortableContext>
+
+                                        {/* Upload Button - keeps its position logic */}
+                                        {!disableImageUpload && (
+                                            <motion.button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                initial={false}
+                                                animate={{
+                                                    rotate: activeId ? 0 : 3,
+                                                    marginLeft: uploadedImages.length > 0 ? ((isStackHovered || !!activeId) ? 8 : -36) : 0,
+                                                    scale: 1
+                                                }}
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                                transition={activeId ? { duration: 0 } : { type: "tween", duration: 0.2 }}
+                                                style={{
+                                                    zIndex: 0,
+                                                    position: 'relative'
+                                                }}
+                                                className={cn(
+                                                    "w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl text-primary border border-white/20 bg-white/5 hover:border-primary hover:shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all group"
+                                                )}
+                                            >
+                                                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                            </motion.button>
+                                        )}
+                                    </div>
+
+                                    {/* Portal DragOverlay to body to avoid transform pollution from parent containers */}
+                                    {typeof document !== 'undefined' && createPortal(
+                                        <DragOverlay
+                                            dropAnimation={{
+                                                sideEffects: defaultDropAnimationSideEffects({
+                                                    styles: {
+                                                        active: { opacity: '0.5' },
+                                                    },
+                                                }),
+                                            }}
+                                        >
+                                            {activeId ? (
+                                                (() => {
+                                                    const image = uploadedImages.find((img, idx) => getItemId(img, idx) === activeId);
+                                                    return image ? <StackImageOverlay image={image} /> : null;
+                                                })()
+                                            ) : null}
+                                        </DragOverlay>,
+                                        document.body
+                                    )}
+
+                                </DndContext>
                             )}
+
+                            <div className="flex-1 mt-1 flex items-center gap-2 overflow-hidden">
+                                <div className="flex-1">
+                                    <PromptInput
+                                        prompt={config.prompt}
+                                        onPromptChange={(val) => setConfig(prev => ({ ...prev, prompt: val }))}
+                                        uploadedImages={uploadedImages}
+                                        onRemoveImage={removeImage}
+                                        isOptimizing={isOptimizing}
+                                        onOptimize={handleOptimizePrompt}
+                                        selectedAIModel={selectedAIModel}
+                                        onAIModelChange={setSelectedAIModel}
+                                        onAddImages={handleFilesUpload}
+                                        onFocusChange={setIsInputFocused}
+                                        isDraggingOver={isDraggingOver}
+                                        onDraggingOverChange={setIsDraggingOver}
+                                    />
+                                </div>
+                                {variant !== 'edit' && (
+                                    <Button
+                                        variant="light"
+                                        size="sm"
+                                        className="h-4 w-4 absolute right-4 top-4 rounded-2xl disabled:opacity-100"
+                                        disabled={isOptimizing}
+                                        onClick={() => {
+                                            if (!isOptimizing) {
+                                                handleOptimizePrompt();
+                                            }
+                                        }}
+                                    >
+                                        <motion.div
+                                            animate={isOptimizing ? {
+                                                filter: [
+                                                    "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))",
+                                                    "drop-shadow(0 0 14px rgba(202, 255, 196, 1))",
+                                                    "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))"
+                                                ]
+                                            } : {}}
+                                            transition={{
+                                                duration: 1,
+                                                repeat: Infinity,
+                                                ease: "easeInOut"
+                                            }}
+                                            className="flex items-center justify-center"
+                                        >
+                                            <Sparkles className="w-2 h-2" />
+                                        </motion.div>
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* 底部模糊遮罩 */}
+                            <div
+                                className={cn(
+                                    "absolute bottom-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-t from-black/95 via-black/50 to-transparent transition-opacity duration-300 rounded-b-3xl z-10",
+                                    (!isInputFocused && config.prompt?.length > 0) ? "opacity-40" : "opacity-0"
+                                )}
+                            />
                         </div>
 
-                        {/* 底部模糊遮罩 */}
-                        <div
-                            className={cn(
-                                "absolute bottom-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-t from-black/95 via-black/50 to-transparent transition-opacity duration-300 rounded-b-3xl z-10",
-                                (!isInputFocused && config.prompt?.length > 0) ? "opacity-40" : "opacity-0"
-                            )}
+                        <ControlToolbar
+                            selectedModel={selectedModel}
+                            onModelChange={setSelectedModel}
+                            config={config}
+                            onConfigChange={(newConf) => setConfig(prev => ({ ...prev, ...newConf }))}
+                            onWidthChange={handleWidthChange}
+                            onHeightChange={handleHeightChange}
+                            aspectRatioPresets={aspectRatioPresets}
+                            currentAspectRatio={getCurrentAspectRatio()}
+                            onAspectRatioChange={(ar: string) => {
+                                if (ar === 'auto') {
+                                    let w = config.width;
+                                    let h = config.height;
+
+                                    if (uploadedImages.length > 0) {
+                                        const firstImage = uploadedImages[0];
+                                        w = firstImage.width || w;
+                                        h = firstImage.height || h;
+                                    }
+
+                                    const minSide = Math.min(w, h);
+                                    if (minSide < 1024) {
+                                        const scale = 1024 / minSide;
+                                        w = Math.round(w * scale);
+                                        h = Math.round(h * scale);
+                                    }
+
+                                    setConfig(prev => ({
+                                        ...prev,
+                                        aspectRatio: 'auto',
+                                        width: w,
+                                        height: h
+                                    }));
+                                    return;
+                                }
+                                // Keep the current imageSize setting when changing aspect ratio
+                                setConfig(prev => {
+                                    const currentSize = (prev.imageSize as '1K' | '2K' | '4K') || '1K';
+                                    const dimensions = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
+                                    if (dimensions) {
+                                        return {
+                                            ...prev,
+                                            width: dimensions.w,
+                                            height: dimensions.h,
+                                            aspectRatio: ar as GenerationConfig['aspectRatio']
+                                        };
+                                    }
+                                    return prev;
+                                });
+                            }}
+                            currentImageSize={config.imageSize || '1K'}
+                            onImageSizeChange={(size: ImageSize) => {
+                                setConfig(prev => {
+                                    const ar = prev.aspectRatio || getAspectRatioByDimensions(prev.width, prev.height);
+                                    const dimensions = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
+                                    if (dimensions) {
+                                        return {
+                                            ...prev,
+                                            width: dimensions.w,
+                                            height: dimensions.h,
+                                            imageSize: size,
+                                            aspectRatio: ar as GenerationConfig['aspectRatio']
+                                        };
+                                    }
+                                    return prev;
+                                });
+                            }}
+                            isAspectRatioLocked={isAspectRatioLocked}
+                            onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
+                            onGenerate={handleGenerate}
+                            isGenerating={isGenerating}
+                            loadingText={selectedModel === "seed4_lemo1230" ? "Seed 4.0 生成中..." : "生成中..."}
+                            selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
+                            selectedBaseModelName={config.model}
+                            workflows={workflows}
+                            onWorkflowSelect={(wf) => { setSelectedWorkflowConfig(wf); applyWorkflowDefaults(wf); }}
+                            isSelectorExpanded={isSelectorExpanded}
+                            onSelectorExpandedChange={setIsSelectorExpanded}
+                            batchSize={batchSize}
+                            onBatchSizeChange={setBatchSize}
+                            onOpenLoraSelector={() => setIsLoraDialogOpen(true)}
+                            selectedLoras={selectedLoras}
+                            selectedPresetName={selectedPresetName ?? undefined}
+                            onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
+                            isPresetGridOpen={isPresetGridOpen}
+                            onClearPreset={onClearPreset}
+                            variant={variant}
+                            customAspectRatioLabel={customAspectRatioLabel}
+                            uploadedImages={uploadedImages}
+                            disableModelSelection={disableModelSelection}
                         />
                     </div>
-
-                    <ControlToolbar
-                        selectedModel={selectedModel}
-                        onModelChange={setSelectedModel}
-                        config={config}
-                        onConfigChange={(newConf) => setConfig(prev => ({ ...prev, ...newConf }))}
-                        onWidthChange={handleWidthChange}
-                        onHeightChange={handleHeightChange}
-                        aspectRatioPresets={aspectRatioPresets}
-                        currentAspectRatio={getCurrentAspectRatio()}
-                        onAspectRatioChange={(ar: string) => {
-                            if (ar === 'auto') {
-                                let w = config.width;
-                                let h = config.height;
-
-                                if (uploadedImages.length > 0) {
-                                    const firstImage = uploadedImages[0];
-                                    w = firstImage.width || w;
-                                    h = firstImage.height || h;
-                                }
-
-                                const minSide = Math.min(w, h);
-                                if (minSide < 1024) {
-                                    const scale = 1024 / minSide;
-                                    w = Math.round(w * scale);
-                                    h = Math.round(h * scale);
-                                }
-
-                                setConfig(prev => ({
-                                    ...prev,
-                                    aspectRatio: 'auto',
-                                    width: w,
-                                    height: h
-                                }));
-                                return;
-                            }
-                            // Keep the current imageSize setting when changing aspect ratio
-                            setConfig(prev => {
-                                const currentSize = (prev.imageSize as '1K' | '2K' | '4K') || '1K';
-                                const dimensions = AR_MAP[ar]?.[currentSize] || AR_MAP[ar]?.['1K'];
-                                if (dimensions) {
-                                    return {
-                                        ...prev,
-                                        width: dimensions.w,
-                                        height: dimensions.h,
-                                        aspectRatio: ar as GenerationConfig['aspectRatio']
-                                    };
-                                }
-                                return prev;
-                            });
-                        }}
-                        currentImageSize={config.imageSize || '1K'}
-                        onImageSizeChange={(size: ImageSize) => {
-                            setConfig(prev => {
-                                const ar = prev.aspectRatio || getAspectRatioByDimensions(prev.width, prev.height);
-                                const dimensions = AR_MAP[ar]?.[size] || AR_MAP[ar]?.['1K'];
-                                if (dimensions) {
-                                    return {
-                                        ...prev,
-                                        width: dimensions.w,
-                                        height: dimensions.h,
-                                        imageSize: size,
-                                        aspectRatio: ar as GenerationConfig['aspectRatio']
-                                    };
-                                }
-                                return prev;
-                            });
-                        }}
-                        isAspectRatioLocked={isAspectRatioLocked}
-                        onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
-                        onGenerate={handleGenerate}
-                        isGenerating={isGenerating}
-                        loadingText={selectedModel === "seed4_lemo1230" ? "Seed 4.0 生成中..." : "生成中..."}
-                        selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
-                        selectedBaseModelName={config.model}
-                        workflows={workflows}
-                        onWorkflowSelect={(wf) => { setSelectedWorkflowConfig(wf); applyWorkflowDefaults(wf); }}
-                        isSelectorExpanded={isSelectorExpanded}
-                        onSelectorExpandedChange={setIsSelectorExpanded}
-                        batchSize={batchSize}
-                        onBatchSizeChange={setBatchSize}
-                        onOpenLoraSelector={() => setIsLoraDialogOpen(true)}
-                        selectedLoras={selectedLoras}
-                        selectedPresetName={selectedPresetName ?? undefined}
-                        onTogglePresetGrid={() => setIsPresetGridOpen(!isPresetGridOpen)}
-                        isPresetGridOpen={isPresetGridOpen}
-                        onClearPreset={onClearPreset}
-                        variant={variant}
-                        customAspectRatioLabel={customAspectRatioLabel}
-                        uploadedImages={uploadedImages}
-                        disableModelSelection={disableModelSelection}
-                    />
                 </div>
-            </div>
 
             {variant !== 'edit' && isDescribeMode && (
                 <DescribePanel

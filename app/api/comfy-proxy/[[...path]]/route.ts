@@ -11,8 +11,8 @@ const hopByHopHeaders = new Set([
   'upgrade',
 ]);
 
-function buildBaseUrl(comfyUrl?: string) {
-  let url = comfyUrl || process.env.COMFYUI_API_URL || '127.0.0.1:8188';
+function buildBaseUrl() {
+  let url = process.env.COMFYUI_API_URL || '127.0.0.1:8188';
   let secure = false;
   if (url.startsWith('https://')) {
     secure = true;
@@ -31,9 +31,7 @@ function buildBaseUrl(comfyUrl?: string) {
 
 function buildTargetUrl(request: NextRequest, pathParam?: string[]) {
   const searchParams = new URLSearchParams(request.nextUrl.searchParams);
-  const headerComfyUrl = request.headers.get('x-comfy-url') || undefined;
-  const queryComfyUrl = searchParams.get('comfyUrl') || undefined;
-  const baseUrl = buildBaseUrl(queryComfyUrl || headerComfyUrl);
+  const baseUrl = buildBaseUrl();
   const queryPath = searchParams.get('path') || undefined;
   searchParams.delete('comfyUrl');
   searchParams.delete('path');
@@ -59,7 +57,6 @@ async function handleProxy(request: NextRequest, params?: { path?: string[] }) {
   if (apiKey && !headers.has('authorization')) {
     headers.set('authorization', `Bearer ${apiKey}`);
   }
-  headers.delete('x-comfy-url');
   headers.delete('x-comfy-api-key');
 
   const method = request.method.toUpperCase();

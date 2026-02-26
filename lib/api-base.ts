@@ -1,5 +1,16 @@
 export function getApiBase(): string {
-    return process.env.NEXT_PUBLIC_API_BASE || 'http://10.75.187.221:3000/api';
+    const envBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
+    if (envBase) {
+        return envBase.replace(/\/$/, '');
+    }
+
+    if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol || 'http:';
+        const hostname = window.location.hostname || '127.0.0.1';
+        return `${protocol}//${hostname}:3000/api`;
+    }
+
+    return 'http://127.0.0.1:3000/api';
 }
 
 export function formatImageUrl(url: string | undefined | null, useProxy = false): string {

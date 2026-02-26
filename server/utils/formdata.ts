@@ -46,6 +46,13 @@ export function toFileLike(file?: KoaBodyFile | KoaBodyFile[] | null): FileLike 
   };
 }
 
+export function toFileLikeList(file?: KoaBodyFile | KoaBodyFile[] | null): FileLike[] {
+  const list = Array.isArray(file) ? file : file ? [file] : [];
+  return list
+    .map((item) => toFileLike(item))
+    .filter((item): item is FileLike => item !== null);
+}
+
 export function buildFormDataLike(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fields?: Record<string, any>,
@@ -64,4 +71,3 @@ export function buildFormDataLike(
     },
   };
 }
-

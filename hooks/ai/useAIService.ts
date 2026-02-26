@@ -17,7 +17,7 @@ import { ServiceType } from '@/lib/api-config/types';
 const FALLBACK_DEFAULTS: Record<ServiceType, string> = {
     imageGeneration: 'gemini-3-pro-image-preview',
     translate: 'google-translate-api',
-    describe: 'gemini-3-pro-image-preview',
+    describe: 'doubao-seed-2-0-lite-260215',
     optimize: 'doubao-seed-1-8-251228'
 };
 

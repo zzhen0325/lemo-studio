@@ -8,6 +8,7 @@ import {
     createShapeId,
 } from 'tldraw';
 import { Loader2 } from 'lucide-react';
+import { formatAnnotationLabel } from '@/lib/utils/annotation-label';
 
 // --- Result View Components ---
 
@@ -167,7 +168,7 @@ export class AnnotationTool extends StateNode {
             x,
             y,
             parentId,
-            props: { w: 1, h: 1, name: `标注${nextIndex}`, content: '' },
+            props: { w: 1, h: 1, name: formatAnnotationLabel(nextIndex), content: '' },
         });
     }
 
@@ -236,12 +237,13 @@ export class AnnotationTool extends StateNode {
             .sort((a, b) => (a.index > b.index ? 1 : -1));
 
         annotations.forEach((ann, i) => {
-            if (ann && ann.props.name !== `标注${i + 1}`) {
+            const nextLabel = formatAnnotationLabel(i + 1);
+            if (ann && ann.props.name !== nextLabel) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 this.editor.updateShape<any>({
                     id: ann.id,
                     type: 'annotation',
-                    props: { name: `标注${i + 1}` }
+                    props: { name: nextLabel }
                 });
             }
         });

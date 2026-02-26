@@ -56,6 +56,25 @@ export async function uploadCollectionFile(collectionName: string, file: File) {
   });
 }
 
+export async function uploadCollectionFilesBatch(
+  collectionName: string,
+  files: File[],
+  promptMap: Record<string, string>,
+) {
+  const formData = new FormData();
+  formData.append('collection', collectionName);
+  formData.append('mode', 'batchUpload');
+  formData.append('promptMap', JSON.stringify(promptMap));
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+
+  return fetch(datasetEndpoint(), {
+    method: 'POST',
+    body: formData,
+  });
+}
+
 export async function renameCollectionBatch(collectionName: string, prefix: string) {
   return updateCollectionData({
     collection: collectionName,
@@ -76,6 +95,15 @@ export async function translatePrompt(text: string, target: TranslateLang, signa
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, target }),
+    signal,
+  });
+}
+
+export async function translatePromptsBatch(texts: string[], target: TranslateLang, signal?: AbortSignal) {
+  return fetch(translateEndpoint(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texts, target }),
     signal,
   });
 }

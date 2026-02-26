@@ -22,7 +22,7 @@ export function ImageSizeBadge({ src }: ImageSizeBadgeProps) {
   }
 
   return (
-    <span className="text-[10px] text-muted-foreground/60 bg-muted/50 px-1.5 py-0.5 rounded-md font-mono">
+    <span className="text-[9px] text-muted-foreground/40 bg-muted/30 px-1 py-px rounded border border-white/5 font-mono">
       {size.w}x{size.h}
     </span>
   );

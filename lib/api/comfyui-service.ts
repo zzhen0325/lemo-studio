@@ -254,7 +254,9 @@ export class ComfyUIService {
             .filter(({ value }) =>
                 typeof value === 'string'
                 && (value.startsWith('/upload/')
+                    || value.startsWith('/uploads/')
                     || value.startsWith('/outputs/')
+                    || value.startsWith('/images/')
                     || value.startsWith('http')
                     || value.startsWith('data:image'))
             );
@@ -332,13 +334,25 @@ export class ComfyUIService {
 
             } else {
                 // 本地文件读取
-                const publicDir = path.join(process.cwd(), 'public');
-                const absolutePath = path.join(publicDir, imagePathOrUrl);
+                const normalizedPath = imagePathOrUrl.replace(/^\/+/, '');
+                const publicDirs = [
+                    path.join(process.cwd(), 'public'),
+                    path.join(process.cwd(), '..', 'public'),
+                ];
+                let absolutePath: string | undefined;
+                for (const publicDir of publicDirs) {
+                    const candidate = path.join(publicDir, normalizedPath);
+                    try {
+                        await fs.access(candidate);
+                        absolutePath = candidate;
+                        break;
+                    } catch {
+                        // try next candidate
+                    }
+                }
 
-                try {
-                    await fs.access(absolutePath);
-                } catch {
-                    logger.warn(`File not found, skipping upload: ${absolutePath}`);
+                if (!absolutePath) {
+                    logger.warn(`File not found in known public dirs, skipping upload: ${imagePathOrUrl}`);
                     // 如果找不到文件，就原样返回，不报错，避免中断流程（可能已经是 ComfyUI 里的文件了？）
                     // 或者应该抛出错误？目前保持原逻辑的柔性
                     return path.basename(imagePathOrUrl);

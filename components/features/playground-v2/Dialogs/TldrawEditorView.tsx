@@ -44,6 +44,13 @@ import {
     TldrawUiMenuItem,
     TldrawUiMenuGroup,
 } from 'tldraw';
+import {
+    DEFAULT_ANNOTATION_LABEL_CONFIG,
+    compareAnnotationLabels,
+    formatAnnotationLabel,
+    setAnnotationLabelConfig,
+    type AnnotationLabelConfig,
+} from '@/lib/utils/annotation-label';
 
 interface TldrawAnnotation {
     id: string;
@@ -64,6 +71,8 @@ interface TldrawEditorViewProps {
     initialSnapshot?: TLEditorSnapshot;
     editorRef?: React.MutableRefObject<{ getSnapshot: () => TLEditorSnapshot | null; getTaskId: () => string } | null>;
     onSaveAsPreset?: (editConfig: EditPresetConfig, name?: string) => void;
+    editorMode?: 'default' | 'banner';
+    annotationLabelConfig?: AnnotationLabelConfig;
 }
 
 interface ToolbarComponentProps {
@@ -118,11 +127,12 @@ const ToolbarComponent = ({
                             body: JSON.stringify({ imageBase64: dataUrl, ext: 'png', subdir: 'uploads' })
                         }).then(resp => resp.json()).then((json: any) => {
                             if (json?.path) {
-                                editor.updateAsset({
+                                editor.updateAssets([{
                                     id: assetId,
+                                    typeName: 'asset',
                                     type: 'image',
                                     props: { src: json.path }
-                                } as any);
+                                } as any]);
                             }
                         }).catch(err => console.error('[handleUploadMedia] Instant upload failed:', err));
 
@@ -509,7 +519,9 @@ export const TldrawEditorView = ({
     localPrompt: propsLocalPrompt,
     initialSnapshot,
     editorRef,
-    onSaveAsPreset
+    onSaveAsPreset,
+    editorMode = 'default',
+    annotationLabelConfig = DEFAULT_ANNOTATION_LABEL_CONFIG
 }: TldrawEditorViewProps) => {
     const [editor, setEditor] = useState<Editor | null>(null);
     const { toast } = useToast();
@@ -536,6 +548,13 @@ export const TldrawEditorView = ({
     useEffect(() => {
         setLocalTaskId(Date.now().toString() + Math.random().toString(36).substring(2, 7));
     }, [localModel]);
+
+    useEffect(() => {
+        setAnnotationLabelConfig(annotationLabelConfig);
+        return () => {
+            setAnnotationLabelConfig(DEFAULT_ANNOTATION_LABEL_CONFIG);
+        };
+    }, [annotationLabelConfig]);
 
     // 引入内部 prompt 状态，与 props 解耦，防止污染回写
     const stripRegionInstructions = useCallback((p: string) => {
@@ -600,22 +619,24 @@ export const TldrawEditorView = ({
 
     const { handleGenerate, executeGeneration } = useGenerationService();
 
+    const annotationToolLabel = `${annotationLabelConfig.prefix}标注`;
+
     const tldrawOverrides = useMemo(() => ({
         translations: {
             'zh-cn': {
                 'fill-style.lined-fill': '线条填充',
-                'tool.annotation': '标注区域'
+                'tool.annotation': annotationToolLabel
             },
             'zh-CN': {
                 'fill-style.lined-fill': '线条填充',
-                'tool.annotation': '标注区域'
+                'tool.annotation': annotationToolLabel
             }
         },
         tools(editor: Editor, tools: import('tldraw').TLUiToolsContextType) {
             tools.annotation = {
                 id: 'annotation',
                 icon: 'tool-note',
-                label: '标注区域',
+                label: annotationToolLabel,
                 kbd: 'a',
                 onSelect: () => {
                     editor.setCurrentTool('annotation');
@@ -624,17 +645,19 @@ export const TldrawEditorView = ({
             return tools;
         },
         actions(editor: Editor, actions: import('tldraw').TLUiActionsContextType) {
-            actions['save-as-preset'] = {
-                id: 'save-as-preset',
-                label: '存为预设',
-                icon: 'bookmark',
-                onSelect: () => {
-                    setIsNamingDialogOpen(true);
-                },
-            };
+            if (editorMode !== 'banner' && onSaveAsPreset) {
+                actions['save-as-preset'] = {
+                    id: 'save-as-preset',
+                    label: '存为预设',
+                    icon: 'bookmark',
+                    onSelect: () => {
+                        setIsNamingDialogOpen(true);
+                    },
+                };
+            }
             return actions;
         }
-    }), []);
+    }), [annotationToolLabel, editorMode, onSaveAsPreset]);
 
     const annotationCountRef = useRef(0);
     const [imagesInfo, setImagesInfo] = useState<Array<{
@@ -761,7 +784,7 @@ export const TldrawEditorView = ({
                         label: s.props.name,
                         displayName: s.props.displayName
                     }))
-                    .sort((a, b) => parseInt(a.label.replace('标注', '')) - parseInt(b.label.replace('标注', '')));
+                    .sort((a, b) => compareAnnotationLabels(a.label, b.label, annotationLabelConfig));
 
                 const isSelected = selectedIds.includes(img.id) || imgAnnos.some(ann => selectedIds.includes(ann.id as TLShapeId));
 
@@ -806,13 +829,16 @@ export const TldrawEditorView = ({
                 addedRecords.forEach(record => {
                     if (record.typeName === 'asset' && record.type === 'image' && (record as any).props?.src?.startsWith('data:')) {
                         const asset = record as import('tldraw').TLAsset;
-                        uploadImageToCDN(asset.props.src).then(path => {
+                        const src = asset.props.src;
+                        if (typeof src !== 'string') return;
+                        uploadImageToCDN(src).then(path => {
                             if (path) {
-                                editor.updateAsset({
+                                editor.updateAssets([{
                                     id: asset.id,
+                                    typeName: 'asset',
                                     type: 'image',
                                     props: { src: path }
-                                } as any);
+                                } as any]);
                             }
                         });
                     }
@@ -820,7 +846,7 @@ export const TldrawEditorView = ({
             }
         }, { scope: 'all', source: 'user' });
         return () => unsubscribe();
-    }, [editor, zoomToFitWithUiAvoidance, uploadImageToCDN]);
+    }, [editor, zoomToFitWithUiAvoidance, uploadImageToCDN, annotationLabelConfig]);
 
     const deleteAnnotationWithRenumber = useCallback((id: string) => {
         if (!editor) return;
@@ -834,12 +860,12 @@ export const TldrawEditorView = ({
             .filter(s => (s.type as unknown as string) === 'annotation' && s.parentId === parentId) as unknown as AnnotationShape[];
 
         sisterAnnos.sort((a, b) => (a.index > b.index ? 1 : -1)).forEach((ann, index) => {
-            const newLabel = `标注${index + 1}`;
+            const newLabel = formatAnnotationLabel(index + 1, annotationLabelConfig);
             editor.updateShape({ id: ann.id, type: 'annotation', props: { name: newLabel } } as unknown as import('tldraw').TLShape);
         });
 
         annotationCountRef.current = Math.max(0, annotationCountRef.current - 1);
-    }, [editor]);
+    }, [editor, annotationLabelConfig]);
 
     /**
      * 处理 Snapshot 中的 DataURL，将其上传到服务器并替换为路径
@@ -942,7 +968,7 @@ export const TldrawEditorView = ({
             // 2. 收集所有标注 (针对整个画布)
             const allAnnos = (editor.getCurrentPageShapes()
                 .filter(s => (s.type as unknown as string) === 'annotation') as unknown as AnnotationShape[])
-                .sort((a, b) => parseInt(a.props.name.replace('标注', '')) - parseInt(b.props.name.replace('标注', '')));
+                .sort((a, b) => compareAnnotationLabels(a.props.name || '', b.props.name || '', annotationLabelConfig));
 
             const annotations = allAnnos.map(s => ({
                 id: s.id,
@@ -989,7 +1015,7 @@ export const TldrawEditorView = ({
         } finally {
             setIsSaving(false);
         }
-    }, [editor, imageUrl, onSaveAsPreset, prepareSnapshotForSave, toast]);
+    }, [editor, imageUrl, onSaveAsPreset, prepareSnapshotForSave, toast, annotationLabelConfig]);
 
     const handleExport = useCallback(async (shouldGenerate = false, targetImageId?: TLShapeId) => {
         if (!editor) return;
@@ -1044,7 +1070,7 @@ export const TldrawEditorView = ({
 
         const currentImageAnnos = (editor.getCurrentPageShapes()
             .filter(s => (s.type as unknown as string) === 'annotation' && s.parentId === imageShape.id) as unknown as AnnotationShape[])
-            .sort((a, b) => parseInt(a.props.name.replace('标注', '')) - parseInt(b.props.name.replace('标注', '')));
+            .sort((a, b) => compareAnnotationLabels(a.props.name || '', b.props.name || '', annotationLabelConfig));
 
         if (shouldGenerate && currentImageAnnos.length > 0) {
             const emptyAnno = currentImageAnnos.find(ann => !ann.props.content?.trim());
@@ -1288,7 +1314,7 @@ export const TldrawEditorView = ({
             console.error(err);
             editor.deleteShape(resultId);
         }
-    }, [editor, internalPrompt, localModel, localBatchSize, localTaskId, localizedImageUrl, imageUrl, onSave, handleGenerate, executeGeneration, stripRegionInstructions, inputSectionProps, prepareSnapshotForSave, zoomToFitWithUiAvoidance]);
+    }, [editor, internalPrompt, localModel, localBatchSize, localTaskId, localizedImageUrl, imageUrl, onSave, handleGenerate, executeGeneration, stripRegionInstructions, inputSectionProps, prepareSnapshotForSave, zoomToFitWithUiAvoidance, annotationLabelConfig]);
 
     const editorComponents = useMemo(() => ({
         PageMenu: null,
@@ -1300,19 +1326,21 @@ export const TldrawEditorView = ({
         QuickActions: null,
         MainMenu: (props: import('tldraw').TLUiMainMenuProps) => (
             <DefaultMainMenu {...props}>
-                {/* @ts-expect-error - Tldraw UI component type incompatibility */}
-                <TldrawUiMenuGroup id="custom-save">
-                    <TldrawUiMenuItem
-                        id="save-as-preset"
-                        label="存为预设"
-                        icon="bookmark"
-                        onSelect={() => setIsNamingDialogOpen(true)}
-                    />
-                </TldrawUiMenuGroup>
+                {editorMode !== 'banner' && onSaveAsPreset ? (
+                    // @ts-expect-error - Tldraw UI component type incompatibility
+                    <TldrawUiMenuGroup id="custom-save">
+                        <TldrawUiMenuItem
+                            id="save-as-preset"
+                            label="存为预设"
+                            icon="bookmark"
+                            onSelect={() => setIsNamingDialogOpen(true)}
+                        />
+                    </TldrawUiMenuGroup>
+                ) : null}
                 <DefaultMainMenuContent />
             </DefaultMainMenu>
         )
-    }), [setIsNamingDialogOpen]);
+    }), [setIsNamingDialogOpen, editorMode, onSaveAsPreset]);
 
     return (
         <main className="flex-1 relative flex overflow-hidden">
@@ -1382,7 +1410,6 @@ export const TldrawEditorView = ({
                     shapeUtils={[AnnotationShapeUtil, ResultShapeUtil]}
                     tools={[AnnotationTool]}
                     overrides={tldrawOverrides}
-                    hideWatermark
                 />
 
                 {editor && imagesInfo.map(info => (
@@ -1394,20 +1421,22 @@ export const TldrawEditorView = ({
                             imageId={info.id}
                             isVisible={info.isSelected}
                         />
-                        <IntegratedInput
-                            editor={editor}
-                            imageScreenBounds={info.bounds}
-                            annotations={info.annotations}
-                            localPrompt={internalPrompt}
-                            setLocalPrompt={setInternalPrompt}
-                            deleteAnnotation={deleteAnnotationWithRenumber}
-                            onGenerate={() => handleExport(true, info.id)}
-                            isVisible={info.isSelected}
-                            selectedModel={localModel}
-                            setSelectedModel={setLocalModel}
-                            batchSize={localBatchSize}
-                            setBatchSize={setLocalBatchSize}
-                        />
+                        {editorMode !== 'banner' ? (
+                            <IntegratedInput
+                                editor={editor}
+                                imageScreenBounds={info.bounds}
+                                annotations={info.annotations}
+                                localPrompt={internalPrompt}
+                                setLocalPrompt={setInternalPrompt}
+                                deleteAnnotation={deleteAnnotationWithRenumber}
+                                onGenerate={() => handleExport(true, info.id)}
+                                isVisible={info.isSelected}
+                                selectedModel={localModel}
+                                setSelectedModel={setLocalModel}
+                                batchSize={localBatchSize}
+                                setBatchSize={setLocalBatchSize}
+                            />
+                        ) : null}
                     </React.Fragment>
                 ))}
 

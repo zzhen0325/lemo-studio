@@ -1,7 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { TLEditorSnapshot } from 'tldraw';
-import { UploadedImage, Preset, StyleStack } from '../../components/features/playground-v2/types';
+import type {
+    BannerFields,
+    BannerModeActiveData,
+    BannerModelId,
+    BannerRegionInstruction,
+    BannerTextPositionInstruction,
+    UploadedImage,
+    Preset,
+    StyleStack,
+} from '../../components/features/playground-v2/types';
 import { Generation, GenerationConfig } from '../../types/database';
 import { IViewComfy } from '../providers/view-comfy-provider';
 import type { SelectedLora } from '../../components/features/playground-v2/Dialogs/LoraSelectorDialog';
@@ -11,6 +20,16 @@ import { getApiBase } from "../api-base";
 import { MODEL_ID_WORKFLOW } from '../constants/models';
 import { isWorkflowModel } from '../utils/model-utils';
 import { v4 as uuidv4 } from 'uuid';
+import { DEFAULT_BANNER_TEMPLATE_ID, getBannerTemplateById } from '../../config/banner-templates';
+import {
+    buildBannerPrompt,
+    createBannerModeData,
+    normalizeBannerFields,
+    normalizeBannerRegions,
+    pickBannerFieldsForHistory,
+    normalizeBannerTextPositions,
+    pickBannerTextPositionsForHistory,
+} from '../prompt/banner-prompt';
 
 interface PlaygroundState {
     config: GenerationConfig;
@@ -25,7 +44,7 @@ interface PlaygroundState {
     showProjectSidebar: boolean;
     selectedPresetName: string | undefined;
     viewMode: 'home' | 'dock';
-    activeTab: 'history' | 'gallery' | 'describe' | 'style';
+    activeTab: 'history' | 'gallery' | 'describe' | 'style' | 'banner';
     editConfig?: import('@/types/database').EditPresetConfig;
     visitorId: string | undefined;
     initVisitorId: () => void; // Add this
@@ -57,7 +76,7 @@ interface PlaygroundState {
     setShowProjectSidebar: (val: boolean) => void;
     setSelectedPresetName: (name: string | undefined) => void;
     setViewMode: (mode: 'home' | 'dock') => void;
-    setActiveTab: (tab: 'history' | 'gallery' | 'describe' | 'style') => void;
+    setActiveTab: (tab: 'history' | 'gallery' | 'describe' | 'style' | 'banner') => void;
     updateUploadedImage: (id: string, updates: Partial<UploadedImage>) => void;
     updateDescribeImage: (id: string, updates: Partial<UploadedImage>) => void;
     updateHistorySourceUrl: (oldUrl: string, newUrl: string) => void;
@@ -140,6 +159,25 @@ interface PlaygroundState {
     _presetsLoading: boolean;
     _presetsLoaded: boolean;
     _galleryLoaded: boolean;
+
+    // Banner Mode
+    bannerModeBackup: {
+        config: GenerationConfig;
+        selectedModel: string;
+        selectedWorkflowConfig: IViewComfy | undefined;
+        selectedLoras: SelectedLora[];
+        selectedPresetName: string | undefined;
+    } | null;
+    activeBannerData: BannerModeActiveData | null;
+    enterBannerMode: (templateId?: string) => void;
+    initBannerData: (templateId?: string) => void;
+    updateBannerFields: (fields: Partial<BannerFields>) => void;
+    updateBannerRegions: (regions: BannerRegionInstruction[], snapshot?: TLEditorSnapshot) => void;
+    updateBannerTextPositions: (textPositions: BannerTextPositionInstruction[]) => void;
+    updateBannerPromptFinal: (promptFinal: string) => void;
+    resetBannerPromptFinal: () => void;
+    setBannerModel: (model: BannerModelId) => void;
+    resetBannerMode: () => void;
 }
 
 const galleryInFlightRequests = new Map<string, Promise<{ history: Generation[]; hasMore: boolean } | null>>();
@@ -203,6 +241,49 @@ const sanitizeGalleryItemsForPersist = (items: Generation[]) =>
             : item.config
     }));
 
+const clearBannerMetadata = (config: GenerationConfig): GenerationConfig => {
+    const nextConfig = { ...config };
+    delete nextConfig.generationMode;
+    delete nextConfig.bannerTemplateId;
+    delete nextConfig.bannerFields;
+    delete nextConfig.bannerTextPositions;
+    delete nextConfig.bannerPromptFinal;
+    return nextConfig;
+};
+
+const buildBannerGenerationConfig = (baseConfig: GenerationConfig, bannerData: BannerModeActiveData): GenerationConfig => {
+    const template = getBannerTemplateById(bannerData.templateId);
+    if (!template) return clearBannerMetadata(baseConfig);
+
+    return {
+        ...clearBannerMetadata(baseConfig),
+        prompt: bannerData.promptFinal,
+        width: template.width,
+        height: template.height,
+        model: bannerData.model,
+        baseModel: bannerData.model,
+        sourceImageUrls: [template.baseImageUrl],
+        loras: [],
+        workflowName: undefined,
+        presetName: undefined,
+        isPreset: false,
+        isEdit: true,
+        parentId: undefined,
+        editConfig: undefined,
+        generationMode: 'banner',
+        bannerTemplateId: template.id,
+        bannerFields: pickBannerFieldsForHistory(bannerData.fields),
+        bannerTextPositions: pickBannerTextPositionsForHistory(bannerData.textPositions || []),
+        bannerPromptFinal: bannerData.promptFinal,
+    };
+};
+
+const getResolvedBannerData = (templateId?: string): BannerModeActiveData | null => {
+    const template = getBannerTemplateById(templateId || DEFAULT_BANNER_TEMPLATE_ID);
+    if (!template) return null;
+    return createBannerModeData(template);
+};
+
 export const usePlaygroundStore = create<PlaygroundState>()(
     persist(
         (set, get) => ({
@@ -228,6 +309,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             showHistory: false,
             showGallery: false,
             showProjectSidebar: false,
+            selectedPresetName: undefined,
+            viewMode: 'home',
             isSelectionMode: false,
             selectedHistoryIds: new Set(),
             setIsSelectionMode: (val) => set({ isSelectionMode: val, selectedHistoryIds: val ? new Set() : new Set() }),
@@ -245,25 +328,301 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             setMockMode: (mode) => set({ isMockMode: mode }),
             isSelectorExpanded: false,
             setSelectorExpanded: (expanded) => set({ isSelectorExpanded: expanded }),
-            selectedPresetName: undefined,
-            viewMode: 'home',
             activeTab: 'history',
             visitorId: undefined,
             isTldrawEditorOpen: false,
             tldrawEditingImageUrl: "",
             tldrawSnapshot: undefined,
+            bannerModeBackup: null,
+            activeBannerData: null,
+            enterBannerMode: (templateId) => set((state) => {
+                const data = getResolvedBannerData(templateId);
+                if (!data) return state;
+                const backup = state.activeTab === 'banner'
+                    ? state.bannerModeBackup
+                    : {
+                        config: clearBannerMetadata(state.config),
+                        selectedModel: state.selectedModel,
+                        selectedWorkflowConfig: state.selectedWorkflowConfig,
+                        selectedLoras: state.selectedLoras,
+                        selectedPresetName: state.selectedPresetName,
+                    };
+                return {
+                    viewMode: 'dock',
+                    activeTab: 'banner',
+                    selectedModel: data.model,
+                    selectedPresetName: undefined,
+                    selectedWorkflowConfig: undefined,
+                    selectedLoras: [],
+                    bannerModeBackup: backup,
+                    activeBannerData: data,
+                    config: buildBannerGenerationConfig(state.config, data),
+                };
+            }),
+            initBannerData: (templateId) => set((state) => {
+                const data = getResolvedBannerData(templateId);
+                if (!data) return state;
+                return {
+                    bannerModeBackup: state.bannerModeBackup || {
+                        config: clearBannerMetadata(state.config),
+                        selectedModel: state.selectedModel,
+                        selectedWorkflowConfig: state.selectedWorkflowConfig,
+                        selectedLoras: state.selectedLoras,
+                        selectedPresetName: state.selectedPresetName,
+                    },
+                    activeBannerData: data,
+                    selectedModel: data.model,
+                    config: buildBannerGenerationConfig(state.config, data),
+                };
+            }),
+            updateBannerFields: (fields) => set((state) => {
+                const currentData = state.activeBannerData;
+                if (!currentData) return state;
+
+                const template = getBannerTemplateById(currentData.templateId);
+                if (!template) return state;
+
+                const nextFields = normalizeBannerFields({ ...currentData.fields, ...fields });
+                const nextPrompt = currentData.promptEdited
+                    ? currentData.promptFinal
+                    : buildBannerPrompt(template, nextFields, currentData.regions, currentData.textPositions || []);
+
+                return {
+                    activeBannerData: {
+                        ...currentData,
+                        fields: nextFields,
+                        promptFinal: nextPrompt,
+                    },
+                    config: {
+                        ...buildBannerGenerationConfig(state.config, {
+                            ...currentData,
+                            fields: nextFields,
+                            promptFinal: nextPrompt,
+                        }),
+                    },
+                };
+            }),
+            updateBannerRegions: (regions, snapshot) => set((state) => {
+                const currentData = state.activeBannerData;
+                if (!currentData) return state;
+
+                const template = getBannerTemplateById(currentData.templateId);
+                if (!template) return state;
+
+                const nextRegions = normalizeBannerRegions(regions);
+                const nextPrompt = currentData.promptEdited
+                    ? currentData.promptFinal
+                    : buildBannerPrompt(template, currentData.fields, nextRegions, currentData.textPositions || []);
+
+                return {
+                    activeBannerData: {
+                        ...currentData,
+                        regions: nextRegions,
+                        promptFinal: nextPrompt,
+                        editorSnapshot: snapshot ? (snapshot as unknown as Record<string, unknown>) : currentData.editorSnapshot,
+                    },
+                    config: buildBannerGenerationConfig(state.config, {
+                        ...currentData,
+                        regions: nextRegions,
+                        promptFinal: nextPrompt,
+                        editorSnapshot: snapshot ? (snapshot as unknown as Record<string, unknown>) : currentData.editorSnapshot,
+                    }),
+                };
+            }),
+            updateBannerTextPositions: (textPositions) => set((state) => {
+                const currentData = state.activeBannerData;
+                if (!currentData) return state;
+
+                const template = getBannerTemplateById(currentData.templateId);
+                if (!template) return state;
+
+                const nextTextPositions = normalizeBannerTextPositions(textPositions, template);
+                const nextPrompt = currentData.promptEdited
+                    ? currentData.promptFinal
+                    : buildBannerPrompt(template, currentData.fields, currentData.regions, nextTextPositions);
+
+                return {
+                    activeBannerData: {
+                        ...currentData,
+                        textPositions: nextTextPositions,
+                        promptFinal: nextPrompt,
+                    },
+                    config: buildBannerGenerationConfig(state.config, {
+                        ...currentData,
+                        textPositions: nextTextPositions,
+                        promptFinal: nextPrompt,
+                    }),
+                };
+            }),
+            updateBannerPromptFinal: (promptFinal) => set((state) => {
+                const currentData = state.activeBannerData;
+                if (!currentData) return state;
+                const nextPrompt = promptFinal || '';
+                return {
+                    activeBannerData: {
+                        ...currentData,
+                        promptFinal: nextPrompt,
+                        promptEdited: true,
+                    },
+                    config: buildBannerGenerationConfig(state.config, {
+                        ...currentData,
+                        promptFinal: nextPrompt,
+                        promptEdited: true,
+                    }),
+                };
+            }),
+            resetBannerPromptFinal: () => set((state) => {
+                const currentData = state.activeBannerData;
+                if (!currentData) return state;
+                const template = getBannerTemplateById(currentData.templateId);
+                if (!template) return state;
+
+                const nextPrompt = buildBannerPrompt(template, currentData.fields, currentData.regions, currentData.textPositions || []);
+                return {
+                    activeBannerData: {
+                        ...currentData,
+                        promptFinal: nextPrompt,
+                        promptEdited: false,
+                    },
+                    config: buildBannerGenerationConfig(state.config, {
+                        ...currentData,
+                        promptFinal: nextPrompt,
+                        promptEdited: false,
+                    }),
+                };
+            }),
+            setBannerModel: (model) => set((state) => {
+                const currentData = state.activeBannerData;
+                if (!currentData) return state;
+
+                const template = getBannerTemplateById(currentData.templateId);
+                if (!template || !template.allowedModels.includes(model)) return state;
+
+                return {
+                    selectedModel: model,
+                    activeBannerData: {
+                        ...currentData,
+                        model,
+                    },
+                    config: buildBannerGenerationConfig(state.config, {
+                        ...currentData,
+                        model,
+                    }),
+                };
+            }),
+            resetBannerMode: () => set((state) => {
+                const backup = state.bannerModeBackup;
+                if (backup) {
+                    return {
+                        activeBannerData: null,
+                        bannerModeBackup: null,
+                        config: clearBannerMetadata(backup.config),
+                        selectedModel: backup.selectedModel,
+                        selectedWorkflowConfig: backup.selectedWorkflowConfig,
+                        selectedLoras: backup.selectedLoras,
+                        selectedPresetName: backup.selectedPresetName,
+                    };
+                }
+                const isBannerConfig = state.config.generationMode === 'banner';
+                const nextConfig = clearBannerMetadata(state.config);
+                return {
+                    activeBannerData: null,
+                    bannerModeBackup: null,
+                    config: isBannerConfig
+                        ? {
+                            ...nextConfig,
+                            isEdit: false,
+                            parentId: undefined,
+                            editConfig: undefined,
+                            sourceImageUrls: [],
+                        }
+                        : nextConfig,
+                };
+            }),
             setTldrawEditorOpen: (open, imageUrl = "", snapshot) => set({
                 isTldrawEditorOpen: open,
                 tldrawEditingImageUrl: imageUrl,
                 tldrawSnapshot: snapshot
             }),
             setSelectedPresetName: (name) => set({ selectedPresetName: name }),
-            setViewMode: (mode) => set((state) => ({
-                viewMode: mode,
-                // When going home, always show history/input
-                activeTab: mode === 'home' ? 'history' : state.activeTab
-            })),
-            setActiveTab: (tab) => set({ activeTab: tab }),
+            setViewMode: (mode) => set((state) => {
+                const shouldLeaveBanner = mode === 'home' && state.activeTab === 'banner';
+                if (shouldLeaveBanner && state.bannerModeBackup) {
+                    return {
+                        viewMode: mode,
+                        activeTab: 'history',
+                        activeBannerData: null,
+                        bannerModeBackup: null,
+                        config: clearBannerMetadata(state.bannerModeBackup.config),
+                        selectedModel: state.bannerModeBackup.selectedModel,
+                        selectedWorkflowConfig: state.bannerModeBackup.selectedWorkflowConfig,
+                        selectedLoras: state.bannerModeBackup.selectedLoras,
+                        selectedPresetName: state.bannerModeBackup.selectedPresetName,
+                    };
+                }
+
+                const isBannerConfig = state.config.generationMode === 'banner';
+                return {
+                    viewMode: mode,
+                    activeTab: mode === 'home' ? 'history' : state.activeTab,
+                    activeBannerData: shouldLeaveBanner ? null : state.activeBannerData,
+                    bannerModeBackup: shouldLeaveBanner ? null : state.bannerModeBackup,
+                    config: shouldLeaveBanner && isBannerConfig
+                        ? {
+                            ...clearBannerMetadata(state.config),
+                            isEdit: false,
+                            parentId: undefined,
+                            editConfig: undefined,
+                            sourceImageUrls: [],
+                        }
+                        : state.config,
+                };
+            }),
+            setActiveTab: (tab) => set((state) => {
+                if (tab === state.activeTab) {
+                    return { activeTab: tab };
+                }
+
+                const shouldLeaveBanner = state.activeTab === 'banner' && tab !== 'banner';
+                if (!shouldLeaveBanner) {
+                    return { activeTab: tab };
+                }
+
+                if (state.bannerModeBackup) {
+                    return {
+                        activeTab: tab,
+                        activeBannerData: null,
+                        bannerModeBackup: null,
+                        config: clearBannerMetadata(state.bannerModeBackup.config),
+                        selectedModel: state.bannerModeBackup.selectedModel,
+                        selectedWorkflowConfig: state.bannerModeBackup.selectedWorkflowConfig,
+                        selectedLoras: state.bannerModeBackup.selectedLoras,
+                        selectedPresetName: state.bannerModeBackup.selectedPresetName,
+                    };
+                }
+
+                const isBannerConfig = state.config.generationMode === 'banner';
+                if (!isBannerConfig) {
+                    return {
+                        activeTab: tab,
+                        activeBannerData: null,
+                        bannerModeBackup: null,
+                    };
+                }
+
+                return {
+                    activeTab: tab,
+                    activeBannerData: null,
+                    bannerModeBackup: null,
+                    config: {
+                        ...clearBannerMetadata(state.config),
+                        isEdit: false,
+                        parentId: undefined,
+                        editConfig: undefined,
+                        sourceImageUrls: [],
+                    },
+                };
+            }),
 
             previewImageUrl: null,
             previewLayoutId: null,
@@ -613,6 +972,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     isTldrawEditorOpen: false,
                     tldrawEditingImageUrl: "",
                     tldrawSnapshot: undefined,
+                    bannerModeBackup: null,
+                    activeBannerData: null,
                     galleryItems: [],
                     galleryPage: 1,
                     hasMoreGallery: true,
@@ -871,26 +1232,26 @@ export const usePlaygroundStore = create<PlaygroundState>()(
 
                     if (workflowsRes.ok) {
                         const workflowsData = await workflowsRes.json();
-                    const isValidCoverUrl = (value?: string) => {
-                        if (!value) return false;
-                        if (value.startsWith("/upload/")) return true;
-                        try {
-                            const parsed = new URL(value);
-                            return parsed.protocol === "http:" || parsed.protocol === "https:";
-                        } catch {
-                            return false;
-                        }
-                    };
-                    const getWorkflowCover = (wf: IViewComfy) => {
-                        const coverImage = wf.viewComfyJSON.coverImage;
-                        if (isValidCoverUrl(coverImage)) return coverImage;
-                        const preview = (wf.viewComfyJSON.previewImages || []).find(isValidCoverUrl);
-                        return preview || "";
-                    };
+                        const isValidCoverUrl = (value?: string) => {
+                            if (!value) return false;
+                            if (value.startsWith("/upload/")) return true;
+                            try {
+                                const parsed = new URL(value);
+                                return parsed.protocol === "http:" || parsed.protocol === "https:";
+                            } catch {
+                                return false;
+                            }
+                        };
+                        const getWorkflowCover = (wf: IViewComfy) => {
+                            const coverImage = wf.viewComfyJSON.coverImage;
+                            if (isValidCoverUrl(coverImage)) return coverImage;
+                            const preview = (wf.viewComfyJSON.previewImages || []).find(isValidCoverUrl);
+                            return preview || "";
+                        };
                         const workflowPresets: Preset[] = (workflowsData.viewComfys || []).map((wf: IViewComfy) => ({
                             id: wf.viewComfyJSON.id || `wf_${Date.now()}_${Math.random()}`,
                             name: wf.viewComfyJSON.title || "Untitled Workflow",
-                        coverUrl: getWorkflowCover(wf),
+                            coverUrl: getWorkflowCover(wf),
                             category: 'Workflow',
                             workflow_id: wf.viewComfyJSON.id, // Explicitly add this for handlePresetSelect
                             config: {
@@ -1156,21 +1517,28 @@ export const usePlaygroundStore = create<PlaygroundState>()(
         name: 'playground-storage',
         partialize: (state) => ({
             // Keep only essential UI and config states
-            config: {
-                ...state.config,
-                // Aggressively strip potentially large strings from sourceImageUrls
-                sourceImageUrls: state.config?.sourceImageUrls?.map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url) || [],
-                // Deeply strip editConfig and snapshots
-                editConfig: state.config?.editConfig ? {
-                    ...state.config.editConfig,
-                    canvasJson: {},
-                    referenceImages: [], // Remove reference images from persistence
-                    annotations: [],
-                    tldrawSnapshot: undefined // CRITICAL: Stop persisting snapshot in editConfig
-                } : undefined,
-                tldrawSnapshot: undefined, // CRITICAL: Stop persisting top-level snapshot in config
-                resultSnapshot: undefined  // Added: results snapshots also heavy
-            },
+            config: (() => {
+                const isBannerConfig = state.config?.generationMode === 'banner';
+                const sanitizedConfig = clearBannerMetadata(state.config || ({} as GenerationConfig));
+                return {
+                    ...sanitizedConfig,
+                    // Aggressively strip potentially large strings from sourceImageUrls
+                    sourceImageUrls: isBannerConfig
+                        ? []
+                        : sanitizedConfig?.sourceImageUrls?.map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url) || [],
+                    // Deeply strip editConfig and snapshots
+                    editConfig: sanitizedConfig?.editConfig ? {
+                        ...sanitizedConfig.editConfig,
+                        canvasJson: {},
+                        referenceImages: [], // Remove reference images from persistence
+                        annotations: [],
+                        tldrawSnapshot: undefined // CRITICAL: Stop persisting snapshot in editConfig
+                    } : undefined,
+                    isEdit: isBannerConfig ? false : sanitizedConfig.isEdit,
+                    tldrawSnapshot: undefined, // CRITICAL: Stop persisting top-level snapshot in config
+                    resultSnapshot: undefined  // Added: results snapshots also heavy
+                };
+            })(),
             selectedModel: state.selectedModel,
             selectedWorkflowConfig: state.selectedWorkflowConfig ? {
                 // Keep only IDs/Titles for workflow, strip heavy JSONs

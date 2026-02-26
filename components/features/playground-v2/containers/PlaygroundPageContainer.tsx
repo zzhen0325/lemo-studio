@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
-import { History, Image as ImageIcon, Edit2, Sparkles, Palette } from "lucide-react";
+import { History, Image as ImageIcon, Edit2, Sparkles, Palette, Square } from "lucide-react";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import dynamic from "next/dynamic";
 
@@ -51,6 +51,7 @@ import { useMediaQuery } from "@/hooks/common/use-media-query";
 import { PresetGridOverlay } from "@/components/features/playground-v2/PresetGridOverlay";
 import { PlaygroundBackground } from "@/components/features/playground-v2/PlaygroundBackground";
 import { PlaygroundInputSection } from "@/components/features/playground-v2/PlaygroundInputSection";
+import { BannerModePanel } from "@/components/features/playground-v2/Banner/BannerModePanel";
 import { AR_MAP } from "@/components/features/playground-v2/constants/aspect-ratio";
 import { StylesMarquee } from "@/components/features/playground-v2/StylesMarquee";
 import { v4 as uuidv4 } from 'uuid';
@@ -76,6 +77,13 @@ export interface PlaygroundV2PageProps {
   onGenerate?: () => void;
   onHistoryChange?: (history: Generation[]) => void;
 
+}
+
+interface BannerSessionHistoryItem {
+  id: string;
+  outputUrl: string;
+  createdAt: string;
+  templateId: string;
 }
 
 
@@ -171,6 +179,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [batchSize, setBatchSize] = useState(4); // Default batch size
   const [pendingPresetEditConfig, setPendingPresetEditConfig] = useState<EditPresetConfig | undefined>(undefined);
+  const [bannerSessionHistory, setBannerSessionHistory] = useState<BannerSessionHistoryItem[]>([]);
 
 
   const {
@@ -191,6 +200,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     clearHistorySelection,
     setGenerationHistory: setGlobalGenerationHistory
   } = usePlaygroundStore();
+  const enterBannerMode = usePlaygroundStore(s => s.enterBannerMode);
 
   const {
     sensors,
@@ -209,6 +219,41 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   useEffect(() => {
     projectStore.toggleSidebar(showProjectSidebar);
   }, [showProjectSidebar]);
+
+  useEffect(() => {
+    if (activeTab !== 'banner') {
+      setBannerSessionHistory([]);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (bannerSessionHistory.length === 0) {
+      return;
+    }
+
+    const bannerHistoryMap = new Map(
+      generationHistory
+        .filter((item) => item.config?.generationMode === 'banner' && Boolean(item.outputUrl))
+        .map((item) => [item.id, item])
+    );
+
+    setBannerSessionHistory((prev) => {
+      let changed = false;
+      const next = prev.map((item) => {
+        const matched = bannerHistoryMap.get(item.id);
+        if (!matched?.outputUrl || matched.outputUrl === item.outputUrl) {
+          return item;
+        }
+        changed = true;
+        return {
+          ...item,
+          outputUrl: matched.outputUrl,
+          createdAt: matched.createdAt || item.createdAt,
+        };
+      });
+      return changed ? next : prev;
+    });
+  }, [bannerSessionHistory.length, generationHistory]);
 
   // Sync showHistory with viewMode for side effects (like project sidebar)
   useEffect(() => {
@@ -445,6 +490,51 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
     const { configOverride } = options;
+    const storeState = usePlaygroundStore.getState();
+    const isBannerModeGenerate = storeState.activeTab === 'banner' && Boolean(storeState.activeBannerData);
+
+    if (isBannerModeGenerate) {
+      const startTime = new Date().toISOString();
+      const batchTaskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
+      const currentConfig = usePlaygroundStore.getState().config;
+      const sourceImageUrls = options.sourceImageUrls && options.sourceImageUrls.length > 0
+        ? options.sourceImageUrls
+        : (currentConfig.sourceImageUrls || []);
+
+      const bannerConfig: GenerationConfig = {
+        ...currentConfig,
+        ...(configOverride || {}),
+        taskId: batchTaskId,
+        isEdit: true,
+      };
+
+      const uniqueId = await singleGenerate({
+        configOverride: bannerConfig,
+        fixedCreatedAt: startTime,
+        isBackground: true,
+        editConfig: undefined,
+        taskId: batchTaskId,
+        sourceImageUrls
+      });
+
+      if (typeof uniqueId === 'string') {
+        const generated = await executeGeneration(uniqueId, batchTaskId, bannerConfig, startTime, sourceImageUrls);
+        if (generated?.outputUrl) {
+          const templateId = storeState.activeBannerData?.templateId || generated.config?.bannerTemplateId || 'banner-unknown';
+          setBannerSessionHistory((prev) => [
+            {
+              id: generated.id,
+              outputUrl: generated.outputUrl,
+              createdAt: generated.createdAt || startTime,
+              templateId,
+            },
+            ...prev.filter((item) => item.id !== generated.id),
+          ]);
+        }
+      }
+      return;
+    }
+
     // Switch to Dock Mode and History Tab
     setViewMode('dock');
     setActiveTab('history');
@@ -1203,7 +1293,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
     setUploadedImages
   ]);
-
   return (
     <DndContext
       sensors={sensors}
@@ -1227,7 +1316,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           if (hasFiles && isFileItem) {
             setIsDraggingOver(true);
             // 只有在非 Style Tab 下才自动切换到 Describe Tab
-            if (activeTab !== 'describe' && activeTab !== 'style') {
+            if (activeTab !== 'describe' && activeTab !== 'style' && activeTab !== 'banner') {
               setViewMode('dock');
               setActiveTab('describe');
             }
@@ -1259,6 +1348,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
           const files = e.dataTransfer.files;
           if (files && files.length > 0) {
+            if (activeTab === 'banner') {
+              return;
+            }
             const dropY = e.clientY;
             const windowHeight = window.innerHeight;
 
@@ -1341,6 +1433,24 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         </div>
 
                         <div className="flex flex-col items-center gap-1">
+                          <TooltipButton
+                            icon={<Square className="w-5 h-5" />}
+                            label="Banner"
+                            tooltipContent="Banner mode"
+                            tooltipSide={tooltipSide}
+                            className={getButtonStyle(activeTab === 'banner')}
+                            onClick={() => {
+                              if (activeTab === 'banner') {
+                                setActiveTab('history');
+                                return;
+                              }
+                              enterBannerMode();
+                            }}
+                          />
+                          <span className="text-[10px]">Banner</span>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1">
 
                           <TooltipButton
                             icon={<History className="w-5 h-5" />}
@@ -1408,7 +1518,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                 {/* 中间内容区 */}
                 <div className={cn(
                   "flex flex-col items-center relative z-30 w-full px-4 md:px-6",
-                  (activeTab === 'gallery' || activeTab === 'style')
+                  (activeTab === 'gallery' || activeTab === 'style' || activeTab === 'banner')
                     ? "hidden"
                     : viewMode === 'dock'
                       ? "max-w-full sm:max-w-[600px] md:max-w-[800px] lg:max-w-[1000px] xl:max-w-[1200px] 2xl:max-w-[1200px] mt-10 h-full pt-4 overflow-hidden"
@@ -1423,7 +1533,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
                     {/* Input UI - Always present but layout changes based on viewMode */}
-                    {activeTab !== 'gallery' && activeTab !== 'style' && (
+                    {activeTab !== 'gallery' && activeTab !== 'style' && activeTab !== 'banner' && (
                       <div ref={promptWrapperRef} className={cn(
                         "w-full transition-all duration-300",
                         (viewMode === 'dock' && activeTab === 'describe') ? "h-full flex flex-col" : "h-auto"
@@ -1460,6 +1570,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           <span className="text-sm font-medium">
                             Edit
                           </span>
+                        </button>
+                        <button
+                          onClick={() => enterBannerMode()}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <Square className="w-4 h-4" />
+                          <span className="text-sm font-medium">Banner</span>
                         </button>
                         <button
                           onClick={() => { setViewMode('dock'); setActiveTab('history'); }}
@@ -1549,6 +1668,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         <StyleStacksView isDragging={isDraggingOver} />
                       </Suspense>
                     </div>
+                  </div>
+                )}
+
+                {viewMode === 'dock' && activeTab === 'banner' && (
+                  <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <BannerModePanel
+                      isGenerating={isGenerating}
+                      onGenerate={(options) => handleGenerate(options || {})}
+                      sessionHistory={bannerSessionHistory}
+                    />
                   </div>
                 )}
 

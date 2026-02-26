@@ -45,6 +45,20 @@ describe('Dataset schemas', () => {
 
       expect(result.success).toBe(true);
     });
+
+    it('rejects unsafe collection/newName path segments', () => {
+      const badCollection = DatasetPostSchema.safeParse({
+        collection: '../set-1',
+      });
+      const badNewName = DatasetPostSchema.safeParse({
+        collection: 'set-1',
+        mode: 'duplicate',
+        newName: 'nested/set-2',
+      });
+
+      expect(badCollection.success).toBe(false);
+      expect(badNewName.success).toBe(false);
+    });
   });
 
   describe('DatasetDeleteSchema', () => {
@@ -81,6 +95,15 @@ describe('Dataset schemas', () => {
         expect(parsed).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
       }
     });
+
+    it('rejects unsafe filename segments', () => {
+      const result = DatasetDeleteSchema.safeParse({
+        collection: 'set-1',
+        filenames: 'a.jpg,../b.jpg',
+      });
+
+      expect(result.success).toBe(false);
+    });
   });
 
   describe('DatasetUpdateSchema', () => {
@@ -113,14 +136,50 @@ describe('Dataset schemas', () => {
       expect(result.success).toBe(true);
     });
 
+    it('supports promptLang and rejects invalid values', () => {
+      const valid = DatasetUpdateSchema.safeParse({
+        collection: 'set-1',
+        prompts: { 'a.jpg': 'hello' },
+        promptLang: 'en',
+      });
+      const invalid = DatasetUpdateSchema.safeParse({
+        collection: 'set-1',
+        prompts: { 'a.jpg': 'hello' },
+        promptLang: 'jp',
+      });
+
+      expect(valid.success).toBe(true);
+      expect(invalid.success).toBe(false);
+    });
+
     it('rejects invalid mode value', () => {
       const result = DatasetUpdateSchema.safeParse({
         collection: 'set-1',
-        // @ts-expect-error invalid mode for runtime validation
         mode: 'unknown',
       });
 
       expect(result.success).toBe(false);
+    });
+
+    it('rejects unsafe filename/prefix/newCollectionName values', () => {
+      const badFilename = DatasetUpdateSchema.safeParse({
+        collection: 'set-1',
+        filename: 'nested/a.jpg',
+      });
+      const badPrefix = DatasetUpdateSchema.safeParse({
+        collection: 'set-1',
+        mode: 'batchRename',
+        prefix: '../x',
+      });
+      const badCollectionName = DatasetUpdateSchema.safeParse({
+        collection: 'set-1',
+        mode: 'renameCollection',
+        newCollectionName: 'new/set',
+      });
+
+      expect(badFilename.success).toBe(false);
+      expect(badPrefix.success).toBe(false);
+      expect(badCollectionName.success).toBe(false);
     });
   });
 });
