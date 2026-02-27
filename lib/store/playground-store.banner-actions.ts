@@ -197,7 +197,7 @@ export function createBannerActions(set: PlaygroundSet, get: PlaygroundGet): Pic
       if (!currentData) return state;
 
       const template = getBannerTemplateById(currentData.templateId);
-      if (!template || !template.allowedModels.includes(model)) return state;
+      if (!template) return state;
 
       return {
         selectedModel: model,

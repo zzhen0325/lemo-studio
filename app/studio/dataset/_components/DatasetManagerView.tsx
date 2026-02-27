@@ -180,11 +180,11 @@ export default function DatasetManagerView() {
     const selectedCollection = collections.find(c => c.id === selectedCollectionId);
 
     return (
-        <div className="relative  h-full pt-12 w-full px-8"
+        <div className="relative h-full pt-4 pb-4 w-full px-4 lg:px-8 flex flex-col min-h-0 bg-[#0e0e0e]"
 
         >
-            <div className="relative z-10 flex flex-col h-full w-full mx-auto text-foreground">
-                <div id="dataset-scroll-container" className="flex-1 min-h-0 overflow-y-auto w-full">
+            <div className="relative z-10 flex flex-col flex-1 h-full w-full max-w-[1440px] mx-auto min-h-0 text-foreground">
+                <div id="dataset-scroll-container" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar w-full">
                     {!selectedCollectionId ? (
                         <CollectionList
                             collections={collections}

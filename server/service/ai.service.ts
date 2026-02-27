@@ -7,8 +7,10 @@ import type {
   ImageProvider,
   TextProvider,
 } from '../../lib/ai/types';
-import { Injectable } from '@gulux/gulux';
+import { Inject, Injectable } from '@gulux/gulux';
 import { HttpError } from '../utils/http-error';
+import { ApiConfigService } from './api-config.service';
+import { normalizeImageSizeToken, validateModelUsage } from '../../lib/model-center';
 
 export interface DescribeRequestBody {
   image: string;
@@ -16,6 +18,7 @@ export interface DescribeRequestBody {
   profileId?: string;
   systemPrompt?: string;
   prompt?: string;
+  context?: 'service:describe' | 'service:datasetLabel';
   options?: Record<string, unknown>;
 }
 
@@ -42,8 +45,12 @@ export interface TextRequestBody {
 
 @Injectable()
 export class AiService {
+  @Inject()
+  private readonly apiConfigService!: ApiConfigService;
+
   public async describe(body: DescribeRequestBody): Promise<{ text: string }> {
     const { image, model, profileId, systemPrompt: explicitSystemPrompt, prompt, options } = body;
+    const describeContext = body.context || 'service:describe';
 
     if (!image) {
       throw new HttpError(400, 'Missing image data');
@@ -53,7 +60,18 @@ export class AiService {
       throw new HttpError(400, 'Missing model ID');
     }
 
-    const providerInstance = getProvider(model);
+    const providers = await this.apiConfigService.getRuntimeProviders();
+    const modelValidation = validateModelUsage({
+      providers,
+      modelId: model,
+      requiredTask: 'vision',
+      context: describeContext,
+    });
+    if (!modelValidation.valid) {
+      throw new HttpError(400, 'MODEL_VALIDATION_FAILED', { code: 'MODEL_VALIDATION_FAILED', errors: modelValidation.errors });
+    }
+
+    const providerInstance = getProvider(model, undefined, providers);
 
     // 仅在运行时做一次特性判断
     if (!("describeImage" in providerInstance)) {
@@ -93,7 +111,26 @@ export class AiService {
       throw new HttpError(400, 'Missing model ID');
     }
 
-    const providerInstance = getProvider(model);
+    const providers = await this.apiConfigService.getRuntimeProviders();
+    const modelValidation = validateModelUsage({
+      providers,
+      modelId: model,
+      requiredTask: 'image',
+      context: 'service:imageGeneration',
+      imageSize: body.imageSize,
+      aspectRatio,
+      batchSize,
+      referenceImageCount: (images && images.length > 0) ? images.length : (image ? 1 : 0),
+      width,
+      height,
+    });
+    if (!modelValidation.valid) {
+      throw new HttpError(400, 'MODEL_VALIDATION_FAILED', { code: 'MODEL_VALIDATION_FAILED', errors: modelValidation.errors });
+    }
+
+    const normalizedImageSize = normalizeImageSizeToken(body.imageSize) || body.imageSize;
+
+    const providerInstance = getProvider(model, undefined, providers);
 
     if (!("generateImage" in providerInstance)) {
       throw new HttpError(400, `Model ${model} does not support image generation`);
@@ -105,7 +142,7 @@ export class AiService {
       height,
       batchSize,
       aspectRatio,
-      imageSize: body.imageSize, // 使用 imageSize
+      imageSize: normalizedImageSize,
       image,
       images, // 传递多张参考图
       options: {
@@ -115,8 +152,21 @@ export class AiService {
       } as Record<string, unknown>,
     };
 
-    const result = await (providerInstance as unknown as ImageProvider).generateImage(params);
-    return result;
+    try {
+      const result = await (providerInstance as unknown as ImageProvider).generateImage(params);
+      return result;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new HttpError(502, `Image generation failed: ${reason}`, {
+        code: 'IMAGE_PROVIDER_ERROR',
+        model,
+        imageSize: normalizedImageSize || null,
+        aspectRatio: aspectRatio || null,
+      });
+    }
   }
 
   // 文本生成，可能返回流式结果，由调用方决定如何包装 HTTP 响应
@@ -131,7 +181,18 @@ export class AiService {
       throw new HttpError(400, 'Missing model ID');
     }
 
-    const providerInstance = getProvider(model);
+    const providers = await this.apiConfigService.getRuntimeProviders();
+    const modelValidation = validateModelUsage({
+      providers,
+      modelId: model,
+      requiredTask: 'text',
+      context: 'service:optimize',
+    });
+    if (!modelValidation.valid) {
+      throw new HttpError(400, 'MODEL_VALIDATION_FAILED', { code: 'MODEL_VALIDATION_FAILED', errors: modelValidation.errors });
+    }
+
+    const providerInstance = getProvider(model, undefined, providers);
 
     let resolvedSystemPrompt = explicitSystemPrompt;
     if (resolvedSystemPrompt === undefined && profileId) {

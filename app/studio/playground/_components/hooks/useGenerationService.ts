@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { userStore } from "@/lib/store/user-store";
 import { useAIService } from "@/hooks/ai/useAIService";
@@ -16,30 +16,35 @@ import { getApiBase } from "@/lib/api-base";
 import { getBannerTemplateById } from "@/config/banner-templates";
 import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
+import { useAPIConfigStore } from "@/lib/store/api-config-store";
+import { getContextModelOptions } from "@/lib/model-center-ui";
 
 export interface UnifiedModelConfig {
     id: string;
     displayName: string;
 }
 
-export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
+export const FALLBACK_AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
     { id: 'gemini-3.1-flash-image-preview', displayName: 'Nano banana 2' },
     { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
 
     { id: 'coze_seed4', displayName: 'Seedream 4' },
-    // { id: 'seed4_lemo1230', displayName: 'Seed 4.0' },
     { id: 'seed4_2_lemo', displayName: 'Seed4 ' },
     { id: 'lemo_2dillustator', displayName: 'Seed3 Lemo' },
-    // { id: 'lemoseedt2i', displayName: 'Seed 4' },
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
-
 ];
 
-const GOOGLE_IMAGE_SIZE_MODELS = new Set([
-    'gemini-3-pro-image-preview',
-    'gemini-3.1-flash-image-preview',
-]);
+export function usePlaygroundAvailableModels(): UnifiedModelConfig[] {
+    const providers = useAPIConfigStore(state => state.providers);
+    return useMemo(() => {
+        const fromCenter = getContextModelOptions(providers, 'playground', 'image');
+        if (fromCenter.length > 0) {
+            return fromCenter.map((model) => ({ id: model.id, displayName: model.displayName }));
+        }
+        return FALLBACK_AVAILABLE_MODELS;
+    }, [providers]);
+}
 
 export interface GenerateOptions {
     configOverride?: GenerationConfig;
@@ -57,6 +62,9 @@ export interface GenerateOptions {
 export function useGenerationService() {
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
+    const availableModels = usePlaygroundAvailableModels();
+    const getModelEntryById = useAPIConfigStore(state => state.getModelEntryById);
+    const settings = useAPIConfigStore(state => state.settings);
 
     const selectedModel = usePlaygroundStore(s => s.selectedModel);
     const selectedWorkflowConfig = usePlaygroundStore(s => s.selectedWorkflowConfig);
@@ -67,6 +75,10 @@ export function useGenerationService() {
     const { callImage, isLoading: isAIProcessing } = useAIService();
     const { doPost: runComfyWorkflow, loading: isWorkflowProcessing } = usePostPlayground();
     const { doPost: runFluxKleinWorkflow } = usePostFluxKlein();
+    const defaultImageModelId = settings.services?.imageGeneration?.binding?.modelId
+        || settings.defaults?.image?.textToImage?.binding?.modelId
+        || availableModels[0]?.id
+        || 'gemini-3-pro-image-preview';
     const resolveEffectiveUserId = useCallback(() => {
         const sessionUserId = typeof window !== 'undefined' ? localStorage.getItem('CURRENT_USER_ID') : null;
         return userStore.currentUser?.id || sessionUserId || usePlaygroundStore.getState().visitorId || 'anonymous';
@@ -232,15 +244,56 @@ export function useGenerationService() {
         }));
 
         const effectiveSourceUrl = effectiveSourceUrls[0];
-        const effectiveInputImage = normalizedInputImages[0];
         const unified = toUnifiedConfigFromLegacy(currentConfig);
-        const modelId = unified.model || selectedModel || "gemini-3-pro-image-preview";
+        const modelId = unified.model || selectedModel || defaultImageModelId;
+        const modelCapabilities = getModelEntryById(modelId)?.capabilities;
+        const supportsImageEdit = modelCapabilities?.supportsImageEdit
+            ?? (modelCapabilities?.supportsMultiImage ?? true);
+        const supportsImageSize = modelCapabilities?.supportsImageSize ?? true;
+        const imageSize = supportsImageSize ? unified.imageSize : undefined;
 
-        if (modelId === "seed4_2_lemo") {
-            if (Number(unified.width) < 1024 || Number(unified.height) < 1024) {
-                toast({ title: "尺寸限制", description: "Seed 4.2 模型的宽高尺寸不能小于 1024px", variant: "destructive" });
-                throw new Error("Seed 4.2 dimension validation failed");
-            }
+        const maxReferenceImages = modelCapabilities?.supportsMultiImage === false
+            ? 1
+            : Math.max(1, modelCapabilities?.maxReferenceImages || 4);
+        const constrainedInputImages = normalizedInputImages.slice(0, maxReferenceImages);
+        if (normalizedInputImages.length > maxReferenceImages) {
+            toast({
+                title: "参考图数量已限制",
+                description: `当前模型最多支持 ${maxReferenceImages} 张参考图，已自动截断。`,
+            });
+        }
+        const effectiveInputImage = constrainedInputImages[0];
+
+        if ((currentConfig.isEdit || constrainedInputImages.length > 0) && !supportsImageEdit) {
+            toast({
+                title: "模型不可用于图片编辑",
+                description: `${modelId} 当前被标记为不可编辑类型，请切换为可编辑类型模型（如 Nano banana 2 / Flux Klein）。`,
+                variant: "destructive",
+            });
+            throw new Error("Model does not support image editing");
+        }
+
+        if (
+            typeof modelCapabilities?.minWidth === 'number'
+            && Number(unified.width) < modelCapabilities.minWidth
+        ) {
+            toast({
+                title: "尺寸限制",
+                description: `当前模型宽度不能小于 ${modelCapabilities.minWidth}px`,
+                variant: "destructive"
+            });
+            throw new Error("Model minWidth validation failed");
+        }
+        if (
+            typeof modelCapabilities?.minHeight === 'number'
+            && Number(unified.height) < modelCapabilities.minHeight
+        ) {
+            toast({
+                title: "尺寸限制",
+                description: `当前模型高度不能小于 ${modelCapabilities.minHeight}px`,
+                variant: "destructive"
+            });
+            throw new Error("Model minHeight validation failed");
         }
 
         const isCoze = modelId === "coze_seed4";
@@ -273,10 +326,10 @@ export function useGenerationService() {
             width: Number(unified.width),
             height: Number(unified.height),
             aspectRatio: unified.aspectRatio === 'auto' ? undefined : unified.aspectRatio,
-            imageSize: GOOGLE_IMAGE_SIZE_MODELS.has(modelId) ? unified.imageSize : undefined,
+            imageSize,
             batchSize: 1,
             image: effectiveInputImage,
-            images: normalizedInputImages.length > 0 ? normalizedInputImages : undefined,
+            images: constrainedInputImages.length > 0 ? constrainedInputImages : undefined,
             options: {
                 seed: Math.floor(Math.random() * 2147483647),
                 stream: isCoze
@@ -401,7 +454,7 @@ export function useGenerationService() {
             return previewGen;
         }
         throw new Error(`${selectedModel} returned empty result`);
-    }, [selectedModel, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, resolveEffectiveUserId]);
+    }, [selectedModel, defaultImageModelId, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, resolveEffectiveUserId, getModelEntryById]);
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");

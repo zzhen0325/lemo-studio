@@ -35,9 +35,7 @@ describe('AI request schemas', () => {
 
     it('rejects wrong field types', () => {
       const result = TextRequestSchema.safeParse({
-        // @ts-expect-error intentional wrong type
         input: 123,
-        // @ts-expect-error intentional wrong type
         model: 456,
       });
 
@@ -106,6 +104,7 @@ describe('AI request schemas', () => {
         image: 'data:image/png;base64,xxx',
         model: 'test-vision-model',
         prompt: 'describe this image',
+        context: 'service:datasetLabel',
       });
 
       expect(result.success).toBe(true);
@@ -146,6 +145,16 @@ describe('AI request schemas', () => {
       if (result.success) {
         expect((result.data as Record<string, unknown>).extra).toBeUndefined();
       }
+    });
+
+    it('rejects unsupported context for describe', () => {
+      const result = DescribeRequestSchema.safeParse({
+        image: 'data:image/png;base64,xxx',
+        model: 'test-vision-model',
+        context: 'playground',
+      });
+
+      expect(result.success).toBe(false);
     });
   });
 });

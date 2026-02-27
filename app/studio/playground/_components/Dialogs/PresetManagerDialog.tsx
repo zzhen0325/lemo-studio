@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { IViewComfy } from '@/lib/providers/view-comfy-provider';
-import { AVAILABLE_MODELS } from "@studio/playground/_components/hooks/useGenerationService";
+import { usePlaygroundAvailableModels } from "@studio/playground/_components/hooks/useGenerationService";
 import { useImageUpload } from "@/hooks/common/use-image-upload";
 import { useImageSource } from "@/hooks/common/use-image-source";
 import {
@@ -128,6 +128,7 @@ const PresetImage = ({ src, alt, fill, className }: { src: string | undefined; a
 };
 
 export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, onOpenChange, workflows, currentConfig, currentEditConfig }) => {
+    const availableModels = usePlaygroundAvailableModels();
     const presets = usePlaygroundStore(s => s.presets);
     const presetCategories = usePlaygroundStore(s => s.presetCategories);
     const renameCategory = usePlaygroundStore(s => s.renameCategory);
@@ -531,7 +532,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                     <SelectValue placeholder="Select model" />
                                                                 </SelectTrigger>
                                                                 <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-xl z-[10010]">
-                                                                    {AVAILABLE_MODELS.map(m => (
+                                                                    {availableModels.map(m => (
                                                                         <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
                                                                     ))}
                                                                     <SelectItem value="Workflow">Workflow</SelectItem>
@@ -646,7 +647,7 @@ export const PresetManagerDialog: React.FC<PresetManagerDialogProps> = ({ open, 
                                                                 </Select>
                                                             </div>
 
-                                                            {!AVAILABLE_MODELS.some(m => m.id === (formData.config?.model || '')) && (
+                                                            {!availableModels.some(m => m.id === (formData.config?.model || '')) && (
                                                                 <div className="space-y-2">
                                                                     <Label className="text-sm">Linked Workflow</Label>
                                                                     <Select

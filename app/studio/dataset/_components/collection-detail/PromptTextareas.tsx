@@ -48,7 +48,7 @@ export const PromptTextarea = memo(function PromptTextarea({
         onEditingChange(true);
       }}
       onBlur={handleBlur}
-      className="w-full flex-1 placeholder:text-muted-foreground/50 bg-background/40 hover:bg-background/80 border border-white/5 hover:border-white/10 text-foreground text-sm leading-relaxed p-4 focus:bg-background focus:border-primary/40 focus:ring-4 focus:ring-primary/10 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none transition-all duration-300 rounded-xl custom-scrollbar min-h-[160px]"
+      className="w-full flex-1 placeholder:text-zinc-600 bg-background/40 hover:bg-background/80 border border-white/5 hover:border-[#2e2e2e] text-zinc-300 text-sm leading-relaxed p-4 focus:bg-background focus:border-primary/40 focus:ring-4 focus:ring-primary/10 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none transition-all duration-300 rounded-xl custom-scrollbar min-h-[160px]"
       placeholder="Write image description here..."
       disabled={disabled}
     />
@@ -92,7 +92,7 @@ export const SystemPromptTextarea = memo(function SystemPromptTextarea({
       }}
       onBlur={handleBlur}
       onChange={(e) => setDraft(e.target.value)}
-      className="w-full bg-background border-white/10 text-foreground text-sm p-4 focus:border-primary/50 rounded-xl min-h-[80px]"
+      className="w-full bg-background border-[#2e2e2e] text-zinc-300 text-sm p-4 focus:border-primary/50 rounded-xl min-h-[80px]"
       placeholder="What is in this image? Describe the main objects and context."
     />
   );

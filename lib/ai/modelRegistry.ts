@@ -4,6 +4,8 @@ import { REGISTRY } from './registry';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import type { APIProviderConfig } from '@/lib/api-config/types';
+import { normalizeProviderConfigs } from '@/lib/model-center';
 
 // Load .env.local from project root
 dotenv.config({ path: path.join(__dirname, '../../.env.local') });
@@ -17,12 +19,15 @@ const DOUBAO_VISION_MODELS = [
     'doubao-1.5-vision'
 ];
 
+type ProviderRuntimeConfig = Pick<APIProviderConfig, 'id' | 'apiKey' | 'baseURL' | 'providerType' | 'models' | 'isEnabled'>;
+
 // 从providers.json读取配置
-function readProvidersConfig(): { id: string; apiKey: string; baseURL?: string; providerType: string; models: { modelId: string }[]; isEnabled?: boolean }[] {
+function readProvidersConfig(): ProviderRuntimeConfig[] {
     try {
         const configPath = path.join(__dirname, '../../data/api-config/providers.json');
         const content = fs.readFileSync(configPath, 'utf-8');
-        return JSON.parse(content);
+        const parsed = JSON.parse(content) as ProviderRuntimeConfig[];
+        return normalizeProviderConfigs(parsed as APIProviderConfig[]) as ProviderRuntimeConfig[];
     } catch (error) {
         console.warn('[modelRegistry] Failed to read providers.json:', error);
         return [];
@@ -34,16 +39,20 @@ const PROVIDER_ENV_MAP: Record<string, string> = {
     'provider-doubao': 'DOUBAO_API_KEY',
     'provider-deepseek': 'DEEPSEEK_API_KEY',
     'provider-google': 'GOOGLE_API_KEY',
-    'provider-coze': 'COZE_API_TOKEN'
+    'provider-coze': 'COZE_API_TOKEN',
+    'provider-workflow-local': ''
 };
 
 // 根据modelId查找对应的provider配置
-function findProviderConfigForModel(modelId: string): { apiKey: string; baseURL?: string; providerType: string } | null {
-    const providers = readProvidersConfig();
+export function findProviderConfigForModel(
+    modelId: string,
+    providersInput?: ProviderRuntimeConfig[]
+): { apiKey: string; baseURL?: string; providerType: string } | null {
+    const providers = providersInput && providersInput.length > 0 ? providersInput : readProvidersConfig();
 
     for (const provider of providers) {
         if (!provider.isEnabled) continue;
-        for (const model of provider.models) {
+        for (const model of (provider.models || [])) {
             if (model.modelId === modelId) {
                 // 如果 providers.json 中没有 key，尝试从环境变量读取
                 let apiKey = provider.apiKey;
@@ -59,7 +68,7 @@ function findProviderConfigForModel(modelId: string): { apiKey: string; baseURL?
             }
         }
         // 模糊匹配：如果modelId以provider的模型前缀开头
-        if (modelId.startsWith('doubao-') && provider.models.some(m => m.modelId.startsWith('doubao-'))) {
+        if (modelId.startsWith('doubao-') && (provider.models || []).some(m => m.modelId.startsWith('doubao-'))) {
             let apiKey = provider.apiKey;
             if (!apiKey && PROVIDER_ENV_MAP['provider-doubao']) {
                 apiKey = process.env.DOUBAO_API_KEY || '';
@@ -70,7 +79,7 @@ function findProviderConfigForModel(modelId: string): { apiKey: string; baseURL?
                 providerType: provider.providerType
             };
         }
-        if (modelId.startsWith('gemini-') && provider.models.some(m => m.modelId.startsWith('gemini-'))) {
+        if (modelId.startsWith('gemini-') && (provider.models || []).some(m => m.modelId.startsWith('gemini-'))) {
             let apiKey = provider.apiKey;
             if (!apiKey && PROVIDER_ENV_MAP['provider-google']) {
                 apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
@@ -85,14 +94,25 @@ function findProviderConfigForModel(modelId: string): { apiKey: string; baseURL?
     return null;
 }
 
-export function getGoogleApiKey(): string {
-    const config = findProviderConfigForModel('gemini-3-pro-image-preview');
+export function getGoogleApiKey(providersInput?: ProviderRuntimeConfig[]): string {
+    const providers = providersInput && providersInput.length > 0 ? providersInput : readProvidersConfig();
+    const googleProvider = providers.find((provider) => provider.id === 'provider-google' && provider.isEnabled);
+    if (googleProvider?.apiKey) {
+        return googleProvider.apiKey;
+    }
+
+    const config = findProviderConfigForModel('gemini-3-pro-image-preview', providers);
     return config?.apiKey || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
 }
 
-export function getProvider(modelId: string, overrideConfig?: Partial<ModelConfig>): TextProvider | VisionProvider | ImageProvider {
-    // 优先从providers.json获取配置
-    const providerConfig = findProviderConfigForModel(modelId);
+export function getProvider(
+    modelId: string,
+    overrideConfig?: Partial<ModelConfig>,
+    providersInput?: ProviderRuntimeConfig[]
+): TextProvider | VisionProvider | ImageProvider {
+    const providers = providersInput && providersInput.length > 0 ? providersInput : readProvidersConfig();
+    // 优先从 providers 配置获取 key/baseURL
+    const providerConfig = findProviderConfigForModel(modelId, providers);
 
     // 1. Find registry entry
     let entry = REGISTRY.find(r => r.id === modelId);

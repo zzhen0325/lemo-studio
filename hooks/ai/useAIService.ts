@@ -12,13 +12,15 @@ import {
 } from '@/lib/ai/client';
 import { useAPIConfigStore } from '@/lib/store/api-config-store';
 import { ServiceType } from '@/lib/api-config/types';
+import { selectModelsForContext } from '@/lib/model-center';
 
 // 硬编码的默认值，确保即使store还没加载完也有fallback
 const FALLBACK_DEFAULTS: Record<ServiceType, string> = {
     imageGeneration: 'gemini-3-pro-image-preview',
-    translate: 'google-translate-api',
+    translate: 'doubao-seed-2-0-lite-260215',
     describe: 'doubao-seed-2-0-lite-260215',
-    optimize: 'doubao-seed-1-8-251228'
+    optimize: 'doubao-seed-1-8-251228',
+    datasetLabel: 'doubao-seed-2-0-lite-260215',
 };
 
 export function useAIService() {
@@ -27,6 +29,7 @@ export function useAIService() {
 
     // 直接订阅整个store状态
     const settings = useAPIConfigStore(state => state.settings);
+    const providers = useAPIConfigStore(state => state.providers);
     const fetchConfig = useAPIConfigStore(state => state.fetchConfig);
 
     // 初始化时获取配置
@@ -37,17 +40,45 @@ export function useAIService() {
     // 获取指定服务的模型ID和系统提示词
     const getServiceConfig = useCallback((service: ServiceType): { modelId: string; systemPrompt?: string } => {
         const serviceConfig = settings.services?.[service];
+        const servicePrompt = serviceConfig && 'systemPrompt' in serviceConfig
+            ? serviceConfig.systemPrompt
+            : undefined;
 
         if (serviceConfig?.binding?.modelId) {
             return {
                 modelId: serviceConfig.binding.modelId,
-                systemPrompt: serviceConfig.systemPrompt
+                systemPrompt: servicePrompt
             };
+        }
+
+        if (service === 'imageGeneration') {
+            const model = selectModelsForContext(providers, 'service:imageGeneration', { requiredTask: 'image' })[0];
+            if (model?.modelId) {
+                return { modelId: model.modelId, systemPrompt: servicePrompt };
+            }
+        }
+        if (service === 'describe') {
+            const model = selectModelsForContext(providers, 'service:describe', { requiredTask: 'vision' })[0];
+            if (model?.modelId) {
+                return { modelId: model.modelId, systemPrompt: servicePrompt };
+            }
+        }
+        if (service === 'optimize') {
+            const model = selectModelsForContext(providers, 'service:optimize', { requiredTask: 'text' })[0];
+            if (model?.modelId) {
+                return { modelId: model.modelId, systemPrompt: servicePrompt };
+            }
+        }
+        if (service === 'datasetLabel') {
+            const model = selectModelsForContext(providers, 'service:datasetLabel', { requiredTask: 'vision' })[0];
+            if (model?.modelId) {
+                return { modelId: model.modelId };
+            }
         }
 
         // 最终fallback
         return { modelId: FALLBACK_DEFAULTS[service] };
-    }, [settings]);
+    }, [settings, providers]);
 
     const callText = async (params: Partial<ClientGenerationParams> & { input: string }) => {
         setIsLoading(true);

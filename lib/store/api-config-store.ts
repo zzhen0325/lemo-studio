@@ -1,37 +1,50 @@
 import { create } from 'zustand';
-import { APIProviderConfig, APIConfigSettings, ServiceBinding, ServiceConfig, ServiceType } from '../api-config/types';
+import {
+    APIConfigSettings,
+    APIProviderConfig,
+    DefaultModelMatrix,
+    ModelContext,
+    ModelTask,
+    ServiceBinding,
+    ServiceConfig,
+    ServiceType
+} from '../api-config/types';
 import { getApiBase } from "../api-base";
+import { getModelById, normalizeProviderConfigs, selectModelsForContext } from '@/lib/model-center';
 
 interface APIConfigState {
-    // State
     providers: APIProviderConfig[];
     settings: APIConfigSettings;
     isLoading: boolean;
     error: string | null;
-
-    // Actions
     fetchConfig: () => Promise<void>;
     addProvider: (provider: Partial<APIProviderConfig>) => Promise<void>;
     updateProvider: (id: string, updates: Partial<APIProviderConfig>) => Promise<void>;
     removeProvider: (id: string) => Promise<void>;
     updateSettings: (settings: Partial<APIConfigSettings>) => Promise<void>;
     updateServiceConfig: (service: ServiceType, config: Partial<ServiceConfig>) => Promise<void>;
-
-    // Getters
+    importProvidersFromFile: () => Promise<void>;
     getEnabledProviders: () => APIProviderConfig[];
     getProviderById: (id: string) => APIProviderConfig | undefined;
     getModelsForTask: (task: 'text' | 'vision' | 'image') => { providerId: string; providerName: string; modelId: string; displayName: string }[];
+    getModelsForContext: (context: ModelContext, requiredTask?: ModelTask) => { providerId: string; providerName: string; modelId: string; displayName: string }[];
+    getModelEntryById: (modelId: string) => ReturnType<typeof getModelById> | undefined;
     getServiceConfig: (service: ServiceType) => ServiceConfig | undefined;
-
-    // 防重复加载标志（内部使用）
     _configLoading: boolean;
     _configLoaded: boolean;
 }
 
-const DEFAULT_SERVICE_CONFIG: ServiceConfig = {
-    binding: { providerId: '', modelId: '' },
-    systemPrompt: ''
-};
+const EMPTY_BINDING: ServiceBinding = { providerId: '', modelId: '' };
+
+const DEFAULT_TRANSLATE_SYSTEM_PROMPT = [
+    'You are a professional prompt translation engine for text-to-image workflows.',
+    'Translate only. Do not explain, annotate, or add extra content.',
+    'Output language must strictly match the target language requested by user.',
+    'Preserve original meaning, tone, structure, and detail density.',
+    'Keep comma-separated tag style if the source uses tags.',
+    'Keep placeholders, symbols, model params, lora tags, and proper nouns unchanged when appropriate.',
+    'Return plain translated text only, without quotes or markdown.',
+].join('\n');
 
 const DEFAULT_SETTINGS: APIConfigSettings = {
     services: {
@@ -39,7 +52,8 @@ const DEFAULT_SETTINGS: APIConfigSettings = {
             binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' }
         },
         translate: {
-            binding: { providerId: 'google-translate', modelId: 'google-translate-api' }
+            binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
+            systemPrompt: DEFAULT_TRANSLATE_SYSTEM_PROMPT
         },
         describe: {
             binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
@@ -81,39 +95,126 @@ const DEFAULT_SETTINGS: APIConfigSettings = {
 1. 仅输出完整提示词中文版本
 2. 使用精炼且生动的语言表达
 3. 文字控制在200字以内`
+        },
+        datasetLabel: {
+            binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' }
+        }
+    },
+    defaults: {
+        text: {
+            textToText: { binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' } },
+            imageToText: { binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' } },
+            videoToText: { binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' } },
+        },
+        image: {
+            textToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
+            imageToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
+            imagesToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
         }
     },
     comfyUrl: ''
 };
 
-// 兼容旧格式的辅助函数
-function migrateOldSettings(data: Record<string, unknown>): APIConfigSettings {
-    // 如果已经是新格式
-    if (data.services) {
-        return data as unknown as APIConfigSettings;
-    }
-
-    // 从旧格式迁移
-    const oldBindings = data.serviceBindings as Record<string, ServiceBinding> | undefined;
+function withBinding(input?: Partial<ServiceConfig>, fallback?: ServiceBinding): ServiceConfig {
+    const fallbackBinding = fallback || EMPTY_BINDING;
     return {
-        services: {
-            imageGeneration: {
-                binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' }
-            },
-            translate: {
-                binding: oldBindings?.translate || { providerId: 'google-translate', modelId: 'google-translate-api' }
-            },
-            describe: {
-                binding: oldBindings?.describe || DEFAULT_SETTINGS.services.describe.binding,
-                systemPrompt: DEFAULT_SETTINGS.services.describe.systemPrompt
-            },
-            optimize: {
-                binding: oldBindings?.optimize || DEFAULT_SETTINGS.services.optimize.binding,
-                systemPrompt: DEFAULT_SETTINGS.services.optimize.systemPrompt
-            }
+        binding: {
+            providerId: input?.binding?.providerId || fallbackBinding.providerId,
+            modelId: input?.binding?.modelId || fallbackBinding.modelId
         },
+        systemPrompt: input?.systemPrompt
+    };
+}
+
+function buildDefaultsFromServices(services: APIConfigSettings['services']): DefaultModelMatrix {
+    const optimizeBinding = services.optimize.binding;
+    const describeBinding = services.describe.binding;
+    const imageBinding = services.imageGeneration.binding;
+
+    return {
+        text: {
+            textToText: { binding: optimizeBinding },
+            imageToText: { binding: describeBinding },
+            videoToText: { binding: describeBinding },
+        },
+        image: {
+            textToImage: { binding: imageBinding },
+            imageToImage: { binding: imageBinding },
+            imagesToImage: { binding: imageBinding },
+        }
+    };
+}
+
+function resolveDefaults(
+    incomingDefaults: APIConfigSettings['defaults'] | undefined,
+    services: APIConfigSettings['services'],
+): DefaultModelMatrix {
+    const base = buildDefaultsFromServices(services);
+    return {
+        text: {
+            textToText: withBinding(incomingDefaults?.text?.textToText, base.text.textToText.binding),
+            imageToText: withBinding(incomingDefaults?.text?.imageToText, base.text.imageToText.binding),
+            videoToText: withBinding(incomingDefaults?.text?.videoToText, base.text.videoToText.binding),
+        },
+        image: {
+            textToImage: withBinding(incomingDefaults?.image?.textToImage, base.image.textToImage.binding),
+            imageToImage: withBinding(incomingDefaults?.image?.imageToImage, base.image.imageToImage.binding),
+            imagesToImage: withBinding(incomingDefaults?.image?.imagesToImage, base.image.imagesToImage.binding),
+        }
+    };
+}
+
+function normalizeSettings(data: Record<string, unknown>): APIConfigSettings {
+    const oldBindings = data.serviceBindings as Record<string, ServiceBinding> | undefined;
+    const incomingServices = data.services as Partial<APIConfigSettings['services']> | undefined;
+
+    const services: APIConfigSettings['services'] = {
+        imageGeneration: withBinding(
+            incomingServices?.imageGeneration,
+            DEFAULT_SETTINGS.services.imageGeneration.binding
+        ),
+        translate: {
+            ...withBinding(
+                incomingServices?.translate,
+                oldBindings?.translate || DEFAULT_SETTINGS.services.translate.binding
+            ),
+            systemPrompt: incomingServices?.translate?.systemPrompt || DEFAULT_SETTINGS.services.translate.systemPrompt,
+        },
+        describe: {
+            ...withBinding(
+                incomingServices?.describe,
+                oldBindings?.describe || DEFAULT_SETTINGS.services.describe.binding
+            ),
+            systemPrompt: incomingServices?.describe?.systemPrompt || DEFAULT_SETTINGS.services.describe.systemPrompt,
+        },
+        optimize: {
+            ...withBinding(
+                incomingServices?.optimize,
+                oldBindings?.optimize || DEFAULT_SETTINGS.services.optimize.binding
+            ),
+            systemPrompt: incomingServices?.optimize?.systemPrompt || DEFAULT_SETTINGS.services.optimize.systemPrompt,
+        },
+        datasetLabel: {
+            binding: {
+                providerId: incomingServices?.datasetLabel?.binding?.providerId
+                    || incomingServices?.describe?.binding?.providerId
+                    || DEFAULT_SETTINGS.services.datasetLabel.binding.providerId,
+                modelId: incomingServices?.datasetLabel?.binding?.modelId
+                    || incomingServices?.describe?.binding?.modelId
+                    || DEFAULT_SETTINGS.services.datasetLabel.binding.modelId,
+            }
+        }
+    };
+
+    return {
+        services,
+        defaults: resolveDefaults(data.defaults as APIConfigSettings['defaults'] | undefined, services),
         comfyUrl: (data.comfyUrl as string) || ''
     };
+}
+
+function getMergedSettings(data: Record<string, unknown>): APIConfigSettings {
+    return normalizeSettings(data);
 }
 
 export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
@@ -121,51 +222,22 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
     settings: DEFAULT_SETTINGS,
     isLoading: false,
     error: null,
-    // 防重复加载标志
     _configLoading: false,
     _configLoaded: false,
 
     fetchConfig: async () => {
         const state = get();
-        // 防止重复加载
         if (state._configLoading || state._configLoaded) return;
         set({ isLoading: true, error: null, _configLoading: true });
         try {
             const response = await fetch(`${getApiBase()}/api-config`);
             if (!response.ok) throw new Error('Failed to fetch config');
             const data = await response.json();
-            const migratedSettings = migrateOldSettings(data.settings || {});
-
-            // 深度合并settings，保留默认的systemPrompt如果远程为空
-            const mergedServices: APIConfigSettings['services'] = {
-                imageGeneration: {
-                    ...DEFAULT_SETTINGS.services.imageGeneration,
-                    ...migratedSettings.services?.imageGeneration,
-                },
-                translate: {
-                    ...DEFAULT_SETTINGS.services.translate,
-                    ...migratedSettings.services?.translate,
-                },
-                describe: {
-                    ...DEFAULT_SETTINGS.services.describe,
-                    ...migratedSettings.services?.describe,
-                    // 如果远程systemPrompt不为空则使用远程值，否则保留默认
-                    systemPrompt: migratedSettings.services?.describe?.systemPrompt || DEFAULT_SETTINGS.services.describe.systemPrompt
-                },
-                optimize: {
-                    ...DEFAULT_SETTINGS.services.optimize,
-                    ...migratedSettings.services?.optimize,
-                    // 如果远程systemPrompt不为空则使用远程值，否则保留默认
-                    systemPrompt: migratedSettings.services?.optimize?.systemPrompt || DEFAULT_SETTINGS.services.optimize.systemPrompt
-                }
-            };
+            const mergedSettings = getMergedSettings((data.settings || {}) as Record<string, unknown>);
 
             set({
-                providers: data.providers || [],
-                settings: {
-                    services: mergedServices,
-                    comfyUrl: migratedSettings.comfyUrl || ''
-                },
+                providers: normalizeProviderConfigs(data.providers || []),
+                settings: mergedSettings,
                 isLoading: false,
                 _configLoaded: true,
                 _configLoading: false
@@ -185,7 +257,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
             });
             if (!response.ok) throw new Error('Failed to add provider');
             const data = await response.json();
-            set({ providers: data.providers, isLoading: false });
+            set({ providers: normalizeProviderConfigs(data.providers || []), isLoading: false });
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
             throw error;
@@ -202,7 +274,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
             });
             if (!response.ok) throw new Error('Failed to update provider');
             const data = await response.json();
-            set({ providers: data.providers, isLoading: false });
+            set({ providers: normalizeProviderConfigs(data.providers || []), isLoading: false });
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
             throw error;
@@ -228,7 +300,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
 
     updateSettings: async (settingsUpdates) => {
         const currentSettings = get().settings;
-        const newSettings = { ...currentSettings, ...settingsUpdates };
+        const newSettings = getMergedSettings({ ...currentSettings, ...settingsUpdates } as unknown as Record<string, unknown>);
         set({ isLoading: true, error: null });
         try {
             const response = await fetch(`${getApiBase()}/api-config`, {
@@ -246,16 +318,59 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
 
     updateServiceConfig: async (service, configUpdates) => {
         const currentSettings = get().settings;
-        const currentServiceConfig = currentSettings.services[service] || DEFAULT_SERVICE_CONFIG;
+        const currentServiceConfig = currentSettings.services[service] || { binding: EMPTY_BINDING };
         const newServiceConfig = { ...currentServiceConfig, ...configUpdates };
+        const currentDefaults = currentSettings.defaults || buildDefaultsFromServices(currentSettings.services);
+        const nextDefaults = {
+            ...currentDefaults,
+            text: { ...currentDefaults.text },
+            image: { ...currentDefaults.image },
+        };
+
+        if (configUpdates.binding) {
+            if (service === 'optimize') {
+                nextDefaults.text.textToText = { ...nextDefaults.text.textToText, binding: configUpdates.binding };
+            }
+            if (service === 'describe') {
+                nextDefaults.text.imageToText = { ...nextDefaults.text.imageToText, binding: configUpdates.binding };
+                nextDefaults.text.videoToText = { ...nextDefaults.text.videoToText, binding: configUpdates.binding };
+            }
+            if (service === 'imageGeneration') {
+                nextDefaults.image.textToImage = { ...nextDefaults.image.textToImage, binding: configUpdates.binding };
+            }
+        }
+
         const newSettings = {
             ...currentSettings,
             services: {
                 ...currentSettings.services,
                 [service]: newServiceConfig
-            }
+            },
+            defaults: nextDefaults,
         };
         await get().updateSettings(newSettings);
+    },
+
+    importProvidersFromFile: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const response = await fetch(`${getApiBase()}/api-config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'importProvidersFromFile' })
+            });
+            if (!response.ok) throw new Error('Failed to import providers from file');
+            const data = await response.json();
+            set({
+                providers: normalizeProviderConfigs(data.providers || []),
+                isLoading: false,
+                _configLoaded: true,
+                _configLoading: false,
+            });
+        } catch (error) {
+            set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
+            throw error;
+        }
     },
 
     getEnabledProviders: () => {
@@ -267,26 +382,30 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
     },
 
     getModelsForTask: (task) => {
-        const enabledProviders = get().getEnabledProviders();
-        const result: { providerId: string; providerName: string; modelId: string; displayName: string }[] = [];
+        return selectModelsForContext(get().providers, 'playground', { requiredTask: task })
+            .map((item) => ({
+                providerId: item.providerId,
+                providerName: item.providerName,
+                modelId: item.modelId,
+                displayName: item.displayName || item.modelId,
+            }));
+    },
 
-        for (const provider of enabledProviders) {
-            for (const model of provider.models) {
-                if (model.task.includes(task)) {
-                    result.push({
-                        providerId: provider.id,
-                        providerName: provider.name,
-                        modelId: model.modelId,
-                        displayName: model.displayName || model.modelId
-                    });
-                }
-            }
-        }
+    getModelsForContext: (context, requiredTask) => {
+        return selectModelsForContext(get().providers, context, { requiredTask })
+            .map((item) => ({
+                providerId: item.providerId,
+                providerName: item.providerName,
+                modelId: item.modelId,
+                displayName: item.displayName || item.modelId,
+            }));
+    },
 
-        return result;
+    getModelEntryById: (modelId) => {
+        return getModelById(get().providers, modelId);
     },
 
     getServiceConfig: (service) => {
-        return get().settings.services[service];
+        return get().settings.services[service] as ServiceConfig;
     }
 }));

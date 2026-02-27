@@ -1,11 +1,13 @@
 import type { BannerFields, BannerModelId, BannerTemplateConfig } from '@/lib/playground/types';
 
-export const BANNER_ALLOWED_MODELS: BannerModelId[] = [
+export const DEFAULT_BANNER_ALLOWED_MODELS: BannerModelId[] = [
   'flux_klein',
   'gemini-2.5-flash-image',
   'gemini-3-pro-image-preview',
   'gemini-3.1-flash-image-preview',
 ];
+// Backward compatibility alias
+export const BANNER_ALLOWED_MODELS = DEFAULT_BANNER_ALLOWED_MODELS;
 
 export const DEFAULT_BANNER_TEMPLATE_ID = 'banner-ramadhan-v1';
 const CUSTOM_BANNER_TEMPLATE_STORAGE_KEY = 'banner-custom-templates-v1';
@@ -29,7 +31,7 @@ const BUILTIN_BANNER_TEMPLATES: BannerTemplateConfig[] = [
     width: 1080,
     height: 1440,
     defaultModel: 'flux_klein',
-    allowedModels: BANNER_ALLOWED_MODELS,
+    allowedModels: DEFAULT_BANNER_ALLOWED_MODELS,
     defaultFields: {
       mainTitle: '#Berkahnya Ramadhan',
       subTitle: 'Bagikan postingan Ramadhan dan menangkan Hadiah Eksklusif senilai 4.5 juta!',
@@ -47,7 +49,7 @@ const BUILTIN_BANNER_TEMPLATES: BannerTemplateConfig[] = [
     width: 1440,
     height: 900,
     defaultModel: 'flux_klein',
-    allowedModels: BANNER_ALLOWED_MODELS,
+    allowedModels: DEFAULT_BANNER_ALLOWED_MODELS,
     defaultFields: {
       mainTitle: '#Merry Christmas',
       subTitle: 'lalallalala',
@@ -72,7 +74,7 @@ const BUILTIN_BANNER_TEMPLATES: BannerTemplateConfig[] = [
     width: 1440,
     height: 900,
     defaultModel: 'flux_klein',
-    allowedModels: BANNER_ALLOWED_MODELS,
+    allowedModels: DEFAULT_BANNER_ALLOWED_MODELS,
     defaultFields: {
       mainTitle: '#Future Drops',
       subTitle: 'Launch your spring campaign in one click',
@@ -118,20 +120,28 @@ const normalizeFields = (value: unknown): BannerFields => {
   };
 };
 
-const resolveModel = (value: unknown): BannerModelId => {
-  if (typeof value === 'string' && BANNER_ALLOWED_MODELS.includes(value as BannerModelId)) {
-    return value as BannerModelId;
-  }
-  return 'flux_klein';
-};
-
 const resolveAllowedModels = (value: unknown): BannerModelId[] => {
   if (!Array.isArray(value)) {
-    return [...BANNER_ALLOWED_MODELS];
+    return [...DEFAULT_BANNER_ALLOWED_MODELS];
   }
+  const seen = new Set<string>();
   const models = value
-    .filter((item): item is BannerModelId => typeof item === 'string' && BANNER_ALLOWED_MODELS.includes(item as BannerModelId));
-  return models.length > 0 ? models : [...BANNER_ALLOWED_MODELS];
+    .filter((item): item is BannerModelId => typeof item === 'string' && item.trim().length > 0)
+    .map((item) => item.trim() as BannerModelId)
+    .filter((item) => {
+      if (seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+
+  return models.length > 0 ? models : [...DEFAULT_BANNER_ALLOWED_MODELS];
+};
+
+const resolveModel = (value: unknown, allowedModels: BannerModelId[]): BannerModelId => {
+  if (typeof value === 'string' && allowedModels.includes(value as BannerModelId)) {
+    return value as BannerModelId;
+  }
+  return allowedModels[0] || 'flux_klein';
 };
 
 function sanitizeBannerTemplate(input: unknown): BannerTemplateConfig | null {
@@ -149,6 +159,8 @@ function sanitizeBannerTemplate(input: unknown): BannerTemplateConfig | null {
     ? source.promptTemplate
     : DEFAULT_PROMPT_TEMPLATE;
 
+  const allowedModels = resolveAllowedModels(source.allowedModels);
+
   return {
     id: source.id.trim(),
     name: source.name.trim(),
@@ -159,8 +171,8 @@ function sanitizeBannerTemplate(input: unknown): BannerTemplateConfig | null {
     baseImageUrl: source.baseImageUrl.trim(),
     width: Math.round(width),
     height: Math.round(height),
-    defaultModel: resolveModel(source.defaultModel),
-    allowedModels: resolveAllowedModels(source.allowedModels),
+    defaultModel: resolveModel(source.defaultModel, allowedModels),
+    allowedModels,
     defaultFields: normalizeFields(source.defaultFields),
     promptTemplate,
   };
@@ -257,7 +269,7 @@ export function createBannerTemplateDraft(sourceTemplate?: BannerTemplateConfig)
     width: source?.width || 1080,
     height: source?.height || 1080,
     defaultModel: source?.defaultModel || 'flux_klein',
-    allowedModels: [...(source?.allowedModels || BANNER_ALLOWED_MODELS)],
+    allowedModels: [...(source?.allowedModels || DEFAULT_BANNER_ALLOWED_MODELS)],
     defaultFields: {
       mainTitle: source?.defaultFields?.mainTitle || '',
       subTitle: source?.defaultFields?.subTitle || '',

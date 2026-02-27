@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Generation } from '@/types/database';
-import { AVAILABLE_MODELS } from '@studio/playground/_components/hooks/useGenerationService';
+import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import { TooltipButton } from '@/components/ui/tooltip-button';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useImageSource } from '@/hooks/common/use-image-source';
@@ -188,6 +188,7 @@ export function HistoryCard({
   onToggleSelect?: () => void;
 }) {
   const [isHover, setIsHover] = React.useState(false);
+  const availableModels = usePlaygroundAvailableModels();
   const { applyPrompt, applyModel, applyImage, applyImages, styles, addImageToStyle, setSelectedPresetName } = usePlaygroundStore();
   const { toast } = useToast();
 
@@ -208,8 +209,8 @@ export function HistoryCard({
     || config?.tldrawSnapshot
     || config?.editConfig?.tldrawSnapshot
   );
-  const modelDisplayName = AVAILABLE_MODELS.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
-  const baseModelDisplayName = config?.baseModel ? (AVAILABLE_MODELS.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
+  const modelDisplayName = availableModels.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
+  const baseModelDisplayName = config?.baseModel ? (availableModels.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
   const prompt = config?.prompt || '';
   const timeStr = new Date(result.createdAt).toLocaleString();
 

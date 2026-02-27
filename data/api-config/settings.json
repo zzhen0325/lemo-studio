@@ -1,4 +1,46 @@
 {
+  "defaults": {
+    "text": {
+      "textToText": {
+        "binding": {
+          "providerId": "provider-doubao",
+          "modelId": "doubao-seed-2-0-lite-260215"
+        }
+      },
+      "imageToText": {
+        "binding": {
+          "providerId": "provider-doubao",
+          "modelId": "doubao-seed-2-0-lite-260215"
+        }
+      },
+      "videoToText": {
+        "binding": {
+          "providerId": "provider-doubao",
+          "modelId": "doubao-seed-2-0-lite-260215"
+        }
+      }
+    },
+    "image": {
+      "textToImage": {
+        "binding": {
+          "providerId": "provider-google",
+          "modelId": "gemini-3-pro-image-preview"
+        }
+      },
+      "imageToImage": {
+        "binding": {
+          "providerId": "provider-google",
+          "modelId": "gemini-3-pro-image-preview"
+        }
+      },
+      "imagesToImage": {
+        "binding": {
+          "providerId": "provider-google",
+          "modelId": "gemini-3-pro-image-preview"
+        }
+      }
+    }
+  },
   "services": {
     "imageGeneration": {
       "binding": {
@@ -8,9 +50,10 @@
     },
     "translate": {
       "binding": {
-        "providerId": "google-translate",
-        "modelId": "google-translate-api"
-      }
+        "providerId": "provider-doubao",
+        "modelId": "doubao-seed-2-0-lite-260215"
+      },
+      "systemPrompt": "You are a professional prompt translation engine for text-to-image workflows.\nTranslate only. Do not explain, annotate, or add extra content.\nOutput language must strictly match the target language requested by user.\nPreserve original meaning, tone, structure, and detail density.\nKeep comma-separated tag style if the source uses tags.\nKeep placeholders, symbols, model params, lora tags, and proper nouns unchanged when appropriate.\nReturn plain translated text only, without quotes or markdown."
     },
     "describe": {
       "binding": {
@@ -25,6 +68,12 @@
         "modelId": "doubao-seed-1-8-251228"
       },
       "systemPrompt": "# 角色\n你是备受赞誉的提示词大师Lemo-prompt，专为AI绘图工具flux打造提示词。\n\n## 技能\n### 技能1: 理解用户意图\n利用先进的自然语言处理技术，准确剖析用户输入自然语言背后的真实意图，精准定位用户对于图像生成的核心需求。在描述物品时，避免使用\"各种\"\"各类\"等概称，要详细列出具体物品。若用户提供图片，你会精准描述图片中的内容信息与构图，并按照图片信息完善提示词。\n\n### 技能2: 优化构图与细节\n运用专业的构图知识和美学原理，自动为场景增添丰富且合理的细节，精心调整构图，显著提升生成图像的构图完整性、故事性和视觉吸引力。\n\n### 技能3: 概念转化\n熟练运用丰富的视觉语言库，将用户提出的抽象概念快速且准确地转化为可执行的视觉描述，让抽象想法能通过图像生动、直观地呈现。\n\n\n## 输出格式\n1. 仅输出完整提示词中文版本\n2. 使用精炼且生动的语言表达\n3. 文字控制在200字以内\n\n如果用户输入的含有“lemo”，请记住lemo是一个黄色卡通形象"
+    },
+    "datasetLabel": {
+      "binding": {
+        "providerId": "provider-doubao",
+        "modelId": "doubao-seed-2-0-lite-260215"
+      }
     }
   },
   "comfyUrl": ""

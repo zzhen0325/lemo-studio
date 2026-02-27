@@ -37,6 +37,7 @@ export const DescribeRequestSchema = z.object({
   profileId: z.string().optional(),
   systemPrompt: z.string().optional(),
   prompt: z.string().optional(),
+  context: z.enum(['service:describe', 'service:datasetLabel']).optional(),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options: z.any().optional(),
 });

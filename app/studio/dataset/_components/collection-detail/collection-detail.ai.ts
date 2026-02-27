@@ -4,7 +4,6 @@ import type {
   TranslateLang,
 } from './types';
 import {
-  DATASET_LABEL_MODEL,
   OPTIMIZE_MAX_RETRIES,
   RETRYABLE_OPTIMIZE_STATUS,
   RETRYABLE_TRANSLATE_STATUS,
@@ -12,6 +11,7 @@ import {
   fetchImageAsDataUrl,
   sleepWithAbort,
 } from './collection-detail.utils';
+import { DEFAULT_DATASET_LABEL_SYSTEM_PROMPT } from '@/lib/constants/dataset-prompts';
 
 interface VisionResponse {
   text?: string | null;
@@ -22,6 +22,7 @@ interface VisionRequest {
   systemPrompt?: string;
   model: string;
   prompt: string;
+  context?: 'service:describe' | 'service:datasetLabel';
 }
 
 export type VisionCaller = (payload: VisionRequest) => Promise<VisionResponse>;
@@ -29,67 +30,35 @@ export type VisionCaller = (payload: VisionRequest) => Promise<VisionResponse>;
 interface RequestDatasetLabelParams {
   imageBase64: string;
   systemPrompt: string;
+  modelId: string;
   callVision: VisionCaller;
 }
 
 export async function requestDatasetLabel({
   imageBase64,
   systemPrompt,
+  modelId,
   callVision,
 }: RequestDatasetLabelParams): Promise<string> {
   const userPrompt = '请描述这张图片';
-  let primaryError: unknown = null;
+  const resolvedSystemPrompt = systemPrompt.trim() ? systemPrompt : DEFAULT_DATASET_LABEL_SYSTEM_PROMPT;
 
   try {
     const primary = await callVision({
       image: imageBase64,
-      systemPrompt: systemPrompt || undefined,
-      model: DATASET_LABEL_MODEL,
+      systemPrompt: resolvedSystemPrompt,
+      model: modelId,
       prompt: userPrompt,
+      context: 'service:datasetLabel',
     });
     const primaryText = primary.text?.trim() || '';
     if (primaryText) {
       return primaryText;
     }
+    throw new Error('Model returned empty text');
   } catch (error) {
-    primaryError = error;
+    throw error;
   }
-
-  if (systemPrompt.trim()) {
-    try {
-      const fallback = await callVision({
-        image: imageBase64,
-        model: DATASET_LABEL_MODEL,
-        prompt: userPrompt,
-      });
-      const fallbackText = fallback.text?.trim() || '';
-      if (fallbackText) {
-        console.warn('[dataset] optimize fallback succeeded without systemPrompt');
-        return fallbackText;
-      }
-    } catch (fallbackError) {
-      const fallbackMsg =
-        fallbackError instanceof Error
-          ? fallbackError.message
-          : String(fallbackError);
-      if (primaryError) {
-        const primaryMsg =
-          primaryError instanceof Error ? primaryError.message : String(primaryError);
-        throw new Error(`${primaryMsg}; fallback failed: ${fallbackMsg}`);
-      }
-      throw fallbackError;
-    }
-
-    if (primaryError) {
-      throw primaryError;
-    }
-    throw new Error('Model returned empty text (with and without systemPrompt)');
-  }
-
-  if (primaryError) {
-    throw primaryError;
-  }
-  throw new Error('Model returned empty text');
 }
 
 export function isRetryableOptimizeError(error: unknown): boolean {
@@ -113,6 +82,7 @@ interface OptimizeWithRetryParams {
   img: DatasetImage;
   signal: AbortSignal;
   systemPrompt: string;
+  modelId: string;
   callVision: VisionCaller;
 }
 
@@ -120,6 +90,7 @@ export async function optimizeImageWithRetry({
   img,
   signal,
   systemPrompt,
+  modelId,
   callVision,
 }: OptimizeWithRetryParams): Promise<string> {
   const base64 = await fetchImageAsDataUrl(img.url, signal);
@@ -131,7 +102,7 @@ export async function optimizeImageWithRetry({
     }
 
     try {
-      return await requestDatasetLabel({ imageBase64: base64, systemPrompt, callVision });
+      return await requestDatasetLabel({ imageBase64: base64, systemPrompt, modelId, callVision });
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw error;

@@ -21,11 +21,11 @@ export function CollectionDetailPrefixBar({
 }: CollectionDetailPrefixBarProps) {
   return (
     <div className="flex gap-3">
-      <div className="flex w-full flex-wrap h-12 min-h-[40px] p-2 border border-white/10 rounded-xl bg-background">
+      <div className="flex w-full flex-wrap h-10 min-h-[40px] p-1.5 border border-[#2e2e2e] rounded-xl bg-[#161616] shrink-0 shadow-sm">
         {activeTags.map((tag) => (
           <div
             key={tag}
-            className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-sm text-xs font-medium animate-in fade-in zoom-in-95 duration-200"
+            className="flex items-center gap-1 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 px-3 py-1 rounded-lg text-[13px] font-medium animate-in fade-in zoom-in-95 duration-200"
           >
             {tag}
             <button
@@ -47,7 +47,7 @@ export function CollectionDetailPrefixBar({
               onAddPrefix();
             }
           }}
-          className="flex-1 bg-transparent border-none text-foreground text-sm focus-visible:ring-0 h-8"
+          className="flex-1 bg-transparent border-none text-zinc-300 text-[13px] focus-visible:ring-0 h-7"
           placeholder={activeTags.length === 0 ? 'Type prefix and press Enter...' : ''}
         />
       </div>
@@ -56,7 +56,7 @@ export function CollectionDetailPrefixBar({
         variant="secondary"
         onClick={onAddPrefix}
         disabled={!batchPrefix.trim()}
-        className="w-auto h-12 bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-white/10"
+        className="w-auto h-10 bg-[#1a1a1a] hover:bg-[#2a2a2a] text-zinc-300 border-[#2e2e2e] rounded-xl shadow-sm hover:text-white shrink-0"
       >
         <Plus className="h-4 w-4" />
         Add Prefix

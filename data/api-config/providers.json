@@ -11,7 +11,22 @@
         "displayName": "Doubao Seed 1.6",
         "task": [
           "text"
-        ]
+        ],
+        "category": "doubao-text",
+        "contexts": [
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 100,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": false,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
       },
       {
         "modelId": "doubao-seed-1-8-251228",
@@ -19,7 +34,23 @@
         "task": [
           "text",
           "vision"
-        ]
+        ],
+        "category": "doubao-vision",
+        "contexts": [
+          "service:describe",
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 80,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": true,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
       },
       {
         "modelId": "doubao-seed-2-0-lite-260215",
@@ -27,7 +58,23 @@
         "task": [
           "text",
           "vision"
-        ]
+        ],
+        "category": "doubao-vision",
+        "contexts": [
+          "service:describe",
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 70,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": true,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
       }
     ],
     "isEnabled": true,
@@ -46,14 +93,44 @@
         "displayName": "DeepSeek Chat",
         "task": [
           "text"
-        ]
+        ],
+        "category": "deepseek-text",
+        "contexts": [
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 100,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": false,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
       },
       {
         "modelId": "deepseek-reasoner",
         "displayName": "DeepSeek Reasoner",
         "task": [
           "text"
-        ]
+        ],
+        "category": "deepseek-text",
+        "contexts": [
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 120,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": false,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
       }
     ],
     "isEnabled": true,
@@ -74,7 +151,33 @@
           "text",
           "vision",
           "image"
-        ]
+        ],
+        "category": "gemini-image",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas",
+          "service:imageGeneration",
+          "service:describe",
+          "service:optimize"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 120
       },
       {
         "modelId": "gemini-3-pro-image-preview",
@@ -83,7 +186,33 @@
           "text",
           "vision",
           "image"
-        ]
+        ],
+        "category": "gemini-image",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas",
+          "service:imageGeneration",
+          "service:describe",
+          "service:optimize"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 90
       },
       {
         "modelId": "gemini-3.1-flash-image-preview",
@@ -92,7 +221,33 @@
           "text",
           "vision",
           "image"
-        ]
+        ],
+        "category": "gemini-image",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas",
+          "service:imageGeneration",
+          "service:describe",
+          "service:optimize"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 100
       }
     ],
     "isEnabled": true,
@@ -102,7 +257,7 @@
   {
     "id": "provider-bytedance",
     "name": "Bytedance AFR (内部)",
-    "providerType": "",
+    "providerType": "bytedance-afr",
     "apiKey": "",
     "baseURL": "",
     "models": [
@@ -111,28 +266,109 @@
         "displayName": "Seed4 Lemo",
         "task": [
           "image"
-        ]
+        ],
+        "category": "seedream",
+        "contexts": [
+          "playground",
+          "infinite-canvas",
+          "service:imageGeneration"
+        ],
+        "status": "active",
+        "priority": 160,
+        "capabilities": {
+          "supportsImage": true,
+          "supportsAspectRatio": true,
+          "supportsImageSize": false,
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1,
+          "supportsImageEdit": false
+        }
       },
       {
         "modelId": "seed4_2_lemo",
         "displayName": "Seed4.2 Lemo",
         "task": [
           "image"
-        ]
+        ],
+        "category": "seedream",
+        "contexts": [
+          "playground",
+          "infinite-canvas",
+          "service:imageGeneration"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1,
+          "minWidth": 1024,
+          "minHeight": 1024,
+          "supportsImageEdit": false
+        },
+        "status": "active",
+        "priority": 140
       },
       {
         "modelId": "lemo_2dillustator",
         "displayName": "Lemo 2D Illustrator",
         "task": [
           "image"
-        ]
+        ],
+        "category": "seedream",
+        "contexts": [
+          "playground",
+          "infinite-canvas",
+          "service:imageGeneration"
+        ],
+        "status": "active",
+        "priority": 150,
+        "capabilities": {
+          "supportsImage": true,
+          "supportsAspectRatio": true,
+          "supportsImageSize": false,
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1,
+          "supportsImageEdit": false
+        }
       },
       {
         "modelId": "lemoseedt2i",
         "displayName": "Seed 4",
         "task": [
           "image"
-        ]
+        ],
+        "category": "seedream",
+        "contexts": [
+          "playground",
+          "infinite-canvas",
+          "service:imageGeneration"
+        ],
+        "status": "active",
+        "priority": 155,
+        "capabilities": {
+          "supportsImage": true,
+          "supportsAspectRatio": true,
+          "supportsImageSize": false,
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1,
+          "supportsImageEdit": false
+        }
       }
     ],
     "isEnabled": true,
@@ -151,11 +387,77 @@
         "displayName": "Seedream 4",
         "task": [
           "image"
-        ]
+        ],
+        "category": "coze",
+        "contexts": [
+          "playground",
+          "infinite-canvas",
+          "service:imageGeneration"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 130
       }
     ],
     "isEnabled": true,
     "createdAt": "2026-01-17T00:00:00.000Z",
     "updatedAt": "2026-01-17T00:00:00.000Z"
+  },
+  {
+    "id": "provider-workflow-local",
+    "name": "Workflow Local",
+    "providerType": "workflow-local",
+    "apiKey": "",
+    "baseURL": "",
+    "models": [
+      {
+        "modelId": "flux_klein",
+        "displayName": "FluxKlein",
+        "task": [
+          "image"
+        ],
+        "category": "workflow",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImage": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 50
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-02-27T00:00:00.000Z",
+    "updatedAt": "2026-02-27T00:00:00.000Z"
   }
 ]

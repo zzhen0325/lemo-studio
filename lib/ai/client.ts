@@ -22,6 +22,7 @@ export interface ClientDescribeParams {
     input?: string; // Deprecated alias of prompt
     profileId?: string;
     systemPrompt?: string;
+    context?: 'service:describe' | 'service:datasetLabel';
     options?: ProviderOptions;
 }
 
@@ -81,10 +82,17 @@ export async function describeImage(params: ClientDescribeParams): Promise<{ tex
     });
 
     if (!response.ok) {
-        let errorMsg = response.statusText;
+        let errorMsg = response.statusText || `HTTP ${response.status}`;
         try {
-            const err = await response.json();
-            errorMsg = err.error || errorMsg;
+            const raw = await response.text();
+            if (raw) {
+                try {
+                    const err = JSON.parse(raw) as { error?: string };
+                    errorMsg = err.error || raw;
+                } catch {
+                    errorMsg = raw;
+                }
+            }
         } catch { }
         throw new Error(errorMsg);
     }
@@ -106,10 +114,17 @@ export async function generateImage(
     });
 
     if (!response.ok) {
-        let errorMsg = response.statusText;
+        let errorMsg = response.statusText || `HTTP ${response.status}`;
         try {
-            const err = await response.json();
-            errorMsg = err.error || errorMsg;
+            const raw = await response.text();
+            if (raw) {
+                try {
+                    const err = JSON.parse(raw) as { error?: string };
+                    errorMsg = err.error || raw;
+                } catch {
+                    errorMsg = raw;
+                }
+            }
         } catch { }
         throw new Error(errorMsg);
     }

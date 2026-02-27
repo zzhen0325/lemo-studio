@@ -65,41 +65,41 @@ export function CollectionDetailListItem({
 }: CollectionDetailListItemProps) {
   return (
     <div
-      className={`flex flex-col sm:flex-row bg-card/40 border rounded-2xl overflow-hidden group transition-all duration-300 hover:shadow-lg ${isSelected
-          ? 'border-primary ring-1 ring-primary shadow-[0_0_15px_oklch(var(--primary)/0.15)] bg-primary/5'
-          : 'border-white/5 hover:border-white/20'
+      className={`flex flex-col sm:flex-row min-h-[300px] bg-[#1a1a1a] border rounded-2xl overflow-hidden group transition-all duration-200 shadow-sm ${isSelected
+        ? 'border-teal-500 ring-1 ring-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.15)] bg-teal-500/5'
+        : 'border-[#2e2e2e] hover:border-[#3a3a3a] hover:bg-[#1f1f1f]'
         }`}
     >
       <div
-        className={`w-full sm:w-[320px] lg:w-[400px] shrink-0 relative bg-background/30 sm:min-h-[320px] border-b sm:border-b-0 sm:border-r border-white/5 flex items-center justify-center p-3 cursor-pointer transition-colors ${isSelected ? 'bg-primary/5' : ''}`}
+        className={`w-full sm:w-[280px] lg:w-[320px] shrink-0 relative bg-[#161616] sm:min-h-[240px] border-b sm:border-b-0 sm:border-r border-[#2e2e2e] flex items-center justify-center p-2 cursor-pointer transition-colors ${isSelected ? 'bg-teal-500/5' : ''}`}
         onClick={(e) => {
           if ((e.target as HTMLElement).closest('.image-zoom-trigger')) return;
           onSelect(img.id, e.shiftKey);
         }}
       >
-        <div className="w-full h-full min-h-[300px] sm:min-h-full relative rounded-xl overflow-hidden bg-muted/20">
+        <div className="w-full h-full min-h-[240px] sm:min-h-full relative rounded-xl overflow-hidden bg-[#0e0e0e]">
           <ImageZoom className="w-full h-full image-zoom-trigger absolute inset-0">
             <Image
               src={img.url}
               alt=""
-              fill
+              width={1200}
+              height={1200}
               unoptimized
-              className={`object-contain transition-transform duration-300 ${isSelected ? 'scale-[0.98]' : ''}`}
-              sizes="(max-width: 768px) 100vw, 400px"
+              className={`w-full h-full object-contain transition-transform duration-300 ${isSelected ? 'scale-[0.98]' : ''}`}
             />
           </ImageZoom>
         </div>
 
         <div
-          className={`absolute top-5 left-5 z-10 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+          className={`absolute top-4 left-4 z-10 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
         >
           <div
-            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-md transition-colors ${isSelected
-                ? 'bg-primary border-primary'
-                : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'
+            className={`w-6 h-6 rounded-full border flex items-center justify-center shadow-md transition-colors ${isSelected
+              ? 'bg-teal-500 border-teal-500 text-white'
+              : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'
               }`}
           >
-            {isSelected && <Plus className="w-4 h-4 text-primary-foreground rotate-45" />}
+            {isSelected && <Plus className="w-4 h-4 text-white rotate-45" />}
           </div>
         </div>
 
@@ -110,11 +110,11 @@ export function CollectionDetailListItem({
         )}
       </div>
 
-      <div className="flex-1 p-4 sm:p-6 flex flex-col gap-4 bg-transparent min-w-0">
+      <div className="flex-1 p-4 flex flex-col gap-3 bg-transparent min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <span
-              className="text-base font-semibold text-foreground/90 tracking-tight truncate"
+              className="text-[15px] font-medium text-zinc-200 tracking-tight truncate"
               title={img.filename}
             >
               {img.filename}
@@ -123,15 +123,15 @@ export function CollectionDetailListItem({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center bg-background/60 backdrop-blur-sm rounded-lg p-0.5 border border-white/10">
+            <div className="flex items-center bg-[#161616] rounded-lg p-1 border border-[#2e2e2e]">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onImagePromptLangSwitch(img, 'zh')}
                 disabled={img.isOptimizing || img.isTranslating}
-                className={`h-7 px-3 text-[11px] font-medium rounded-md transition-colors ${imagePromptLang === 'zh'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                className={`h-7 px-3 text-xs font-medium rounded-md transition-colors ${imagePromptLang === 'zh'
+                  ? 'bg-[#2a2a2a] text-white shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-300'
                   }`}
               >
                 中文
@@ -141,27 +141,27 @@ export function CollectionDetailListItem({
                 size="sm"
                 onClick={() => onImagePromptLangSwitch(img, 'en')}
                 disabled={img.isOptimizing || img.isTranslating}
-                className={`h-7 px-3 text-[11px] font-medium rounded-md transition-colors ${imagePromptLang === 'en'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                className={`h-7 px-3 text-xs font-medium rounded-md transition-colors ${imagePromptLang === 'en'
+                  ? 'bg-[#2a2a2a] text-white shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-300'
                   }`}
               >
                 English
               </Button>
             </div>
 
-            <div className="w-[1px] h-4 bg-white/10 mx-1" />
+            <div className="w-[1px] h-4 bg-[#2e2e2e] mx-1" />
 
             <Button
               variant="secondary"
               size="sm"
-              className="h-8 px-3 text-xs font-medium gap-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-foreground transition-all duration-200"
+              className="h-8 px-3 text-xs font-medium gap-1.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2e2e2e] text-zinc-300 hover:text-white transition-all duration-200 shadow-sm rounded-lg"
               onClick={() => onOptimizePrompt(img)}
               disabled={img.isOptimizing || img.isTranslating}
               title="Optimize with AI"
             >
               <Wand2
-                className={`h-3.5 w-3.5 ${img.isOptimizing ? 'animate-pulse text-primary' : 'text-primary/80'}`}
+                className={`h-3.5 w-3.5 ${img.isOptimizing ? 'animate-pulse text-primary' : 'text-teal-500'}`}
               />
               AI 优化
             </Button>
@@ -171,7 +171,7 @@ export function CollectionDetailListItem({
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-8 w-8 bg-white/5 hover:bg-white/15 border border-white/10 text-muted-foreground hover:text-foreground transition-all duration-200"
+                  className="h-8 w-8 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2e2e2e] text-zinc-400 hover:text-white transition-all duration-200 shadow-sm rounded-lg"
                   title="Crop image"
                 >
                   <Scissors className="h-3.5 w-3.5" />
@@ -236,7 +236,7 @@ export function CollectionDetailListItem({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-white hover:bg-destructive/80 transition-all duration-200 ml-1"
+              className="h-8 w-8 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 transition-all duration-200 ml-1 rounded-lg"
               onClick={() => onDeleteImage(img)}
               title="Delete"
             >

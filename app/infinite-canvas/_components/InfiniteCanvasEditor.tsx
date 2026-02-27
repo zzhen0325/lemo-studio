@@ -8,6 +8,7 @@ import {
   CircleDashed,
   Copy,
   History,
+  Home,
   Layers,
   Loader2,
   PanelLeftClose,
@@ -2039,6 +2040,18 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   return (
     <div className="relative flex h-screen w-full overflow-hidden bg-zinc-50 dark:bg-[#161616] text-zinc-900 dark:text-[#D9D9D9] transition-colors">
       <aside className="absolute left-4 top-4 z-40 flex flex-col gap-2 rounded-2xl border border-zinc-200 dark:border-[#4A4C4D] bg-white/60 dark:bg-[#2C2D2F]/60 p-2 backdrop-blur-xl">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-10 w-10 rounded-xl text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+          onClick={() => router.push('/playground')}
+          title="返回主页"
+        >
+          <Home className="h-4 w-4" />
+        </Button>
+
+        <div className="h-px bg-zinc-200 dark:bg-[#4A4C4D]" />
+
         <Button
           size="icon"
           variant="ghost"

@@ -45,15 +45,15 @@ export function CollectionDetailGridView({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
-      <div className="space-y-4">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-4 space-y-4 min-h-0">
         <div
           className="grid gap-4"
           style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
         >
-          <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-white/10 bg-card/40 rounded-xl aspect-square hover:border-primary/50 hover:bg-primary/5 transition-all group relative overflow-hidden">
+          <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-[#2e2e2e] bg-[#161616] rounded-2xl aspect-square hover:border-teal-500/50 hover:bg-teal-500/5 transition-all group relative overflow-hidden">
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary mb-2" />
-              <span className="text-xs text-muted-foreground font-medium">Add Image</span>
+              <Plus className="h-8 w-8 text-zinc-500 group-hover:text-teal-500 mb-2 transition-colors" />
+              <span className="text-xs text-zinc-500 font-medium group-hover:text-teal-500 transition-colors">Add Image</span>
             </div>
             <input
               type="file"
@@ -84,7 +84,7 @@ export function CollectionDetailGridView({
           <DragOverlay>
             {draggedId && draggedSize ? (
               <div
-                className="relative aspect-square bg-card border border-white/10 rounded-xl overflow-hidden opacity-80 shadow-2xl cursor-grabbing pointer-events-none"
+                className="relative aspect-square bg-[#1a1a1a] border border-[#2e2e2e] rounded-2xl overflow-hidden opacity-80 shadow-2xl cursor-grabbing pointer-events-none"
                 style={{
                   width: draggedSize.width,
                   height: draggedSize.height,

@@ -20,9 +20,10 @@ import { GenerationConfig, ImageSize } from "@/types/database";
 import type { UploadedImage } from "@/lib/playground/types";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/lib/playground/types";
-import { AVAILABLE_MODELS } from "@studio/playground/_components/hooks/useGenerationService";
+import { usePlaygroundAvailableModels } from "@studio/playground/_components/hooks/useGenerationService";
 import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
+import { useAPIConfigStore } from "@/lib/store/api-config-store";
 
 
 
@@ -106,11 +107,31 @@ export default function ControlToolbar({
 
   const [selectValue, setSelectValue] = useState<string | undefined>(undefined);
   const [activeTab] = useState<'model' | 'preset'>('model');
+  const availableModels = usePlaygroundAvailableModels();
+  const getModelEntryById = useAPIConfigStore(state => state.getModelEntryById);
+  const isEditMode = Boolean(config.isEdit) || variant === 'edit';
+  const selectableModels = React.useMemo(() => {
+    if (!isEditMode) return availableModels;
+    return availableModels.filter((model) => {
+      const meta = getModelEntryById(model.id);
+      const supportsImageEdit = meta?.capabilities?.supportsImageEdit
+        ?? (meta?.capabilities?.supportsMultiImage ?? true);
+      return supportsImageEdit;
+    });
+  }, [availableModels, getModelEntryById, isEditMode]);
+  const selectedModelMeta = getModelEntryById(selectedModel);
+  const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
+    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4'].includes(selectedModel);
+  const selectedAllowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
+    ? selectedModelMeta.capabilities.allowedImageSizes
+    : (['1K', '2K', '4K'] as const);
+  const selectedSupportsBatch = selectedModelMeta?.capabilities?.supportsBatch ?? true;
+  const selectedMaxBatchSize = selectedSupportsBatch ? Math.max(1, selectedModelMeta?.capabilities?.maxBatchSize ?? 10) : 1;
 
   // 初始化与回填：根据外部 selectedModel 映射到内部 selectValue
   React.useEffect(() => {
     // 简化映射：直接匹配 id 或 Workflow
-    const entry = AVAILABLE_MODELS.find((cfg) => cfg.id === selectedModel);
+    const entry = selectableModels.find((cfg) => cfg.id === selectedModel);
     if (entry) {
       setSelectValue(entry.id);
     } else if (isWorkflowModel(selectedModel) && selectedPresetName) {
@@ -122,7 +143,27 @@ export default function ControlToolbar({
     } else {
       setSelectValue(undefined);
     }
-  }, [selectedModel, selectedPresetName, workflows]);
+  }, [selectedModel, selectedPresetName, workflows, selectableModels]);
+
+  React.useEffect(() => {
+    if (!isEditMode || selectableModels.length === 0) return;
+    if (selectableModels.some((item) => item.id === selectedModel)) return;
+    const fallback = selectableModels[0].id;
+    setSelectValue(fallback);
+    onModelChange(fallback);
+    onConfigChange?.({ model: fallback });
+  }, [isEditMode, onConfigChange, onModelChange, selectableModels, selectedModel]);
+
+  React.useEffect(() => {
+    if (!onBatchSizeChange) return;
+    if (!selectedSupportsBatch && batchSize !== 1) {
+      onBatchSizeChange(1);
+      return;
+    }
+    if (selectedSupportsBatch && batchSize > selectedMaxBatchSize) {
+      onBatchSizeChange(selectedMaxBatchSize);
+    }
+  }, [batchSize, onBatchSizeChange, selectedMaxBatchSize, selectedSupportsBatch]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -131,14 +172,21 @@ export default function ControlToolbar({
     onClearPreset?.(); // 切换模型时清除预设选择
 
     // 使用统一配置处理模型切换gemini-2.5-flash-image
-    const cfg = AVAILABLE_MODELS.find(m => m.id === val);
+    const cfg = selectableModels.find(m => m.id === val);
     if (cfg) {
       onModelChange(cfg.id);
       onConfigChange?.({ model: cfg.id });
 
-      // Coze Seed 4 默认设置 2K
-      if (['coze_seed4', 'seed4_2_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val)) {
-        onImageSizeChange('2K');
+      const modelMeta = getModelEntryById(val);
+      const supportsImageSize = modelMeta?.capabilities?.supportsImageSize
+        ?? ['coze_seed4', 'seed4_2_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
+
+      if (supportsImageSize) {
+        const allowed = modelMeta?.capabilities?.allowedImageSizes?.length
+          ? modelMeta.capabilities.allowedImageSizes
+          : ['1K', '2K', '4K'];
+        const defaultSize = allowed.includes('2K') ? '2K' : (allowed[0] as ImageSize);
+        onImageSizeChange(defaultSize as ImageSize);
       }
     } else if (val.startsWith('wf:')) {
       const id = val.slice(3);
@@ -157,7 +205,7 @@ export default function ControlToolbar({
 
   // 使用统一配置获取显示标签
   const modelTriggerLabel = (() => {
-    const activeModel = AVAILABLE_MODELS.find(m => m.id === selectValue);
+    const activeModel = selectableModels.find(m => m.id === selectValue);
     return activeModel ? activeModel.displayName : 'Model';
   })();
 
@@ -241,7 +289,7 @@ export default function ControlToolbar({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[280px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl p-1" align="start">
-        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', MODEL_ID_FLUX_KLEIN].includes(m.id)).map((model) => {
+        {selectableModels.map((model) => {
           const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
           return (
             <DropdownMenuItem
@@ -380,11 +428,11 @@ export default function ControlToolbar({
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[320px] z-[10001] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
-                {(['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4'].includes(selectedModel)) && (
+                {selectedSupportsImageSize && (
                   <div className="space-y-4">
                     <div className="text-xs text-white/70">Image Size</div>
                     <div className="flex gap-2">
-                      {(['1K', '2K', '4K'] as const).map(size => (
+                      {selectedAllowedImageSizes.map(size => (
                         <Button
                           key={size}
                           variant={currentImageSize === size ? "default" : "outline"}
@@ -474,29 +522,31 @@ export default function ControlToolbar({
 
         <div className="flex items-center justify-end gap-2">
           {/* Batch Size Selector */}
-          <div className="flex items-center bg-black/30 rounded-2xl border border-white/5 h-10 px-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
-              onClick={() => onBatchSizeChange?.(Math.max(1, batchSize - 1))}
-              disabled={batchSize <= 1 || isGenerating}
-            >
-              <Minus className="w-3 h-3" />
-            </Button>
-            <div className="w-8 text-center text-sm font-medium text-white select-none">
-              {batchSize}
+          {selectedSupportsBatch && (
+            <div className="flex items-center bg-black/30 rounded-2xl border border-white/5 h-10 px-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
+                onClick={() => onBatchSizeChange?.(Math.max(1, batchSize - 1))}
+                disabled={batchSize <= 1 || isGenerating}
+              >
+                <Minus className="w-3 h-3" />
+              </Button>
+              <div className="w-8 text-center text-sm font-medium text-white select-none">
+                {Math.min(batchSize, selectedMaxBatchSize)}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
+                onClick={() => onBatchSizeChange?.(Math.min(selectedMaxBatchSize, batchSize + 1))}
+                disabled={batchSize >= selectedMaxBatchSize || isGenerating}
+              >
+                <Plus className="w-3 h-3" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
-              onClick={() => onBatchSizeChange?.(Math.min(10, batchSize + 1))}
-              disabled={batchSize >= 10 || isGenerating}
-            >
-              <Plus className="w-3 h-3" />
-            </Button>
-          </div>
+          )}
 
           <div className="relative rounded-xl">
             <Button

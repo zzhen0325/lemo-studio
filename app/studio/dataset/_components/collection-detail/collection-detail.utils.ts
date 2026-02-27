@@ -34,7 +34,6 @@ export const PROMPT_MODIFIERS: PromptModifier[] = [
   },
 ];
 
-export const DATASET_LABEL_MODEL = 'doubao-seed-2-0-lite-260215';
 export const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'bmp']);
 export const UPLOAD_CONCURRENCY = 4;
 export const UPLOAD_BATCH_SIZE = 12;

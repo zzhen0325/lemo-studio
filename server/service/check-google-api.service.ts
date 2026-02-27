@@ -1,6 +1,7 @@
-import { Injectable } from '@gulux/gulux';
+import { Inject, Injectable } from '@gulux/gulux';
 import { HttpError } from '../utils/http-error';
 import { getGoogleApiKey } from '../../lib/ai/modelRegistry';
+import { ApiConfigService } from './api-config.service';
 
 export interface GoogleApiCheckResult {
   status: 'connected' | 'blocked' | 'offline';
@@ -10,8 +11,12 @@ export interface GoogleApiCheckResult {
 
 @Injectable()
 export class CheckGoogleApiService {
+  @Inject()
+  private readonly apiConfigService!: ApiConfigService;
+
   public async check(): Promise<GoogleApiCheckResult> {
-    const apiKey = getGoogleApiKey();
+    const providers = await this.apiConfigService.getRuntimeProviders();
+    const apiKey = getGoogleApiKey(providers);
 
     if (!apiKey) {
       // 保持与原实现一致的语义：视为 500 场景

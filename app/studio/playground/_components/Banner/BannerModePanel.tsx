@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/select';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import {
-    BANNER_ALLOWED_MODELS,
     createBannerTemplateDraft,
     DEFAULT_BANNER_TEMPLATE_ID,
     deleteCustomBannerTemplate,
@@ -40,8 +39,10 @@ import { cn } from '@/lib/utils';
 import { formatAnnotationLabel, parseAnnotationLabelIndex } from '@/lib/utils/annotation-label';
 import { RotateCcw, Trash2 } from 'lucide-react';
 import { formatImageUrl, getApiBase } from '@/lib/api-base';
+import { useAPIConfigStore } from '@/lib/store/api-config-store';
+import { getContextModelOptions } from '@/lib/model-center-ui';
 
-const MODEL_LABEL_MAP: Record<BannerModelId, string> = {
+const MODEL_LABEL_MAP: Record<string, string> = {
     flux_klein: 'FluxKlein',
     'gemini-2.5-flash-image': 'Nano banana',
     'gemini-3-pro-image-preview': 'Nano banana pro',
@@ -116,6 +117,7 @@ const resolveRegionDisplayName = (region: BannerRegionInstruction, fallbackIndex
 
 export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: BannerModePanelProps) {
     const { toast } = useToast();
+    const providers = useAPIConfigStore((state) => state.providers);
     const activeBannerData = usePlaygroundStore((state) => state.activeBannerData);
     const initBannerData = usePlaygroundStore((state) => state.initBannerData);
     const updateBannerFields = usePlaygroundStore((state) => state.updateBannerFields);
@@ -140,12 +142,37 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
     const [templateDraft, setTemplateDraft] = useState<BannerTemplateConfig | null>(null);
     const [templateTagsInput, setTemplateTagsInput] = useState('');
     const latestAutoPreviewIdRef = useRef<string | null>(null);
+    const bannerModelOptions = useMemo(() => {
+        const options = getContextModelOptions(providers, 'banner', 'image');
+        if (options.length > 0) {
+            return options;
+        }
+        const fallbackIds = Array.from(new Set(
+            getBannerTemplates().flatMap((item) => item.allowedModels || [])
+        ));
+        return fallbackIds.map((id) => ({ id, displayName: MODEL_LABEL_MAP[id] || id }));
+    }, [providers]);
+    const bannerModelIds = useMemo(
+        () => bannerModelOptions.map((option) => option.id as BannerModelId),
+        [bannerModelOptions]
+    );
+    const resolveModelLabel = useCallback(
+        (modelId: string) => bannerModelOptions.find((model) => model.id === modelId)?.displayName || MODEL_LABEL_MAP[modelId] || modelId,
+        [bannerModelOptions]
+    );
 
     useEffect(() => {
         if (!activeBannerData) {
             initBannerData(DEFAULT_BANNER_TEMPLATE_ID);
         }
     }, [activeBannerData, initBannerData]);
+
+    useEffect(() => {
+        if (!activeBannerData || bannerModelIds.length === 0) return;
+        if (!bannerModelIds.includes(activeBannerData.model)) {
+            setBannerModel(bannerModelIds[0]);
+        }
+    }, [activeBannerData, bannerModelIds, setBannerModel]);
 
     const allTemplates = useMemo(() => {
         void templateListVersion;
@@ -761,7 +788,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         setTemplateDraft({
             ...template,
             tags: [...(template.tags || [])],
-            allowedModels: [...(template.allowedModels || BANNER_ALLOWED_MODELS)],
+            allowedModels: [...(template.allowedModels || bannerModelIds)],
             defaultFields: {
                 mainTitle: template.defaultFields.mainTitle || '',
                 subTitle: template.defaultFields.subTitle || '',
@@ -771,7 +798,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         });
         setTemplateTagsInput((template.tags || []).join(', '));
         setIsTemplateEditorOpen(true);
-    }, [template, toast]);
+    }, [template, toast, bannerModelIds]);
 
     const handleDeleteTemplate = useCallback(() => {
         if (!template) return;
@@ -834,7 +861,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
             width,
             height,
             promptTemplate,
-            allowedModels: [...BANNER_ALLOWED_MODELS],
+            allowedModels: [...bannerModelIds],
             defaultFields: {
                 mainTitle: templateDraft.defaultFields.mainTitle || '',
                 subTitle: templateDraft.defaultFields.subTitle || '',
@@ -863,7 +890,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
             title: templateEditorMode === 'edit' ? '模板已更新' : '模板已创建',
             description: `已保存模板「${result.template.name}」`,
         });
-    }, [initBannerData, templateDraft, templateEditorMode, templateTagsInput, toast, touchTemplateListVersion]);
+    }, [initBannerData, templateDraft, templateEditorMode, templateTagsInput, toast, touchTemplateListVersion, bannerModelIds]);
 
     const handleGenerateClick = useCallback(async () => {
         if (isGenerating || isPreparingBannerGuideImage) return;
@@ -912,10 +939,10 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
     };
 
     return (
-        <div className="w-full h-full overflow-y-auto pl-20 md:pl-28 lg:pl-32 pr-6 pb-6">
-            <div className="w-full max-w-[1320px] mx-auto pt-10">
-                <div className="grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1.35fr)_420px] gap-5">
-                    <section className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-xl p-3 h-fit">
+        <div className="w-full h-full overflow-hidden pl-[72px] md:pl-[84px] lg:pl-[100px] pr-4 pb-4 pt-4 flex flex-col">
+            <div className="w-full max-w-[1440px] mx-auto flex-1 min-h-0 flex flex-col">
+                <div className="grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1.2fr)_340px] gap-4 h-full min-h-0">
+                    <section className="flex flex-col rounded-2xl border border-[#2e2e2e] bg-[#161616] p-3 overflow-hidden shadow-sm">
                         <div className="flex items-center justify-between px-1 pb-2">
                             <div className="text-xs text-white/70">Banner Templates</div>
                             <div className="text-[10px] text-white/40">{allTemplates.length} 个模板</div>
@@ -925,7 +952,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 rounded-xl border-white/20 text-white hover:bg-white/10"
+                                className="h-8 rounded-xl border-[#3a3a3a] bg-[#1a1a1a] text-zinc-300 hover:text-white hover:bg-[#2a2a2a]"
                                 onClick={handleCreateTemplate}
                             >
                                 新建
@@ -933,7 +960,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 rounded-xl border-white/20 text-white hover:bg-white/10"
+                                className="h-8 rounded-xl border-[#3a3a3a] bg-[#1a1a1a] text-zinc-300 hover:text-white hover:bg-[#2a2a2a]"
                                 onClick={handleEditTemplate}
                                 disabled={!template}
                             >
@@ -952,10 +979,10 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
 
                         <div className="mb-2">
                             <Select value={templateTagFilter} onValueChange={setTemplateTagFilter}>
-                                <SelectTrigger className="h-8 bg-white/5 border-white/15 text-white">
+                                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50">
                                     <SelectValue placeholder="按标签筛选" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-black/90 border-white/20">
+                                <SelectContent className="bg-[#1C1C1C] border-[#2e2e2e]">
                                     <SelectItem value="all" className="text-white">全部标签</SelectItem>
                                     {availableTemplateTags.map((tag) => (
                                         <SelectItem key={tag} value={tag} className="text-white">{tag}</SelectItem>
@@ -973,7 +1000,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                     ID: {templateDraft.id}
                                 </div>
                                 <Input
-                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                     value={templateDraft.name}
                                     placeholder="模板名称"
                                     onChange={(event) => setTemplateDraft((prev) => (
@@ -981,13 +1008,13 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                     ))}
                                 />
                                 <Input
-                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                     value={templateTagsInput}
                                     placeholder="标签，逗号分隔，如：电商, 横版, 促销"
                                     onChange={(event) => setTemplateTagsInput(event.target.value)}
                                 />
                                 <Input
-                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                     value={templateDraft.baseImageUrl}
                                     placeholder="底图 URL 或相对路径"
                                     onChange={(event) => setTemplateDraft((prev) => (
@@ -995,7 +1022,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                     ))}
                                 />
                                 <Input
-                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                     value={templateDraft.thumbnailUrl}
                                     placeholder="缩略图 URL（留空则使用底图）"
                                     onChange={(event) => setTemplateDraft((prev) => (
@@ -1006,7 +1033,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                     <Input
                                         type="number"
                                         min={1}
-                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                         value={templateDraft.width}
                                         onChange={(event) => {
                                             const width = Math.round(Number(event.target.value));
@@ -1018,7 +1045,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                     <Input
                                         type="number"
                                         min={1}
-                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                         value={templateDraft.height}
                                         onChange={(event) => {
                                             const height = Math.round(Number(event.target.value));
@@ -1034,19 +1061,19 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                         prev ? { ...prev, defaultModel: value as BannerModelId } : prev
                                     ))}
                                 >
-                                    <SelectTrigger className="h-8 bg-white/5 border-white/15 text-white">
+                                    <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50">
                                         <SelectValue placeholder="默认模型" />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-black/90 border-white/20">
-                                        {BANNER_ALLOWED_MODELS.map((modelId) => (
+                                    <SelectContent className="bg-[#1C1C1C] border-[#2e2e2e]">
+                                        {bannerModelIds.map((modelId) => (
                                             <SelectItem key={modelId} value={modelId} className="text-white">
-                                                {MODEL_LABEL_MAP[modelId]}
+                                                {resolveModelLabel(modelId)}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                                 <Textarea
-                                    className="bg-white/5 border-white/15 text-white min-h-[90px]"
+                                    className="bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50 min-h-[90px]"
                                     value={templateDraft.promptTemplate}
                                     placeholder="模板 Prompt（支持 {{extraDesc}} 等占位符）"
                                     onChange={(event) => setTemplateDraft((prev) => (
@@ -1055,7 +1082,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                 />
                                 <div className="grid grid-cols-1 gap-2">
                                     <Input
-                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                         value={templateDraft.defaultFields.mainTitle}
                                         placeholder="默认主标题"
                                         onChange={(event) => setTemplateDraft((prev) => (
@@ -1068,7 +1095,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                         ))}
                                     />
                                     <Input
-                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                         value={templateDraft.defaultFields.subTitle}
                                         placeholder="默认副标题"
                                         onChange={(event) => setTemplateDraft((prev) => (
@@ -1081,7 +1108,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                         ))}
                                     />
                                     <Input
-                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                         value={templateDraft.defaultFields.timeText}
                                         placeholder="默认时间"
                                         onChange={(event) => setTemplateDraft((prev) => (
@@ -1094,7 +1121,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                         ))}
                                     />
                                     <Textarea
-                                        className="bg-white/5 border-white/15 text-white min-h-[72px]"
+                                        className="bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50 min-h-[50px]"
                                         value={templateDraft.defaultFields.extraDesc}
                                         placeholder="默认补充描述"
                                         onChange={(event) => setTemplateDraft((prev) => (
@@ -1127,9 +1154,9 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                             </div>
                         )}
 
-                        <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2 mt-2">
                             {filteredTemplates.length === 0 && (
-                                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/45">
+                                <div className="rounded-xl border border-[#2e2e2e] bg-[#161616] p-3 text-xs text-white/45">
                                     当前标签下没有模板。
                                 </div>
                             )}
@@ -1143,8 +1170,8 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                         className={cn(
                                             "w-full rounded-2xl border p-2 text-left transition-all",
                                             isActiveTemplate
-                                                ? "border-[#E6FFD1] bg-[#E6FFD1]/10 shadow-[0_0_0_1px_rgba(230,255,209,0.25)]"
-                                                : "border-white/10 bg-white/[0.02] hover:bg-white/[0.06]"
+                                                ? "border-teal-500 bg-teal-500/10 ring-1 ring-teal-500/50"
+                                                : "border-[#2e2e2e] bg-[#1a1a1a] hover:bg-[#222]"
                                         )}
                                         onClick={() => handleSwitchTemplate(item.id)}
                                     >
@@ -1170,8 +1197,8 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                             <span className={cn(
                                                 "text-[10px] px-1.5 py-0.5 rounded border",
                                                 isBuiltin
-                                                    ? "border-white/25 text-white/60"
-                                                    : "border-[#E6FFD1]/40 text-[#E6FFD1]"
+                                                    ? "border-white/25 text-zinc-400"
+                                                    : "border-teal-500/40 text-teal-500"
                                             )}>
                                                 {isBuiltin ? '内置' : '自定义'}
                                             </span>
@@ -1194,18 +1221,19 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                         </div>
                     </section>
 
-                    <section className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-xl p-4">
+                    <div className="flex flex-col gap-4 overflow-hidden min-h-0">
+                        <section className="flex-1 rounded-2xl border border-[#2e2e2e] bg-[#1a1a1a] p-3 flex flex-col min-h-0 overflow-hidden shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                             <h2 className="text-sm font-medium text-white">Template Preview</h2>
                             <div className="flex items-center gap-2">
-                                <span className="text-[11px] text-white/60">
+                                <span className="text-[11px] text-zinc-400">
                                     固定尺寸 {template.width} x {template.height}
                                 </span>
                                 {activePreviewHistoryItem && (
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="h-8 rounded-xl border-white/20 text-white hover:bg-white/10"
+                                        className="h-8 rounded-xl border-[#3a3a3a] bg-[#1a1a1a] text-zinc-300 hover:text-white hover:bg-[#2a2a2a]"
                                         onClick={() => setActivePreviewResultId(TEMPLATE_BASE_PREVIEW_ID)}
                                     >
                                         返回原始模版
@@ -1213,13 +1241,20 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                 )}
                             </div>
                         </div>
-                        <div
-                            ref={previewRef}
-                            className={cn(
-                                "relative w-full overflow-hidden rounded-2xl border border-white/15 bg-black/30",
-                                "cursor-crosshair select-none"
-                            )}
-                            style={{ aspectRatio: `${template.width}/${template.height}` }}
+                        <div className="flex-1 relative w-full overflow-hidden rounded-xl border border-[#2e2e2e] bg-[#0e0e0e] shadow-inner mt-2 flex items-center justify-center">
+                            <div
+                                ref={previewRef}
+                                className={cn(
+                                    "relative overflow-hidden shadow-sm",
+                                    "cursor-crosshair select-none"
+                                )}
+                                style={{ 
+                                    aspectRatio: `${template.width}/${template.height}`,
+                                    height: '100%',
+                                    width: 'auto',
+                                    maxHeight: '100%',
+                                    maxWidth: '100%',
+                                }}
                             onDragStart={(event) => event.preventDefault()}
                             onPointerDown={handlePreviewPointerDown}
                             onPointerMove={handlePreviewPointerMove}
@@ -1299,9 +1334,61 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                 </div>
                             )}
                         </div>
+
+                        </div>
                     </section>
 
-                    <section className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-xl p-4 flex flex-col gap-4">
+                    <section className="shrink-0 rounded-2xl border border-[#2e2e2e] bg-[#1a1a1a] p-3 shadow-sm h-[120px] flex flex-col">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-sm font-medium text-white">本次生成缩略图</h3>
+                            <span className="text-[11px] text-zinc-400">{templateHistory.length} 张</span>
+                        </div>
+                        {templateHistory.length === 0 ? (
+                            <div className="flex-1 rounded-2xl border border-white/10 bg-white/[0.03] flex items-center px-4 text-xs text-white/45">
+                                当前模版还没有生成记录，点击 Generate 后会在这里展示缩略图。
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 overflow-x-auto pb-1">
+                                {templateHistory.map((item) => {
+                                    const isActive = item.id === activePreviewResultId;
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className={cn(
+                                                "group shrink-0 w-[120px] rounded-xl border p-1.5 text-left transition-all",
+                                                isActive
+                                                    ? "border-[#E6FFD1] bg-[#E6FFD1]/10"
+                                                    : "border-white/15 bg-white/[0.03] hover:bg-white/[0.08]"
+                                            )}
+                                            onClick={() => setActivePreviewResultId(item.id)}
+                                        >
+                                            <div
+                                                className="relative w-full overflow-hidden rounded-lg border border-white/10"
+                                                style={{ aspectRatio: `${template.width}/${template.height}` }}
+                                            >
+                                                <Image
+                                                    src={formatImageUrl(item.outputUrl)}
+                                                    alt="Banner 生成缩略图"
+                                                    fill
+                                                    className="object-cover"
+                                                    unoptimized
+                                                />
+                                            </div>
+                                            <div className="mt-1 text-[10px] text-white/70 truncate">
+                                                {new Date(item.createdAt).toLocaleTimeString()}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </section>
+
+                    </div>
+
+                    <section className="flex flex-col rounded-2xl border border-[#2e2e2e] bg-[#1C1C1C] overflow-hidden shadow-sm">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-white">内容设置</span>
                             <Button
@@ -1352,10 +1439,10 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-                            <label className="text-xs text-white/60">补充描述</label>
+                        <div className="grid grid-cols-1 gap-2 rounded-2xl border border-[#2e2e2e] bg-[#161616] p-3">
+                            <label className="text-xs text-zinc-400">补充描述</label>
                             <Textarea
-                                className="bg-white/5 border-white/15 text-white min-h-[72px]"
+                                className="bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50 min-h-[50px]"
                                 value={activeBannerData.fields.extraDesc}
                                 onChange={(event) => updateBannerFields({ extraDesc: event.target.value })}
                                 placeholder="描述材质、颜色、风格等补充要求"
@@ -1363,18 +1450,18 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-xs text-white/60">模型</label>
+                            <label className="text-xs text-zinc-400">模型</label>
                             <Select
                                 value={activeBannerData.model}
                                 onValueChange={(value) => setBannerModel(value as BannerModelId)}
                             >
-                                <SelectTrigger className="bg-white/5 border-white/15 text-white">
+                                <SelectTrigger className="bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50">
                                     <SelectValue placeholder="选择模型" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-black/90 border-white/20">
-                                    {BANNER_ALLOWED_MODELS.map((modelId) => (
+                                <SelectContent className="bg-[#1C1C1C] border-[#2e2e2e]">
+                                    {bannerModelIds.map((modelId) => (
                                         <SelectItem key={modelId} value={modelId} className="text-white">
-                                            {MODEL_LABEL_MAP[modelId]}
+                                            {resolveModelLabel(modelId)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -1383,7 +1470,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
 
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs text-white/60">区域标注</span>
+                                <span className="text-xs text-zinc-400">区域标注</span>
                                 <Button
                                     size="sm"
                                     variant="ghost"
@@ -1406,7 +1493,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
-                                                className="h-7 w-7 text-white/60 hover:text-white hover:bg-white/10"
+                                                className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-white/10"
                                                 onClick={() => handleRemoveRegion(region.id)}
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1419,16 +1506,16 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                                         value={isBannerTextRegion(region) ? 'text' : 'region'}
                                                         onValueChange={(value) => handleRegionModeChange(region.id, value as 'text' | 'region')}
                                                     >
-                                                        <SelectTrigger className="h-8 bg-white/5 border-white/15 text-white">
+                                                        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50">
                                                             <SelectValue />
                                                         </SelectTrigger>
-                                                        <SelectContent className="bg-black/90 border-white/20">
+                                                        <SelectContent className="bg-[#1C1C1C] border-[#2e2e2e]">
                                                             <SelectItem value="text" className="text-white">文字标注</SelectItem>
                                                             <SelectItem value="region" className="text-white">区域标注</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <Input
-                                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                                        className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                                         value={region.name || ''}
                                                         placeholder="标注名称"
                                                         onChange={(event) => handleRegionNameChange(region.id, event.target.value)}
@@ -1436,7 +1523,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                                 </div>
                                                 {isBannerTextRegion(region) && (
                                                     <Input
-                                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                                        className="h-8 bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50"
                                                         value={region.sourceText || ''}
                                                         placeholder="原始文字（用于“修改前”）"
                                                         onChange={(event) => handleRegionSourceTextChange(region.id, event.target.value)}
@@ -1445,7 +1532,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                             </div>
                                         )}
                                         <Textarea
-                                            className="bg-white/5 border-white/15 text-white min-h-[72px]"
+                                            className="bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50 min-h-[50px]"
                                             placeholder={getRegionPlaceholder(region, index + 1)}
                                             value={region.description}
                                             onChange={(event) => handleRegionDescriptionChange(region.id, event.target.value)}
@@ -1456,80 +1543,27 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                         </div>
 
                         <div className="grid grid-cols-1 gap-2">
-                            <label className="text-xs text-white/60">最终 Prompt</label>
+                            <label className="text-xs text-zinc-400">最终 Prompt</label>
                             <Textarea
-                                className="bg-white/5 border-white/15 text-white min-h-[160px]"
+                                className="bg-[#1a1a1a] border-[#2e2e2e] text-zinc-300 focus-visible:ring-1 focus-visible:ring-teal-500/50 min-h-[100px]"
                                 value={activeBannerData.promptFinal}
                                 onChange={(event) => updateBannerPromptFinal(event.target.value)}
                                 placeholder="可手动编辑最终 Prompt"
                             />
                         </div>
 
-                        <div className="flex items-center justify-between gap-3">
-                            <Button
-                                variant="outline"
-                                className="border-white/20 text-white hover:bg-white/10"
-                                onClick={resetBannerPromptFinal}
-                            >
-                                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                                重置模板 Prompt
-                            </Button>
-                            <Button
-                                className="bg-[#E6FFD1] text-black hover:bg-[#dcf6c8] rounded-2xl px-8"
-                                onClick={handleGenerateClick}
-                                disabled={isGenerating || isPreparingBannerGuideImage}
-                            >
-                                {isPreparingBannerGuideImage ? '准备标注图...' : (isGenerating ? '生成中...' : 'Generate')}
-                            </Button>
                         </div>
+                    <div className="shrink-0 p-4 border-t border-[#2e2e2e] bg-[#161616] flex flex-col gap-3">
+                        <Button className="w-full h-[42px] rounded-xl bg-teal-600 hover:bg-teal-500 text-white shadow-sm font-semibold transition-colors border-0" onClick={handleGenerateClick} disabled={isGenerating || isPreparingBannerGuideImage}>
+                            {isPreparingBannerGuideImage ? '准备标注图...' : (isGenerating ? '生成中...' : 'Generate Banner')}
+                        </Button>
+                        <Button variant="outline" className="w-full h-8 rounded-lg border-transparent text-zinc-400 hover:text-white hover:bg-[#2a2a2a] text-xs" onClick={resetBannerPromptFinal}>
+                            <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> 重置模板 Prompt
+                        </Button>
+                    </div>
                     </section>
 
-                    <section className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-xl p-4 xl:col-start-2 xl:col-span-2">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-medium text-white">本次生成缩略图</h3>
-                            <span className="text-[11px] text-white/60">{templateHistory.length} 张</span>
-                        </div>
-                        {templateHistory.length === 0 ? (
-                            <div className="h-24 rounded-2xl border border-white/10 bg-white/[0.03] flex items-center px-4 text-xs text-white/45">
-                                当前模版还没有生成记录，点击 Generate 后会在这里展示缩略图。
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-3 overflow-x-auto pb-1">
-                                {templateHistory.map((item) => {
-                                    const isActive = item.id === activePreviewResultId;
-                                    return (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            className={cn(
-                                                "group shrink-0 w-[120px] rounded-xl border p-1.5 text-left transition-all",
-                                                isActive
-                                                    ? "border-[#E6FFD1] bg-[#E6FFD1]/10"
-                                                    : "border-white/15 bg-white/[0.03] hover:bg-white/[0.08]"
-                                            )}
-                                            onClick={() => setActivePreviewResultId(item.id)}
-                                        >
-                                            <div
-                                                className="relative w-full overflow-hidden rounded-lg border border-white/10"
-                                                style={{ aspectRatio: `${template.width}/${template.height}` }}
-                                            >
-                                                <Image
-                                                    src={formatImageUrl(item.outputUrl)}
-                                                    alt="Banner 生成缩略图"
-                                                    fill
-                                                    className="object-cover"
-                                                    unoptimized
-                                                />
-                                            </div>
-                                            <div className="mt-1 text-[10px] text-white/70 truncate">
-                                                {new Date(item.createdAt).toLocaleTimeString()}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </section>
+                    
                 </div>
             </div>
             <style jsx global>{bannerPreviewSweepStyle}</style>

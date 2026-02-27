@@ -37,7 +37,7 @@ import { ImageEditDialog, type ImageEditConfirmPayload, type ImageEditorSessionS
 
 import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
-import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
+import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 import { Image as ImageIcon } from "lucide-react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
@@ -562,9 +562,25 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     // Determine the effective batch size: 4 if overriding config (e.g. regenerate/rerun), otherwise current batchSize
     const effectiveBatchSize = configOverride ? 4 : batchSize;
 
+    const modelForBatch = String(
+      (configOverride as Partial<GenerationConfig> | undefined)?.model
+      || usePlaygroundStore.getState().config.model
+      || usePlaygroundStore.getState().selectedModel
+      || ''
+    );
+    const shouldSequentialExecute =
+      modelForBatch === MODEL_ID_FLUX_KLEIN
+      || isWorkflowModel(modelForBatch, Boolean(usePlaygroundStore.getState().selectedWorkflowConfig));
+
     // Launch generation tasks
-    // Frontend logic: call singleGenerate for each task immediately to show loading cards
-    // Backend logic: singleGenerate handles the sequential submission or we use a custom delay here for the API call only
+    // Always create pending cards immediately, then schedule real execution.
+    // ComfyUI-backed tasks are executed sequentially to avoid large-image queue timeout/failure.
+    type PendingExecution = {
+      uniqueId?: string;
+      finalConfig: GenerationConfig;
+      sourceImageUrls: string[];
+    };
+    const pendingExecutions: Promise<PendingExecution>[] = [];
     for (let i = 0; i < effectiveBatchSize; i++) {
       // Create history item immediately to show all cards at once
       const currentConfig = usePlaygroundStore.getState().config;
@@ -592,29 +608,54 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         isEdit: false
       };
 
-      singleGenerate({
+      const pendingExecution = singleGenerate({
         configOverride: displayConfigOverride,
         fixedCreatedAt: startTime,
         isBackground: true,
         editConfig: undefined,
         taskId: batchTaskId,
         sourceImageUrls
-      }).then((uniqueId) => {
-        // 2. Schedule the actual backend execution with a staggered delay
-        if (uniqueId) {
-          setTimeout(() => {
-            // 确保执行任务也显式携带 isEdit: false
-            if (typeof uniqueId === 'string') {
-              executeGeneration(uniqueId, batchTaskId, { ...finalConfig, isEdit: false }, startTime, sourceImageUrls);
-            }
-          }, i * 1100);
-        }
       });
+      pendingExecutions.push(
+        pendingExecution.then((uniqueId) => ({
+          uniqueId: typeof uniqueId === 'string' ? uniqueId : undefined,
+          finalConfig: { ...finalConfig, isEdit: false },
+          sourceImageUrls,
+        }))
+      );
     }
+
+    const resolvedExecutions = await Promise.all(pendingExecutions);
+    if (shouldSequentialExecute) {
+      for (const execution of resolvedExecutions) {
+        if (!execution.uniqueId) continue;
+        await executeGeneration(
+          execution.uniqueId,
+          batchTaskId,
+          execution.finalConfig,
+          startTime,
+          execution.sourceImageUrls
+        );
+      }
+      return;
+    }
+
+    resolvedExecutions.forEach((execution, index) => {
+      if (!execution.uniqueId) return;
+      setTimeout(() => {
+        void executeGeneration(
+          execution.uniqueId as string,
+          batchTaskId,
+          execution.finalConfig,
+          startTime,
+          execution.sourceImageUrls
+        );
+      }, index * 1100);
+    });
   }, [batchSize, singleGenerate, executeGeneration, setViewMode, setActiveTab, setShowHistory]);
 
   const { optimizePrompt, isOptimizing } = usePromptOptimization();
-  const { callVision } = useAIServiceV1();
+  const { callVision, getServiceConfig } = useAIServiceV1();
 
   const handleFilesUpload = React.useCallback(async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -887,7 +928,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       }
 
       // 2. Call unified Vision service
-      const modelId = mode === 'json' ? 'coze-professional-describe' : 'gemini-3-pro-image-preview';
+      const describeServiceModelId = getServiceConfig('describe').modelId;
+      const modelId = mode === 'json' ? 'coze-professional-describe' : (describeServiceModelId || 'gemini-3-pro-image-preview');
       const systemPrompt = mode === 'json' ? "" : VISION_DESCRIBE_SYSTEM_PROMPT;
 
       const result = await callVision({
@@ -946,7 +988,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, toast, effectiveUserId, saveHistoryToBackend]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, getServiceConfig, toast, effectiveUserId, saveHistoryToBackend]);
 
   const handleBatchUse = async (results: Generation[]) => {
     if (!results || results.length === 0) return;

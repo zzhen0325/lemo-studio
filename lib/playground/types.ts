@@ -68,7 +68,7 @@ export const VISION_DESCRIBE_SYSTEM_PROMPT: SystemInstruction = `## 角色
 
 注意：**除了 4 个描述内容及其之间的 '|||' 分隔符外，不要返回任何额外文字。**`;
 
-export type BannerModelId = 'flux_klein' | 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview' | 'gemini-3.1-flash-image-preview';
+export type BannerModelId = string;
 
 export interface BannerFields {
   mainTitle: string;

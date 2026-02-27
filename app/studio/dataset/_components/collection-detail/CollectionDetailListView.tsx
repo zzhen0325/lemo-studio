@@ -66,7 +66,7 @@ export function CollectionDetailListView({
   onPromptEditingChange,
 }: CollectionDetailListViewProps) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 relative overflow-y-auto custom-scrollbar flex-1 min-h-0 pr-2 pt-10">
       <Dialog
         open={isConflictDialogOpen}
         onOpenChange={onConflictDialogOpenChange}
@@ -101,9 +101,9 @@ export function CollectionDetailListView({
         </DialogContent>
       </Dialog>
 
-      <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-white/10 bg-card/40 rounded-2xl p-10 hover:border-primary/50 hover:bg-primary/5 transition-all group min-h-[300px]">
-        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center group-hover:scale-110 group-hover:bg-primary/20 transition-all">
-          <Plus className="h-8 w-8 text-muted-foreground group-hover:text-primary" />
+      <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-[#2e2e2e] bg-[#161616] rounded-2xl p-6 hover:border-teal-500/50 hover:bg-teal-500/5 transition-all group min-h-[240px] h-full">
+        <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center group-hover:scale-110 transition-all">
+          <Plus className="h-8 w-8 text-zinc-500 group-hover:text-teal-500" />
         </div>
         <span className="mt-4 text-white text-xl font-medium group-hover:text-primary transition-colors">
           Add

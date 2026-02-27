@@ -28,7 +28,7 @@ export interface ImageEditorStroke {
   path: ImageEditorStrokePath;
 }
 
-export interface ImageEditorCrop extends ImageEditorRect {}
+export type ImageEditorCrop = ImageEditorRect;
 
 export interface ImageEditorSessionSnapshot {
   version: 1;

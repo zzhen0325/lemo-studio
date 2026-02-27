@@ -51,9 +51,9 @@ export function SortableImageCard({
           onSelect(img.id, e.shiftKey);
         }
       }}
-      className={`group relative aspect-square bg-card border rounded-xl overflow-hidden transition-all select-none touch-none ${isSelected
-        ? 'ring-2 ring-primary border-primary shadow-[0_0_15px_oklch(var(--primary)/0.3)]'
-        : 'border-white/10 hover:ring-2 hover:ring-primary/50'
+      className={`group relative aspect-square bg-[#1a1a1a] border rounded-2xl overflow-hidden transition-all select-none touch-none ${isSelected
+        ? 'ring-2 ring-teal-500 border-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.2)]'
+        : 'border-[#2e2e2e] hover:ring-2 hover:ring-teal-500/50'
         }`}
     >
       <Image
@@ -66,14 +66,14 @@ export function SortableImageCard({
       />
 
       <div className={`absolute top-3 left-3 z-10 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shadow-md transition-colors ${isSelected ? 'bg-primary border-primary' : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'}`}>
-          {isSelected && <Plus className="w-4 h-4 text-primary-foreground rotate-45" />}
+        <div className={`w-6 h-6 rounded-full border flex items-center justify-center shadow-md transition-colors ${isSelected ? 'bg-teal-500 border-teal-500 text-white' : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'}`}>
+          {isSelected && <Plus className="w-4 h-4 text-white rotate-45" />}
         </div>
       </div>
 
       <div className={`absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3 ${isDragging ? 'opacity-0' : ''}`}>
         <div className="flex justify-end">
-          <div className="bg-black/50 backdrop-blur-sm rounded px-1.5 py-0.5 text-[10px] text-white/80 font-mono truncate max-w-full">
+          <div className="bg-black/60 backdrop-blur-sm rounded-md px-1.5 py-0.5 text-[10px] text-zinc-300 font-mono truncate max-w-full">
             {img.filename}
           </div>
         </div>
@@ -82,7 +82,7 @@ export function SortableImageCard({
           <Button
             variant="destructive"
             size="sm"
-            className="h-8 w-auto px-4 shadow-lg scale-90 hover:scale-100 transition-transform"
+            className="h-8 w-auto px-4 shadow-lg scale-90 hover:scale-100 transition-transform rounded-lg"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();

@@ -195,6 +195,8 @@ export class ComfyUIAPIService {
             "client_id": this.clientId,
         }
         try {
+            this.outputFiles = [];
+            this.workflowStatus = undefined;
             const requestStart = Date.now();
             const headers: HeadersInit = {
                 "Content-Type": "application/json",
@@ -271,6 +273,25 @@ export class ComfyUIAPIService {
                     message: "ComfyUI workflow execution error",
                     errors: []
                 });
+            }
+            if (this.outputFiles.length === 0 && this.promptId) {
+                try {
+                    const historyOutputFiles = await this.getPromptOutputFilesFromHistory(this.promptId);
+                    if (historyOutputFiles.length > 0) {
+                        this.outputFiles = historyOutputFiles;
+                        console.info("[FluxKlein][ComfyUI] history_fallback_applied", {
+                            traceId: this.traceId,
+                            promptId: this.promptId,
+                            outputCount: historyOutputFiles.length,
+                        });
+                    }
+                } catch (historyError) {
+                    console.warn("[FluxKlein][ComfyUI] history_fallback_failed", {
+                        traceId: this.traceId,
+                        promptId: this.promptId,
+                        historyError,
+                    });
+                }
             }
             return { outputFiles: this.outputFiles, promptId: this.promptId };
 
@@ -359,6 +380,71 @@ export class ComfyUIAPIService {
                 }
             }
         }
+    }
+
+    private async getPromptOutputFilesFromHistory(promptId: string): Promise<Array<{ [key: string]: string }>> {
+        const headers: HeadersInit = {};
+        if (this.apiKey) {
+            headers["Authorization"] = `Bearer ${this.apiKey}`;
+        }
+
+        const requestStart = Date.now();
+        const response = await undiciFetch(`${this.getUrl("http")}/history/${encodeURIComponent(promptId)}`, {
+            headers,
+            dispatcher: this.dispatcher,
+        });
+        const responseAt = Date.now();
+        console.info("[FluxKlein][ComfyUI] history_response", {
+            traceId: this.traceId,
+            promptId,
+            elapsedMs: responseAt - requestStart,
+            status: response.status,
+        });
+
+        if (!response.ok) {
+            return [];
+        }
+
+        const responseData = await response.json();
+        return this.extractOutputFilesFromHistory(responseData, promptId);
+    }
+
+    private extractOutputFilesFromHistory(historyData: unknown, promptId: string): Array<{ [key: string]: string }> {
+        if (!historyData || typeof historyData !== "object") return [];
+
+        const historyRecord = historyData as Record<string, unknown>;
+        const promptHistoryRaw = historyRecord[promptId];
+        if (!promptHistoryRaw || typeof promptHistoryRaw !== "object") return [];
+
+        const outputsRaw = (promptHistoryRaw as Record<string, unknown>).outputs;
+        if (!outputsRaw || typeof outputsRaw !== "object") return [];
+
+        const files: Array<{ [key: string]: string }> = [];
+        const outputs = outputsRaw as Record<string, unknown>;
+
+        for (const nodeOutput of Object.values(outputs)) {
+            if (!nodeOutput || typeof nodeOutput !== "object") continue;
+            const nodeOutputRecord = nodeOutput as Record<string, unknown>;
+            for (const values of Object.values(nodeOutputRecord)) {
+                if (!Array.isArray(values)) continue;
+                for (const fileValue of values) {
+                    if (!fileValue || typeof fileValue !== "object") continue;
+                    const fileRecord = fileValue as Record<string, unknown>;
+                    const filename = typeof fileRecord.filename === "string" ? fileRecord.filename : "";
+                    if (!filename) continue;
+                    const type = typeof fileRecord.type === "string" ? fileRecord.type : "output";
+                    if (type === "temp") continue;
+                    const subfolder = typeof fileRecord.subfolder === "string" ? fileRecord.subfolder : "";
+                    files.push({
+                        filename,
+                        subfolder,
+                        type,
+                    });
+                }
+            }
+        }
+
+        return files;
     }
 
     public async uploadImage(imageBlob: Blob, filename: string): Promise<string> {

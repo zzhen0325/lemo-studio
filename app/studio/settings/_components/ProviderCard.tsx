@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { Pencil, Trash2, Server, Cloud, Cpu } from "lucide-react";
+import { Pencil, Trash2, Server, Cloud, Cpu, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APIProviderConfig, ProviderType } from "@/lib/api-config/types";
 import { Button } from "@/components/ui/button";
@@ -26,26 +26,43 @@ const providerIcons: Record<ProviderType, React.ReactNode> = {
     'openai-compatible': <Server className="size-5" />,
     'google-genai': <Cloud className="size-5" />,
     'bytedance-afr': <Cpu className="size-5" />,
-    'google-translate': <Languages className="size-5" />
+    'google-translate': <Languages className="size-5" />,
+    'coze-image': <Cloud className="size-5" />,
+    'coze-vision': <Cloud className="size-5" />,
+    'workflow-local': <Workflow className="size-5" />
 };
 
 const providerColors: Record<ProviderType, string> = {
-    'openai-compatible': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    'google-genai': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    'bytedance-afr': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    'google-translate': 'bg-sky-500/20 text-sky-400 border-sky-500/30'
+    'openai-compatible': 'bg-[#C8F88D]/15 text-[#C8F88D] border-[#C8F88D]/30',
+    'google-genai': 'bg-[#C8F88D]/15 text-[#C8F88D] border-[#C8F88D]/30',
+    'bytedance-afr': 'bg-zinc-700/50 text-zinc-200 border-zinc-500/40',
+    'google-translate': 'bg-[#C8F88D]/15 text-[#C8F88D] border-[#C8F88D]/30',
+    'coze-image': 'bg-zinc-700/50 text-zinc-200 border-zinc-500/40',
+    'coze-vision': 'bg-zinc-700/50 text-zinc-200 border-zinc-500/40',
+    'workflow-local': 'bg-[#C8F88D]/15 text-[#C8F88D] border-[#C8F88D]/30'
 };
 
 const providerLabels: Record<ProviderType, string> = {
     'openai-compatible': 'OpenAI Compatible',
     'google-genai': 'Google GenAI',
     'bytedance-afr': 'Bytedance AFR',
-    'google-translate': 'Google Translate'
+    'google-translate': 'Google Translate',
+    'coze-image': 'Coze Image',
+    'coze-vision': 'Coze Vision',
+    'workflow-local': 'Workflow Local'
 };
+
+function resolveProviderType(type: string): ProviderType {
+    if (type in providerLabels) {
+        return type as ProviderType;
+    }
+    return 'openai-compatible';
+}
 
 export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: ProviderCardProps) {
     const modelCount = provider.models.length;
     const hasApiKey = !!provider.apiKey;
+    const resolvedProviderType = resolveProviderType(provider.providerType);
 
     return (
         <motion.div
@@ -55,8 +72,8 @@ export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: Pr
             className={cn(
                 "group relative p-4 rounded-xl border transition-all duration-200",
                 provider.isEnabled
-                    ? "bg-black/40 border-white/10 hover:border-white/20"
-                    : "bg-black/20 border-white/5 opacity-60"
+                    ? "bg-[#2C2D2F] border-[#4A4C4D] hover:border-[#C8F88D]/40"
+                    : "bg-[#1C1C1C] border-[#4A4C4D]/70 opacity-60"
             )}
         >
             {/* Header */}
@@ -65,9 +82,9 @@ export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: Pr
                     {/* Provider Type Icon */}
                     <div className={cn(
                         "p-2.5 rounded-lg border",
-                        providerColors[provider.providerType]
+                        providerColors[resolvedProviderType]
                     )}>
-                        {providerIcons[provider.providerType]}
+                        {providerIcons[resolvedProviderType]}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -75,7 +92,7 @@ export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: Pr
                             {provider.name}
                         </h3>
                         <p className="text-xs text-zinc-500 mt-0.5">
-                            {providerLabels[provider.providerType]}
+                            {providerLabels[resolvedProviderType]}
                         </p>
                     </div>
                 </div>
@@ -85,7 +102,7 @@ export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: Pr
                     <Switch
                         checked={provider.isEnabled}
                         onCheckedChange={(checked) => onToggleEnabled(provider.id, checked)}
-                        className="data-[state=checked]:bg-emerald-500"
+                        className="data-[state=checked]:bg-[#C8F88D]"
                     />
 
                     <DropdownMenu>
@@ -93,12 +110,12 @@ export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: Pr
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="size-8 text-zinc-400 hover:text-white hover:bg-white/5"
+                                className="size-8 text-zinc-400 hover:text-white hover:bg-[#1C1C1C]"
                             >
                                 <MoreVertical className="size-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-zinc-900 border-white/10">
+                        <DropdownMenuContent align="end" className="bg-[#1C1C1C] border-[#4A4C4D]">
                             <DropdownMenuItem
                                 onClick={() => onEdit(provider)}
                                 className="text-zinc-300 hover:text-white focus:text-white cursor-pointer"
@@ -123,7 +140,7 @@ export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: Pr
                 <div className="flex items-center gap-1.5">
                     <div className={cn(
                         "size-2 rounded-full",
-                        hasApiKey ? "bg-emerald-500" : "bg-amber-500"
+                        hasApiKey ? "bg-[#C8F88D]" : "bg-amber-500"
                     )} />
                     <span>{hasApiKey ? "已配置API Key" : "未配置API Key"}</span>
                 </div>
@@ -138,13 +155,13 @@ export function ProviderCard({ provider, onEdit, onDelete, onToggleEnabled }: Pr
                     {provider.models.slice(0, 3).map((model) => (
                         <span
                             key={model.modelId}
-                            className="px-2 py-0.5 text-[10px] bg-white/5 text-zinc-400 rounded-md"
+                            className="px-2 py-0.5 text-[10px] bg-[#1C1C1C] border border-[#4A4C4D] text-zinc-300 rounded-md"
                         >
                             {model.displayName || model.modelId}
                         </span>
                     ))}
                     {modelCount > 3 && (
-                        <span className="px-2 py-0.5 text-[10px] bg-white/5 text-zinc-500 rounded-md">
+                        <span className="px-2 py-0.5 text-[10px] bg-[#1C1C1C] border border-[#4A4C4D] text-zinc-500 rounded-md">
                             +{modelCount - 3}
                         </span>
                     )}

@@ -33,6 +33,9 @@ import {
   INFINITE_CANVAS_MODELS,
   INFINITE_IMAGE_SIZES,
 } from '../_lib/constants';
+import { useAPIConfigStore } from '@/lib/store/api-config-store';
+import { getContextModelOptions } from '@/lib/model-center-ui';
+import { normalizeImageSizeToken } from '@/lib/model-center';
 
 const STATUS_COLOR: Record<InfiniteCanvasNode['status'], string> = {
   idle: 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-slate-500/30 dark:text-slate-200 dark:border-slate-400/30',
@@ -105,6 +108,23 @@ export default function CanvasNodeCard({
   const progress = Math.max(0, Math.min(1, node.progress ?? (isRunning ? 0.08 : 0)));
   const progressPercent = Math.round(progress * 100);
   const etaLabel = formatEta(node.etaSeconds);
+  const providers = useAPIConfigStore((state) => state.providers);
+  const getModelEntryById = useAPIConfigStore((state) => state.getModelEntryById);
+  const contextModels = getContextModelOptions(providers, 'infinite-canvas', 'image');
+  const modelOptions = contextModels.length > 0 ? contextModels : INFINITE_CANVAS_MODELS.map((item) => ({ id: item.id, displayName: item.label }));
+  const selectedModelMeta = getModelEntryById(node.modelId || '');
+  const supportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize ?? true;
+  const supportsBatch = selectedModelMeta?.capabilities?.supportsBatch ?? true;
+  const allowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
+    ? selectedModelMeta.capabilities.allowedImageSizes
+    : (['1K', '2K', '4K'] as const);
+  const allowedCanvasImageSizes = INFINITE_IMAGE_SIZES.filter((size) => {
+    const normalized = normalizeImageSizeToken(size);
+    return normalized ? allowedImageSizes.includes(normalized) : false;
+  });
+  const imageSizeOptions = allowedCanvasImageSizes.length > 0 ? allowedCanvasImageSizes : INFINITE_IMAGE_SIZES;
+  const maxBatchSize = Math.max(1, selectedModelMeta?.capabilities?.maxBatchSize || 1);
+  const batchSizeOptions = INFINITE_BATCH_SIZES.filter((batch) => batch <= maxBatchSize);
 
   return (
     <article
@@ -130,7 +150,7 @@ export default function CanvasNodeCard({
       {/* 悬浮工具栏 (Node Action Bar) */}
       <div
         className={cn(
-          'absolute -top-[42px] left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-zinc-200 bg-white p-1.5 shadow-md transition-all duration-200 dark:border-[#343434] dark:bg-[#1C1C1C]',
+          'absolute -top-14 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-xl border border-zinc-200 bg-white p-1.5 shadow-md transition-all duration-200 dark:border-[#343434] dark:bg-[#1C1C1C]',
           selected
             ? 'opacity-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 translate-y-1 pointer-events-none'
@@ -147,9 +167,9 @@ export default function CanvasNodeCard({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {INFINITE_CANVAS_MODELS.map((model) => (
+                {modelOptions.map((model) => (
                   <SelectItem key={model.id} value={model.id}>
-                    {model.label}
+                    {model.displayName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -193,43 +213,47 @@ export default function CanvasNodeCard({
                 onPointerDown={(event) => event.stopPropagation()}
               >
                 <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] text-zinc-500 dark:text-[#A3A3A3]">尺寸 (Image Size)</p>
-                    <Select
-                      value={imageParams.imageSize || '1024x1024'}
-                      onValueChange={(value) => onImageParamsChange(node.nodeId, { imageSize: value })}
-                    >
-                      <SelectTrigger className="h-7 border-zinc-200 bg-zinc-50 px-2 text-[11px] text-zinc-900 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#D9D9D9]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {INFINITE_IMAGE_SIZES.map((size) => (
-                          <SelectItem key={size} value={size}>
-                            {size}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {supportsImageSize && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] text-zinc-500 dark:text-[#A3A3A3]">尺寸 (Image Size)</p>
+                      <Select
+                        value={imageParams.imageSize || imageSizeOptions[0]}
+                        onValueChange={(value) => onImageParamsChange(node.nodeId, { imageSize: value })}
+                      >
+                        <SelectTrigger className="h-7 border-zinc-200 bg-zinc-50 px-2 text-[11px] text-zinc-900 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#D9D9D9]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {imageSizeOptions.map((size) => (
+                            <SelectItem key={size} value={size}>
+                              {size}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] text-zinc-500 dark:text-[#A3A3A3]">批量 (Batch Size)</p>
-                    <Select
-                      value={String(imageParams.batchSize || 1)}
-                      onValueChange={(value) => onImageParamsChange(node.nodeId, { batchSize: Number(value) })}
-                    >
-                      <SelectTrigger className="h-7 border-zinc-200 bg-zinc-50 px-2 text-[11px] text-zinc-900 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#D9D9D9]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {INFINITE_BATCH_SIZES.map((batch) => (
-                          <SelectItem key={batch} value={String(batch)}>
-                            {batch}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {supportsBatch && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] text-zinc-500 dark:text-[#A3A3A3]">批量 (Batch Size)</p>
+                      <Select
+                        value={String(Math.min(imageParams.batchSize || 1, batchSizeOptions[batchSizeOptions.length - 1] || 1))}
+                        onValueChange={(value) => onImageParamsChange(node.nodeId, { batchSize: Number(value) })}
+                      >
+                        <SelectTrigger className="h-7 border-zinc-200 bg-zinc-50 px-2 text-[11px] text-zinc-900 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#D9D9D9]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {batchSizeOptions.map((batch) => (
+                            <SelectItem key={batch} value={String(batch)}>
+                              {batch}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </PopoverContent>
             </Popover>
@@ -395,13 +419,10 @@ export default function CanvasNodeCard({
             ) : null}
 
             {latestOutput?.outputType === 'image' && latestOutput.assetUrl ? (
-              <button
-                type="button"
-                className="group/img relative h-44 w-full overflow-hidden rounded-lg bg-zinc-100 text-left dark:bg-[#161616]"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onEditImage?.(node.nodeId);
-                }}
+              <div
+
+                className="group/img relative h-80 w-full overflow-hidden rounded-lg bg-zinc-100 text-left dark:bg-[#161616]"
+
               >
                 <Image
                   src={latestOutput.assetUrl}
@@ -417,7 +438,7 @@ export default function CanvasNodeCard({
                     编辑
                   </span>
                 ) : null}
-              </button>
+              </div>
             ) : null}
           </>
         )}

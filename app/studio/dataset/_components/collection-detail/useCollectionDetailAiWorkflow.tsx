@@ -50,6 +50,7 @@ interface UseCollectionDetailAiWorkflowParams {
   selectedIds: Set<string>;
   isProcessing: boolean;
   systemPrompt: string;
+  datasetLabelModelId: string;
   batchPrefix: string;
   callVision: VisionCaller;
   toast: ToastFn;
@@ -76,6 +77,7 @@ export function useCollectionDetailAiWorkflow({
   selectedIds,
   isProcessing,
   systemPrompt,
+  datasetLabelModelId,
   batchPrefix,
   callVision,
   toast,
@@ -165,6 +167,7 @@ export function useCollectionDetailAiWorkflow({
               img,
               signal: controller.signal,
               systemPrompt,
+              modelId: datasetLabelModelId,
               callVision,
             });
             chunkPrompts[img.filename] = newPrompt;
@@ -513,6 +516,7 @@ export function useCollectionDetailAiWorkflow({
       const optimizedText = await requestDatasetLabel({
         imageBase64: base64,
         systemPrompt,
+        modelId: datasetLabelModelId,
         callVision,
       });
 

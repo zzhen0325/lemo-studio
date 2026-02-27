@@ -274,11 +274,6 @@ type GooglePart =
   | { text: string }
   | { inline_data: { mime_type: string; data: string } };
 
-const GOOGLE_IMAGE_SIZE_MODELS = new Set([
-  "gemini-3-pro-image-preview",
-  "gemini-3.1-flash-image-preview",
-]);
-
 export class GoogleGenAIProvider
   implements TextProvider, VisionProvider, ImageProvider {
   private apiKey: string;
@@ -453,7 +448,7 @@ export class GoogleGenAIProvider
       responseModalities: ["Image"] as const, // 官方 REST 文档使用 "Image"
     };
 
-    const supportsImageSize = Boolean(imageSize && GOOGLE_IMAGE_SIZE_MODELS.has(this.modelId));
+    const supportsImageSize = Boolean(imageSize && this.modelId.startsWith("gemini-"));
     if (aspectRatio || supportsImageSize) {
       configParams.imageConfig = {
         ...(aspectRatio ? { aspectRatio } : {}),

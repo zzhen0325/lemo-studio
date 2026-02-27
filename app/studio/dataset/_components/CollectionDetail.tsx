@@ -79,7 +79,8 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     const isSystemPromptEditingRef = useRef(false);
     const activePromptLangRef = useRef<TranslateLang>('zh');
     const promptDisplayLangByIdRef = useRef<Record<string, TranslateLang>>({});
-    const { callVision } = useAIService();
+    const { callVision, getServiceConfig } = useAIService();
+    const datasetLabelModelId = getServiceConfig('datasetLabel').modelId || 'doubao-seed-2-0-lite-260215';
 
     // DnD Logic
     const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -785,6 +786,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
         selectedIds,
         isProcessing,
         systemPrompt,
+        datasetLabelModelId,
         batchPrefix,
         callVision,
         toast,
@@ -851,7 +853,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
 
     return (
         <div
-            className="flex flex-col pb-20 pt-10 space-y-6 relative w-full px-10"
+            className="flex flex-col pb-6 space-y-4 relative w-full h-full min-h-0 pt-16"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -970,7 +972,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     variant="secondary"
                     size="icon"
                     onClick={handleScrollToTop}
-                    className="fixed bottom-6 right-6 z-50 h-10 w-10 rounded-full border border-white/15 bg-background/90 text-foreground shadow-lg backdrop-blur hover:bg-background"
+                    className="fixed bottom-6 right-6 z-50 h-10 w-10 border-[#2e2e2e] bg-[#1a1a1a] text-zinc-300 hover:bg-[#2a2a2a] hover:text-white rounded-xl shadow-lg rounded-full border border-white/15 bg-background/90 text-foreground shadow-lg backdrop-blur hover:bg-background"
                     title="Back to top"
                 >
                     <ChevronUp className="h-4 w-4" />

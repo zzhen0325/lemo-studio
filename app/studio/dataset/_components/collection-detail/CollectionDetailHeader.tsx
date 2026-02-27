@@ -145,14 +145,14 @@ export function CollectionDetailHeader({
   onCancelProcessing,
 }: CollectionDetailHeaderProps) {
   return (
-    <div className="sticky top-0 left-0 z-30 bg-[#2C2D2F] px-6 py-4 border rounded-md border-white/5">
+    <div className="sticky top-0 left-0 z-30 bg-[#161616] px-4 py-3 border rounded-xl border-[#2e2e2e] shadow-sm shrink-0">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={onBack}
-            className="text-white bg-muted/50 border border-white/10 hover:text-primary hover:bg-white/10 h-10 px-4 rounded-lg"
+            className="text-zinc-300 bg-[#1a1a1a] border border-[#2e2e2e] hover:text-white hover:bg-[#2a2a2a] h-9 px-3 rounded-lg shadow-sm"
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
@@ -166,11 +166,11 @@ export function CollectionDetailHeader({
                   onBlur={onNameCommit}
                   onKeyDown={(e) => e.key === 'Enter' && onNameCommit()}
                   autoFocus
-                  className="h-8 py-1 text-xl font-bold w-[200px]"
+                  className="h-8 py-1 text-lg font-semibold w-[200px] bg-[#1a1a1a] border-[#2e2e2e] text-white focus-visible:ring-1 focus-visible:ring-teal-500/50"
                 />
               ) : (
                 <h1
-                  className="text-2xl font-bold text-foreground cursor-pointer hover:bg-muted/50 px-2 rounded -ml-2 transition-colors select-none"
+                  className="text-lg font-semibold text-zinc-100 cursor-pointer hover:bg-[#2a2a2a] px-2 rounded-md -ml-2 transition-colors select-none"
                   onDoubleClick={onStartEditingName}
                   title="Double click to rename"
                 >
@@ -178,11 +178,11 @@ export function CollectionDetailHeader({
                 </h1>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">{imagesCount} images with prompts</p>
+            <p className="text-[13px] text-zinc-500">{imagesCount} images with prompts</p>
           </div>
 
           {progress && (
-            <div className="flex items-center ml-4 pl-4 bg-[linear-gradient(to_bottom,#12182d,#1d2446)] p-2 border border-white/20 rounded-lg animate-in fade-in slide-in-from-left-2 duration-100">
+            <div className="flex items-center ml-4 pl-4 bg-[#1a1a1a] p-2 border border-[#2e2e2e] rounded-lg animate-in fade-in slide-in-from-left-2 duration-100">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-xs font-medium text-primary">
                   <LoadingSpinner size={12} />
@@ -212,12 +212,12 @@ export function CollectionDetailHeader({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-muted/50 rounded-lg p-1 border border-white/10 mr-2 h-10">
+          <div className="flex items-center bg-[#1a1a1a] rounded-lg p-1 border border-[#2e2e2e] h-9">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => onSwitchViewMode('list')}
-              className={`h-8 w-8 rounded-md ${viewMode === 'list' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-8 w-8 rounded-md ${viewMode === 'list' ? 'bg-[#2a2a2a] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
               title="List View"
             >
               <List className="h-4 w-4" />
@@ -226,7 +226,7 @@ export function CollectionDetailHeader({
               variant="ghost"
               size="icon"
               onClick={() => onSwitchViewMode('grid')}
-              className={`h-8 w-8 rounded-md ${viewMode === 'grid' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-8 w-8 rounded-md ${viewMode === 'grid' ? 'bg-[#2a2a2a] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
               title="Grid View"
             >
               <LayoutGrid className="h-4 w-4" />
@@ -247,14 +247,14 @@ export function CollectionDetailHeader({
             </div>
           )}
 
-          <div className="w-[1px] h-6 bg-white/20 mx-2" />
+          <div className="w-[1px] h-4 bg-[#2e2e2e] mx-1" />
 
           <Button
             variant="outline"
             size="sm"
             disabled={isProcessing}
             onClick={onSaveAllData}
-            className="text-primary hover:text-primary hover:bg-white/10 h-10 px-4 rounded-lg"
+            className="text-teal-500 border-teal-500/30 hover:bg-teal-500/10 hover:text-teal-400 h-9 px-3 rounded-lg"
           >
             {isProcessing ? <LoadingSpinner size={16} /> : <Save className="h-4 w-4" />}
             Save All
@@ -263,14 +263,14 @@ export function CollectionDetailHeader({
           <Button
             variant="outline"
             size="sm"
-            className="text-primary hover:text-primary hover:bg-white/10 h-10 px-4 rounded-lg"
+            className="text-teal-500 border-teal-500/30 hover:bg-teal-500/10 hover:text-teal-400 h-9 px-3 rounded-lg"
             onClick={onTogglePromptPanel}
           >
             AI Settings
             <Wand2 className="ml-2 h-4 w-4" />
           </Button>
 
-          <div className="w-[1px] h-6 bg-white/20 ml-2" />
+          <div className="w-[1px] h-4 bg-[#2e2e2e] ml-1 mr-2" />
 
           <label className="cursor-pointer">
             <input
@@ -284,7 +284,7 @@ export function CollectionDetailHeader({
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" disabled={isProcessing} className="text-foreground">
+              <Button variant="outline" disabled={isProcessing} className="text-zinc-300 border-[#2e2e2e] hover:bg-[#2a2a2a] hover:text-white h-9 px-3 rounded-lg">
                 <Scissors className="h-4 w-4" />
                 Crop
               </Button>
@@ -401,7 +401,7 @@ export function CollectionDetailHeader({
             variant={selectedCount > 0 ? 'default' : 'outline'}
             disabled={isProcessing || (selectedCount > 0 && !batchPrefix.trim())}
             onClick={onPrimaryBatchAction}
-            className={selectedCount > 0 ? 'bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 rounded-lg' : 'text-foreground h-10 px-4 rounded-lg'}
+            className={selectedCount > 0 ? 'bg-teal-600 border-teal-600 text-white hover:bg-teal-500 h-9 px-3 rounded-lg shadow-sm' : 'text-zinc-300 border-[#2e2e2e] bg-[#1a1a1a] hover:bg-[#2a2a2a] hover:text-white h-9 px-3 rounded-lg shadow-sm'}
           >
             {isProcessing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -414,13 +414,13 @@ export function CollectionDetailHeader({
           </Button>
 
           {selectedCount > 0 && (
-            <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1 animate-in fade-in slide-in-from-top-2 duration-100">
-              <span className="text-xs font-medium text-primary mr-2">{selectedCount} Selected</span>
+            <div className="flex items-center gap-1 bg-teal-500/10 border border-teal-500/20 rounded-lg px-2 py-1 h-9 animate-in fade-in slide-in-from-top-2 duration-100">
+              <span className="text-xs font-medium text-teal-500 mr-2">{selectedCount} Selected</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onSelectAll}
-                className="h-8 text-[10px] px-2 hover:bg-primary/20"
+                className="h-8 text-[10px] px-2 hover:bg-teal-500/20 text-teal-400"
               >
                 Select All
               </Button>
@@ -428,18 +428,18 @@ export function CollectionDetailHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onDeselectAll}
-                className="h-8 text-[10px] px-2 hover:bg-primary/20"
+                className="h-8 text-[10px] px-2 hover:bg-teal-500/20 text-teal-400"
               >
                 Deselect
               </Button>
-              <div className="w-[1px] h-6 bg-white/20 mx-1" />
+              <div className="w-[1px] h-4 bg-[#2e2e2e] mx-1" />
 
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onOptimizeSelected}
                 disabled={isProcessing}
-                className="h-8 text-[10px] px-3 font-bold border-primary/30 text-primary hover:bg-primary/10"
+                className="h-8 text-[10px] px-3 font-bold border-teal-500/30 text-teal-500 hover:bg-teal-500/10"
                 title="AI Optimize selected images"
               >
                 {isProcessing ? (
@@ -467,12 +467,12 @@ export function CollectionDetailHeader({
             </div>
           )}
 
-          <div className="flex items-center bg-muted/50 rounded-lg p-1 border border-white/10">
+          <div className="flex items-center bg-[#1a1a1a] rounded-lg p-1 border border-[#2e2e2e] h-9">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onPromptLangSwitch('zh')}
-              className={`h-8 px-3 text-xs ${activePromptLang === 'zh' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-8 px-3 text-xs ${activePromptLang === 'zh' ? 'bg-[#2a2a2a] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               中文
             </Button>
@@ -480,15 +480,15 @@ export function CollectionDetailHeader({
               variant="ghost"
               size="sm"
               onClick={() => onPromptLangSwitch('en')}
-              className={`h-8 px-3 text-xs ${activePromptLang === 'en' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-8 px-3 text-xs ${activePromptLang === 'en' ? 'bg-[#2a2a2a] text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               English
             </Button>
           </div>
 
-          <div className="w-[1px] h-6 bg-white/20 ml-2"></div>
+          <div className="w-[1px] h-4 bg-[#2e2e2e] ml-1 mr-2"></div>
 
-          <Button variant="outline" disabled={isProcessing} onClick={onExport} className="text-foreground">
+          <Button variant="outline" disabled={isProcessing} onClick={onExport} className="text-zinc-300 border-[#2e2e2e] hover:bg-[#2a2a2a] hover:text-white h-9 px-3 rounded-lg">
             {isProcessing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -509,7 +509,7 @@ export function CollectionDetailHeader({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 text-zinc-500 hover:text-zinc-300"
               onClick={onTogglePromptPanel}
               title="Collapse"
             >
