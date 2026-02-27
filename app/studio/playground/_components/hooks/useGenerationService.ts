@@ -24,6 +24,7 @@ export interface UnifiedModelConfig {
 
 export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
+    { id: 'gemini-3.1-flash-image-preview', displayName: 'Nano banana 2' },
     { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
 
     { id: 'coze_seed4', displayName: 'Seedream 4' },
@@ -34,6 +35,11 @@ export const AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
 
 ];
+
+const GOOGLE_IMAGE_SIZE_MODELS = new Set([
+    'gemini-3-pro-image-preview',
+    'gemini-3.1-flash-image-preview',
+]);
 
 export interface GenerateOptions {
     configOverride?: GenerationConfig;
@@ -267,7 +273,7 @@ export function useGenerationService() {
             width: Number(unified.width),
             height: Number(unified.height),
             aspectRatio: unified.aspectRatio === 'auto' ? undefined : unified.aspectRatio,
-            imageSize: modelId === 'gemini-3-pro-image-preview' ? unified.imageSize : undefined,
+            imageSize: GOOGLE_IMAGE_SIZE_MODELS.has(modelId) ? unified.imageSize : undefined,
             batchSize: 1,
             image: effectiveInputImage,
             images: normalizedInputImages.length > 0 ? normalizedInputImages : undefined,

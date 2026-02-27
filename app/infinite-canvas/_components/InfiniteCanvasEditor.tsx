@@ -62,11 +62,42 @@ interface ScreenPoint {
   y: number;
 }
 
+interface NodeBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  centerX: number;
+  centerY: number;
+}
+
+interface DragGuide {
+  axis: 'x' | 'y';
+  value: number;
+  start: number;
+  end: number;
+}
+
+interface ConnectionTargetCandidate {
+  nodeId: string;
+  point: ScreenPoint;
+  distance: number;
+}
+
+interface DragSnapshotNode {
+  nodeId: string;
+  width: number;
+  height: number;
+  position: { x: number; y: number };
+  isLocked: boolean;
+}
+
 type DragSession = {
   type: 'drag';
   startClient: ScreenPoint;
   nodeIds: string[];
   startPositions: Record<string, { x: number; y: number }>;
+  allNodes: DragSnapshotNode[];
 };
 
 type PanSession = {
@@ -75,7 +106,15 @@ type PanSession = {
   startViewport: { x: number; y: number };
 };
 
-type InteractionSession = DragSession | PanSession;
+type SelectSession = {
+  type: 'select';
+  startClient: ScreenPoint;
+  currentClient: ScreenPoint;
+  additive: boolean;
+  baseSelection: string[];
+};
+
+type InteractionSession = DragSession | PanSession | SelectSession;
 type AlignMode =
   | 'left'
   | 'hCenter'
@@ -85,7 +124,8 @@ type AlignMode =
   | 'bottom'
   | 'hDistribute'
   | 'vDistribute'
-  | 'tidy';
+  | 'tidy'
+  | 'topology';
 
 interface InfiniteImageEditDialogState {
   open: boolean;
@@ -119,6 +159,211 @@ function uniqueStrings(values: string[]) {
 function buildConnectionPath(source: ScreenPoint, target: ScreenPoint) {
   const handle = Math.max(60, Math.abs(target.x - source.x) * 0.4);
   return `M ${source.x} ${source.y} C ${source.x + handle} ${source.y}, ${target.x - handle} ${target.y}, ${target.x} ${target.y}`;
+}
+
+function formatEtaLabel(seconds?: number) {
+  if (typeof seconds !== 'number' || Number.isNaN(seconds) || seconds <= 0) {
+    return '--';
+  }
+  if (seconds < 60) {
+    return `${Math.max(1, Math.round(seconds))}s`;
+  }
+  const mins = Math.floor(seconds / 60);
+  const rest = Math.round(seconds % 60);
+  return `${mins}m ${rest}s`;
+}
+
+function makeNodeBounds(x: number, y: number, width: number, height: number): NodeBounds {
+  return {
+    left: x,
+    right: x + width,
+    top: y,
+    bottom: y + height,
+    centerX: x + width / 2,
+    centerY: y + height / 2,
+  };
+}
+
+function mergeNodeBounds(bounds: NodeBounds[]): NodeBounds | null {
+  if (bounds.length === 0) return null;
+
+  let left = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
+
+  bounds.forEach((bound) => {
+    left = Math.min(left, bound.left);
+    right = Math.max(right, bound.right);
+    top = Math.min(top, bound.top);
+    bottom = Math.max(bottom, bound.bottom);
+  });
+
+  return {
+    left,
+    right,
+    top,
+    bottom,
+    centerX: (left + right) / 2,
+    centerY: (top + bottom) / 2,
+  };
+}
+
+function intersectsRect(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+) {
+  return !(
+    a.x > b.x + b.width
+    || a.x + a.width < b.x
+    || a.y > b.y + b.height
+    || a.y + a.height < b.y
+  );
+}
+
+function estimateNodeRunSeconds(node: InfiniteCanvasNode, referenceCount: number) {
+  const batch = Math.max(1, node.params?.batchSize || 1);
+  return Math.max(8, Math.round(12 + batch * 7 + referenceCount * 4));
+}
+
+function findConnectionTargetCandidate(
+  project: InfiniteCanvasProject | null,
+  sourceNodeId: string | null,
+  pointerPosition: ScreenPoint | null,
+  viewport: { x: number; y: number; scale: number },
+): ConnectionTargetCandidate | null {
+  if (!project || !sourceNodeId || !pointerPosition) return null;
+  const sourceNode = project.nodes.find((node) => node.nodeId === sourceNodeId);
+  if (!sourceNode) return null;
+
+  const maxDistance = 32;
+  let best: ConnectionTargetCandidate | null = null;
+
+  for (const node of project.nodes) {
+    if (!canConnect(sourceNode, node)) continue;
+    if (project.edges.some((edge) => edge.sourceNodeId === sourceNodeId && edge.targetNodeId === node.nodeId)) continue;
+    if (createsCycle(project.edges, sourceNodeId, node.nodeId)) continue;
+
+    const point = worldToScreen(viewport, {
+      x: node.position.x,
+      y: node.position.y + node.height / 2,
+    });
+    const distance = Math.hypot(pointerPosition.x - point.x, pointerPosition.y - point.y);
+    if (distance > maxDistance) continue;
+    if (!best || distance < best.distance) {
+      best = {
+        nodeId: node.nodeId,
+        point,
+        distance,
+      };
+    }
+  }
+
+  return best;
+}
+
+function computeDragSnapAdjustment(
+  session: DragSession,
+  dx: number,
+  dy: number,
+  scale: number,
+): { offsetX: number; offsetY: number; guides: DragGuide[] } {
+  const movingSet = new Set(session.nodeIds);
+  const snapshotMap = new Map(session.allNodes.map((node) => [node.nodeId, node]));
+
+  const movingBounds = session.nodeIds
+    .map((nodeId) => {
+      const snapshot = snapshotMap.get(nodeId);
+      const base = session.startPositions[nodeId];
+      if (!snapshot || !base || snapshot.isLocked) return null;
+      return makeNodeBounds(base.x + dx, base.y + dy, snapshot.width, snapshot.height);
+    })
+    .filter(Boolean) as NodeBounds[];
+
+  const movingMerged = mergeNodeBounds(movingBounds);
+  if (!movingMerged) {
+    return { offsetX: 0, offsetY: 0, guides: [] };
+  }
+
+  const staticBounds = session.allNodes
+    .filter((node) => !movingSet.has(node.nodeId))
+    .map((node) => makeNodeBounds(node.position.x, node.position.y, node.width, node.height));
+  if (staticBounds.length === 0) {
+    return { offsetX: 0, offsetY: 0, guides: [] };
+  }
+
+  const threshold = 8 / Math.max(scale, 0.2);
+  const xCandidates = staticBounds.flatMap((bound) => [
+    { value: bound.left, start: bound.top, end: bound.bottom },
+    { value: bound.centerX, start: bound.top, end: bound.bottom },
+    { value: bound.right, start: bound.top, end: bound.bottom },
+  ]);
+  const yCandidates = staticBounds.flatMap((bound) => [
+    { value: bound.top, start: bound.left, end: bound.right },
+    { value: bound.centerY, start: bound.left, end: bound.right },
+    { value: bound.bottom, start: bound.left, end: bound.right },
+  ]);
+
+  const movingXAnchors = [movingMerged.left, movingMerged.centerX, movingMerged.right];
+  const movingYAnchors = [movingMerged.top, movingMerged.centerY, movingMerged.bottom];
+
+  let bestX:
+    | { offset: number; candidate: { value: number; start: number; end: number } }
+    | null = null;
+  let bestY:
+    | { offset: number; candidate: { value: number; start: number; end: number } }
+    | null = null;
+
+  for (const anchor of movingXAnchors) {
+    for (const candidate of xCandidates) {
+      const delta = candidate.value - anchor;
+      if (Math.abs(delta) > threshold) continue;
+      if (!bestX || Math.abs(delta) < Math.abs(bestX.offset)) {
+        bestX = { offset: delta, candidate };
+      }
+    }
+  }
+
+  for (const anchor of movingYAnchors) {
+    for (const candidate of yCandidates) {
+      const delta = candidate.value - anchor;
+      if (Math.abs(delta) > threshold) continue;
+      if (!bestY || Math.abs(delta) < Math.abs(bestY.offset)) {
+        bestY = { offset: delta, candidate };
+      }
+    }
+  }
+
+  const offsetX = bestX?.offset || 0;
+  const offsetY = bestY?.offset || 0;
+  const snappedBounds = makeNodeBounds(
+    movingMerged.left + offsetX,
+    movingMerged.top + offsetY,
+    movingMerged.right - movingMerged.left,
+    movingMerged.bottom - movingMerged.top,
+  );
+
+  const guides: DragGuide[] = [];
+
+  if (bestX) {
+    guides.push({
+      axis: 'x',
+      value: bestX.candidate.value,
+      start: Math.min(snappedBounds.top, bestX.candidate.start) - 36,
+      end: Math.max(snappedBounds.bottom, bestX.candidate.end) + 36,
+    });
+  }
+
+  if (bestY) {
+    guides.push({
+      axis: 'y',
+      value: bestY.candidate.value,
+      start: Math.min(snappedBounds.left, bestY.candidate.start) - 36,
+      end: Math.max(snappedBounds.right, bestY.candidate.end) + 36,
+    });
+  }
+
+  return { offsetX, offsetY, guides };
 }
 
 function canConnect(source: InfiniteCanvasNode | undefined, target: InfiniteCanvasNode | undefined) {
@@ -174,6 +419,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   const clipboardRef = useRef<{ nodes: InfiniteCanvasNode[]; edges: InfiniteCanvasEdge[] } | null>(null);
   const interactionRef = useRef<InteractionSession | null>(null);
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const progressTimersRef = useRef<Map<string, number>>(new Map());
+  const isSpacePressedRef = useRef(false);
+  const projectRef = useRef<InfiniteCanvasProject | null>(null);
+  const viewportRef = useRef({ x: 180, y: 120, scale: 1 });
 
   const [project, setProject] = useState<InfiniteCanvasProject | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -187,6 +436,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   const [viewport, setViewport] = useState({ x: 180, y: 120, scale: 1 });
   const [connectionSourceId, setConnectionSourceId] = useState<string | null>(null);
   const [pointerPosition, setPointerPosition] = useState<ScreenPoint | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [dragGuides, setDragGuides] = useState<DragGuide[]>([]);
   const [undoStack, setUndoStack] = useState<InfiniteCanvasProject[]>([]);
   const [redoStack, setRedoStack] = useState<InfiniteCanvasProject[]>([]);
   const [pendingAutoRunNodeId, setPendingAutoRunNodeId] = useState<string | null>(null);
@@ -202,11 +453,22 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   const cancelRunRef = useRef(false);
 
   useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
+
+  useEffect(() => {
+    viewportRef.current = viewport;
+  }, [viewport]);
+
+  useEffect(() => {
     const controllers = abortControllersRef.current;
+    const timers = progressTimersRef.current;
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       controllers.forEach((controller) => controller.abort());
+      timers.forEach((timerId) => window.clearInterval(timerId));
+      timers.clear();
     };
   }, []);
 
@@ -409,33 +671,60 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     [mutateProject],
   );
 
+  const toggleNodeCollapse = useCallback(
+    (nodeId: string) => {
+      pushUndoSnapshot();
+      mutateProject((draft) => {
+        const node = draft.nodes.find((item) => item.nodeId === nodeId);
+        if (!node || node.nodeType !== 'image') return;
+
+        if (node.isCollapsed) {
+          const restoreHeight = Math.max(220, node.expandedHeight || 320);
+          node.isCollapsed = false;
+          node.height = restoreHeight;
+          node.expandedHeight = undefined;
+        } else {
+          node.expandedHeight = node.height;
+          node.isCollapsed = true;
+          node.height = 132;
+        }
+        node.updatedAt = nowISO();
+      });
+    },
+    [mutateProject, pushUndoSnapshot],
+  );
+
   const alignSelectedNodes = useCallback(
     (mode: AlignMode) => {
       if (!project) return;
 
       const selectedSet = new Set(selectedNodeIds);
       const selectedNodes = project.nodes.filter((node) => selectedSet.has(node.nodeId) && !node.isLocked);
+      const targetNodes = mode === 'topology' && selectedNodes.length < 2
+        ? project.nodes.filter((node) => !node.isLocked)
+        : selectedNodes;
+      const targetSet = new Set(targetNodes.map((node) => node.nodeId));
 
-      if (selectedNodes.length < 2) {
+      if (targetNodes.length < 2) {
         toast({ title: '至少选择两个节点', description: '请先多选节点后再对齐或排列。' });
         return;
       }
 
-      if ((mode === 'hDistribute' || mode === 'vDistribute') && selectedNodes.length < 3) {
+      if ((mode === 'hDistribute' || mode === 'vDistribute') && targetNodes.length < 3) {
         toast({ title: '至少选择三个节点', description: '横向/纵向分布需要至少 3 个节点。' });
         return;
       }
 
-      const left = Math.min(...selectedNodes.map((node) => node.position.x));
-      const right = Math.max(...selectedNodes.map((node) => node.position.x + node.width));
-      const top = Math.min(...selectedNodes.map((node) => node.position.y));
-      const bottom = Math.max(...selectedNodes.map((node) => node.position.y + node.height));
+      const left = Math.min(...targetNodes.map((node) => node.position.x));
+      const right = Math.max(...targetNodes.map((node) => node.position.x + node.width));
+      const top = Math.min(...targetNodes.map((node) => node.position.y));
+      const bottom = Math.max(...targetNodes.map((node) => node.position.y + node.height));
       const centerX = (left + right) / 2;
       const centerY = (top + bottom) / 2;
 
       pushUndoSnapshot();
       mutateProject((draft) => {
-        const targets = draft.nodes.filter((node) => selectedSet.has(node.nodeId) && !node.isLocked);
+        const targets = draft.nodes.filter((node) => targetSet.has(node.nodeId) && !node.isLocked);
         if (targets.length < 2) return;
 
         if (mode === 'left') {
@@ -528,6 +817,83 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
             node.position.y = top + row * (maxHeight + gapY);
             node.updatedAt = nowISO();
           });
+          return;
+        }
+
+        if (mode === 'topology') {
+          const nodeSet = new Set(targets.map((node) => node.nodeId));
+          const edges = draft.edges.filter((edge) => nodeSet.has(edge.sourceNodeId) && nodeSet.has(edge.targetNodeId));
+          const indegree = new Map<string, number>();
+          const outgoing = new Map<string, string[]>();
+          const depth = new Map<string, number>();
+
+          targets.forEach((node) => {
+            indegree.set(node.nodeId, 0);
+            outgoing.set(node.nodeId, []);
+            depth.set(node.nodeId, 0);
+          });
+
+          edges.forEach((edge) => {
+            indegree.set(edge.targetNodeId, (indegree.get(edge.targetNodeId) || 0) + 1);
+            const list = outgoing.get(edge.sourceNodeId) || [];
+            list.push(edge.targetNodeId);
+            outgoing.set(edge.sourceNodeId, list);
+          });
+
+          const queue = targets
+            .filter((node) => (indegree.get(node.nodeId) || 0) === 0)
+            .map((node) => node.nodeId);
+          const visited = new Set<string>();
+
+          while (queue.length > 0) {
+            const nodeId = queue.shift()!;
+            visited.add(nodeId);
+            const nextList = outgoing.get(nodeId) || [];
+            nextList.forEach((nextId) => {
+              const nextDepth = Math.max(depth.get(nextId) || 0, (depth.get(nodeId) || 0) + 1);
+              depth.set(nextId, nextDepth);
+              indegree.set(nextId, (indegree.get(nextId) || 0) - 1);
+              if ((indegree.get(nextId) || 0) <= 0) {
+                queue.push(nextId);
+              }
+            });
+          }
+
+          if (visited.size < targets.length) {
+            const fallbackDepth = Math.max(...Array.from(depth.values())) + 1;
+            targets.forEach((node, index) => {
+              if (!visited.has(node.nodeId)) {
+                depth.set(node.nodeId, fallbackDepth + index);
+              }
+            });
+          }
+
+          const layers = new Map<number, InfiniteCanvasNode[]>();
+          targets.forEach((node) => {
+            const layer = depth.get(node.nodeId) || 0;
+            const list = layers.get(layer) || [];
+            list.push(node);
+            layers.set(layer, list);
+          });
+
+          const sortedLayers = Array.from(layers.entries()).sort((a, b) => a[0] - b[0]);
+          const minX = Math.min(...targets.map((node) => node.position.x));
+          const minY = Math.min(...targets.map((node) => node.position.y));
+          const maxWidth = Math.max(...targets.map((node) => node.width));
+          const columnGap = maxWidth + 140;
+          const rowGap = 72;
+
+          sortedLayers.forEach(([layer, nodes]) => {
+            const ordered = [...nodes].sort((a, b) => (a.position.y - b.position.y) || (a.position.x - b.position.x));
+            let cursorY = minY;
+
+            ordered.forEach((node) => {
+              node.position.x = minX + layer * columnGap;
+              node.position.y = cursorY;
+              cursorY += node.height + rowGap;
+              node.updatedAt = nowISO();
+            });
+          });
         }
       });
     },
@@ -540,6 +906,19 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       pushUndoSnapshot();
 
       const removeSet = new Set(nodeIds);
+      removeSet.forEach((nodeId) => {
+        const controller = abortControllersRef.current.get(nodeId);
+        if (controller) {
+          controller.abort();
+          abortControllersRef.current.delete(nodeId);
+        }
+        const timerId = progressTimersRef.current.get(nodeId);
+        if (timerId !== undefined) {
+          window.clearInterval(timerId);
+          progressTimersRef.current.delete(nodeId);
+        }
+      });
+
       mutateProject((draft) => {
         draft.nodes = draft.nodes.filter((node) => !removeSet.has(node.nodeId));
         draft.edges = draft.edges.filter((edge) => !removeSet.has(edge.sourceNodeId) && !removeSet.has(edge.targetNodeId));
@@ -556,7 +935,12 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     (nodeId: string, clientX: number, clientY: number) => {
       if (!project) return;
 
-      const activeIds = selectedNodeIds.includes(nodeId) ? selectedNodeIds : [nodeId];
+      const activeIds = (selectedNodeIds.includes(nodeId) ? selectedNodeIds : [nodeId]).filter((id) => {
+        const target = project.nodes.find((item) => item.nodeId === id);
+        return !!target && !target.isLocked;
+      });
+      if (activeIds.length === 0) return;
+
       const startPositions: Record<string, { x: number; y: number }> = {};
 
       for (const id of activeIds) {
@@ -568,11 +952,20 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
       pushUndoSnapshot();
       setSelectedNodeIds(activeIds);
+      setSelectionRect(null);
+      setDragGuides([]);
       interactionRef.current = {
         type: 'drag',
         startClient: { x: clientX, y: clientY },
         nodeIds: activeIds,
         startPositions,
+        allNodes: project.nodes.map((node) => ({
+          nodeId: node.nodeId,
+          width: node.width,
+          height: node.height,
+          position: { ...node.position },
+          isLocked: node.isLocked,
+        })),
       };
     },
     [project, pushUndoSnapshot, selectedNodeIds],
@@ -580,23 +973,109 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
   const handleCanvasPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0 && event.button !== 1) return;
-
       const target = event.target as HTMLElement;
       if (target.closest('[data-panel]')) {
         return;
       }
 
-      setSelectedNodeIds([]);
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const pointerInCanvas = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+
+      if (event.button === 1 || (event.button === 0 && isSpacePressedRef.current)) {
+        const currentViewport = viewportRef.current;
+        interactionRef.current = {
+          type: 'pan',
+          startClient: { x: event.clientX, y: event.clientY },
+          startViewport: { x: currentViewport.x, y: currentViewport.y },
+        };
+        return;
+      }
+
+      if (event.button !== 0) {
+        return;
+      }
+
+      const connectionTarget = findConnectionTargetCandidate(
+        projectRef.current,
+        connectionSourceId,
+        pointerInCanvas,
+        viewportRef.current,
+      );
+      if (connectionSourceId) {
+        if (connectionTarget) {
+          pushUndoSnapshot();
+          mutateProject((draft) => {
+            draft.edges.push({
+              edgeId: createId(),
+              sourceNodeId: connectionSourceId,
+              targetNodeId: connectionTarget.nodeId,
+              sourcePort: 'output',
+              targetPort: 'input',
+              createdAt: nowISO(),
+            });
+          });
+        } else {
+          pushUndoSnapshot();
+          const newNodeId = createId();
+          const currentViewport = viewportRef.current;
+          mutateProject((draft) => {
+            draft.nodes.push({
+              nodeId: newNodeId,
+              nodeType: 'image',
+              title: '图片节点',
+              position: {
+                x: (pointerInCanvas.x - currentViewport.x) / currentViewport.scale,
+                y: ((pointerInCanvas.y - currentViewport.y) / currentViewport.scale) - 60,
+              },
+              width: 320,
+              height: 220,
+              outputs: [],
+              status: 'idle',
+              isSelected: true,
+              isLocked: false,
+              createdAt: nowISO(),
+              updatedAt: nowISO(),
+            });
+            draft.edges.push({
+              edgeId: createId(),
+              sourceNodeId: connectionSourceId,
+              targetNodeId: newNodeId,
+              sourcePort: 'output',
+              targetPort: 'input',
+              createdAt: nowISO(),
+            });
+          });
+          setSelectedNodeIds([newNodeId]);
+        }
+        setConnectionSourceId(null);
+        return;
+      }
+
+      const additive = event.shiftKey || event.metaKey || event.ctrlKey;
+      const baseSelection = additive ? selectedNodeIds : [];
+
+      if (!additive) {
+        setSelectedNodeIds([]);
+      }
       setConnectionSourceId(null);
+      setDragGuides([]);
 
       interactionRef.current = {
-        type: 'pan',
+        type: 'select',
         startClient: { x: event.clientX, y: event.clientY },
-        startViewport: { x: viewport.x, y: viewport.y },
+        currentClient: { x: event.clientX, y: event.clientY },
+        additive,
+        baseSelection,
       };
+      setSelectionRect({
+        x: pointerInCanvas.x,
+        y: pointerInCanvas.y,
+        width: 0,
+        height: 0,
+      });
     },
-    [viewport],
+    [connectionSourceId, mutateProject, pushUndoSnapshot, selectedNodeIds],
   );
 
   const handleWheelZoom = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
@@ -804,6 +1283,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               },
             ]
             : [];
+          target.progress = undefined;
+          target.etaSeconds = undefined;
           target.updatedAt = nowISO();
         });
         return;
@@ -820,6 +1301,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           if (!target) return;
           target.status = 'error';
           target.errorMsg = '请先填写 Prompt';
+          target.progress = undefined;
+          target.etaSeconds = undefined;
         });
         return;
       }
@@ -828,22 +1311,59 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       const queueId = createId();
       const startedAt = nowISO();
       const controller = new AbortController();
+      const estimatedSeconds = estimateNodeRunSeconds(node, references.length);
+      const startTs = Date.now();
       abortControllersRef.current.set(nodeId, controller);
+
+      const existingTimer = progressTimersRef.current.get(nodeId);
+      if (existingTimer !== undefined) {
+        window.clearInterval(existingTimer);
+        progressTimersRef.current.delete(nodeId);
+      }
 
       mutateProject((draft) => {
         const target = draft.nodes.find((item) => item.nodeId === nodeId);
         if (!target) return;
         target.status = 'running';
         target.errorMsg = undefined;
+        target.progress = 0.04;
+        target.etaSeconds = estimatedSeconds;
 
         draft.runQueue.unshift({
           queueId,
           nodeId,
           nodeTitle: node.title,
           status: 'running',
+          progress: 0.04,
+          etaSeconds: estimatedSeconds,
           startedAt,
         });
       });
+
+      const timerId = window.setInterval(() => {
+        const elapsed = Math.max(0, (Date.now() - startTs) / 1000);
+        const ratio = Math.min(1, elapsed / estimatedSeconds);
+        const eased = 0.04 + (0.93 - 0.04) * (1 - Math.pow(1 - ratio, 1.8));
+        const progress = Math.max(0.04, Math.min(0.93, eased));
+        const etaSeconds = Math.max(1, Math.round(estimatedSeconds - elapsed));
+
+        mutateProject(
+          (draft) => {
+            const target = draft.nodes.find((item) => item.nodeId === nodeId);
+            if (!target || target.status !== 'running') return;
+            target.progress = progress;
+            target.etaSeconds = etaSeconds;
+
+            const queueItem = draft.runQueue.find((item) => item.queueId === queueId);
+            if (queueItem && queueItem.status === 'running') {
+              queueItem.progress = progress;
+              queueItem.etaSeconds = etaSeconds;
+            }
+          },
+          { markDirty: false },
+        );
+      }, 700);
+      progressTimersRef.current.set(nodeId, timerId);
 
       try {
         const response = await generateCanvasImage({
@@ -882,6 +1402,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
           source.status = 'success';
           source.outputs = outputs;
+          source.progress = 1;
+          source.etaSeconds = 0;
           source.updatedAt = nowISO();
 
           response.images.forEach((imageUrl, index) => {
@@ -921,6 +1443,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           const queueItem = draft.runQueue.find((item) => item.queueId === queueId);
           if (queueItem) {
             queueItem.status = 'success';
+            queueItem.progress = 1;
+            queueItem.etaSeconds = 0;
             queueItem.endedAt = nowISO();
           }
         });
@@ -938,15 +1462,24 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
             target.status = 'error';
             target.errorMsg = error instanceof Error ? error.message : '生成失败';
           }
+          target.progress = undefined;
+          target.etaSeconds = undefined;
 
           const queueItem = draft.runQueue.find((item) => item.queueId === queueId);
           if (queueItem) {
             queueItem.status = isAbort || cancelRunRef.current ? 'cancelled' : 'failed';
             queueItem.errorMsg = error instanceof Error ? error.message : '生成失败';
+            queueItem.progress = undefined;
+            queueItem.etaSeconds = undefined;
             queueItem.endedAt = nowISO();
           }
         });
       } finally {
+        const intervalId = progressTimersRef.current.get(nodeId);
+        if (intervalId !== undefined) {
+          window.clearInterval(intervalId);
+          progressTimersRef.current.delete(nodeId);
+        }
         abortControllersRef.current.delete(nodeId);
       }
     },
@@ -991,6 +1524,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     cancelRunRef.current = true;
     abortControllersRef.current.forEach((controller) => controller.abort());
     abortControllersRef.current.clear();
+    progressTimersRef.current.forEach((timerId) => window.clearInterval(timerId));
+    progressTimersRef.current.clear();
     setRunning(false);
   }, []);
 
@@ -1209,6 +1744,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     const onPointerMove = (event: PointerEvent) => {
       const activeSession = interactionRef.current;
       if (!activeSession) return;
+      const currentViewport = viewportRef.current;
 
       if (activeSession.type === 'pan') {
         const dx = event.clientX - activeSession.startClient.x;
@@ -1216,14 +1752,61 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         setViewport({
           x: activeSession.startViewport.x + dx,
           y: activeSession.startViewport.y + dy,
-          scale: viewport.scale,
+          scale: currentViewport.scale,
+        });
+        return;
+      }
+
+      if (activeSession.type === 'select') {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        const currentProject = projectRef.current;
+        if (!rect || !currentProject) return;
+
+        activeSession.currentClient = { x: event.clientX, y: event.clientY };
+        const selection = {
+          x: Math.min(activeSession.startClient.x, activeSession.currentClient.x) - rect.left,
+          y: Math.min(activeSession.startClient.y, activeSession.currentClient.y) - rect.top,
+          width: Math.abs(activeSession.startClient.x - activeSession.currentClient.x),
+          height: Math.abs(activeSession.startClient.y - activeSession.currentClient.y),
+        };
+        setSelectionRect(selection);
+
+        const hitNodeIds = currentProject.nodes
+          .filter((node) => {
+            const screen = worldToScreen(currentViewport, node.position);
+            const nodeRect = {
+              x: screen.x,
+              y: screen.y,
+              width: node.width * currentViewport.scale,
+              height: node.height * currentViewport.scale,
+            };
+            return intersectsRect(selection, nodeRect);
+          })
+          .map((node) => node.nodeId);
+
+        const nextSelected = activeSession.additive
+          ? Array.from(new Set([...activeSession.baseSelection, ...hitNodeIds]))
+          : hitNodeIds;
+        const sorted = [...nextSelected].sort();
+        setSelectedNodeIds((prev) => {
+          if (prev.length === sorted.length) {
+            const prevSorted = [...prev].sort();
+            if (prevSorted.every((item, index) => item === sorted[index])) {
+              return prev;
+            }
+          }
+          return sorted;
         });
         return;
       }
 
       if (activeSession.type === 'drag') {
-        const dx = (event.clientX - activeSession.startClient.x) / viewport.scale;
-        const dy = (event.clientY - activeSession.startClient.y) / viewport.scale;
+        const rawDx = (event.clientX - activeSession.startClient.x) / currentViewport.scale;
+        const rawDy = (event.clientY - activeSession.startClient.y) / currentViewport.scale;
+        const snap = computeDragSnapAdjustment(activeSession, rawDx, rawDy, currentViewport.scale);
+        const dx = rawDx + snap.offsetX;
+        const dy = rawDy + snap.offsetY;
+        setDragGuides(snap.guides);
 
         mutateProject(
           (draft) => {
@@ -1245,10 +1828,18 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     };
 
     const onPointerUp = () => {
-      if (interactionRef.current) {
-        interactionRef.current = null;
-        markDirty();
+      const activeSession = interactionRef.current;
+      if (!activeSession) return;
+
+      interactionRef.current = null;
+      setDragGuides([]);
+
+      if (activeSession.type === 'select') {
+        setSelectionRect(null);
+        return;
       }
+
+      markDirty();
     };
 
     window.addEventListener('pointermove', onPointerMove);
@@ -1258,7 +1849,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
     };
-  }, [markDirty, mutateProject, viewport.scale]);
+  }, [markDirty, mutateProject]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1356,6 +1947,36 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     selectedNodeIds,
   ]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const inInput = target && ['INPUT', 'TEXTAREA'].includes(target.tagName);
+      if (inInput) return;
+      if (event.code === 'Space') {
+        isSpacePressedRef.current = true;
+      }
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space') {
+        isSpacePressedRef.current = false;
+      }
+    };
+
+    const onBlur = () => {
+      isSpacePressedRef.current = false;
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
+
   const edgeLines = useMemo(() => {
     if (!project) return [];
 
@@ -1379,6 +2000,11 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       .filter(Boolean) as Array<{ edge: InfiniteCanvasEdge; path: string }>;
   }, [project, viewport]);
 
+  const snappedConnectionTarget = useMemo(
+    () => findConnectionTargetCandidate(project, connectionSourceId, pointerPosition, viewport),
+    [connectionSourceId, pointerPosition, project, viewport],
+  );
+
   const draftConnectionPath = useMemo(() => {
     if (!project || !connectionSourceId || !pointerPosition) return null;
 
@@ -1389,9 +2015,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       x: source.position.x + source.width,
       y: source.position.y + source.height / 2,
     });
+    const targetPoint = snappedConnectionTarget?.point || pointerPosition;
 
-    return buildConnectionPath(sourcePoint, pointerPosition);
-  }, [connectionSourceId, pointerPosition, project, viewport]);
+    return buildConnectionPath(sourcePoint, targetPoint);
+  }, [connectionSourceId, pointerPosition, project, snappedConnectionTarget, viewport]);
 
   if (loading || !project) {
     return (
@@ -1612,25 +2239,47 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                 {project.runQueue.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-transparent p-3 text-xs text-zinc-500 dark:text-[#737373]">暂无任务。</p>
                 ) : (
-                  project.runQueue.map((item) => (
-                    <div key={item.queueId} className="rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#161616] p-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-zinc-700 dark:text-[#D9D9D9]">{item.nodeTitle}</p>
-                        <span className="rounded border border-zinc-200 dark:border-[#4A4C4D] px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 dark:text-[#A3A3A3]">{item.status}</span>
+                  project.runQueue.map((item) => {
+                    const progress = Math.max(0, Math.min(1, item.progress ?? (item.status === 'success' ? 1 : 0)));
+                    const progressPercent = Math.round(progress * 100);
+                    const showProgress = item.status === 'running' || item.status === 'success';
+
+                    return (
+                      <div key={item.queueId} className="rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#161616] p-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-zinc-700 dark:text-[#D9D9D9]">{item.nodeTitle}</p>
+                          <span className="rounded border border-zinc-200 dark:border-[#4A4C4D] px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 dark:text-[#A3A3A3]">{item.status}</span>
+                        </div>
+
+                        {showProgress ? (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-[#A3A3A3]">
+                              <span>{progressPercent}%</span>
+                              <span>ETA {formatEtaLabel(item.etaSeconds)}</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-zinc-200 dark:bg-[#2C2D2F]">
+                              <div
+                                className="h-full rounded-full bg-zinc-700 dark:bg-[#C8F88D]"
+                                style={{ width: `${Math.max(4, progressPercent)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {item.errorMsg ? <p className="mt-1 text-rose-500 dark:text-rose-400">{item.errorMsg}</p> : null}
+                        <div className="mt-2 flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-6 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#2C2D2F] px-2 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+                            onClick={() => runSingleNode(item.nodeId)}
+                          >
+                            重试
+                          </Button>
+                        </div>
                       </div>
-                      {item.errorMsg ? <p className="mt-1 text-rose-500 dark:text-rose-400">{item.errorMsg}</p> : null}
-                      <div className="mt-2 flex justify-end">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-6 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#2C2D2F] px-2 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
-                          onClick={() => runSingleNode(item.nodeId)}
-                        >
-                          重试
-                        </Button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -1729,10 +2378,11 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('bottom')} disabled={selectedNodeIds.length < 2}>下</Button>
             </div>
             <p className="pt-1 text-[11px] text-zinc-700 dark:text-[#D9D9D9]">排列</p>
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-2 gap-1">
               <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('hDistribute')} disabled={selectedNodeIds.length < 3}>横向分布</Button>
               <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('vDistribute')} disabled={selectedNodeIds.length < 3}>纵向分布</Button>
               <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('tidy')} disabled={selectedNodeIds.length < 2}>网格整理</Button>
+              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('topology')}>拓扑整理</Button>
             </div>
           </div>
           <div className="pt-2">
@@ -1786,13 +2436,84 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.1)_1px,transparent_0)] dark:bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] [background-size:24px_24px]" />
 
         <svg className="pointer-events-none absolute inset-0 h-full w-full">
-          {edgeLines.map(({ edge, path }) => (
-            <path key={edge.edgeId} d={path} fill="none" className="stroke-[#0E0E0E] dark:stroke-[#D9D9D9] opacity-40 transition-opacity" strokeWidth={2} />
-          ))}
+          {edgeLines.map(({ edge, path }) => {
+            const isProcessing = project.nodes.some(
+              (n) => n.status === 'running' && (n.nodeId === edge.sourceNodeId || n.nodeId === edge.targetNodeId)
+            );
+            return (
+              <path
+                key={edge.edgeId}
+                d={path}
+                fill="none"
+                className={cn(
+                  "transition-all duration-300",
+                  isProcessing
+                    ? "stroke-amber-500 opacity-80 animate-[flow_1s_linear_infinite]"
+                    : "stroke-[#0E0E0E] dark:stroke-[#737373] opacity-30 animate-[flow_4s_linear_infinite]"
+                )}
+                strokeWidth={isProcessing ? 3 : 2}
+                strokeDasharray="6 6"
+              />
+            );
+          })}
+          {dragGuides.map((guide, index) => {
+            if (guide.axis === 'x') {
+              const start = worldToScreen(viewport, { x: guide.value, y: guide.start });
+              const end = worldToScreen(viewport, { x: guide.value, y: guide.end });
+              return (
+                <line
+                  key={`guide-x-${index}-${guide.value}`}
+                  x1={start.x}
+                  y1={start.y}
+                  x2={end.x}
+                  y2={end.y}
+                  className="stroke-[#C8F88D]"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                />
+              );
+            }
+
+            const start = worldToScreen(viewport, { x: guide.start, y: guide.value });
+            const end = worldToScreen(viewport, { x: guide.end, y: guide.value });
+            return (
+              <line
+                key={`guide-y-${index}-${guide.value}`}
+                x1={start.x}
+                y1={start.y}
+                x2={end.x}
+                y2={end.y}
+                className="stroke-[#C8F88D]"
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+              />
+            );
+          })}
           {draftConnectionPath ? (
             <path d={draftConnectionPath} fill="none" className="stroke-[#C8F88D] dark:stroke-[#C8F88D]" strokeWidth={2} strokeDasharray="6 5" />
           ) : null}
+          {snappedConnectionTarget ? (
+            <circle
+              cx={snappedConnectionTarget.point.x}
+              cy={snappedConnectionTarget.point.y}
+              r={8}
+              className="fill-[#C8F88D]/20 stroke-[#C8F88D]"
+              strokeWidth={2}
+            />
+          ) : null}
         </svg>
+
+        {selectionRect ? (
+          <div
+            className="pointer-events-none absolute border border-[#C8F88D] bg-[#C8F88D]/15"
+            style={{
+              left: selectionRect.x,
+              top: selectionRect.y,
+              width: selectionRect.width,
+              height: selectionRect.height,
+            }}
+          />
+        ) : null}
 
         <div
           className="absolute left-0 top-0"
@@ -1807,6 +2528,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               node={node}
               selected={selectedSet.has(node.nodeId)}
               isConnectionSource={connectionSourceId === node.nodeId}
+              isConnectionTarget={snappedConnectionTarget?.nodeId === node.nodeId}
               onSelect={handleSelectNode}
               onDragStart={handleDragStart}
               onPromptChange={(nodeId, value) => updateNodeById(nodeId, { prompt: value })}
@@ -1819,6 +2541,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               }
               onRun={(nodeId) => runSingleNode(nodeId)}
               onDelete={(nodeId) => removeNodes([nodeId])}
+              onToggleCollapse={toggleNodeCollapse}
               onEditImage={openImageEditorForNode}
               onInputPortClick={handleInputPortClick}
               onOutputPortClick={handleOutputPortClick}

@@ -1,5 +1,6 @@
 export const INFINITE_CANVAS_MODELS = [
   { id: 'gemini-3-pro-image-preview', label: 'Nano banana pro' },
+  { id: 'gemini-3.1-flash-image-preview', label: 'Nano banana 2' },
   { id: 'flux_klein', label: 'FluxKlein' },
 ] as const;
 

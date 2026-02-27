@@ -50,6 +50,10 @@ export interface InfiniteCanvasNode {
     seed?: number;
     batchSize?: number;
   };
+  progress?: number;
+  etaSeconds?: number;
+  isCollapsed?: boolean;
+  expandedHeight?: number;
   imageEditorSession?: ImageEditorSessionSnapshot;
   inputAssetId?: string;
   outputs: InfiniteCanvasOutput[];
@@ -97,6 +101,8 @@ export interface InfiniteCanvasQueueItem {
   nodeId: string;
   nodeTitle: string;
   status: InfiniteQueueStatus;
+  progress?: number;
+  etaSeconds?: number;
   startedAt: string;
   endedAt?: string;
   errorMsg?: string;

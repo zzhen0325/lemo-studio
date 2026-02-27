@@ -4,6 +4,7 @@ export const BANNER_ALLOWED_MODELS: BannerModelId[] = [
   'flux_klein',
   'gemini-2.5-flash-image',
   'gemini-3-pro-image-preview',
+  'gemini-3.1-flash-image-preview',
 ];
 
 export const DEFAULT_BANNER_TEMPLATE_ID = 'banner-ramadhan-v1';

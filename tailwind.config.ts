@@ -80,6 +80,7 @@ const config = {
         "accordion-up": "accordion-up 0.2s ease-out",
         aurora: "aurora 60s linear infinite",
         "border-rotate": "border-rotate 2s linear infinite",
+        "flow": "flow 5s linear infinite",
       },
       keyframes: {
         "accordion-down": {
@@ -101,6 +102,10 @@ const config = {
         "border-rotate": {
           "0%": { "--angle": "0deg" },
           "100%": { "--angle": "360deg" },
+        },
+        "flow": {
+          from: { strokeDashoffset: "100" },
+          to: { strokeDashoffset: "0" },
         },
       },
     },

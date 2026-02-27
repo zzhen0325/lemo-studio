@@ -137,7 +137,7 @@ export default function ControlToolbar({
       onConfigChange?.({ model: cfg.id });
 
       // Coze Seed 4 默认设置 2K
-      if (['coze_seed4', 'seed4_2_lemo', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'].includes(val)) {
+      if (['coze_seed4', 'seed4_2_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val)) {
         onImageSizeChange('2K');
       }
     } else if (val.startsWith('wf:')) {
@@ -204,6 +204,10 @@ export default function ControlToolbar({
       logo: '/models/gemini.svg',
       description: 'Google 最强图像生成模型 pro版 谷歌老挂'
     },
+    'gemini-3.1-flash-image-preview': {
+      logo: '/models/gemini.svg',
+      description: 'Google 图像生成模型 Nano banana 2'
+    },
     'gemini-2.5-flash-image': {
       logo: '/models/gemini.svg',
       description: '普通版，pro版备胎'
@@ -237,7 +241,7 @@ export default function ControlToolbar({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[280px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl p-1" align="start">
-        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image', MODEL_ID_FLUX_KLEIN].includes(m.id)).map((model) => {
+        {AVAILABLE_MODELS.filter(m => ['coze_seed4', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', MODEL_ID_FLUX_KLEIN].includes(m.id)).map((model) => {
           const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
           return (
             <DropdownMenuItem
@@ -376,7 +380,7 @@ export default function ControlToolbar({
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[320px] z-[10001] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
-                {(['gemini-3-pro-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4'].includes(selectedModel)) && (
+                {(['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4'].includes(selectedModel)) && (
                   <div className="space-y-4">
                     <div className="text-xs text-white/70">Image Size</div>
                     <div className="flex gap-2">

@@ -45,6 +45,7 @@ const MODEL_LABEL_MAP: Record<BannerModelId, string> = {
     flux_klein: 'FluxKlein',
     'gemini-2.5-flash-image': 'Nano banana',
     'gemini-3-pro-image-preview': 'Nano banana pro',
+    'gemini-3.1-flash-image-preview': 'Nano banana 2',
 };
 
 interface BannerModePanelProps {
