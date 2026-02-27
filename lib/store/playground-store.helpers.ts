@@ -5,9 +5,11 @@ import { DEFAULT_BANNER_TEMPLATE_ID, getBannerTemplateById } from '@/config/bann
 import {
   buildBannerPrompt,
   createBannerModeData,
+  loadBannerTemplatePresetRegions,
   normalizeBannerFields,
   normalizeBannerRegions,
   normalizeBannerTextPositions,
+  syncBannerTextRegionDescriptions,
   pickBannerFieldsForHistory,
   pickBannerTextPositionsForHistory,
 } from '@/lib/prompt/banner-prompt';
@@ -113,11 +115,15 @@ export const getResolvedBannerData = (templateId?: string): BannerModeActiveData
   const template = getBannerTemplateById(templateId || DEFAULT_BANNER_TEMPLATE_ID);
   if (!template) return null;
   const data = createBannerModeData(template);
+  const normalizedFields = normalizeBannerFields(data.fields);
+  const storedTemplateRegions = loadBannerTemplatePresetRegions(template.id);
+  const normalizedRegions = syncBannerTextRegionDescriptions(normalizeBannerRegions(storedTemplateRegions || data.regions));
+  const normalizedTextPositions = normalizeBannerTextPositions(data.textPositions || [], template);
   return {
     ...data,
-    fields: normalizeBannerFields(data.fields),
-    regions: normalizeBannerRegions(data.regions),
-    textPositions: normalizeBannerTextPositions(data.textPositions || [], template),
-    promptFinal: buildBannerPrompt(template, data.fields, data.regions, data.textPositions || []),
+    fields: normalizedFields,
+    regions: normalizedRegions,
+    textPositions: normalizedTextPositions,
+    promptFinal: buildBannerPrompt(template, normalizedFields, normalizedRegions, normalizedTextPositions),
   };
 };

@@ -1,4 +1,3 @@
-import type { TLEditorSnapshot } from "tldraw";
 import type {
   BannerFields,
   BannerModeActiveData,
@@ -32,11 +31,6 @@ export interface PlaygroundState {
   editConfig?: EditPresetConfig;
   visitorId: string | undefined;
   initVisitorId: () => void;
-
-  isTldrawEditorOpen: boolean;
-  tldrawEditingImageUrl: string;
-  tldrawSnapshot?: TLEditorSnapshot;
-  setTldrawEditorOpen: (open: boolean, imageUrl?: string, snapshot?: TLEditorSnapshot) => void;
 
   isSelectionMode: boolean;
   selectedHistoryIds: Set<string>;
@@ -137,7 +131,7 @@ export interface PlaygroundState {
   enterBannerMode: (templateId?: string) => void;
   initBannerData: (templateId?: string) => void;
   updateBannerFields: (fields: Partial<BannerFields>) => void;
-  updateBannerRegions: (regions: BannerRegionInstruction[], snapshot?: TLEditorSnapshot) => void;
+  updateBannerRegions: (regions: BannerRegionInstruction[], snapshot?: Record<string, unknown>) => void;
   updateBannerTextPositions: (textPositions: BannerTextPositionInstruction[]) => void;
   updateBannerPromptFinal: (promptFinal: string) => void;
   resetBannerPromptFinal: () => void;

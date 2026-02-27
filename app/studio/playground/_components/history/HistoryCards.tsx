@@ -10,7 +10,6 @@ import {
   GripVertical,
   Bookmark,
   Pencil,
-  History as HistoryIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Generation } from '@/types/database';
@@ -201,6 +200,14 @@ export function HistoryCard({
 
   const config = result.config;
   const isWorkflow = isWorkflowModel(config?.model);
+  const isEditHistory = Boolean(
+    config?.isEdit
+    || config?.imageEditorSession
+    || config?.editConfig?.imageEditorSession
+    || config?.editConfig?.originalImageUrl
+    || config?.tldrawSnapshot
+    || config?.editConfig?.tldrawSnapshot
+  );
   const modelDisplayName = AVAILABLE_MODELS.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
   const baseModelDisplayName = config?.baseModel ? (AVAILABLE_MODELS.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
   const prompt = config?.prompt || '';
@@ -229,7 +236,7 @@ export function HistoryCard({
       >
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
           <div className="flex items-center gap-4">
-            {(config?.isPreset && !config?.isEdit) ? (
+            {(config?.isPreset && !isEditHistory) ? (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/20 text-primary border border-primary/30">
                 PRESET: {config.presetName}
               </span>
@@ -259,7 +266,7 @@ export function HistoryCard({
             <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
 
-            {config?.isEdit && (
+            {isEditHistory && (
               <>
                 <span className="opacity-40">/</span>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
@@ -519,6 +526,11 @@ export function HistoryCard({
                 className="h-8 rounded-sm border-white/10 bg-[#2C2D2F] text-white/80 hover:bg-white/10 hover:text-white gap-1.5 px-3"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (isEditHistory) {
+                    onEdit?.(result, true);
+                    return;
+                  }
+
                   if (config) {
                     const effectiveModel = config.baseModel || config.model || '';
                     // 1. 回填模型和参数
@@ -558,22 +570,10 @@ export function HistoryCard({
                   }
                 }}
               >
-                <span className="text-[12px] hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]">Use All</span>
+                <span className="text-[12px] hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]">
+                  {isEditHistory ? 'Edit Again' : 'Use All'}
+                </span>
               </Button>
-
-              {config?.isEdit && config?.editConfig && (
-                <Button
-                  size="sm"
-                  className="h-8 rounded-sm border-white/10 bg-black/20 text-primary hover:bg-black/10 hover:text-primary gap-1.5 px-3"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit?.(result, true);
-                  }}
-                >
-                  <HistoryIcon className="w-3.5 h-3.5" />
-                  <span className="text-[12px] hover:drop-shadow-[0_0_1px_rgba(255,255,255,0.5)]">Edit Again</span>
-                </Button>
-              )}
             </div>
           </motion.div>
         </AnimatePresence>
@@ -837,4 +837,3 @@ export function TextHistoryCard({
     </div>
   );
 }
-

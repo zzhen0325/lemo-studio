@@ -215,6 +215,51 @@ export class Project {
 }
 
 @Database('default')
+@modelOptions({ schemaOptions: { timestamps: false } })
+@index({ projectId: 1 }, { unique: true })
+@index({ updatedAt: -1 })
+export class InfiniteCanvasProject {
+  @Prop({ required: true, unique: true })
+  public projectId!: string;
+
+  @Prop({ required: true })
+  public projectName!: string;
+
+  @Prop()
+  public coverUrl?: string;
+
+  @Prop({ required: true })
+  public createdAt!: string;
+
+  @Prop({ required: true })
+  public updatedAt!: string;
+
+  @Prop({ default: 0 })
+  public nodeCount!: number;
+
+  @Prop({ type: () => Object })
+  public canvasViewport?: Record<string, unknown>;
+
+  @Prop()
+  public lastOpenedPanel?: string | null;
+
+  @Prop({ type: () => [Object], default: [] })
+  public nodes!: Record<string, unknown>[];
+
+  @Prop({ type: () => [Object], default: [] })
+  public edges!: Record<string, unknown>[];
+
+  @Prop({ type: () => [Object], default: [] })
+  public assets!: Record<string, unknown>[];
+
+  @Prop({ type: () => [Object], default: [] })
+  public history!: Record<string, unknown>[];
+
+  @Prop({ type: () => [Object], default: [] })
+  public runQueue!: Record<string, unknown>[];
+}
+
+@Database('default')
 @modelOptions({ schemaOptions: { timestamps: true } })
 export class User {
   @Prop({ required: true })
@@ -277,6 +322,7 @@ export const ToolPresetModel = getModelForClass(ToolPreset);
 export const DatasetEntryModel = getModelForClass(DatasetEntry);
 export const DatasetCollectionModel = getModelForClass(DatasetCollection);
 export const ProjectModel = getModelForClass(Project);
+export const InfiniteCanvasProjectModel = getModelForClass(InfiniteCanvasProject);
 export const UserModel = getModelForClass(User);
 export const ApiProviderModel = getModelForClass(ApiProvider);
 export const ApiSettingsModel = getModelForClass(ApiSettings);

@@ -1,6 +1,30 @@
 import type { GenerationConfig } from '@/types/database';
 import type { PlaygroundState } from './playground-store.types';
 import { clearBannerMetadata, sanitizeGalleryItemsForPersist } from './playground-store.helpers';
+import type { ImageEditorSessionSnapshot } from '@/components/image-editor/types';
+
+function sanitizeImageEditorSessionForPersist(
+  session?: ImageEditorSessionSnapshot
+): ImageEditorSessionSnapshot | undefined {
+  if (!session) return undefined;
+
+  return {
+    version: 1,
+    imageWidth: session.imageWidth,
+    imageHeight: session.imageHeight,
+    plainPrompt: (session.plainPrompt || '').slice(0, 4000),
+    annotations: (session.annotations || []).map((annotation) => ({
+      ...annotation,
+      description: (annotation.description || '').slice(0, 1000),
+    })),
+    crop: session.crop
+      ? {
+        ...session.crop,
+      }
+      : undefined,
+    strokes: [],
+  };
+}
 
 export function partializePlaygroundState(state: PlaygroundState) {
   return {
@@ -17,8 +41,10 @@ export function partializePlaygroundState(state: PlaygroundState) {
           canvasJson: {},
           referenceImages: [],
           annotations: [],
-          tldrawSnapshot: undefined
+          tldrawSnapshot: undefined,
+          imageEditorSession: sanitizeImageEditorSessionForPersist(sanitizedConfig.editConfig.imageEditorSession),
         } : undefined,
+        imageEditorSession: sanitizeImageEditorSessionForPersist(sanitizedConfig.imageEditorSession),
         isEdit: isBannerConfig ? false : sanitizedConfig.isEdit,
         tldrawSnapshot: undefined,
         resultSnapshot: undefined

@@ -1,3 +1,5 @@
+import type { ImageEditorSessionSnapshot } from '@/components/image-editor/types';
+
 export type ImageSize = '1K' | '2K' | '4K';
 export type AspectRatio =
   | '1:1'
@@ -62,6 +64,7 @@ export interface GenerationConfig {
   parentId?: string;
   taskId?: string;
   workflowName?: string;
+  imageEditorSession?: ImageEditorSessionSnapshot;
   tldrawSnapshot?: Record<string, unknown>;
   generationMode?: 'playground' | 'banner';
   bannerTemplateId?: string;
@@ -102,6 +105,7 @@ export interface EditPresetConfig {
   referenceImages: { id: string; dataUrl: string; label: string }[];
   originalImageUrl: string;
   annotations: AnnotationInfo[];
+  imageEditorSession?: ImageEditorSessionSnapshot;
   backgroundColor: string;
   canvasSize: { width: number; height: number };
   tldrawSnapshot?: Record<string, unknown>;

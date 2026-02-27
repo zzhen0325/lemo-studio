@@ -61,7 +61,7 @@ export class HistoryService {
         .sort({ createdAt: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
-        .select('-config.editConfig -config.tldrawSnapshot -config.canvasJson -config.referenceImages -llmResponse') // 大幅度减少 Payload
+        .select('-config.editConfig -config.imageEditorSession -config.tldrawSnapshot -config.canvasJson -config.referenceImages -llmResponse') // 大幅度减少 Payload
         // 移除 populate 以加速查询，列表页不需要完整的关联数据
         .lean();
 

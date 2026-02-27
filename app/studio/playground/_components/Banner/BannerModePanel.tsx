@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/common/use-toast';
 import {
     Select,
     SelectContent,
@@ -15,19 +16,29 @@ import {
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import {
     BANNER_ALLOWED_MODELS,
-    BANNER_TEMPLATES,
+    createBannerTemplateDraft,
     DEFAULT_BANNER_TEMPLATE_ID,
+    deleteCustomBannerTemplate,
+    getBannerTemplates,
     getBannerTemplateById,
+    isBuiltinBannerTemplate,
+    upsertCustomBannerTemplate,
 } from '@/config/banner-templates';
 import type {
     BannerModelId,
-    BannerTextPositionInstruction,
-    BannerTextPositionType,
+    BannerRegionInstruction,
+    BannerTemplateConfig,
 } from '@/lib/playground/types';
-import { BANNER_REGION_LABEL_CONFIG } from '@/lib/prompt/banner-prompt';
+import {
+    BANNER_REGION_LABEL_CONFIG,
+    clearBannerTemplatePresetRegions,
+    extractBannerRegionTargetText,
+    isBannerTextRegion,
+    saveBannerTemplatePresetRegions,
+} from '@/lib/prompt/banner-prompt';
 import { cn } from '@/lib/utils';
-import { formatAnnotationLabel } from '@/lib/utils/annotation-label';
-import { MapPin, RotateCcw, Trash2 } from 'lucide-react';
+import { formatAnnotationLabel, parseAnnotationLabelIndex } from '@/lib/utils/annotation-label';
+import { RotateCcw, Trash2 } from 'lucide-react';
 import { formatImageUrl, getApiBase } from '@/lib/api-base';
 
 const MODEL_LABEL_MAP: Record<BannerModelId, string> = {
@@ -80,13 +91,6 @@ interface RegionInteraction {
     minHeight: number;
 }
 
-interface TextPositionInteraction {
-    pointerId: number;
-    textPositionId: string;
-    startPointer: { x: number; y: number };
-    startPosition: { x: number; y: number };
-}
-
 const MIN_DRAW_SIZE_PX = 12;
 const RESIZE_HANDLE_DEFS: Array<{ handle: ResizeHandle; className: string }> = [
     { handle: 'nw', className: '-left-1.5 -top-1.5 cursor-nwse-resize' },
@@ -97,36 +101,43 @@ const RESIZE_HANDLE_DEFS: Array<{ handle: ResizeHandle; className: string }> = [
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const TEMPLATE_BASE_PREVIEW_ID = '__template_base__';
-const DEFAULT_TEXT_POSITION_TYPE_SEQUENCE: BannerTextPositionType[] = ['mainTitle', 'subTitle', 'timeText'];
-const TEXT_POSITION_TYPE_LABEL_MAP: Record<BannerTextPositionType, string> = {
-    mainTitle: '主标题',
-    subTitle: '副标题',
-    timeText: '时间',
-    custom: '自定义',
+
+const parseTemplateTagsInput = (raw: string): string[] => {
+    const parts = raw.split(/[，,]/).map((part) => part.trim()).filter(Boolean);
+    return Array.from(new Set(parts)).slice(0, 10);
+};
+
+const resolveRegionDisplayName = (region: BannerRegionInstruction, fallbackIndex: number): string => {
+    return (region.name || (region.role === 'mainTitle'
+        ? '主标题'
+        : (region.role === 'subTitle' ? '副标题' : (region.role === 'timeText' ? '时间' : `文字${fallbackIndex}`)))).trim();
 };
 
 export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: BannerModePanelProps) {
+    const { toast } = useToast();
     const activeBannerData = usePlaygroundStore((state) => state.activeBannerData);
     const initBannerData = usePlaygroundStore((state) => state.initBannerData);
     const updateBannerFields = usePlaygroundStore((state) => state.updateBannerFields);
     const updateBannerRegions = usePlaygroundStore((state) => state.updateBannerRegions);
-    const updateBannerTextPositions = usePlaygroundStore((state) => state.updateBannerTextPositions);
     const updateBannerPromptFinal = usePlaygroundStore((state) => state.updateBannerPromptFinal);
     const resetBannerPromptFinal = usePlaygroundStore((state) => state.resetBannerPromptFinal);
     const setBannerModel = usePlaygroundStore((state) => state.setBannerModel);
     const previewRef = useRef<HTMLDivElement | null>(null);
     const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
     const regionInteractionRef = useRef<RegionInteraction | null>(null);
-    const textPositionInteractionRef = useRef<TextPositionInteraction | null>(null);
-    const [isTextPositionMode, setIsTextPositionMode] = useState(false);
     const [isPreparingBannerGuideImage, setIsPreparingBannerGuideImage] = useState(false);
+    const [isTemplateMakerMode, setIsTemplateMakerMode] = useState(false);
     const [draftRect, setDraftRect] = useState<DraftRect | null>(null);
     const [activeRegionId, setActiveRegionId] = useState<string | null>(null);
     const [interactionRect, setInteractionRect] = useState<DraftRect | null>(null);
-    const [activeTextPositionId, setActiveTextPositionId] = useState<string | null>(null);
-    const [interactionTextPosition, setInteractionTextPosition] = useState<{ x: number; y: number } | null>(null);
     const [activePreviewResultId, setActivePreviewResultId] = useState<string | null>(null);
     const [previewSweepKey, setPreviewSweepKey] = useState(0);
+    const [templateListVersion, setTemplateListVersion] = useState(0);
+    const [templateTagFilter, setTemplateTagFilter] = useState('all');
+    const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+    const [templateEditorMode, setTemplateEditorMode] = useState<'create' | 'edit'>('create');
+    const [templateDraft, setTemplateDraft] = useState<BannerTemplateConfig | null>(null);
+    const [templateTagsInput, setTemplateTagsInput] = useState('');
     const latestAutoPreviewIdRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -135,15 +146,34 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         }
     }, [activeBannerData, initBannerData]);
 
+    const allTemplates = useMemo(() => {
+        void templateListVersion;
+        return getBannerTemplates();
+    }, [templateListVersion]);
+
     const template = useMemo(() => {
+        void templateListVersion;
         return getBannerTemplateById(activeBannerData?.templateId || DEFAULT_BANNER_TEMPLATE_ID);
-    }, [activeBannerData?.templateId]);
+    }, [activeBannerData?.templateId, templateListVersion]);
+    const availableTemplateTags = useMemo(() => {
+        const tags = new Set<string>();
+        allTemplates.forEach((item) => {
+            (item.tags || []).forEach((tag) => {
+                const normalized = tag.trim();
+                if (normalized) tags.add(normalized);
+            });
+        });
+        return Array.from(tags).sort((a, b) => a.localeCompare(b));
+    }, [allTemplates]);
+    const filteredTemplates = useMemo(() => {
+        if (templateTagFilter === 'all') return allTemplates;
+        return allTemplates.filter((item) => (item.tags || []).includes(templateTagFilter));
+    }, [allTemplates, templateTagFilter]);
 
     const templateWidth = template?.width || 1;
     const templateHeight = template?.height || 1;
     const activeTemplateId = activeBannerData?.templateId || DEFAULT_BANNER_TEMPLATE_ID;
     const regions = useMemo(() => activeBannerData?.regions || [], [activeBannerData?.regions]);
-    const textPositions = useMemo(() => activeBannerData?.textPositions || [], [activeBannerData?.textPositions]);
     const nextRegionLabel = formatAnnotationLabel(regions.length + 1, BANNER_REGION_LABEL_CONFIG);
     const templateHistory = useMemo(
         () => sessionHistory.filter((item) => item.templateId === activeTemplateId),
@@ -159,6 +189,12 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
             ? formatImageUrl(activePreviewHistoryItem.outputUrl)
             : (template?.baseImageUrl || '')
     ), [activePreviewHistoryItem, template?.baseImageUrl]);
+
+    useEffect(() => {
+        if (templateTagFilter === 'all') return;
+        if (availableTemplateTags.includes(templateTagFilter)) return;
+        setTemplateTagFilter('all');
+    }, [availableTemplateTags, templateTagFilter]);
 
     useEffect(() => {
         if (!latestTemplateHistoryId) {
@@ -185,14 +221,6 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
 
         setActivePreviewResultId(latestTemplateHistoryId);
     }, [activePreviewResultId, latestTemplateHistoryId, templateHistory]);
-
-    useEffect(() => {
-        if (!activeTextPositionId) return;
-        if (!textPositions.some((item) => item.id === activeTextPositionId)) {
-            setActiveTextPositionId(null);
-            setInteractionTextPosition(null);
-        }
-    }, [activeTextPositionId, textPositions]);
 
     const getPointerPosition = useCallback((event: ReactPointerEvent<Element>): PointerPosition | null => {
         const element = previewRef.current;
@@ -222,11 +250,6 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         setInteractionRect(null);
     }, []);
 
-    const clearTextPositionInteraction = useCallback(() => {
-        textPositionInteractionRef.current = null;
-        setInteractionTextPosition(null);
-    }, []);
-
     const loadImageElement = useCallback((src: string) => {
         return new Promise<HTMLImageElement>((resolve, reject) => {
             const image = new window.Image();
@@ -254,8 +277,6 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
 
             const regionLineWidth = Math.max(2, Math.round(Math.min(template.width, template.height) * 0.0032));
             const regionFontSize = Math.max(12, Math.round(Math.min(template.width, template.height) * 0.02));
-            const markerRadius = Math.max(11, Math.round(Math.min(template.width, template.height) * 0.015));
-            const markerFontSize = Math.max(11, Math.round(markerRadius * 0.95));
 
             regions.forEach((region) => {
                 if (
@@ -292,26 +313,6 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                 ctx.restore();
             });
 
-            textPositions.forEach((textPosition) => {
-                if (typeof textPosition.x !== 'number' || typeof textPosition.y !== 'number') return;
-
-                ctx.save();
-                ctx.fillStyle = '#9BD6FF';
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(textPosition.x, textPosition.y, markerRadius, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-
-                ctx.font = `700 ${markerFontSize}px sans-serif`;
-                ctx.fillStyle = '#0B1A2A';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(textPosition.label || '?', textPosition.x, textPosition.y + 0.5);
-                ctx.restore();
-            });
-
             const blob = await new Promise<Blob | null>((resolve) => {
                 canvas.toBlob(resolve, 'image/png');
             });
@@ -328,7 +329,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
             console.error('[BannerModePanel] Failed to build/upload guide image', error);
             return null;
         }
-    }, [loadImageElement, regions, template, textPositions]);
+    }, [loadImageElement, regions, template]);
 
     const releasePreviewPointerCapture = useCallback((pointerId: number) => {
         const preview = previewRef.current;
@@ -441,80 +442,16 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         event.stopPropagation();
     }, [ensurePreviewPointerCapture, getPointerPosition, regions, templateHeight, templateWidth, toRegionRect]);
 
-    const appendTextPositionAtPoint = useCallback((point: { x: number; y: number }) => {
-        const nextType = DEFAULT_TEXT_POSITION_TYPE_SEQUENCE[textPositions.length] || 'custom';
-        const newTextPositionId = `banner-text-position-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-        const nextTextPositions: BannerTextPositionInstruction[] = [
-            ...textPositions,
-            {
-                id: newTextPositionId,
-                label: '',
-                type: nextType,
-                x: Math.round(point.x),
-                y: Math.round(point.y),
-                note: '',
-            },
-        ];
-
-        updateBannerTextPositions(nextTextPositions);
-        setActiveTextPositionId(newTextPositionId);
-    }, [textPositions, updateBannerTextPositions]);
-
-    const startTextPositionInteraction = useCallback((
-        event: ReactPointerEvent<HTMLButtonElement>,
-        textPositionId: string,
-    ) => {
-        const target = textPositions.find((item) => item.id === textPositionId);
-        if (!target || typeof target.x !== 'number' || typeof target.y !== 'number') return;
-
-        const point = getPointerPosition(event);
-        if (!point) return;
-
-        textPositionInteractionRef.current = {
-            pointerId: event.pointerId,
-            textPositionId,
-            startPointer: { x: point.x, y: point.y },
-            startPosition: { x: target.x, y: target.y },
-        };
-        setActiveTextPositionId(textPositionId);
-        setInteractionTextPosition({ x: target.x, y: target.y });
-        ensurePreviewPointerCapture(event.pointerId);
-
-        event.preventDefault();
-        event.stopPropagation();
-    }, [ensurePreviewPointerCapture, getPointerPosition, textPositions]);
-
     const handlePreviewPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        if (isTextPositionMode) {
-            const point = getPointerPosition(event);
-            if (!point) return;
-            appendTextPositionAtPoint(point);
-            return;
-        }
-
         const point = getPointerPosition(event);
         if (!point) return;
 
         pointerStartRef.current = { x: point.x, y: point.y };
         setDraftRect({ x: point.x, y: point.y, width: 0, height: 0 });
         ensurePreviewPointerCapture(event.pointerId);
-    }, [appendTextPositionAtPoint, ensurePreviewPointerCapture, getPointerPosition, isTextPositionMode]);
+    }, [ensurePreviewPointerCapture, getPointerPosition]);
 
     const handlePreviewPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        const textInteraction = textPositionInteractionRef.current;
-        if (textInteraction) {
-            const point = getPointerPosition(event);
-            if (!point) return;
-
-            const deltaX = point.x - textInteraction.startPointer.x;
-            const deltaY = point.y - textInteraction.startPointer.y;
-            const nextX = clamp(textInteraction.startPosition.x + deltaX, 0, templateWidth);
-            const nextY = clamp(textInteraction.startPosition.y + deltaY, 0, templateHeight);
-            setInteractionTextPosition({ x: nextX, y: nextY });
-            return;
-        }
-
         const interaction = regionInteractionRef.current;
         if (interaction) {
             const point = getPointerPosition(event);
@@ -549,28 +486,9 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         const height = Math.abs(point.y - start.y);
 
         setDraftRect({ x, y, width, height });
-    }, [buildMoveRect, buildResizeRect, getPointerPosition, templateHeight, templateWidth]);
+    }, [buildMoveRect, buildResizeRect, getPointerPosition]);
 
     const handlePreviewPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        const textInteraction = textPositionInteractionRef.current;
-        if (textInteraction) {
-            const finalPosition = interactionTextPosition || textInteraction.startPosition;
-            const nextTextPositions = textPositions.map((item) => (
-                item.id === textInteraction.textPositionId
-                    ? {
-                        ...item,
-                        x: Math.round(finalPosition.x),
-                        y: Math.round(finalPosition.y),
-                    }
-                    : item
-            ));
-
-            updateBannerTextPositions(nextTextPositions);
-            clearTextPositionInteraction();
-            releasePreviewPointerCapture(textInteraction.pointerId);
-            return;
-        }
-
         const interaction = regionInteractionRef.current;
         if (interaction) {
             const finalRect = interactionRect || interaction.startRect;
@@ -617,6 +535,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                     id: newRegionId,
                     label: nextRegionLabel,
                     description: '',
+                    role: 'custom',
                     x: Math.round(x),
                     y: Math.round(y),
                     width: Math.round(width),
@@ -631,37 +550,43 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
     }, [
         clearDraftState,
         clearRegionInteraction,
-        clearTextPositionInteraction,
         getPointerPosition,
-        interactionTextPosition,
         interactionRect,
         nextRegionLabel,
         regions,
         releasePreviewPointerCapture,
-        textPositions,
         templateHeight,
         templateWidth,
         updateBannerRegions,
-        updateBannerTextPositions,
     ]);
 
     const handlePreviewPointerCancel = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        if (textPositionInteractionRef.current) {
-            releasePreviewPointerCapture(textPositionInteractionRef.current.pointerId);
-        } else if (regionInteractionRef.current) {
+        if (regionInteractionRef.current) {
             releasePreviewPointerCapture(regionInteractionRef.current.pointerId);
         } else {
             releasePreviewPointerCapture(event.pointerId);
         }
-        clearTextPositionInteraction();
         clearRegionInteraction();
         clearDraftState();
-    }, [clearDraftState, clearRegionInteraction, clearTextPositionInteraction, releasePreviewPointerCapture]);
+    }, [clearDraftState, clearRegionInteraction, releasePreviewPointerCapture]);
 
     const handleRegionDescriptionChange = useCallback((regionId: string, description: string) => {
+        const targetRegion = regions.find((region) => region.id === regionId);
+        if (!targetRegion) return;
+
+        const isTextMode = isBannerTextRegion(targetRegion);
+        const targetContent = extractBannerRegionTargetText(description);
+        const regionIndex = parseAnnotationLabelIndex(targetRegion.label || '', BANNER_REGION_LABEL_CONFIG) || 1;
+        const regionName = (targetRegion.name || (targetRegion.role === 'mainTitle'
+            ? '主标题'
+            : (targetRegion.role === 'subTitle' ? '副标题' : (targetRegion.role === 'timeText' ? '时间' : '文字')))).trim() || `文字${regionIndex}`;
+        const nextDescription = isTextMode
+            ? `${regionName}（区域${regionIndex}）：${targetContent}`
+            : description;
+
         const nextRegions = regions.map((region) => (
             region.id === regionId
-                ? { ...region, description }
+                ? { ...region, description: nextDescription }
                 : region
         ));
         updateBannerRegions(nextRegions);
@@ -682,66 +607,262 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         clearRegionInteraction();
     }, [clearRegionInteraction, regions.length, updateBannerRegions]);
 
-    const handleTextPositionTypeChange = useCallback((textPositionId: string, type: BannerTextPositionType) => {
-        const nextTextPositions = textPositions.map((item) => (
-            item.id === textPositionId
-                ? { ...item, type }
-                : item
-        ));
-        updateBannerTextPositions(nextTextPositions);
-    }, [textPositions, updateBannerTextPositions]);
-
-    const handleTextPositionNoteChange = useCallback((textPositionId: string, note: string) => {
-        const nextTextPositions = textPositions.map((item) => (
-            item.id === textPositionId
-                ? { ...item, note }
-                : item
-        ));
-        updateBannerTextPositions(nextTextPositions);
-    }, [textPositions, updateBannerTextPositions]);
-
-    const handleRemoveTextPosition = useCallback((textPositionId: string) => {
-        const nextTextPositions = textPositions.filter((item) => item.id !== textPositionId);
-        updateBannerTextPositions(nextTextPositions);
-        if (activeTextPositionId === textPositionId) {
-            setActiveTextPositionId(null);
-            clearTextPositionInteraction();
-        }
-    }, [activeTextPositionId, clearTextPositionInteraction, textPositions, updateBannerTextPositions]);
-
-    const handleClearTextPositions = useCallback(() => {
-        if (textPositions.length === 0) return;
-        updateBannerTextPositions([]);
-        setActiveTextPositionId(null);
-        clearTextPositionInteraction();
-    }, [clearTextPositionInteraction, textPositions.length, updateBannerTextPositions]);
-
-    const toggleTextPositionMode = useCallback(() => {
-        setIsTextPositionMode((prev) => {
-            const next = !prev;
-            if (next) {
-                setActiveRegionId(null);
-                clearDraftState();
-                clearRegionInteraction();
-            } else {
-                clearTextPositionInteraction();
-            }
-            return next;
+    const handleRegionModeChange = useCallback((regionId: string, mode: 'text' | 'region') => {
+        const nextRegions: BannerRegionInstruction[] = regions.map((region, index) => {
+            if (region.id !== regionId) return region;
+            const regionIndex = parseAnnotationLabelIndex(region.label || '', BANNER_REGION_LABEL_CONFIG) || (index + 1);
+            const defaultName = resolveRegionDisplayName(region, regionIndex);
+            const target = extractBannerRegionTargetText(region.description) || region.sourceText || '';
+            return mode === 'text'
+                ? {
+                    ...region,
+                    mode: 'text' as const,
+                    name: defaultName,
+                    description: `${defaultName}（区域${regionIndex}）：${target}`,
+                  }
+                : {
+                    ...region,
+                    mode: 'region' as const,
+                  };
         });
-    }, [clearDraftState, clearRegionInteraction, clearTextPositionInteraction]);
+        updateBannerRegions(nextRegions);
+    }, [regions, updateBannerRegions]);
+
+    const handleRegionNameChange = useCallback((regionId: string, name: string) => {
+        const nextRegions = regions.map((region, index) => {
+            if (region.id !== regionId) return region;
+            const regionIndex = parseAnnotationLabelIndex(region.label || '', BANNER_REGION_LABEL_CONFIG) || (index + 1);
+            const nextName = (name || '').trim();
+            if (!isBannerTextRegion(region)) {
+                return { ...region, name: nextName };
+            }
+            const target = extractBannerRegionTargetText(region.description) || region.sourceText || '';
+            return {
+                ...region,
+                name: nextName,
+                description: `${nextName || `文字${regionIndex}`}（区域${regionIndex}）：${target}`,
+            };
+        });
+        updateBannerRegions(nextRegions);
+    }, [regions, updateBannerRegions]);
+
+    const handleRegionSourceTextChange = useCallback((regionId: string, sourceText: string) => {
+        const nextRegions = regions.map((region, index) => {
+            if (region.id !== regionId) return region;
+            const regionIndex = parseAnnotationLabelIndex(region.label || '', BANNER_REGION_LABEL_CONFIG) || (index + 1);
+            const nextSource = sourceText;
+            if (!isBannerTextRegion(region)) {
+                return { ...region, sourceText: nextSource };
+            }
+            const name = (region.name || `文字${regionIndex}`).trim();
+            const currentTarget = extractBannerRegionTargetText(region.description) || nextSource;
+            return {
+                ...region,
+                sourceText: nextSource,
+                description: `${name || `文字${regionIndex}`}（区域${regionIndex}）：${currentTarget}`,
+            };
+        });
+        updateBannerRegions(nextRegions);
+    }, [regions, updateBannerRegions]);
+
+    const handleAddTemplateTextRegion = useCallback(() => {
+        const nextIndex = regions.length + 1;
+        const label = formatAnnotationLabel(nextIndex, BANNER_REGION_LABEL_CONFIG);
+        const name = `文字${nextIndex}`;
+        const newRegionId = `banner-template-text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        updateBannerRegions([
+            ...regions,
+            {
+                id: newRegionId,
+                label,
+                role: 'custom',
+                mode: 'text',
+                name,
+                sourceText: '',
+                description: `${name}（区域${nextIndex}）：请输入文字内容`,
+                x: Math.round(templateWidth * 0.12),
+                y: Math.round(templateHeight * 0.18),
+                width: Math.round(templateWidth * 0.55),
+                height: Math.round(templateHeight * 0.12),
+            },
+        ]);
+    }, [regions, templateHeight, templateWidth, updateBannerRegions]);
+
+    const handleSaveTemplatePreset = useCallback(() => {
+        if (!template) {
+            toast({ title: '保存失败', description: '当前模板不可用', variant: 'destructive' });
+            return;
+        }
+
+        const success = saveBannerTemplatePresetRegions(template.id, regions);
+        if (success) {
+            toast({ title: '保存成功', description: '已保存当前模板的标注配置' });
+        } else {
+            toast({ title: '保存失败', description: '请检查浏览器存储权限后重试', variant: 'destructive' });
+        }
+    }, [regions, template, toast]);
+
+    const handleResetTemplatePreset = useCallback(() => {
+        if (!template) {
+            toast({ title: '恢复失败', description: '当前模板不可用', variant: 'destructive' });
+            return;
+        }
+
+        const success = clearBannerTemplatePresetRegions(template.id);
+        if (!success) {
+            toast({ title: '恢复失败', description: '请检查浏览器存储权限后重试', variant: 'destructive' });
+            return;
+        }
+
+        initBannerData(template.id);
+        toast({ title: '已恢复默认', description: '模板标注配置已恢复默认值' });
+    }, [initBannerData, template, toast]);
+
+    const touchTemplateListVersion = useCallback(() => {
+        setTemplateListVersion((prev) => prev + 1);
+    }, []);
 
     const handleSwitchTemplate = useCallback((templateId: string) => {
         if (templateId === activeTemplateId) return;
-        setIsTextPositionMode(false);
+        setIsTemplateMakerMode(false);
+        setIsTemplateEditorOpen(false);
         setActiveRegionId(null);
-        setActiveTextPositionId(null);
         setActivePreviewResultId(null);
         latestAutoPreviewIdRef.current = null;
         clearDraftState();
         clearRegionInteraction();
-        clearTextPositionInteraction();
         initBannerData(templateId);
-    }, [activeTemplateId, clearDraftState, clearRegionInteraction, clearTextPositionInteraction, initBannerData]);
+    }, [activeTemplateId, clearDraftState, clearRegionInteraction, initBannerData]);
+
+    const handleCreateTemplate = useCallback(() => {
+        const draft = createBannerTemplateDraft(template);
+        setTemplateEditorMode('create');
+        setTemplateDraft(draft);
+        setTemplateTagsInput((draft.tags || []).join(', '));
+        setIsTemplateEditorOpen(true);
+    }, [template]);
+
+    const handleEditTemplate = useCallback(() => {
+        if (!template) return;
+
+        const builtin = isBuiltinBannerTemplate(template.id);
+        if (builtin) {
+            const copyDraft = createBannerTemplateDraft(template);
+            setTemplateEditorMode('create');
+            setTemplateDraft(copyDraft);
+            setTemplateTagsInput((copyDraft.tags || []).join(', '));
+            setIsTemplateEditorOpen(true);
+            toast({ title: '内置模板不可直接修改', description: '已按副本模式打开，保存后会生成新模板。' });
+            return;
+        }
+
+        setTemplateEditorMode('edit');
+        setTemplateDraft({
+            ...template,
+            tags: [...(template.tags || [])],
+            allowedModels: [...(template.allowedModels || BANNER_ALLOWED_MODELS)],
+            defaultFields: {
+                mainTitle: template.defaultFields.mainTitle || '',
+                subTitle: template.defaultFields.subTitle || '',
+                timeText: template.defaultFields.timeText || '',
+                extraDesc: template.defaultFields.extraDesc || '',
+            },
+        });
+        setTemplateTagsInput((template.tags || []).join(', '));
+        setIsTemplateEditorOpen(true);
+    }, [template, toast]);
+
+    const handleDeleteTemplate = useCallback(() => {
+        if (!template) return;
+        if (isBuiltinBannerTemplate(template.id)) {
+            toast({ title: '删除失败', description: '内置模板不允许删除', variant: 'destructive' });
+            return;
+        }
+        const confirmed = window.confirm(`确认删除模板「${template.name}」吗？该操作不可撤销。`);
+        if (!confirmed) return;
+
+        const removed = deleteCustomBannerTemplate(template.id);
+        if (!removed) {
+            toast({ title: '删除失败', description: '模板不存在或存储失败', variant: 'destructive' });
+            return;
+        }
+
+        clearBannerTemplatePresetRegions(template.id);
+        touchTemplateListVersion();
+        setIsTemplateEditorOpen(false);
+        setTemplateTagFilter('all');
+        initBannerData(DEFAULT_BANNER_TEMPLATE_ID);
+        setActivePreviewResultId(null);
+        latestAutoPreviewIdRef.current = null;
+        toast({ title: '删除成功', description: '模板已删除' });
+    }, [initBannerData, template, toast, touchTemplateListVersion]);
+
+    const handleSaveTemplate = useCallback(() => {
+        if (!templateDraft) return;
+
+        const trimmedName = (templateDraft.name || '').trim();
+        const trimmedBaseImageUrl = (templateDraft.baseImageUrl || '').trim();
+        const width = Math.round(Number(templateDraft.width));
+        const height = Math.round(Number(templateDraft.height));
+        const promptTemplate = (templateDraft.promptTemplate || '').trim();
+
+        if (!trimmedName) {
+            toast({ title: '保存失败', description: '模板名称不能为空', variant: 'destructive' });
+            return;
+        }
+        if (!trimmedBaseImageUrl) {
+            toast({ title: '保存失败', description: '底图地址不能为空', variant: 'destructive' });
+            return;
+        }
+        if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+            toast({ title: '保存失败', description: '宽高必须是大于 0 的数字', variant: 'destructive' });
+            return;
+        }
+        if (!promptTemplate) {
+            toast({ title: '保存失败', description: 'Prompt 模板不能为空', variant: 'destructive' });
+            return;
+        }
+
+        const tags = parseTemplateTagsInput(templateTagsInput);
+        const normalizedTemplate: BannerTemplateConfig = {
+            ...templateDraft,
+            name: trimmedName,
+            tags,
+            baseImageUrl: trimmedBaseImageUrl,
+            thumbnailUrl: (templateDraft.thumbnailUrl || '').trim() || trimmedBaseImageUrl,
+            width,
+            height,
+            promptTemplate,
+            allowedModels: [...BANNER_ALLOWED_MODELS],
+            defaultFields: {
+                mainTitle: templateDraft.defaultFields.mainTitle || '',
+                subTitle: templateDraft.defaultFields.subTitle || '',
+                timeText: templateDraft.defaultFields.timeText || '',
+                extraDesc: templateDraft.defaultFields.extraDesc || '',
+            },
+        };
+
+        const result = upsertCustomBannerTemplate(normalizedTemplate);
+        if (!result.ok || !result.template) {
+            const reason = result.error === 'builtin-template-readonly'
+                ? '内置模板不允许直接覆盖，请使用副本保存'
+                : '模板存储失败，请检查浏览器存储空间';
+            toast({ title: '保存失败', description: reason, variant: 'destructive' });
+            return;
+        }
+
+        touchTemplateListVersion();
+        setTemplateDraft(result.template);
+        setTemplateTagsInput((result.template.tags || []).join(', '));
+        setIsTemplateEditorOpen(false);
+        initBannerData(result.template.id);
+        setActivePreviewResultId(null);
+        latestAutoPreviewIdRef.current = null;
+        toast({
+            title: templateEditorMode === 'edit' ? '模板已更新' : '模板已创建',
+            description: `已保存模板「${result.template.name}」`,
+        });
+    }, [initBannerData, templateDraft, templateEditorMode, templateTagsInput, toast, touchTemplateListVersion]);
 
     const handleGenerateClick = useCallback(async () => {
         if (isGenerating || isPreparingBannerGuideImage) return;
@@ -767,93 +888,253 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
         return null;
     }
 
-    const renderPositionItem = (p: BannerTextPositionInstruction) => (
-        <div key={p.id} className="flex items-center gap-2 bg-black/20 rounded-lg p-1.5 border border-white/5">
-            <div className="h-6 min-w-6 px-1.5 rounded-full bg-[#9BD6FF] text-black text-[11px] font-semibold flex items-center justify-center shrink-0">
-                {p.label}
-            </div>
-            <Select
-                value={p.type}
-                onValueChange={(val) => handleTextPositionTypeChange(p.id, val as BannerTextPositionType)}
-            >
-                <SelectTrigger className="h-7 w-[90px] bg-transparent border-none focus:ring-0 text-white text-xs px-2 shrink-0">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-black/90 border-white/20">
-                    {(Object.keys(TEXT_POSITION_TYPE_LABEL_MAP) as BannerTextPositionType[]).map((t) => (
-                        <SelectItem key={t} value={t} className="text-white text-xs">
-                            {TEXT_POSITION_TYPE_LABEL_MAP[t]}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <Input
-                className="h-7 bg-white/5 border-white/10 text-white text-[11px] hover:border-white/20 focus-visible:ring-0 focus-visible:border-white/30"
-                placeholder="可选备注（例如：居中对齐、贴左留白）"
-                value={p.note || ''}
-                onChange={(e) => handleTextPositionNoteChange(p.id, e.target.value)}
-            />
-            <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10 shrink-0"
-                onClick={() => handleRemoveTextPosition(p.id)}
-            >
-                <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-        </div>
-    );
-
-    const renderFieldBlock = (
-        label: string,
-        value: string,
-        onChange: (val: string) => void,
-        placeholder: string,
-        type: BannerTextPositionType
-    ) => {
-        const typePositions = textPositions.filter(p => p.type === type);
-        return (
-            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-                <div className="flex items-center justify-between">
-                    <label className="text-xs text-white/60 flex items-center gap-2">
-                        {label}
-                        {typePositions.length > 0 && (
-                            <div className="flex gap-1">
-                                {typePositions.map(p => (
-                                    <div key={p.id} className="h-4 min-w-4 px-1 rounded-full bg-[#9BD6FF] text-black text-[9px] font-semibold flex items-center justify-center" title="已在左侧定位">
-                                        {p.label}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </label>
-                </div>
-                <Input
-                    className="bg-white/5 border-white/15 text-white"
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder={placeholder}
-                />
-                {typePositions.length > 0 && (
-                    <div className="flex flex-col gap-2 mt-1">
-                        {typePositions.map(renderPositionItem)}
-                    </div>
-                )}
-            </div>
-        );
+    const getRegionNumber = (regionLabel: string, fallbackIndex: number): number => {
+        return parseAnnotationLabelIndex(regionLabel || '', BANNER_REGION_LABEL_CONFIG) || fallbackIndex;
     };
 
-    const customPositions = textPositions.filter(p => p.type === 'custom');
+    const getRegionTitle = (region: typeof regions[number], fallbackIndex: number): string => {
+        const regionNumber = getRegionNumber(region.label, fallbackIndex);
+        if (isBannerTextRegion(region)) {
+            const regionName = resolveRegionDisplayName(region, regionNumber);
+            return `${regionName || `文字${regionNumber}`}（区域${regionNumber}）`;
+        }
+        return `区域说明（区域${regionNumber}）`;
+    };
+
+    const getRegionPlaceholder = (region: typeof regions[number], fallbackIndex: number): string => {
+        const regionNumber = getRegionNumber(region.label, fallbackIndex);
+        if (isBannerTextRegion(region)) {
+            const regionName = resolveRegionDisplayName(region, regionNumber);
+            return `${regionName || `文字${regionNumber}`}（区域${regionNumber}）：请输入文字内容`;
+        }
+        return `描述 ${region.label} 需要修改的内容`;
+    };
 
     return (
         <div className="w-full h-full overflow-y-auto pl-20 md:pl-28 lg:pl-32 pr-6 pb-6">
             <div className="w-full max-w-[1320px] mx-auto pt-10">
                 <div className="grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1.35fr)_420px] gap-5">
                     <section className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-xl p-3 h-fit">
-                        <div className="text-xs text-white/70 px-1 pb-2">Banner Templates</div>
-                        <div className="space-y-3 max-h-[720px] overflow-y-auto pr-1">
-                            {BANNER_TEMPLATES.map((item) => {
+                        <div className="flex items-center justify-between px-1 pb-2">
+                            <div className="text-xs text-white/70">Banner Templates</div>
+                            <div className="text-[10px] text-white/40">{allTemplates.length} 个模板</div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-xl border-white/20 text-white hover:bg-white/10"
+                                onClick={handleCreateTemplate}
+                            >
+                                新建
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-xl border-white/20 text-white hover:bg-white/10"
+                                onClick={handleEditTemplate}
+                                disabled={!template}
+                            >
+                                修改
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-xl border-red-400/40 text-red-200 hover:bg-red-500/10"
+                                onClick={handleDeleteTemplate}
+                                disabled={!template || isBuiltinBannerTemplate(template.id)}
+                            >
+                                删除
+                            </Button>
+                        </div>
+
+                        <div className="mb-2">
+                            <Select value={templateTagFilter} onValueChange={setTemplateTagFilter}>
+                                <SelectTrigger className="h-8 bg-white/5 border-white/15 text-white">
+                                    <SelectValue placeholder="按标签筛选" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-black/90 border-white/20">
+                                    <SelectItem value="all" className="text-white">全部标签</SelectItem>
+                                    {availableTemplateTags.map((tag) => (
+                                        <SelectItem key={tag} value={tag} className="text-white">{tag}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {isTemplateEditorOpen && templateDraft && (
+                            <div className="mb-3 rounded-2xl border border-[#E6FFD1]/30 bg-[#E6FFD1]/10 p-3 space-y-2">
+                                <div className="text-xs text-[#E6FFD1]">
+                                    {templateEditorMode === 'edit' ? '编辑模板' : '新建模板'}
+                                </div>
+                                <div className="text-[10px] text-white/45 truncate" title={templateDraft.id}>
+                                    ID: {templateDraft.id}
+                                </div>
+                                <Input
+                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    value={templateDraft.name}
+                                    placeholder="模板名称"
+                                    onChange={(event) => setTemplateDraft((prev) => (
+                                        prev ? { ...prev, name: event.target.value } : prev
+                                    ))}
+                                />
+                                <Input
+                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    value={templateTagsInput}
+                                    placeholder="标签，逗号分隔，如：电商, 横版, 促销"
+                                    onChange={(event) => setTemplateTagsInput(event.target.value)}
+                                />
+                                <Input
+                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    value={templateDraft.baseImageUrl}
+                                    placeholder="底图 URL 或相对路径"
+                                    onChange={(event) => setTemplateDraft((prev) => (
+                                        prev ? { ...prev, baseImageUrl: event.target.value } : prev
+                                    ))}
+                                />
+                                <Input
+                                    className="h-8 bg-white/5 border-white/15 text-white"
+                                    value={templateDraft.thumbnailUrl}
+                                    placeholder="缩略图 URL（留空则使用底图）"
+                                    onChange={(event) => setTemplateDraft((prev) => (
+                                        prev ? { ...prev, thumbnailUrl: event.target.value } : prev
+                                    ))}
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        value={templateDraft.width}
+                                        onChange={(event) => {
+                                            const width = Math.round(Number(event.target.value));
+                                            setTemplateDraft((prev) => (
+                                                prev ? { ...prev, width: Number.isFinite(width) && width > 0 ? width : prev.width } : prev
+                                            ));
+                                        }}
+                                    />
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        value={templateDraft.height}
+                                        onChange={(event) => {
+                                            const height = Math.round(Number(event.target.value));
+                                            setTemplateDraft((prev) => (
+                                                prev ? { ...prev, height: Number.isFinite(height) && height > 0 ? height : prev.height } : prev
+                                            ));
+                                        }}
+                                    />
+                                </div>
+                                <Select
+                                    value={templateDraft.defaultModel}
+                                    onValueChange={(value) => setTemplateDraft((prev) => (
+                                        prev ? { ...prev, defaultModel: value as BannerModelId } : prev
+                                    ))}
+                                >
+                                    <SelectTrigger className="h-8 bg-white/5 border-white/15 text-white">
+                                        <SelectValue placeholder="默认模型" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-black/90 border-white/20">
+                                        {BANNER_ALLOWED_MODELS.map((modelId) => (
+                                            <SelectItem key={modelId} value={modelId} className="text-white">
+                                                {MODEL_LABEL_MAP[modelId]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Textarea
+                                    className="bg-white/5 border-white/15 text-white min-h-[90px]"
+                                    value={templateDraft.promptTemplate}
+                                    placeholder="模板 Prompt（支持 {{extraDesc}} 等占位符）"
+                                    onChange={(event) => setTemplateDraft((prev) => (
+                                        prev ? { ...prev, promptTemplate: event.target.value } : prev
+                                    ))}
+                                />
+                                <div className="grid grid-cols-1 gap-2">
+                                    <Input
+                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        value={templateDraft.defaultFields.mainTitle}
+                                        placeholder="默认主标题"
+                                        onChange={(event) => setTemplateDraft((prev) => (
+                                            prev
+                                                ? {
+                                                    ...prev,
+                                                    defaultFields: { ...prev.defaultFields, mainTitle: event.target.value },
+                                                }
+                                                : prev
+                                        ))}
+                                    />
+                                    <Input
+                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        value={templateDraft.defaultFields.subTitle}
+                                        placeholder="默认副标题"
+                                        onChange={(event) => setTemplateDraft((prev) => (
+                                            prev
+                                                ? {
+                                                    ...prev,
+                                                    defaultFields: { ...prev.defaultFields, subTitle: event.target.value },
+                                                }
+                                                : prev
+                                        ))}
+                                    />
+                                    <Input
+                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                        value={templateDraft.defaultFields.timeText}
+                                        placeholder="默认时间"
+                                        onChange={(event) => setTemplateDraft((prev) => (
+                                            prev
+                                                ? {
+                                                    ...prev,
+                                                    defaultFields: { ...prev.defaultFields, timeText: event.target.value },
+                                                }
+                                                : prev
+                                        ))}
+                                    />
+                                    <Textarea
+                                        className="bg-white/5 border-white/15 text-white min-h-[72px]"
+                                        value={templateDraft.defaultFields.extraDesc}
+                                        placeholder="默认补充描述"
+                                        onChange={(event) => setTemplateDraft((prev) => (
+                                            prev
+                                                ? {
+                                                    ...prev,
+                                                    defaultFields: { ...prev.defaultFields, extraDesc: event.target.value },
+                                                }
+                                                : prev
+                                        ))}
+                                    />
+                                </div>
+                                <div className="flex items-center justify-end gap-2 pt-1">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 rounded-xl border-white/30 text-white hover:bg-white/10"
+                                        onClick={() => setIsTemplateEditorOpen(false)}
+                                    >
+                                        取消
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        className="h-8 rounded-xl bg-[#E6FFD1] text-black hover:bg-[#dff7cb]"
+                                        onClick={handleSaveTemplate}
+                                    >
+                                        保存模板
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+                            {filteredTemplates.length === 0 && (
+                                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-white/45">
+                                    当前标签下没有模板。
+                                </div>
+                            )}
+                            {filteredTemplates.map((item) => {
                                 const isActiveTemplate = item.id === activeBannerData.templateId;
+                                const isBuiltin = isBuiltinBannerTemplate(item.id);
                                 return (
                                     <button
                                         key={item.id}
@@ -878,12 +1159,34 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                                 unoptimized
                                             />
                                         </div>
-                                        <div className={cn(
-                                            "text-xs mt-2 truncate",
-                                            isActiveTemplate ? "text-white" : "text-white/70"
-                                        )}>
-                                            {item.name}
+                                        <div className="mt-2 flex items-center justify-between gap-2">
+                                            <div className={cn(
+                                                "text-xs truncate",
+                                                isActiveTemplate ? "text-white" : "text-white/70"
+                                            )}>
+                                                {item.name}
+                                            </div>
+                                            <span className={cn(
+                                                "text-[10px] px-1.5 py-0.5 rounded border",
+                                                isBuiltin
+                                                    ? "border-white/25 text-white/60"
+                                                    : "border-[#E6FFD1]/40 text-[#E6FFD1]"
+                                            )}>
+                                                {isBuiltin ? '内置' : '自定义'}
+                                            </span>
                                         </div>
+                                        {(item.tags || []).length > 0 && (
+                                            <div className="mt-2 flex flex-wrap gap-1">
+                                                {(item.tags || []).slice(0, 3).map((tag) => (
+                                                    <span
+                                                        key={`${item.id}-${tag}`}
+                                                        className="text-[10px] text-white/70 border border-white/15 rounded-full px-2 py-0.5 bg-white/[0.03]"
+                                                    >
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </button>
                                 );
                             })}
@@ -897,20 +1200,6 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                 <span className="text-[11px] text-white/60">
                                     固定尺寸 {template.width} x {template.height}
                                 </span>
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className={cn(
-                                        "h-8 rounded-xl text-white",
-                                        isTextPositionMode
-                                            ? "bg-[#9BD6FF] text-black hover:bg-[#8cc8f1]"
-                                            : "bg-white/15 hover:bg-white/20"
-                                    )}
-                                    onClick={toggleTextPositionMode}
-                                >
-                                    <MapPin className="w-3.5 h-3.5 mr-1.5" />
-                                    {isTextPositionMode ? '结束定位' : '文字定位'}
-                                </Button>
                                 {activePreviewHistoryItem && (
                                     <Button
                                         size="sm"
@@ -953,38 +1242,6 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                     onAnimationEnd={handlePreviewSweepAnimationEnd}
                                 />
                             )}
-                            {textPositions.map((textPosition) => {
-                                if (typeof textPosition.x !== 'number' || typeof textPosition.y !== 'number') return null;
-                                const isActiveTextPosition = activeTextPositionId === textPosition.id;
-                                const displayX = isActiveTextPosition && interactionTextPosition
-                                    ? interactionTextPosition.x
-                                    : textPosition.x;
-                                const displayY = isActiveTextPosition && interactionTextPosition
-                                    ? interactionTextPosition.y
-                                    : textPosition.y;
-
-                                return (
-                                    <button
-                                        key={textPosition.id}
-                                        type="button"
-                                        className={cn(
-                                            "absolute z-20 -translate-x-1/2 -translate-y-1/2 h-7 min-w-7 px-2 rounded-full border font-semibold text-[11px] shadow transition",
-                                            isActiveTextPosition
-                                                ? "border-[#9BD6FF] bg-[#9BD6FF] text-black"
-                                                : "border-[#8DCBFF]/80 bg-[#1D2A3A]/90 text-[#CFEAFF]",
-                                            isTextPositionMode ? "pointer-events-none opacity-80" : "pointer-events-auto hover:border-[#B9E2FF]"
-                                        )}
-                                        style={{
-                                            left: `${(displayX / template.width) * 100}%`,
-                                            top: `${(displayY / template.height) * 100}%`,
-                                        }}
-                                        title={`${textPosition.label} - ${TEXT_POSITION_TYPE_LABEL_MAP[textPosition.type]}`}
-                                        onPointerDown={(event) => startTextPositionInteraction(event, textPosition.id)}
-                                    >
-                                        {textPosition.label}
-                                    </button>
-                                );
-                            })}
                             {regions.map((region) => {
                                 const hasBounds = typeof region.x === 'number'
                                     && typeof region.y === 'number'
@@ -999,10 +1256,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                 return (
                                     <div
                                         key={region.id}
-                                        className={cn(
-                                            "absolute border-2 bg-red-500/0",
-                                            isTextPositionMode ? "pointer-events-none border-red-500/90" : "pointer-events-auto border-red-400/90"
-                                        )}
+                                        className="absolute border-2 bg-red-500/0 pointer-events-auto border-red-400/90"
                                         style={{
                                             left: `${((displayRect.x || 0) / template.width) * 100}%`,
                                             top: `${((displayRect.y || 0) / template.height) * 100}%`,
@@ -1014,7 +1268,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                         <span className="absolute -top-5 left-0 text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded">
                                             {region.label}
                                         </span>
-                                        {!isTextPositionMode && RESIZE_HANDLE_DEFS.map(({ handle, className }) => (
+                                        {RESIZE_HANDLE_DEFS.map(({ handle, className }) => (
                                             <button
                                                 key={`${region.id}-${handle}`}
                                                 type="button"
@@ -1048,22 +1302,54 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
 
                     <section className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-xl p-4 flex flex-col gap-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-white">图文内容</span>
-                            {textPositions.length > 0 && (
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 rounded-xl text-[#CFEAFF] hover:text-white hover:bg-white/10"
-                                    onClick={handleClearTextPositions}
-                                >
-                                    清空定位
-                                </Button>
-                            )}
+                            <span className="text-sm font-medium text-white">内容设置</span>
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                className={cn(
+                                    "h-8 rounded-xl",
+                                    isTemplateMakerMode
+                                        ? "bg-[#E6FFD1] text-black hover:bg-[#dff7cb]"
+                                        : "bg-white/15 text-white hover:bg-white/25"
+                                )}
+                                onClick={() => setIsTemplateMakerMode((prev) => !prev)}
+                            >
+                                {isTemplateMakerMode ? '退出模板制作' : '模板制作模式'}
+                            </Button>
                         </div>
 
-                        {renderFieldBlock('主标题', activeBannerData.fields.mainTitle, (val) => updateBannerFields({ mainTitle: val }), '输入主标题', 'mainTitle')}
-                        {renderFieldBlock('副标题', activeBannerData.fields.subTitle, (val) => updateBannerFields({ subTitle: val }), '输入副标题', 'subTitle')}
-                        {renderFieldBlock('时间', activeBannerData.fields.timeText, (val) => updateBannerFields({ timeText: val }), '输入时间文案', 'timeText')}
+                        {isTemplateMakerMode && (
+                            <div className="grid grid-cols-1 gap-2 rounded-2xl border border-[#E6FFD1]/40 bg-[#E6FFD1]/10 p-3">
+                                <div className="text-[11px] text-[#E6FFD1]">
+                                    可在此模式下定义当前模板的默认标注数量、名称与位置，保存后下次进入该模板自动加载。
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 rounded-xl text-white hover:bg-white/10"
+                                        onClick={handleAddTemplateTextRegion}
+                                    >
+                                        新增文字标注
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        className="h-8 rounded-xl bg-[#E6FFD1] text-black hover:bg-[#dff7cb]"
+                                        onClick={handleSaveTemplatePreset}
+                                    >
+                                        保存为模板默认
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 rounded-xl border-white/30 text-white hover:bg-white/10"
+                                        onClick={handleResetTemplatePreset}
+                                    >
+                                        恢复模板默认
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
                             <label className="text-xs text-white/60">补充描述</label>
@@ -1074,15 +1360,6 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                 placeholder="描述材质、颜色、风格等补充要求"
                             />
                         </div>
-
-                        {customPositions.length > 0 && (
-                            <div className="grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
-                                <label className="text-xs text-white/60">自定义文字定位</label>
-                                <div className="flex flex-col gap-2 mt-1">
-                                    {customPositions.map(renderPositionItem)}
-                                </div>
-                            </div>
-                        )}
 
                         <div className="space-y-2">
                             <label className="text-xs text-white/60">模型</label>
@@ -1117,14 +1394,14 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                 </Button>
                             </div>
                             <div className="text-[11px] text-white/45 mb-2">
-                                在左侧预览图直接拖拽即可框选，拖动框体可移动，拖动四角可调整大小。
+                                用左侧红色标注框框定文字或局部修改区域。拖动框体可移动，拖动四角可调整大小。
                             </div>
                             <div className={cn("space-y-2", regions.length === 0 && "text-white/40 text-xs")}>
                                 {regions.length === 0 && <div>暂无区域，请先框选。</div>}
-                                {regions.map((region) => (
+                                {regions.map((region, index) => (
                                     <div key={region.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
                                         <div className="flex items-center justify-between gap-2 mb-2">
-                                            <span className="text-xs text-white/70">[{region.label}]</span>
+                                            <span className="text-xs text-white/70">{getRegionTitle(region, index + 1)}</span>
                                             <Button
                                                 size="icon"
                                                 variant="ghost"
@@ -1134,9 +1411,41 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </Button>
                                         </div>
+                                        {isTemplateMakerMode && (
+                                            <div className="mb-2 grid grid-cols-1 gap-2">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <Select
+                                                        value={isBannerTextRegion(region) ? 'text' : 'region'}
+                                                        onValueChange={(value) => handleRegionModeChange(region.id, value as 'text' | 'region')}
+                                                    >
+                                                        <SelectTrigger className="h-8 bg-white/5 border-white/15 text-white">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="bg-black/90 border-white/20">
+                                                            <SelectItem value="text" className="text-white">文字标注</SelectItem>
+                                                            <SelectItem value="region" className="text-white">区域标注</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Input
+                                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                                        value={region.name || ''}
+                                                        placeholder="标注名称"
+                                                        onChange={(event) => handleRegionNameChange(region.id, event.target.value)}
+                                                    />
+                                                </div>
+                                                {isBannerTextRegion(region) && (
+                                                    <Input
+                                                        className="h-8 bg-white/5 border-white/15 text-white"
+                                                        value={region.sourceText || ''}
+                                                        placeholder="原始文字（用于“修改前”）"
+                                                        onChange={(event) => handleRegionSourceTextChange(region.id, event.target.value)}
+                                                    />
+                                                )}
+                                            </div>
+                                        )}
                                         <Textarea
                                             className="bg-white/5 border-white/15 text-white min-h-[72px]"
-                                            placeholder={`描述 ${region.label} 需要修改的内容`}
+                                            placeholder={getRegionPlaceholder(region, index + 1)}
                                             value={region.description}
                                             onChange={(event) => handleRegionDescriptionChange(region.id, event.target.value)}
                                         />

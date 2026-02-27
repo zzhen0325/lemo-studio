@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "projectId": "d9023f27-96f9-4a02-bba0-5abb2ffca953",
+      "projectName": "未命名项目",
+      "createdAt": "2026-02-27T03:20:30.735Z",
+      "updatedAt": "2026-02-27T03:24:51.115Z",
+      "nodeCount": 8,
+      "canvasViewport": {
+        "x": 258.6529479528622,
+        "y": 171.6866424745449,
+        "scale": 0.6674849377790841
+      },
+      "lastOpenedPanel": null,
+      "nodes": [
+        {
+          "nodeId": "e1a05471-1e5c-4a87-899f-e6a3e026e304",
+          "nodeType": "text",
+          "title": "Text Block",
+          "position": {
+            "x": -137.9921875,
+            "y": -236.109375
+          },
+          "width": 340,
+          "height": 240,
+          "status": "idle",
+          "prompt": "",
+          "outputs": [],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:20:45.271Z",
+          "updatedAt": "2026-02-27T03:20:53.072Z"
+        },
+        {
+          "nodeId": "776a585f-19d8-4e9a-917c-6212ac97ff4c",
+          "nodeType": "image",
+          "title": "Image Block",
+          "position": {
+            "x": 336.75390625,
+            "y": -185.27734375
+          },
+          "width": 340,
+          "height": 320,
+          "status": "success",
+          "prompt": "小鸡",
+          "modelId": "flux_klein",
+          "params": {
+            "aspectRatio": "1:1",
+            "imageSize": "1024x1024",
+            "batchSize": 1
+          },
+          "outputs": [
+            {
+              "outputId": "059663c4-1f96-47b6-bfa0-781768a09f73",
+              "outputType": "image",
+              "assetUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162489156_1729qu.png",
+              "thumbnailUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162489156_1729qu.png",
+              "promptSnapshot": "小鸡",
+              "modelSnapshot": "flux_klein",
+              "createdAt": "2026-02-27T03:21:31.826Z"
+            }
+          ],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:20:48.152Z",
+          "updatedAt": "2026-02-27T03:21:31.826Z"
+        },
+        {
+          "nodeId": "0b22c11a-5dce-4bbd-a0db-ad09a143d866",
+          "nodeType": "image",
+          "title": "Image Block Output 1",
+          "position": {
+            "x": 861.0305367196972,
+            "y": -347.4984492262223
+          },
+          "width": 340,
+          "height": 320,
+          "status": "success",
+          "prompt": "小鸡",
+          "modelId": "flux_klein",
+          "params": {
+            "aspectRatio": "1:1",
+            "imageSize": "1024x1024",
+            "batchSize": 1
+          },
+          "outputs": [
+            {
+              "outputId": "8a657eda-da46-43f1-a6f0-95a639b1dd25",
+              "outputType": "image",
+              "assetUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162489156_1729qu.png",
+              "thumbnailUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162489156_1729qu.png",
+              "promptSnapshot": "小鸡",
+              "modelSnapshot": "flux_klein",
+              "createdAt": "2026-02-27T03:21:31.826Z"
+            }
+          ],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:21:31.826Z",
+          "updatedAt": "2026-02-27T03:21:53.053Z"
+        },
+        {
+          "nodeId": "a99bdeb3-c080-44ab-b40d-c34a44154f1a",
+          "nodeType": "image",
+          "title": "Image Block",
+          "position": {
+            "x": 1523.3327270911554,
+            "y": 82.32738566863006
+          },
+          "width": 340,
+          "height": 320,
+          "status": "idle",
+          "prompt": "",
+          "modelId": "gemini-3-pro-image-preview",
+          "params": {
+            "aspectRatio": "1:1",
+            "imageSize": "1024x1024",
+            "batchSize": 1
+          },
+          "outputs": [],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:21:54.104Z",
+          "updatedAt": "2026-02-27T03:23:04.894Z"
+        },
+        {
+          "nodeId": "eabd886f-46f5-4d93-864d-18aca7933b02",
+          "nodeType": "image",
+          "title": "Image Block",
+          "position": {
+            "x": -43.792495919774794,
+            "y": 202.61940689966468
+          },
+          "width": 340,
+          "height": 320,
+          "status": "idle",
+          "prompt": "",
+          "modelId": "gemini-3-pro-image-preview",
+          "params": {
+            "aspectRatio": "1:1",
+            "imageSize": "1024x1024",
+            "batchSize": 1
+          },
+          "outputs": [],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:22:05.298Z",
+          "updatedAt": "2026-02-27T03:22:06.644Z"
+        },
+        {
+          "nodeId": "291c1db5-6f7d-4305-9f37-040d714d3e3d",
+          "nodeType": "image",
+          "title": "e2694aa4-c563-4493-aa5b-77bb46529452_sS6ifgeWP.jpeg",
+          "position": {
+            "x": 417.9161669369964,
+            "y": 434.71616772590716
+          },
+          "width": 340,
+          "height": 320,
+          "status": "success",
+          "prompt": "改成手绘插画风格",
+          "modelId": "flux_klein",
+          "params": {
+            "aspectRatio": "1:1",
+            "imageSize": "1024x1024",
+            "batchSize": 1
+          },
+          "outputs": [
+            {
+              "outputId": "8cb83fc7-c0a6-4ac3-9800-3a2da49fadaf",
+              "outputType": "image",
+              "assetUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162567049_qgaheg.png",
+              "thumbnailUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162567049_qgaheg.png",
+              "promptSnapshot": "改成手绘插画风格",
+              "modelSnapshot": "flux_klein",
+              "createdAt": "2026-02-27T03:22:51.281Z"
+            }
+          ],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:22:22.102Z",
+          "updatedAt": "2026-02-27T03:23:02.987Z",
+          "inputAssetId": "38f6a08e-7d4c-4861-94b3-f5d2db2afd1f"
+        },
+        {
+          "nodeId": "bfe1aea5-0448-4726-be9b-448f17a2783f",
+          "nodeType": "image",
+          "title": "e2694aa4-c563-4493-aa5b-77bb46529452_sS6ifgeWP.jpeg Output 1",
+          "position": {
+            "x": 1207.8861595675953,
+            "y": 75.91827739918318
+          },
+          "width": 340,
+          "height": 320,
+          "status": "success",
+          "prompt": "改成手绘插画风格",
+          "modelId": "flux_klein",
+          "params": {
+            "aspectRatio": "1:1",
+            "imageSize": "1024x1024",
+            "batchSize": 1
+          },
+          "outputs": [
+            {
+              "outputId": "b5199a2c-7459-48bd-ae9f-f632a7c7fb90",
+              "outputType": "image",
+              "assetUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162567049_qgaheg.png",
+              "thumbnailUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162567049_qgaheg.png",
+              "promptSnapshot": "改成手绘插画风格",
+              "modelSnapshot": "flux_klein",
+              "createdAt": "2026-02-27T03:22:51.281Z"
+            }
+          ],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:22:51.281Z",
+          "updatedAt": "2026-02-27T03:23:06.517Z"
+        },
+        {
+          "nodeId": "e5ce6ee7-45eb-4751-ac52-c6224b0319e0",
+          "nodeType": "image",
+          "title": "Image Block",
+          "position": {
+            "x": 1574.927981157321,
+            "y": 486.73621278373173
+          },
+          "width": 340,
+          "height": 320,
+          "status": "idle",
+          "prompt": "",
+          "modelId": "gemini-3-pro-image-preview",
+          "params": {
+            "aspectRatio": "1:1",
+            "imageSize": "1024x1024",
+            "batchSize": 1
+          },
+          "outputs": [],
+          "isLocked": false,
+          "isSelected": false,
+          "createdAt": "2026-02-27T03:22:55.639Z",
+          "updatedAt": "2026-02-27T03:22:59.103Z"
+        }
+      ],
+      "edges": [
+        {
+          "edgeId": "eb32f781-edc7-4d7c-b92c-8fd9824109e4",
+          "sourceNodeId": "776a585f-19d8-4e9a-917c-6212ac97ff4c",
+          "targetNodeId": "0b22c11a-5dce-4bbd-a0db-ad09a143d866",
+          "sourcePort": "output",
+          "targetPort": "input",
+          "createdAt": "2026-02-27T03:21:31.826Z"
+        },
+        {
+          "edgeId": "5e237a73-4406-49dd-b90c-bd8f768be9b5",
+          "sourceNodeId": "291c1db5-6f7d-4305-9f37-040d714d3e3d",
+          "targetNodeId": "bfe1aea5-0448-4726-be9b-448f17a2783f",
+          "sourcePort": "output",
+          "targetPort": "input",
+          "createdAt": "2026-02-27T03:22:51.281Z"
+        }
+      ],
+      "assets": [
+        {
+          "assetId": "38f6a08e-7d4c-4861-94b3-f5d2db2afd1f",
+          "name": "e2694aa4-c563-4493-aa5b-77bb46529452_sS6ifgeWP.jpeg",
+          "url": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/uploads/img_1772162539986_wbknqd.jpg",
+          "thumbnailUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/uploads/img_1772162539986_wbknqd.jpg",
+          "createdAt": "2026-02-27T03:22:20.860Z"
+        }
+      ],
+      "history": [
+        {
+          "historyId": "d75e28d3-d1dc-4a23-90dd-df4cbb63bd35",
+          "nodeId": "291c1db5-6f7d-4305-9f37-040d714d3e3d",
+          "outputType": "image",
+          "outputUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162567049_qgaheg.png",
+          "promptSnapshot": "改成手绘插画风格",
+          "modelSnapshot": "flux_klein",
+          "createdAt": "2026-02-27T03:22:51.281Z",
+          "status": "success"
+        },
+        {
+          "historyId": "cf193b9b-838a-40d4-b1ae-db6a61edda07",
+          "nodeId": "776a585f-19d8-4e9a-917c-6212ac97ff4c",
+          "outputType": "image",
+          "outputUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/outputs/img_1772162489156_1729qu.png",
+          "promptSnapshot": "小鸡",
+          "modelSnapshot": "flux_klein",
+          "createdAt": "2026-02-27T03:21:31.827Z",
+          "status": "success"
+        }
+      ],
+      "runQueue": [
+        {
+          "queueId": "8f8fdbf1-50f4-4b1e-a262-553a12571ce7",
+          "nodeId": "291c1db5-6f7d-4305-9f37-040d714d3e3d",
+          "nodeTitle": "e2694aa4-c563-4493-aa5b-77bb46529452_sS6ifgeWP.jpeg",
+          "status": "success",
+          "startedAt": "2026-02-27T03:22:39.478Z",
+          "endedAt": "2026-02-27T03:22:51.281Z"
+        },
+        {
+          "queueId": "5cee9388-56a1-4b51-846b-7b7dc17bc067",
+          "nodeId": "776a585f-19d8-4e9a-917c-6212ac97ff4c",
+          "nodeTitle": "Image Block",
+          "status": "success",
+          "startedAt": "2026-02-27T03:21:25.469Z",
+          "endedAt": "2026-02-27T03:21:31.827Z"
+        }
+      ]
+    }
+  ]
+}

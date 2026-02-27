@@ -16,7 +16,6 @@ import { GoogleApiStatus } from "@studio/playground/_components/GoogleApiStatus"
 import SimpleImagePreview from "@studio/playground/_components/SimpleImagePreview";
 import HistoryList from "@studio/playground/_components/HistoryList";
 import ImagePreviewModal from "@studio/playground/_components/Dialogs/ImagePreviewModal";
-// import TldrawEditorModal from "@studio/playground/_components/Dialogs/TldrawEditorModal";
 import WorkflowSelectorDialog from "@studio/playground/_components/Dialogs/WorkflowSelectorDialog";
 import BaseModelSelectorDialog from "@studio/playground/_components/Dialogs/BaseModelSelectorDialog";
 import LoraSelectorDialog from "@studio/playground/_components/Dialogs/LoraSelectorDialog";
@@ -34,19 +33,13 @@ import {
 } from "@/lib/playground/types";
 import type { Generation } from "@/types/database";
 import { downloadImage } from '@/lib/utils/download';
-import type { TLEditorSnapshot } from 'tldraw';
+import { ImageEditDialog, type ImageEditConfirmPayload, type ImageEditorSessionSnapshot } from '@/components/image-editor';
 
 import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 import { Image as ImageIcon } from "lucide-react";
-import dynamic from "next/dynamic";
-
-const TldrawEditorModal = dynamic(() => import("@studio/playground/_components/Dialogs/TldrawEditorModal"), {
-  loading: () => null,
-  ssr: false
-});
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useMediaQuery } from "@/hooks/common/use-media-query";
 import { PresetGridOverlay } from "@studio/playground/_components/PresetGridOverlay";
@@ -471,11 +464,21 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setSelectedLoras(newLoras);
   }, [setConfig, selectedModel, setSelectedModel, setSelectedLoras]);
 
-  /* Tldraw Editor States from Store */
-  const isTldrawEditorOpen = usePlaygroundStore((s) => s.isTldrawEditorOpen);
-  const tldrawEditingImageUrl = usePlaygroundStore((s) => s.tldrawEditingImageUrl);
-  const setTldrawEditorOpen = usePlaygroundStore((s) => s.setTldrawEditorOpen);
-  const tldrawSnapshot = usePlaygroundStore((s) => s.tldrawSnapshot);
+  const [imageEditState, setImageEditState] = useState<{
+    open: boolean;
+    imageUrl: string;
+    initialPrompt: string;
+    initialSession?: ImageEditorSessionSnapshot;
+    legacySnapshot?: Record<string, unknown>;
+    parentId?: string;
+  }>({
+    open: false,
+    imageUrl: '',
+    initialPrompt: '',
+    initialSession: undefined,
+    legacySnapshot: undefined,
+    parentId: undefined,
+  });
 
   // States for other dialogs
   const [isPresetGridOpen, setIsPresetGridOpen] = useState(false);
@@ -743,12 +746,22 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const presetName = (preset as PresetExtended & { title?: string; name?: string }).title || (preset as PresetExtended & { title?: string; name?: string }).name || effectiveConfig.presetName || 'Preset';
 
     if (preset.editConfig) {
-      setTldrawEditorOpen(true, formatImageUrl(preset.editConfig.originalImageUrl, true), preset.editConfig.tldrawSnapshot as unknown as TLEditorSnapshot);
-      // 编辑类预设不设置名称并确保清除之前的预设
+      const legacySnapshot = (preset.editConfig.tldrawSnapshot || effectiveConfig.tldrawSnapshot) as Record<string, unknown> | undefined;
+      const initialSession =
+        (preset.editConfig.imageEditorSession as ImageEditorSessionSnapshot | undefined)
+        || (effectiveConfig.imageEditorSession as ImageEditorSessionSnapshot | undefined);
+
+      setImageEditState({
+        open: true,
+        imageUrl: formatImageUrl(preset.editConfig.originalImageUrl, true),
+        initialPrompt: effectiveConfig.prompt || '',
+        initialSession,
+        legacySnapshot,
+        parentId: undefined,
+      });
       setSelectedPresetName(undefined);
     } else {
-      // If no specific edit config, ensure editor is closed or reset
-      setTldrawEditorOpen(false);
+      setImageEditState((previous) => ({ ...previous, open: false }));
     }
 
     // If it's a workflow preset, find and select the workflow first
@@ -991,162 +1004,193 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   };
 
   const handleEditImage = useCallback((historyItem: Generation, isAgain?: boolean) => {
-    // 尝试从 config.tldrawSnapshot 获取，或者旧的 editConfig 中获取
-    const snapshot = historyItem.config?.tldrawSnapshot || (historyItem.config?.editConfig as unknown as EditPresetConfig)?.tldrawSnapshot;
+    const getSessionFromGeneration = (item?: Generation): ImageEditorSessionSnapshot | undefined => (
+      (item?.config?.imageEditorSession as ImageEditorSessionSnapshot | undefined)
+      || (item?.config?.editConfig?.imageEditorSession as ImageEditorSessionSnapshot | undefined)
+    );
 
-    // 定位原始底图：
-    // 如果是 Edit Again (isAgain === true)，我们希望找回最初进入编辑器的图
-    // 1. 优先找 config.sourceImageUrls[0] (handleGenerate 保存的)
-    // 2. 其次找 editConfig.originalImageUrl
-    // 3. 最后 fallback 到 outputUrl (如果是常规 Edit 或是之前的兼容逻辑)
+    const getLegacySnapshotFromGeneration = (item?: Generation): Record<string, unknown> | undefined => (
+      (item?.config?.tldrawSnapshot as Record<string, unknown> | undefined)
+      || (item?.config?.editConfig?.tldrawSnapshot as Record<string, unknown> | undefined)
+    );
+
+    const isEditGeneration = (item?: Generation): boolean => Boolean(
+      item?.config?.isEdit
+      || item?.config?.imageEditorSession
+      || item?.config?.editConfig?.imageEditorSession
+      || item?.config?.editConfig?.originalImageUrl
+      || item?.config?.tldrawSnapshot
+      || item?.config?.editConfig?.tldrawSnapshot
+    );
+
+    let initialSession = getSessionFromGeneration(historyItem);
+    let legacySnapshot = getLegacySnapshotFromGeneration(historyItem);
     let imageUrl = historyItem.outputUrl;
 
     if (isAgain) {
-      const originalUrl = historyItem.config?.sourceImageUrls?.[0] || (historyItem.config?.editConfig as unknown as EditPresetConfig)?.originalImageUrl;
-      if (originalUrl) {
-        imageUrl = originalUrl;
+      const visited = new Set<string>();
+      let cursor: Generation | undefined = historyItem;
+      let resolvedOriginalUrl =
+        (historyItem.config?.editConfig as EditPresetConfig | undefined)?.originalImageUrl
+        || '';
+
+      while (cursor && cursor.id && !visited.has(cursor.id)) {
+        visited.add(cursor.id);
+
+        const cursorSession = getSessionFromGeneration(cursor);
+        if (cursorSession) {
+          initialSession = cursorSession;
+        }
+
+        if (!legacySnapshot) {
+          legacySnapshot = getLegacySnapshotFromGeneration(cursor);
+        }
+
+        const cursorOriginalUrl =
+          (cursor.config?.editConfig as EditPresetConfig | undefined)?.originalImageUrl;
+        if (cursorOriginalUrl) {
+          resolvedOriginalUrl = cursorOriginalUrl;
+        }
+
+        const parentRecordId: string | undefined = cursor.config?.parentId as string | undefined;
+        if (!parentRecordId) {
+          break;
+        }
+
+        const parentGeneration: Generation | undefined = generationHistory.find((historyEntry: Generation) => historyEntry.id === parentRecordId);
+        if (!parentGeneration) {
+          break;
+        }
+
+        if (!isEditGeneration(parentGeneration) && parentGeneration.outputUrl) {
+          resolvedOriginalUrl = parentGeneration.outputUrl;
+          const parentSession = getSessionFromGeneration(parentGeneration);
+          if (parentSession) {
+            initialSession = parentSession;
+          }
+          break;
+        }
+
+        cursor = parentGeneration;
       }
+
+      imageUrl = resolvedOriginalUrl || historyItem.outputUrl;
     }
 
-    setTldrawEditorOpen(true, imageUrl, snapshot as unknown as TLEditorSnapshot);
+    const normalizedImageUrl = formatImageUrl(imageUrl, true);
 
-    // 同时更新 config 状态以便后续生成使用正确的上下文
+    setImageEditState({
+      open: true,
+      imageUrl: normalizedImageUrl,
+      initialPrompt: historyItem.config.prompt || '',
+      initialSession,
+      legacySnapshot,
+      parentId: historyItem.id,
+    });
+
     updateConfig({
       isEdit: true,
       parentId: historyItem.id,
       prompt: historyItem.config.prompt,
-      // 清空 loras 和其他可能干扰的配置
       loras: [],
       isPreset: false,
-      presetName: undefined
+      presetName: undefined,
+      imageEditorSession: initialSession,
     });
     setSelectedPresetName(undefined);
-  }, [setTldrawEditorOpen, updateConfig, setSelectedPresetName]);
+  }, [generationHistory, setSelectedPresetName, updateConfig]);
 
   const handleEditUploadedImage = useCallback(() => {
     const imageToEdit = usePlaygroundStore.getState().uploadedImages[0];
     const imageUrl = imageToEdit ? (imageToEdit.path || imageToEdit.previewUrl) : "";
+    const currentConfig = usePlaygroundStore.getState().config;
 
-    // Pass undefined for snapshot as this is a fresh edit session
-    // Even if imageUrl is empty, we allow opening the editor (blank canvas)
-    setTldrawEditorOpen(true, imageUrl, undefined);
+    const normalizedImageUrl = formatImageUrl(imageUrl, true);
+
+    setImageEditState({
+      open: true,
+      imageUrl: normalizedImageUrl,
+      initialPrompt: currentConfig.prompt || config.prompt || '',
+      initialSession: currentConfig.imageEditorSession as ImageEditorSessionSnapshot | undefined,
+      legacySnapshot: currentConfig.tldrawSnapshot as Record<string, unknown> | undefined,
+      parentId: currentConfig.parentId,
+    });
 
     updateConfig({
       isEdit: true,
       prompt: config.prompt,
       loras: [],
       isPreset: false,
-      presetName: undefined
+      presetName: undefined,
     });
     setSelectedPresetName(undefined);
-  }, [setTldrawEditorOpen, updateConfig, config.prompt, setSelectedPresetName]);
+  }, [config.prompt, setSelectedPresetName, updateConfig]);
 
-  const handleSaveEditedImage = useCallback(async (dataUrl: string, prompt?: string, referenceImageUrls?: string[], shouldGenerate?: boolean, snapshot?: TLEditorSnapshot, keepOpen?: boolean, taskId?: string) => {
-    // 只有在 keepOpen 为 false 时才关闭编辑器
-    if (!keepOpen) {
-      setTldrawEditorOpen(false, "", snapshot);
-      setSelectedPresetName(undefined);
-
-      // 如果不是为了生成而关闭（即直接关闭或离场保存），则彻底清理编辑状态、Prompt 和参考图
-      if (!shouldGenerate) {
-        updateConfig({
-          isPreset: false,
-          presetName: undefined,
-          isEdit: false,
-          parentId: undefined,
-          prompt: ""
-        });
-        setUploadedImages([]);
-      } else {
-        updateConfig({ isPreset: false, presetName: undefined });
-      }
-    } else {
-      // 即使不关闭编辑器，也尽可能更新 snapshot 状态（虽然 setTldrawEditorOpen 此时不做 UI 关闭）
-      // 更新 TldrawEditor store 中的 snapshot？其实 playground 状态只需在下次打开时用
-      // 但这里我们是在生成时调用，意味着我们可能希望保存当前的 snapshot 到 history config 中
-      // 下面的逻辑会处理 prompt 和 history，但 snapshot 传递给了 generation config
-    }
-
-    // 如果需要生成，且不保持开启（通常生成时我们希望根据新需求保持开启，但也可能希望回到列表看结果）
-    // 现在的需求是：生成后不要退出。
-    // 所以 keepOpen=true 时，不切换视图
-    if (shouldGenerate && !keepOpen) {
-      setViewMode('dock');
-      setActiveTab('history');
-    }
-
+  const handleImageEditConfirm = useCallback(async (payload: ImageEditConfirmPayload) => {
     try {
-      // 更新 prompt 和 snapshot 到全局配置（虽然 setTldrawEditorOpen 已经更新了 snapshot，但这里可能需要持久化到 config）
-      // 注意：snapshot 通常很大，也许不需要每次都存到 localStorage 的 config 中，而是通过 generationHistory 关联
-      if (shouldGenerate && prompt) {
-        setConfig(prev => ({ ...prev, prompt }));
-      }
+      const response = await fetch(payload.mergedImageDataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `image-edit-${Date.now()}.png`, { type: 'image/png' });
+      const currentEditConfig = usePlaygroundStore.getState().config.editConfig as EditPresetConfig | undefined;
+      const nextEditConfig: EditPresetConfig = {
+        ...currentEditConfig,
+        canvasJson: currentEditConfig?.canvasJson || {},
+        referenceImages: currentEditConfig?.referenceImages || [],
+        annotations: currentEditConfig?.annotations || [],
+        backgroundColor: currentEditConfig?.backgroundColor || 'transparent',
+        canvasSize: {
+          width: payload.sessionSnapshot.imageWidth,
+          height: payload.sessionSnapshot.imageHeight,
+        },
+        originalImageUrl: imageEditState.imageUrl || currentEditConfig?.originalImageUrl || '',
+        imageEditorSession: payload.sessionSnapshot,
+      };
 
-      // 需求：退出时保存最新的 snapshot 到历史记录。
-      // 如果不生成且有新快照且有 taskId/parentId，说明需要“离场保存”
-      if (!shouldGenerate && snapshot && (taskId || config.parentId)) {
+      setUploadedImages([]);
+      await handleFilesUpload([file], 'reference');
+
+      updateConfig({
+        prompt: payload.finalPrompt,
+        isEdit: true,
+        isPreset: false,
+        presetName: undefined,
+        loras: [],
+        parentId: imageEditState.parentId,
+        imageEditorSession: payload.sessionSnapshot,
+        editConfig: nextEditConfig,
+      });
+
+      if (imageEditState.parentId) {
         syncHistoryConfig({
-          id: config.parentId, // 可能是一个具体的 ID
-          taskId: taskId,      // 也可以是整个 session 的 taskId
-          config: { tldrawSnapshot: snapshot as unknown as Record<string, unknown> }
+          id: imageEditState.parentId,
+          config: {
+            imageEditorSession: payload.sessionSnapshot,
+          },
         });
       }
 
-      if (shouldGenerate) {
-        // 上传主图（标注后的图）
-        const mainRes = await fetch(dataUrl);
-        const mainBlob = await mainRes.blob();
-        const mainFile = new File([mainBlob], `annotated-${Date.now()}.png`, { type: 'image/png' });
+      setSelectedPresetName(undefined);
+      setImageEditState((previous) => ({
+        ...previous,
+        initialSession: payload.sessionSnapshot,
+        legacySnapshot: undefined,
+      }));
 
-        // 现有逻辑是：Edit 模式下，UploadedImages 就是参考图列表。
-        // 我们应该先清空旧的（如果是重新开始）或者追加？
-        // 通常 Save 后是生成，生成使用 UploadedImages。
+      await handleGenerate();
 
-        // 简化策略：
-        // 1. 清空当前 UploadedImages (或者保留？根据需求。通常编辑结果作为新的参考图)
-        usePlaygroundStore.getState().setUploadedImages([]);
-
-        // 2. 上传主图
-        await handleFilesUpload([mainFile]);
-
-        // 3. 上传其他参考图
-        if (referenceImageUrls && referenceImageUrls.length > 0) {
-          for (const refUrl of referenceImageUrls) {
-            // 如果是 dataUrl 或 blobUrl (本地生成的)，需要转换并上传
-            // 如果是 http url (已存在的)，则直接构造 UploadedImage 对象添加到 store
-            if (refUrl.startsWith('data:') || refUrl.startsWith('blob:')) {
-              const rRes = await fetch(refUrl);
-              const rBlob = await rRes.blob();
-              const rFile = new File([rBlob], `ref-${Date.now()}.png`, { type: 'image/png' });
-              await handleFilesUpload([rFile]);
-            } else {
-              // 已有 URL，直接添加
-              const existingImg: UploadedImage = {
-                id: uuidv4(),
-                file: new File([], "existing.png"), // Dummy
-                base64: "",
-                previewUrl: refUrl,
-                path: refUrl,
-                isUploading: false
-              };
-              usePlaygroundStore.getState().setUploadedImages(prev => [...prev, existingImg]);
-            }
-          }
-        }
-      }
-
-      if (shouldGenerate) {
-        // 给一点时间让 state 更新
-        setTimeout(() => {
-          handleGenerate();
-        }, 500);
-      }
-
-    } catch (e) {
-      console.error("Failed to save edited image", e);
-      toast({ title: "保存失败", description: String(e), variant: "destructive" });
+      toast({
+        title: '已开始生成',
+        description: '已自动使用编辑结果和编辑指令发起生成。',
+      });
+    } catch (error) {
+      console.error('Failed to confirm image edit', error);
+      toast({
+        title: '编辑回填失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        variant: 'destructive',
+      });
     }
-  }, [setTldrawEditorOpen, setViewMode, setActiveTab, setConfig, handleGenerate, toast, handleFilesUpload, config.parentId, syncHistoryConfig, setSelectedPresetName, updateConfig, setUploadedImages]);
+  }, [handleFilesUpload, handleGenerate, imageEditState.imageUrl, imageEditState.parentId, setSelectedPresetName, setUploadedImages, syncHistoryConfig, toast, updateConfig]);
 
 
 
@@ -1509,53 +1553,20 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           onRegenerate={handleRegenerate}
         />
 
-        {
-          isTldrawEditorOpen && (
-            <TldrawEditorModal
-              isOpen={isTldrawEditorOpen}
-              onClose={() => setTldrawEditorOpen(false)}
-              imageUrl={tldrawEditingImageUrl}
-              onSave={handleSaveEditedImage}
-              inputSectionProps={inputSectionProps}
-              initialSnapshot={tldrawSnapshot as unknown as TLEditorSnapshot}
-              onSaveAsPreset={async (editConfig, name) => {
-                if (name) {
-                  try {
-                    const presetToSave = {
-                      id: `preset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                      name: name,
-                      coverUrl: editConfig.originalImageUrl,
-                      category: 'General',
-                      type: 'edit',
-                      config: {
-                        ...config,
-                        model: config.model || 'gemini-3-pro-image-preview',
-                        isEdit: true,
-                        tldrawSnapshot: editConfig.tldrawSnapshot
-                      },
-                      editConfig: editConfig,
-                      createdAt: new Date().toISOString()
-                    } as import('@/types/database').Preset;
-
-                    const addPreset = usePlaygroundStore.getState().addPreset;
-                    await addPreset(presetToSave);
-                    toast({ title: "存储成功", description: `预设「${name}」已保存` });
-                  } catch (err) {
-                    console.error('Failed to save preset in playground:', err);
-                    toast({
-                      title: "保存失败",
-                      description: err instanceof Error ? err.message : "未知错误",
-                      variant: "destructive"
-                    });
-                  }
-                } else {
-                  setPendingPresetEditConfig(editConfig);
-                  setIsPresetManagerOpen(true);
-                }
-              }}
-            />
-          )
-        }
+        <ImageEditDialog
+          open={imageEditState.open}
+          imageUrl={imageEditState.imageUrl}
+          initialPrompt={imageEditState.initialPrompt}
+          initialSession={imageEditState.initialSession}
+          legacyTldrawSnapshot={imageEditState.legacySnapshot}
+          onOpenChange={(open) => {
+            setImageEditState((previous) => ({
+              ...previous,
+              open,
+            }));
+          }}
+          onConfirm={handleImageEditConfirm}
+        />
 
         <SimpleImagePreview
           imageUrl={previewImageUrl}

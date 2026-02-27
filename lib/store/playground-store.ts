@@ -61,17 +61,9 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             setSelectorExpanded: (expanded) => set({ isSelectorExpanded: expanded }),
             activeTab: 'history',
             visitorId: undefined,
-            isTldrawEditorOpen: false,
-            tldrawEditingImageUrl: "",
-            tldrawSnapshot: undefined,
             bannerModeBackup: null,
             activeBannerData: null,
             ...createBannerActions(set, get),
-            setTldrawEditorOpen: (open, imageUrl = "", snapshot) => set({
-                isTldrawEditorOpen: open,
-                tldrawEditingImageUrl: imageUrl,
-                tldrawSnapshot: snapshot
-            }),
             setSelectedPresetName: (name) => set({ selectedPresetName: name }),
             setViewMode: (mode) => set((state) => {
                 const shouldLeaveBanner = mode === 'home' && state.activeTab === 'banner';
@@ -495,9 +487,6 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     isSelectionMode: false,
                     selectedHistoryIds: new Set(),
                     visitorId: undefined,
-                    isTldrawEditorOpen: false,
-                    tldrawEditingImageUrl: "",
-                    tldrawSnapshot: undefined,
                     bannerModeBackup: null,
                     activeBannerData: null,
                     galleryItems: [],

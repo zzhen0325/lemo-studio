@@ -257,6 +257,7 @@ export function useGenerationService() {
 
         const metadataConfig: Record<string, unknown> = { ...unified, model: modelId, baseModel: modelId, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
         delete metadataConfig.tldrawSnapshot;
+        delete metadataConfig.imageEditorSession;
 
         const finalGenConfig = { ...unified, model: modelId, baseModel: modelId, loras: undefined, workflowName: undefined, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: effectiveEditConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId, isPreset: !!currentConfig.presetName };
 
@@ -488,6 +489,8 @@ export function useGenerationService() {
                             const metadataConfig = { ...currentConfig, model: MODEL_ID_WORKFLOW, baseModel: currentConfig.model || MODEL_ID_WORKFLOW, workflowName: selectedWorkflowConfig.viewComfyJSON.title, loras: usePlaygroundStore.getState().selectedLoras, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             delete (metadataConfig as any).tldrawSnapshot;
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            delete (metadataConfig as any).imageEditorSession;
                             const previewUrl = URL.createObjectURL(blobs[0]);
                             const effectiveUserId = resolveEffectiveUserId();
                             const previewGen: Generation = {
@@ -564,6 +567,7 @@ export function useGenerationService() {
                         if (blobs && blobs.length > 0) {
                             const metadataConfig: Record<string, unknown> = { ...currentConfig, model: MODEL_ID_FLUX_KLEIN, baseModel: MODEL_ID_FLUX_KLEIN, localSourceId: effectiveLocalId, localSourceIds: effectiveLocalIds, presetName: currentConfig.presetName, isPreset: !!currentConfig.presetName };
                             delete metadataConfig.tldrawSnapshot;
+                            delete metadataConfig.imageEditorSession;
                             const previewUrl = URL.createObjectURL(blobs[0]);
                             const effectiveUserId = resolveEffectiveUserId();
                             const previewGen: Generation = {
@@ -687,7 +691,7 @@ export function useGenerationService() {
             combinedConfig.generationMode = 'banner';
             combinedConfig.bannerTemplateId = template.id;
             combinedConfig.bannerFields = activeBannerData.fields;
-            combinedConfig.bannerTextPositions = activeBannerData.textPositions || [];
+            combinedConfig.bannerTextPositions = [];
             combinedConfig.bannerPromptFinal = promptFinal;
             combinedConfig.sourceImageUrls = sourceImageUrls;
             combinedConfig.isPreset = false;
@@ -706,7 +710,9 @@ export function useGenerationService() {
         const displayEditConfig = isEdit ? (editConfig ? {
             ...editConfig,
             referenceImages: sourceImageUrls.map((url, idx) => ({ id: editConfig.referenceImages?.[idx]?.id || `ref-${idx}`, dataUrl: url, label: editConfig.referenceImages?.[idx]?.label || `Image ${idx + 1}` })),
-            originalImageUrl: sourceImageUrl || editConfig.originalImageUrl || '',
+            // Keep the original editable base image stable for "Edit Again";
+            // sourceImageUrl here can be the merged annotation image.
+            originalImageUrl: editConfig.originalImageUrl || sourceImageUrl || '',
         } : (sourceImageUrls.length > 0 ? { canvasJson: {}, referenceImages: sourceImageUrls.map((url, idx) => ({ id: `ref-${idx}`, dataUrl: url, label: `Image ${idx + 1}` })), originalImageUrl: sourceImageUrl || '', annotations: [], backgroundColor: 'transparent', canvasSize: { width: Number(width), height: Number(height) } } : undefined)) : undefined;
         const unifiedCfg = toUnifiedConfigFromLegacy(combinedConfig);
         const effectiveModel = unifiedCfg.model || usePlaygroundStore.getState().selectedModel;

@@ -1,31 +1,5 @@
-import { createRequire } from 'module';
 import path from 'path';
 import fs from 'fs';
-
-const require = createRequire(import.meta.url);
-
-// 获取 tldraw 相关包的绝对路径，确保只有一个实例
-const tldrawPackages = [
-  'tldraw',
-  '@tldraw/editor',
-  '@tldraw/ui',
-  '@tldraw/utils',
-  '@tldraw/state',
-  '@tldraw/state-react',
-  '@tldraw/store',
-  '@tldraw/tlschema',
-  '@tldraw/validate',
-];
-
-const tldrawAliases = Object.fromEntries(
-  tldrawPackages.map((pkg) => {
-    try {
-      return [pkg, path.dirname(require.resolve(`${pkg}/package.json`))];
-    } catch {
-      return [pkg, pkg];
-    }
-  })
-);
 
 function loadExternalAssetRedirects() {
   try {
@@ -118,16 +92,10 @@ const nextConfig = {
   },
   outputFileTracingRoot: import.meta.dirname,
   experimental: {
-    optimizePackageImports: ['lucide-react', 'lucide', 'tldraw', '@tldraw/editor', '@tldraw/ui'],
+    optimizePackageImports: ['lucide-react', 'lucide'],
   },
-  transpilePackages: ['tldraw', '@tldraw/editor', '@tldraw/ui', '@tldraw/utils', '@tldraw/state', '@tldraw/store', '@tldraw/tlschema', '@tldraw/validate'],
+  transpilePackages: [],
   webpack: (config, { isServer }) => {
-    // 添加 alias 确保 tldraw 相关包只有一个实例
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      ...tldrawAliases,
-    };
-
     if (isServer) {
       config.externals.push(
         '@napi-rs/snappy-darwin-arm64',

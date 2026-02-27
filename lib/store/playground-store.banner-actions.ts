@@ -1,4 +1,3 @@
-import type { TLEditorSnapshot } from 'tldraw';
 import type { BannerModelId, BannerRegionInstruction, BannerTextPositionInstruction } from '@/lib/playground/types';
 import type { PlaygroundState } from './playground-store.types';
 import type { StoreApi } from 'zustand';
@@ -8,6 +7,7 @@ import {
   normalizeBannerFields,
   normalizeBannerRegions,
   normalizeBannerTextPositions,
+  syncBannerTextRegionDescriptions,
 } from '../prompt/banner-prompt';
 import {
   buildBannerGenerationConfig,
@@ -81,33 +81,36 @@ export function createBannerActions(set: PlaygroundSet, get: PlaygroundGet): Pic
       if (!template) return state;
 
       const nextFields = normalizeBannerFields({ ...currentData.fields, ...fields });
+      const nextRegions = syncBannerTextRegionDescriptions(currentData.regions);
       const nextPrompt = currentData.promptEdited
         ? currentData.promptFinal
-        : buildBannerPrompt(template, nextFields, currentData.regions, currentData.textPositions || []);
+        : buildBannerPrompt(template, nextFields, nextRegions, currentData.textPositions || []);
 
       return {
         activeBannerData: {
           ...currentData,
           fields: nextFields,
+          regions: nextRegions,
           promptFinal: nextPrompt,
         },
         config: {
           ...buildBannerGenerationConfig(state.config, {
             ...currentData,
             fields: nextFields,
+            regions: nextRegions,
             promptFinal: nextPrompt,
           }),
         },
       };
     }),
-    updateBannerRegions: (regions: BannerRegionInstruction[], snapshot?: TLEditorSnapshot) => set((state) => {
+    updateBannerRegions: (regions: BannerRegionInstruction[], snapshot?: Record<string, unknown>) => set((state) => {
       const currentData = state.activeBannerData;
       if (!currentData) return state;
 
       const template = getBannerTemplateById(currentData.templateId);
       if (!template) return state;
 
-      const nextRegions = normalizeBannerRegions(regions);
+      const nextRegions = syncBannerTextRegionDescriptions(normalizeBannerRegions(regions));
       const nextPrompt = currentData.promptEdited
         ? currentData.promptFinal
         : buildBannerPrompt(template, currentData.fields, nextRegions, currentData.textPositions || []);
@@ -117,13 +120,13 @@ export function createBannerActions(set: PlaygroundSet, get: PlaygroundGet): Pic
           ...currentData,
           regions: nextRegions,
           promptFinal: nextPrompt,
-          editorSnapshot: snapshot ? (snapshot as unknown as Record<string, unknown>) : currentData.editorSnapshot,
+          editorSnapshot: snapshot || currentData.editorSnapshot,
         },
         config: buildBannerGenerationConfig(state.config, {
           ...currentData,
           regions: nextRegions,
           promptFinal: nextPrompt,
-          editorSnapshot: snapshot ? (snapshot as unknown as Record<string, unknown>) : currentData.editorSnapshot,
+          editorSnapshot: snapshot || currentData.editorSnapshot,
         }),
       };
     }),

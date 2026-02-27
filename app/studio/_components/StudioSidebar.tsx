@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   User as UserIcon,
   ChevronDown,
@@ -35,6 +35,9 @@ export const StudioSidebar = observer(function StudioSidebar() {
   const [authOpen, setAuthOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const { setViewMode } = usePlaygroundStore();
+  const prefetchRoute = useCallback((href: string) => {
+    void router.prefetch(href);
+  }, [router]);
 
   return (
     <header className="fixed top-2 px-10 left-0 right-0 h-14 z-50 flex items-center justify-between select-none">
@@ -55,7 +58,10 @@ export const StudioSidebar = observer(function StudioSidebar() {
           return (
             <button
               key={item.value}
+              type="button"
               onClick={() => router.push(item.href)}
+              onMouseEnter={() => prefetchRoute(item.href)}
+              onFocus={() => prefetchRoute(item.href)}
               className={cn(
                 "px-4 h-10 flex items-center gap-2 transition-all relative group text-sm whitespace-nowrap",
                 isActive ? "text-white font-medium" : "text-white/60 hover:text-white"

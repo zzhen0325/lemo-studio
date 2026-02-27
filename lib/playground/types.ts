@@ -81,6 +81,10 @@ export interface BannerRegionInstruction {
   id: string;
   label: string;
   description: string;
+  role?: 'mainTitle' | 'subTitle' | 'timeText' | 'custom';
+  mode?: 'text' | 'region';
+  name?: string;
+  sourceText?: string;
   x?: number;
   y?: number;
   width?: number;
@@ -102,6 +106,7 @@ export interface BannerTextPositionInstruction {
 export interface BannerTemplateConfig {
   id: string;
   name: string;
+  tags?: string[];
   thumbnailUrl: string;
   baseImageUrl: string;
   width: number;
