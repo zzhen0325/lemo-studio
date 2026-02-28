@@ -59,7 +59,6 @@ export function partializePlaygroundState(state: PlaygroundState) {
     } : undefined,
     selectedLoras: state.selectedLoras,
     isAspectRatioLocked: state.isAspectRatioLocked,
-    isMockMode: state.isMockMode,
     viewMode: state.viewMode,
     visitorId: state.visitorId || `visitor_${Math.random().toString(36).substring(2, 11)}`,
     generationHistory: [],

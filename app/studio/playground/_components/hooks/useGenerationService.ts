@@ -59,6 +59,77 @@ export interface GenerateOptions {
     localSourceIds?: string[];
 }
 
+const GEMINI_MAX_INLINE_IMAGE_DIMENSION = 3072;
+const GEMINI_TARGET_INLINE_IMAGE_BYTES = 4 * 1024 * 1024;
+
+function estimateDataUrlBytes(dataUrl: string): number {
+    const base64 = dataUrl.split(",")[1] || "";
+    const padding = base64.endsWith("==") ? 2 : (base64.endsWith("=") ? 1 : 0);
+    return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+}
+
+function getDataUrlMimeType(dataUrl: string): string {
+    const match = dataUrl.match(/^data:([^;,]+)[;,]/i);
+    return (match?.[1] || "").toLowerCase();
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Failed to decode image"));
+        image.src = src;
+    });
+}
+
+async function sanitizeDataUrlForGemini(dataUrl: string): Promise<string> {
+    const image = await loadImageElement(dataUrl);
+    const mimeType = getDataUrlMimeType(dataUrl);
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+    const largestSide = Math.max(width, height);
+    const byteSize = estimateDataUrlBytes(dataUrl);
+    const shouldReencode = largestSide > GEMINI_MAX_INLINE_IMAGE_DIMENSION
+        || byteSize > GEMINI_TARGET_INLINE_IMAGE_BYTES
+        || (mimeType !== "image/jpeg" && mimeType !== "image/jpg");
+
+    if (!shouldReencode) {
+        return dataUrl;
+    }
+
+    const scale = largestSide > GEMINI_MAX_INLINE_IMAGE_DIMENSION
+        ? GEMINI_MAX_INLINE_IMAGE_DIMENSION / largestSide
+        : 1;
+    const targetWidth = Math.max(1, Math.round(width * scale));
+    const targetHeight = Math.max(1, Math.round(height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+        return dataUrl;
+    }
+
+    // Flatten alpha and re-encode to a Gemini-friendly JPEG payload.
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    const qualities = [0.92, 0.86, 0.8, 0.74, 0.68, 0.62];
+    let fallback = canvas.toDataURL("image/jpeg", qualities[0]);
+
+    for (const quality of qualities) {
+        const candidate = canvas.toDataURL("image/jpeg", quality);
+        fallback = candidate;
+        if (estimateDataUrlBytes(candidate) <= GEMINI_TARGET_INLINE_IMAGE_BYTES) {
+            return candidate;
+        }
+    }
+
+    return fallback;
+}
+
 export function useGenerationService() {
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
@@ -68,7 +139,6 @@ export function useGenerationService() {
 
     const selectedModel = usePlaygroundStore(s => s.selectedModel);
     const selectedWorkflowConfig = usePlaygroundStore(s => s.selectedWorkflowConfig);
-    const isMockMode = usePlaygroundStore(s => s.isMockMode);
     const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
     const setHasGenerated = usePlaygroundStore(s => s.setHasGenerated);
 
@@ -92,13 +162,17 @@ export function useGenerationService() {
     }), []);
 
     const fetchImageAsDataUrl = useCallback(async (url: string): Promise<string | null> => {
-        if (!url.startsWith('http')) return null;
+        if (!url.startsWith('http') && !url.startsWith('/')) return null;
 
         const controller = new AbortController();
         const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 
         try {
-            const response = await fetch(url, {
+            const resolvedUrl = url.startsWith('/')
+                ? new URL(url, window.location.origin).toString()
+                : url;
+
+            const response = await fetch(resolvedUrl, {
                 signal: controller.signal,
                 mode: 'cors',
                 credentials: 'omit',
@@ -119,6 +193,22 @@ export function useGenerationService() {
             window.clearTimeout(timeoutId);
         }
     }, [blobToDataURL]);
+
+    const normalizeGeminiInputImage = useCallback(async (inputUrl: string): Promise<string> => {
+        let candidate = inputUrl;
+        if (!candidate.startsWith("data:")) {
+            const dataUrl = await fetchImageAsDataUrl(candidate);
+            if (!dataUrl) return candidate;
+            candidate = dataUrl;
+        }
+
+        try {
+            return await sanitizeDataUrlForGemini(candidate);
+        } catch (err) {
+            console.warn("[useGenerationService] Failed to sanitize Gemini input image:", err);
+            return candidate;
+        }
+    }, [fetchImageAsDataUrl]);
 
     const toPreviewUrl = useCallback(async (imageUrl: string): Promise<string> => {
         if (!imageUrl.startsWith('data:')) return imageUrl;
@@ -145,24 +235,30 @@ export function useGenerationService() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ imageBase64: dataUrl, subdir: 'outputs', metadata })
             });
-            const json = await resp.json();
+            const text = await resp.text();
+            let json: Record<string, unknown> | null = null;
+            try { json = JSON.parse(text); } catch { /* non-JSON response */ }
+
             if (!resp.ok || !json?.path) {
-                console.error('[saveImageToOutputs] Failed:', { status: resp.status, json });
-                throw new Error(json?.message || `HTTP ${resp.status}`);
+                const errorMsg = json?.message || json?.error || (text.length < 200 ? text : `HTTP ${resp.status}`);
+                console.error('[saveImageToOutputs] Failed:', { status: resp.status, body: text.slice(0, 300) });
+                throw new Error(String(errorMsg));
             }
             return String(json.path);
         } catch (err) {
             console.error('[saveImageToOutputs] Error:', err);
             // CRITICAL: Return empty string instead of defaulting to dataUrl
             // to prevent leaking massive Base64 into the history store persistence
+            const errMsg = err instanceof Error ? err.message : String(err);
             toast({
                 title: "图片保存失败",
-                description: "生成结果无法保存到服务器。历史记录将由于空间限制无法保存此预览。",
+                description: errMsg.length < 150 ? errMsg : "生成结果无法保存到服务器，请检查服务器日志。",
                 variant: "destructive"
             });
             return "";
         }
     }, [toast]);
+
 
     // Helper: Save to history.json
 
@@ -219,6 +315,9 @@ export function useGenerationService() {
         const effectiveLocalIds = localSourceIds.length > 0
             ? localSourceIds
             : (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages.map(img => img.id).filter((id): id is string => !!id) : []);
+        const effectiveSourceUrl = effectiveSourceUrls[0];
+        const unified = toUnifiedConfigFromLegacy(currentConfig);
+        const modelId = unified.model || selectedModel || defaultImageModelId;
 
         const uploadedImages = usePlaygroundStore.getState().uploadedImages;
         const effectiveInputImages = effectiveSourceUrls.map((url, idx) => {
@@ -236,16 +335,20 @@ export function useGenerationService() {
         });
 
         const normalizedInputImages = await Promise.all(effectiveInputImages.map(async (inputUrl) => {
-            if (!inputUrl.startsWith('http')) return inputUrl;
-            if (!/tiktokcdn\.com/i.test(inputUrl)) return inputUrl;
+            const shouldInlineImage = inputUrl.startsWith('/')
+                || /tiktokcdn\.com/i.test(inputUrl);
+            if (!shouldInlineImage) return inputUrl;
 
             const asDataUrl = await fetchImageAsDataUrl(inputUrl);
-            return asDataUrl || inputUrl;
+            if (asDataUrl) return asDataUrl;
+            if (inputUrl.startsWith('/')) {
+                throw new Error(`参考图路径无效或文件已失效: ${inputUrl}`);
+            }
+            return inputUrl;
         }));
-
-        const effectiveSourceUrl = effectiveSourceUrls[0];
-        const unified = toUnifiedConfigFromLegacy(currentConfig);
-        const modelId = unified.model || selectedModel || defaultImageModelId;
+        const modelReadyInputImages = modelId.startsWith("gemini-")
+            ? await Promise.all(normalizedInputImages.map((imageUrl) => normalizeGeminiInputImage(imageUrl)))
+            : normalizedInputImages;
         const modelCapabilities = getModelEntryById(modelId)?.capabilities;
         const supportsImageEdit = modelCapabilities?.supportsImageEdit
             ?? (modelCapabilities?.supportsMultiImage ?? true);
@@ -255,8 +358,8 @@ export function useGenerationService() {
         const maxReferenceImages = modelCapabilities?.supportsMultiImage === false
             ? 1
             : Math.max(1, modelCapabilities?.maxReferenceImages || 4);
-        const constrainedInputImages = normalizedInputImages.slice(0, maxReferenceImages);
-        if (normalizedInputImages.length > maxReferenceImages) {
+        const constrainedInputImages = modelReadyInputImages.slice(0, maxReferenceImages);
+        if (modelReadyInputImages.length > maxReferenceImages) {
             toast({
                 title: "参考图数量已限制",
                 description: `当前模型最多支持 ${maxReferenceImages} 张参考图，已自动截断。`,
@@ -454,7 +557,7 @@ export function useGenerationService() {
             return previewGen;
         }
         throw new Error(`${selectedModel} returned empty result`);
-    }, [selectedModel, defaultImageModelId, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, resolveEffectiveUserId, getModelEntryById]);
+    }, [selectedModel, defaultImageModelId, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, normalizeGeminiInputImage, resolveEffectiveUserId, getModelEntryById]);
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
@@ -687,14 +790,6 @@ export function useGenerationService() {
         const isWorkflow = isWorkflowModel(effectiveModel, !!selectedWorkflowConfig);
 
         try {
-            if (isMockMode) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                const mockImageUrl = `/uploads/1750263630880_smwzxy6h4ws.png`;
-                const effectiveUserId = resolveEffectiveUserId();
-                const result: Generation = { id: uniqueId, userId: effectiveUserId, projectId: 'default', outputUrl: mockImageUrl, config: { prompt: unifiedCfg.prompt, width: unifiedCfg.width, height: unifiedCfg.height, model: unifiedCfg.model, loras: isWorkflow ? usePlaygroundStore.getState().selectedLoras : undefined, isPreset: !!(unifiedCfg.presetName), workflowName: isWorkflow ? usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title || undefined : undefined, sourceImageUrls: sourceImageUrls, localSourceIds: localSourceIds, taskId: taskId }, status: 'completed', createdAt: new Date().toISOString() };
-                updateHistoryAndSave(uniqueId, result);
-                return result;
-            }
             if (effectiveModel === MODEL_ID_FLUX_KLEIN) return await handleFluxKlein(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
             if (isWorkflow) return await handleWorkflow(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
             else return await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
@@ -704,7 +799,7 @@ export function useGenerationService() {
             toast({ title: "生成失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
             return undefined;
         }
-    }, [isMockMode, selectedModel, handleWorkflow, handleUnifiedImageGen, handleFluxKlein, updateHistoryAndSave, setGenerationHistory, toast, selectedWorkflowConfig, resolveEffectiveUserId]);
+    }, [selectedModel, handleWorkflow, handleUnifiedImageGen, handleFluxKlein, setGenerationHistory, toast, selectedWorkflowConfig]);
 
     const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
         const { configOverride, fixedCreatedAt, isBackground } = options;

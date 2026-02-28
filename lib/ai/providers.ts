@@ -33,6 +33,35 @@ type DoubaoResponse = {
   output_text?: string | string[];
 };
 
+function getWorkspaceRoot(): string {
+  const cwd = process.cwd();
+  return cwd.endsWith(`${path.sep}server`) ? path.join(cwd, "..") : cwd;
+}
+
+function getMimeTypeFromPath(filePath: string): string {
+  const ext = path.extname(filePath).slice(1).toLowerCase();
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  return "image/png";
+}
+
+async function readLocalPublicImage(
+  rawPath: string
+): Promise<{ data: string; mimeType: string } | null> {
+  const normalized = rawPath.replace(/\\/g, "/").trim();
+  if (!normalized.startsWith("/") || normalized.includes("..")) {
+    return null;
+  }
+
+  const publicPath = path.join(getWorkspaceRoot(), "public", normalized);
+  const buffer = await fs.readFile(publicPath);
+  return {
+    data: buffer.toString("base64"),
+    mimeType: getMimeTypeFromPath(publicPath),
+  };
+}
+
 function extractDoubaoOutputText(data: DoubaoResponse): string {
   const outputs = Array.isArray(data.output) ? data.output : [];
 
@@ -392,6 +421,18 @@ export class GoogleGenAIProvider
           mimeType = parts[0].split(":")[1].split(";")[0];
           base64Data = parts[1];
         }
+      }
+    } else if (img.startsWith("/") && img.length < 2048) {
+      try {
+        const localImage = await readLocalPublicImage(img);
+        if (!localImage) {
+          throw new Error(`Invalid local image path: ${img}`);
+        }
+        base64Data = localImage.data;
+        mimeType = localImage.mimeType;
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Read local image failed: ${msg}`);
       }
     } else if (img.startsWith("http")) {
       // 下载并转换为 base64

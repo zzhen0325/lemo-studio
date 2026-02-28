@@ -132,8 +132,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   // const remix = usePlaygroundStore(s => s.remix);
   const isAspectRatioLocked = usePlaygroundStore(s => s.isAspectRatioLocked);
   const setIsAspectRatioLocked = usePlaygroundStore(s => s.setAspectRatioLocked);
-  const isMockMode = usePlaygroundStore(s => s.isMockMode);
-  const setMockMode = usePlaygroundStore(s => s.setMockMode);
   const isSelectorExpanded = usePlaygroundStore(s => s.isSelectorExpanded);
   const setIsSelectorExpanded = usePlaygroundStore(s => s.setSelectorExpanded);
 
@@ -570,7 +568,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     );
     const shouldSequentialExecute =
       modelForBatch === MODEL_ID_FLUX_KLEIN
-      || isWorkflowModel(modelForBatch, Boolean(usePlaygroundStore.getState().selectedWorkflowConfig));
+      || isWorkflowModel(modelForBatch, Boolean(usePlaygroundStore.getState().selectedWorkflowConfig))
+      // Gemini 模型生成时间约 30s，图片体积大（2K=7MB），并发会导致代理内存溢出；改为串行逐张显示
+      || modelForBatch.startsWith('gemini-');
+
 
     // Launch generation tasks
     // Always create pending cards immediately, then schedule real execution.
@@ -1254,7 +1255,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     isDraggingOverPanel,
     isPresetGridOpen,
     isAspectRatioLocked,
-    isMockMode,
     isSelectorExpanded,
     batchSize,
     selectedModel,
@@ -1279,7 +1279,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsAspectRatioLocked,
     setSelectedWorkflowConfig,
     applyWorkflowDefaults,
-    setMockMode,
     setIsSelectorExpanded,
     setBatchSize,
     setIsLoraDialogOpen,
@@ -1307,14 +1306,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   }), [
     viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused,
     isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver,
-    isDraggingOverPanel, isPresetGridOpen, isAspectRatioLocked, isMockMode,
+    isDraggingOverPanel, isPresetGridOpen, isAspectRatioLocked,
     isSelectorExpanded, batchSize, selectedModel, selectedAIModel, selectedLoras,
     selectedPresetName, selectedWorkflowConfig, workflows, fileInputRef,
     describePanelRef, setConfig, setIsStackHovered, setIsInputFocused,
     setPreviewImage, removeImage, handleFilesUpload, handleOptimizePrompt,
     handleGenerate, handleDescribe, setSelectedAIModel,
     setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults,
-    setMockMode, setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
+    setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
     setUploadedImages

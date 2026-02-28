@@ -51,8 +51,6 @@ interface ControlToolbarProps {
   onAspectRatioChange: (ar: string) => void;
   currentImageSize: ImageSize;
   onImageSizeChange: (size: ImageSize) => void;
-  isMockMode?: boolean;
-  onMockModeChange?: (val: boolean) => void;
   isSelectorExpanded?: boolean;
   onSelectorExpandedChange?: (expanded: boolean) => void;
   isPresetGridOpen?: boolean;

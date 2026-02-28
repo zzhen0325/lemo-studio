@@ -66,7 +66,7 @@ export function CollectionDetailListView({
   onPromptEditingChange,
 }: CollectionDetailListViewProps) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 relative overflow-y-auto custom-scrollbar flex-1 min-h-0 pr-2 pt-10">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 relative overflow-y-auto custom-scrollbar flex-1 min-h-0 pr-2 ">
       <Dialog
         open={isConflictDialogOpen}
         onOpenChange={onConflictDialogOpenChange}

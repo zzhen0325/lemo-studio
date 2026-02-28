@@ -61,6 +61,13 @@ export default class CorsMiddleware extends GuluXMiddleware {
       return;
     }
 
+    // 对 AI 生成等长耗时接口强制 Connection: close，
+    // 防止 Next.js rewrite 代理因复用过期 keep-alive 连接而 ECONNRESET
+    const longRunningPaths = ['/api/ai/image', '/api/ai/text', '/api/translate'];
+    if (longRunningPaths.some(p => req.path?.startsWith?.(p))) {
+      res.set('Connection', 'close');
+    }
+
     await next();
   }
 }

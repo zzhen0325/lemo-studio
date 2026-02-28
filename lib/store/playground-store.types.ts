@@ -58,8 +58,6 @@ export interface PlaygroundState {
 
   isAspectRatioLocked: boolean;
   setAspectRatioLocked: (locked: boolean) => void;
-  isMockMode: boolean;
-  setMockMode: (mode: boolean) => void;
   isSelectorExpanded: boolean;
   setSelectorExpanded: (expanded: boolean) => void;
 
