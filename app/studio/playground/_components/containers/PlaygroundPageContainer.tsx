@@ -103,6 +103,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
   // const fetchHistory = usePlaygroundStore(s => s.fetchHistory); // Deprecated in favor of useHistory
   const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
+  const initPresets = usePlaygroundStore(s => s.initPresets);
   const applyModel = usePlaygroundStore(s => s.applyModel);
   const addStyle = usePlaygroundStore(s => s.addStyle);
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
@@ -283,7 +284,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const promptWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // initPresets 已在 app/page.tsx 空闲时预加载，此处移除以避免重复请求
+  useEffect(() => {
+    initPresets();
+  }, [initPresets]);
 
   // Helper: save history using unified fields
   const saveHistoryToBackend = React.useCallback(async (item: import('@/types/database').Generation) => {

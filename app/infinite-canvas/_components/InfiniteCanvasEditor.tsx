@@ -7,6 +7,7 @@ import {
   Check,
   CircleDashed,
   Copy,
+  GalleryHorizontalEnd,
   History,
   Home,
   Layers,
@@ -38,6 +39,7 @@ import { type InfinitePanel } from '../_lib/constants';
 import {
   computeViewportCenter,
   createId,
+  createGalleryNode,
   createImageNode,
   createTextNode,
   deepClone,
@@ -53,6 +55,7 @@ import type {
 } from '@/types/infinite-canvas';
 import CanvasNodeCard from './CanvasNodeCard';
 import InfiniteCanvasProjectSidebar from './InfiniteCanvasProjectSidebar';
+import CanvasContextMenu from './CanvasContextMenu';
 
 interface InfiniteCanvasEditorProps {
   projectId: string;
@@ -61,15 +64,6 @@ interface InfiniteCanvasEditorProps {
 interface ScreenPoint {
   x: number;
   y: number;
-}
-
-interface NodeBounds {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-  centerX: number;
-  centerY: number;
 }
 
 interface DragGuide {
@@ -174,41 +168,7 @@ function formatEtaLabel(seconds?: number) {
   return `${mins}m ${rest}s`;
 }
 
-function makeNodeBounds(x: number, y: number, width: number, height: number): NodeBounds {
-  return {
-    left: x,
-    right: x + width,
-    top: y,
-    bottom: y + height,
-    centerX: x + width / 2,
-    centerY: y + height / 2,
-  };
-}
 
-function mergeNodeBounds(bounds: NodeBounds[]): NodeBounds | null {
-  if (bounds.length === 0) return null;
-
-  let left = Number.POSITIVE_INFINITY;
-  let right = Number.NEGATIVE_INFINITY;
-  let top = Number.POSITIVE_INFINITY;
-  let bottom = Number.NEGATIVE_INFINITY;
-
-  bounds.forEach((bound) => {
-    left = Math.min(left, bound.left);
-    right = Math.max(right, bound.right);
-    top = Math.min(top, bound.top);
-    bottom = Math.max(bottom, bound.bottom);
-  });
-
-  return {
-    left,
-    right,
-    top,
-    bottom,
-    centerX: (left + right) / 2,
-    centerY: (top + bottom) / 2,
-  };
-}
 
 function intersectsRect(
   a: { x: number; y: number; width: number; height: number },
@@ -263,109 +223,7 @@ function findConnectionTargetCandidate(
   return best;
 }
 
-function computeDragSnapAdjustment(
-  session: DragSession,
-  dx: number,
-  dy: number,
-  scale: number,
-): { offsetX: number; offsetY: number; guides: DragGuide[] } {
-  const movingSet = new Set(session.nodeIds);
-  const snapshotMap = new Map(session.allNodes.map((node) => [node.nodeId, node]));
 
-  const movingBounds = session.nodeIds
-    .map((nodeId) => {
-      const snapshot = snapshotMap.get(nodeId);
-      const base = session.startPositions[nodeId];
-      if (!snapshot || !base || snapshot.isLocked) return null;
-      return makeNodeBounds(base.x + dx, base.y + dy, snapshot.width, snapshot.height);
-    })
-    .filter(Boolean) as NodeBounds[];
-
-  const movingMerged = mergeNodeBounds(movingBounds);
-  if (!movingMerged) {
-    return { offsetX: 0, offsetY: 0, guides: [] };
-  }
-
-  const staticBounds = session.allNodes
-    .filter((node) => !movingSet.has(node.nodeId))
-    .map((node) => makeNodeBounds(node.position.x, node.position.y, node.width, node.height));
-  if (staticBounds.length === 0) {
-    return { offsetX: 0, offsetY: 0, guides: [] };
-  }
-
-  const threshold = 8 / Math.max(scale, 0.2);
-  const xCandidates = staticBounds.flatMap((bound) => [
-    { value: bound.left, start: bound.top, end: bound.bottom },
-    { value: bound.centerX, start: bound.top, end: bound.bottom },
-    { value: bound.right, start: bound.top, end: bound.bottom },
-  ]);
-  const yCandidates = staticBounds.flatMap((bound) => [
-    { value: bound.top, start: bound.left, end: bound.right },
-    { value: bound.centerY, start: bound.left, end: bound.right },
-    { value: bound.bottom, start: bound.left, end: bound.right },
-  ]);
-
-  const movingXAnchors = [movingMerged.left, movingMerged.centerX, movingMerged.right];
-  const movingYAnchors = [movingMerged.top, movingMerged.centerY, movingMerged.bottom];
-
-  let bestX:
-    | { offset: number; candidate: { value: number; start: number; end: number } }
-    | null = null;
-  let bestY:
-    | { offset: number; candidate: { value: number; start: number; end: number } }
-    | null = null;
-
-  for (const anchor of movingXAnchors) {
-    for (const candidate of xCandidates) {
-      const delta = candidate.value - anchor;
-      if (Math.abs(delta) > threshold) continue;
-      if (!bestX || Math.abs(delta) < Math.abs(bestX.offset)) {
-        bestX = { offset: delta, candidate };
-      }
-    }
-  }
-
-  for (const anchor of movingYAnchors) {
-    for (const candidate of yCandidates) {
-      const delta = candidate.value - anchor;
-      if (Math.abs(delta) > threshold) continue;
-      if (!bestY || Math.abs(delta) < Math.abs(bestY.offset)) {
-        bestY = { offset: delta, candidate };
-      }
-    }
-  }
-
-  const offsetX = bestX?.offset || 0;
-  const offsetY = bestY?.offset || 0;
-  const snappedBounds = makeNodeBounds(
-    movingMerged.left + offsetX,
-    movingMerged.top + offsetY,
-    movingMerged.right - movingMerged.left,
-    movingMerged.bottom - movingMerged.top,
-  );
-
-  const guides: DragGuide[] = [];
-
-  if (bestX) {
-    guides.push({
-      axis: 'x',
-      value: bestX.candidate.value,
-      start: Math.min(snappedBounds.top, bestX.candidate.start) - 36,
-      end: Math.max(snappedBounds.bottom, bestX.candidate.end) + 36,
-    });
-  }
-
-  if (bestY) {
-    guides.push({
-      axis: 'y',
-      value: bestY.candidate.value,
-      start: Math.min(snappedBounds.left, bestY.candidate.start) - 36,
-      end: Math.max(snappedBounds.right, bestY.candidate.end) + 36,
-    });
-  }
-
-  return { offsetX, offsetY, guides };
-}
 
 function canConnect(source: InfiniteCanvasNode | undefined, target: InfiniteCanvasNode | undefined) {
   if (!source || !target) return false;
@@ -424,11 +282,14 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   const isSpacePressedRef = useRef(false);
   const projectRef = useRef<InfiniteCanvasProject | null>(null);
   const viewportRef = useRef({ x: 180, y: 120, scale: 1 });
+  // 拖拽时记录当前偏移，避免每帧触发 React 渲染
+  const dragOffsetRef = useRef({ dx: 0, dy: 0 });
 
   const [project, setProject] = useState<InfiniteCanvasProject | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [activePanel, setActivePanel] = useState<InfinitePanel | null>(null);
-  const [projectSidebarOpen, setProjectSidebarOpen] = useState(true);
+  const [projectSidebarOpen, setProjectSidebarOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
@@ -449,6 +310,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     initialSession: undefined,
     sourceNodeId: undefined,
   });
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const isMountedRef = useRef(true);
   const cancelRunRef = useRef(false);
@@ -472,6 +334,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       timers.clear();
     };
   }, []);
+
+
 
   const markDirty = useCallback(() => {
     setDirtyVersion((value) => value + 1);
@@ -934,10 +798,11 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
   const handleDragStart = useCallback(
     (nodeId: string, clientX: number, clientY: number) => {
-      if (!project) return;
+      const currentProject = projectRef.current;
+      if (!currentProject) return;
 
       const activeIds = (selectedNodeIds.includes(nodeId) ? selectedNodeIds : [nodeId]).filter((id) => {
-        const target = project.nodes.find((item) => item.nodeId === id);
+        const target = currentProject.nodes.find((item) => item.nodeId === id);
         return !!target && !target.isLocked;
       });
       if (activeIds.length === 0) return;
@@ -945,7 +810,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       const startPositions: Record<string, { x: number; y: number }> = {};
 
       for (const id of activeIds) {
-        const node = project.nodes.find((item) => item.nodeId === id);
+        const node = currentProject.nodes.find((item) => item.nodeId === id);
         if (node) {
           startPositions[id] = { ...node.position };
         }
@@ -960,7 +825,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         startClient: { x: clientX, y: clientY },
         nodeIds: activeIds,
         startPositions,
-        allNodes: project.nodes.map((node) => ({
+        allNodes: currentProject.nodes.map((node) => ({
           nodeId: node.nodeId,
           width: node.width,
           height: node.height,
@@ -969,11 +834,12 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         })),
       };
     },
-    [project, pushUndoSnapshot, selectedNodeIds],
+    [pushUndoSnapshot, selectedNodeIds],
   );
 
   const handleCanvasPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      setContextMenu(null);
       const target = event.target as HTMLElement;
       if (target.closest('[data-panel]')) {
         return;
@@ -990,6 +856,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           startClient: { x: event.clientX, y: event.clientY },
           startViewport: { x: currentViewport.x, y: currentViewport.y },
         };
+        return;
+      }
+
+      if (event.button === 2) {
         return;
       }
 
@@ -1077,6 +947,41 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       });
     },
     [connectionSourceId, mutateProject, pushUndoSnapshot, selectedNodeIds],
+  );
+
+  const handleCanvasContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleCanvasDoubleClick = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const createNodeFromMenu = useCallback(
+    (type: 'text' | 'image' | 'gallery') => {
+      if (!contextMenu || !project || !canvasRef.current) return;
+
+      const world = viewportToWorld(contextMenu.x, contextMenu.y);
+      pushUndoSnapshot();
+
+      let node: InfiniteCanvasNode;
+      if (type === 'text') {
+        node = createTextNode(world.x, world.y);
+      } else if (type === 'image') {
+        node = createImageNode(world.x, world.y);
+      } else {
+        node = createGalleryNode(world.x, world.y);
+      }
+
+      mutateProject((draft) => {
+        draft.nodes.push(node);
+      });
+      setSelectedNodeIds([node.nodeId]);
+      setContextMenu(null);
+    },
+    [contextMenu, mutateProject, project, pushUndoSnapshot, viewportToWorld],
   );
 
   const handleWheelZoom = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
@@ -1407,39 +1312,48 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           source.etaSeconds = 0;
           source.updatedAt = nowISO();
 
-          response.images.forEach((imageUrl, index) => {
-            const generatedNode = createImageNode(
-              source.position.x + source.width + 120 + index * 24,
-              source.position.y + index * 28,
-            );
-
-            generatedNode.title = `${source.title} Output ${index + 1}`;
-            generatedNode.prompt = mergedPrompt;
-            generatedNode.status = 'success';
-            generatedNode.modelId = source.modelId;
-            generatedNode.outputs = [
-              {
-                outputId: createId(),
-                outputType: 'image',
-                assetUrl: imageUrl,
-                thumbnailUrl: imageUrl,
-                promptSnapshot: mergedPrompt,
-                modelSnapshot: source.modelId,
-                createdAt: nowISO(),
-              },
-            ];
-
-            draft.nodes.push(generatedNode);
-            draft.edges.push({
-              edgeId: createId(),
-              sourceNodeId: source.nodeId,
-              targetNodeId: generatedNode.nodeId,
-              sourcePort: 'output',
-              targetPort: 'input',
-              createdAt: nowISO(),
+          if (source.nodeType === 'gallery') {
+            // Gallery 节点：将生成图片追加到 galleryImages，不创建新子节点
+            source.galleryImages = [...(source.galleryImages ?? []), ...response.images];
+            response.images.forEach((imageUrl) => {
+              draft.history.unshift(createHistoryItem(source, imageUrl));
             });
-            draft.history.unshift(createHistoryItem(source, imageUrl));
-          });
+          } else {
+            // 普通 image 节点：为每张图片创建独立输出节点
+            response.images.forEach((imageUrl, index) => {
+              const generatedNode = createImageNode(
+                source.position.x + source.width + 120 + index * 24,
+                source.position.y + index * 28,
+              );
+
+              generatedNode.title = `${source.title} Output ${index + 1}`;
+              generatedNode.prompt = mergedPrompt;
+              generatedNode.status = 'success';
+              generatedNode.modelId = source.modelId;
+              generatedNode.outputs = [
+                {
+                  outputId: createId(),
+                  outputType: 'image',
+                  assetUrl: imageUrl,
+                  thumbnailUrl: imageUrl,
+                  promptSnapshot: mergedPrompt,
+                  modelSnapshot: source.modelId,
+                  createdAt: nowISO(),
+                },
+              ];
+
+              draft.nodes.push(generatedNode);
+              draft.edges.push({
+                edgeId: createId(),
+                sourceNodeId: source.nodeId,
+                targetNodeId: generatedNode.nodeId,
+                sourcePort: 'output',
+                targetPort: 'input',
+                createdAt: nowISO(),
+              });
+              draft.history.unshift(createHistoryItem(source, imageUrl));
+            });
+          }
 
           const queueItem = draft.runQueue.find((item) => item.queueId === queueId);
           if (queueItem) {
@@ -1604,6 +1518,77 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     [mutateProject, project, pushUndoSnapshot, viewport],
   );
 
+  const handleCanvasDrop = useCallback(
+    async (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragOver(false);
+
+      const files = Array.from(event.dataTransfer.files).filter((f) =>
+        f.type.startsWith('image/')
+      );
+      if (!files.length || !project) return;
+
+      pushUndoSnapshot();
+      const dropWorld = viewportToWorld(event.clientX, event.clientY);
+      const newAssets: InfiniteCanvasAsset[] = [];
+      const newNodes: InfiniteCanvasNode[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('文件读取失败'));
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.readAsDataURL(file);
+        });
+
+        try {
+          const path = await saveImageAsset(dataUrl, 'uploads');
+          const asset: InfiniteCanvasAsset = {
+            assetId: createId(),
+            name: file.name,
+            url: path,
+            thumbnailUrl: path,
+            createdAt: nowISO(),
+          };
+          const node = createImageNode(
+            dropWorld.x + i * 360,
+            dropWorld.y,
+          );
+          node.title = file.name;
+          node.inputAssetId = asset.assetId;
+          node.status = 'success';
+          node.outputs = [
+            {
+              outputId: createId(),
+              outputType: 'image',
+              assetUrl: path,
+              thumbnailUrl: path,
+              createdAt: nowISO(),
+            },
+          ];
+          newAssets.push(asset);
+          newNodes.push(node);
+        } catch (error) {
+          toast({
+            title: '图片上传失败',
+            description: error instanceof Error ? error.message : file.name,
+            variant: 'destructive',
+          });
+        }
+      }
+
+      if (newNodes.length > 0) {
+        mutateProject((draft) => {
+          draft.assets.unshift(...newAssets);
+          draft.nodes.push(...newNodes);
+        });
+        setSelectedNodeIds(newNodes.map((n) => n.nodeId));
+      }
+    },
+    [mutateProject, project, pushUndoSnapshot, toast, viewportToWorld],
+  );
+
   const insertHistoryAsNode = useCallback(
     (history: InfiniteCanvasHistoryItem) => {
       if (!history.outputUrl || !canvasRef.current || !project) return;
@@ -1637,6 +1622,55 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       setSelectedNodeIds([node.nodeId]);
     },
     [mutateProject, project, pushUndoSnapshot, viewport],
+  );
+
+  const handleNodeImageUpload = useCallback(
+    async (nodeId: string, file: File) => {
+      if (!project) return;
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(file);
+      });
+
+      try {
+        const path = await saveImageAsset(dataUrl, 'uploads');
+        const assetId = createId();
+        const asset: InfiniteCanvasAsset = {
+          assetId,
+          name: file.name,
+          url: path,
+          thumbnailUrl: path,
+          createdAt: nowISO(),
+        };
+
+        mutateProject((draft) => {
+          draft.assets.unshift(asset);
+          const node = draft.nodes.find((n) => n.nodeId === nodeId);
+          if (node) {
+            node.inputAssetId = assetId;
+            node.outputs.push({
+              outputId: createId(),
+              outputType: 'image',
+              assetUrl: path,
+              thumbnailUrl: path,
+              createdAt: nowISO(),
+            });
+            node.status = 'success';
+          }
+        });
+        toast({ title: '图片上传成功' });
+      } catch (error) {
+        toast({
+          title: '上传失败',
+          description: error instanceof Error ? error.message : '未知错误',
+          variant: 'destructive',
+        });
+      }
+    },
+    [mutateProject, project, toast],
   );
 
   const openImageEditorForNode = useCallback((nodeId: string) => {
@@ -1742,6 +1776,105 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   }, [imageEditDialogState.sourceNodeId, mutateProject, project, pushUndoSnapshot, toast, viewport]);
 
   useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)) return;
+
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
+      const file = imageItem?.getAsFile();
+
+      if (!file) return;
+
+      event.preventDefault();
+
+      if (selectedNodeIds.length === 1) {
+        const node = projectRef.current?.nodes.find((n) => n.nodeId === selectedNodeIds[0]);
+        if (node && node.nodeType === 'image' && !node.isLocked) {
+          await handleNodeImageUpload(node.nodeId, file);
+          return;
+        }
+      }
+
+      if (!projectRef.current || !canvasRef.current) return;
+
+      pushUndoSnapshot();
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(file);
+      });
+
+      try {
+        const path = await saveImageAsset(dataUrl, 'uploads');
+        const assetId = createId();
+        const asset: InfiniteCanvasAsset = {
+          assetId,
+          name: file.name || 'Pasted Image',
+          url: path,
+          thumbnailUrl: path,
+          createdAt: nowISO(),
+        };
+
+        let position = { x: 0, y: 0 };
+        if (pointerPosition) {
+          position = {
+            x: (pointerPosition.x - viewport.x) / viewport.scale,
+            y: (pointerPosition.y - viewport.y) / viewport.scale,
+          };
+        } else {
+          position = computeViewportCenter(viewport, {
+            width: canvasRef.current.clientWidth,
+            height: canvasRef.current.clientHeight,
+          });
+        }
+
+        const node = createImageNode(position.x, position.y);
+        node.title = file.name || 'Pasted Image';
+        node.inputAssetId = assetId;
+        node.status = 'success';
+        node.outputs = [
+          {
+            outputId: createId(),
+            outputType: 'image',
+            assetUrl: path,
+            thumbnailUrl: path,
+            createdAt: nowISO(),
+          },
+        ];
+
+        mutateProject((draft) => {
+          draft.assets.unshift(asset);
+          draft.nodes.push(node);
+        });
+        setSelectedNodeIds([node.nodeId]);
+        toast({ title: '图片粘贴成功' });
+      } catch (error) {
+        toast({
+          title: '图片粘贴失败',
+          description: error instanceof Error ? error.message : '未知错误',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [
+    handleNodeImageUpload,
+    mutateProject,
+    pointerPosition,
+    pushUndoSnapshot,
+    selectedNodeIds,
+    toast,
+    viewport,
+  ]);
+
+  useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
       const activeSession = interactionRef.current;
       if (!activeSession) return;
@@ -1802,29 +1935,55 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       }
 
       if (activeSession.type === 'drag') {
-        const rawDx = (event.clientX - activeSession.startClient.x) / currentViewport.scale;
-        const rawDy = (event.clientY - activeSession.startClient.y) / currentViewport.scale;
-        const snap = computeDragSnapAdjustment(activeSession, rawDx, rawDy, currentViewport.scale);
-        const dx = rawDx + snap.offsetX;
-        const dy = rawDy + snap.offsetY;
-        setDragGuides(snap.guides);
+        const dx = (event.clientX - activeSession.startClient.x) / currentViewport.scale;
+        const dy = (event.clientY - activeSession.startClient.y) / currentViewport.scale;
+        dragOffsetRef.current = { dx, dy };
 
-        mutateProject(
-          (draft) => {
-            for (const nodeId of activeSession.nodeIds) {
-              const node = draft.nodes.find((item) => item.nodeId === nodeId);
-              if (!node || node.isLocked) continue;
-              const base = activeSession.startPositions[nodeId];
-              if (!base) continue;
-              node.position = {
-                x: base.x + dx,
-                y: base.y + dy,
-              };
-              node.updatedAt = nowISO();
-            }
-          },
-          { markDirty: false },
-        );
+        // 直接操作节点 DOM，完全跳过 React 渲染
+        const movingSet = new Set(activeSession.nodeIds);
+        // 构建当前帧所有移动节点的最新位置（用于重算边线）
+        const currentPositions = new Map<string, { x: number; y: number }>();
+        for (const snap of activeSession.allNodes) {
+          if (movingSet.has(snap.nodeId)) {
+            const base = activeSession.startPositions[snap.nodeId];
+            if (base) currentPositions.set(snap.nodeId, { x: base.x + dx, y: base.y + dy });
+          } else {
+            currentPositions.set(snap.nodeId, snap.position);
+          }
+        }
+
+        for (const nodeId of activeSession.nodeIds) {
+          const el = document.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`);
+          if (!el) continue;
+          const pos = currentPositions.get(nodeId);
+          if (!pos) continue;
+          el.style.left = `${pos.x}px`;
+          el.style.top = `${pos.y}px`;
+        }
+
+        // 同步更新与移动节点相连的 SVG 边线
+        const currentProject = projectRef.current;
+        if (currentProject) {
+          const vp = currentViewport;
+          for (const edge of currentProject.edges) {
+            const involvesMover = movingSet.has(edge.sourceNodeId) || movingSet.has(edge.targetNodeId);
+            if (!involvesMover) continue;
+
+            const srcSnap = activeSession.allNodes.find((n) => n.nodeId === edge.sourceNodeId);
+            const tgtSnap = activeSession.allNodes.find((n) => n.nodeId === edge.targetNodeId);
+            if (!srcSnap || !tgtSnap) continue;
+
+            const srcPos = currentPositions.get(edge.sourceNodeId) ?? srcSnap.position;
+            const tgtPos = currentPositions.get(edge.targetNodeId) ?? tgtSnap.position;
+
+            const sourceScreen = worldToScreen(vp, { x: srcPos.x + srcSnap.width, y: srcPos.y + srcSnap.height / 2 });
+            const targetScreen = worldToScreen(vp, { x: tgtPos.x, y: tgtPos.y + tgtSnap.height / 2 });
+            const newPath = buildConnectionPath(sourceScreen, targetScreen);
+
+            const pathEl = document.querySelector<SVGPathElement>(`[data-edge-id="${edge.edgeId}"]`);
+            if (pathEl) pathEl.setAttribute('d', newPath);
+          }
+        }
       }
     };
 
@@ -1838,6 +1997,48 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       if (activeSession.type === 'select') {
         setSelectionRect(null);
         return;
+      }
+
+      if (activeSession.type === 'drag') {
+        const { dx, dy } = dragOffsetRef.current;
+        dragOffsetRef.current = { dx: 0, dy: 0 };
+
+        if (dx !== 0 || dy !== 0) {
+          // 移除手动清理 DOM style 的逻辑，交给 React 渲染覆盖
+          // 这样可以避免清理后到 React 渲染前的闪烁，以及解决连续快速操作时的位置重置问题
+
+          // 乐观更新 projectRef.current，确保后续立即触发的交互拿到最新位置
+          if (projectRef.current) {
+            const nextNodes = projectRef.current.nodes.map((n) => {
+              if (activeSession.nodeIds.includes(n.nodeId)) {
+                const base = activeSession.startPositions[n.nodeId];
+                if (base && !n.isLocked) {
+                  return {
+                    ...n,
+                    position: { x: base.x + dx, y: base.y + dy },
+                    updatedAt: nowISO(),
+                  };
+                }
+              }
+              return n;
+            });
+            projectRef.current = { ...projectRef.current, nodes: nextNodes };
+          }
+
+          mutateProject(
+            (draft) => {
+              for (const nodeId of activeSession.nodeIds) {
+                const node = draft.nodes.find((item) => item.nodeId === nodeId);
+                if (!node || node.isLocked) continue;
+                const base = activeSession.startPositions[nodeId];
+                if (!base) continue;
+                node.position = { x: base.x + dx, y: base.y + dy };
+                node.updatedAt = nowISO();
+              }
+            },
+            { markDirty: false },
+          );
+        }
       }
 
       markDirty();
@@ -2082,6 +2283,27 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           title="创建 Image 节点"
         >
           <WandSparkles className="h-4 w-4" />
+        </Button>
+
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-10 w-10 rounded-xl text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+          onClick={() => {
+            if (!project || !canvasRef.current) return;
+            const center = computeViewportCenter(viewport, {
+              width: canvasRef.current.clientWidth,
+              height: canvasRef.current.clientHeight,
+            });
+            const offset = project.nodes.length * 14;
+            const node = createGalleryNode(center.x + offset, center.y + offset);
+            pushUndoSnapshot();
+            mutateProject((draft) => { draft.nodes.push(node); });
+            setSelectedNodeIds([node.nodeId]);
+          }}
+          title="创建 Gallery 多图节点"
+        >
+          <GalleryHorizontalEnd className="h-4 w-4" />
         </Button>
 
         <div className="h-px bg-zinc-200 dark:bg-[#4A4C4D]" />
@@ -2427,24 +2649,29 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
       <div
         ref={canvasRef}
-        className="relative h-full w-full overflow-hidden"
+        className={cn('relative h-full w-full overflow-hidden', isDragOver && 'ring-2 ring-inset ring-blue-400/60')}
         onPointerDown={handleCanvasPointerDown}
         onPointerMove={(event) => {
           const rect = canvasRef.current?.getBoundingClientRect();
           if (!rect) return;
           setPointerPosition({ x: event.clientX - rect.left, y: event.clientY - rect.top });
         }}
-        onDoubleClick={(event) => {
-          if (!canvasRef.current) return;
-          const world = viewportToWorld(event.clientX, event.clientY);
-          pushUndoSnapshot();
-          const node = createImageNode(world.x, world.y);
-          mutateProject((draft) => {
-            draft.nodes.push(node);
-          });
-          setSelectedNodeIds([node.nodeId]);
-        }}
+        onDoubleClick={handleCanvasDoubleClick}
+        onContextMenu={handleCanvasContextMenu}
         onWheel={handleWheelZoom}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('Files')) {
+            event.preventDefault();
+            setIsDragOver(true);
+          }
+        }}
+        onDragLeave={(event) => {
+          // 只有真正离开画布区域时才取消高亮（避免子元素触发 leave）
+          if (!canvasRef.current?.contains(event.relatedTarget as Node)) {
+            setIsDragOver(false);
+          }
+        }}
+        onDrop={handleCanvasDrop}
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.1)_1px,transparent_0)] dark:bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] [background-size:24px_24px]" />
 
@@ -2456,10 +2683,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
             return (
               <path
                 key={edge.edgeId}
+                data-edge-id={edge.edgeId}
                 d={path}
                 fill="none"
                 className={cn(
-                  "transition-all duration-300",
                   isProcessing
                     ? "stroke-amber-500 opacity-80 animate-[flow_1s_linear_infinite]"
                     : "stroke-[#0E0E0E] dark:stroke-[#737373] opacity-30 animate-[flow_4s_linear_infinite]"
@@ -2558,6 +2785,19 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               onEditImage={openImageEditorForNode}
               onInputPortClick={handleInputPortClick}
               onOutputPortClick={handleOutputPortClick}
+              onGalleryImagesChange={(nodeId, images) =>
+                mutateProject((draft) => {
+                  const n = draft.nodes.find((item) => item.nodeId === nodeId);
+                  if (n) n.galleryImages = images;
+                })
+              }
+              onResize={(nodeId, width, height) =>
+                mutateProject((draft) => {
+                  const n = draft.nodes.find((item) => item.nodeId === nodeId);
+                  if (n) { n.width = width; n.height = height; }
+                })
+              }
+              onUploadImage={handleNodeImageUpload}
             />
           ))}
         </div>
@@ -2571,6 +2811,15 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         自动保存已启用
         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
       </footer>
+
+      {contextMenu ? (
+        <CanvasContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onSelect={createNodeFromMenu}
+        />
+      ) : null}
 
       <ImageEditDialog
         open={imageEditDialogState.open}

@@ -89,6 +89,26 @@ export function createImageNode(x: number, y: number): InfiniteCanvasNode {
   };
 }
 
+export function createGalleryNode(x: number, y: number): InfiniteCanvasNode {
+  const timestamp = nowISO();
+  return {
+    nodeId: createId(),
+    nodeType: 'gallery',
+    title: 'Gallery',
+    position: { x, y },
+    width: 480,
+    height: 360,
+    status: 'idle',
+    prompt: '',
+    galleryImages: [],
+    outputs: [],
+    isLocked: false,
+    isSelected: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 export function createEmptyProject(name?: string): InfiniteCanvasProject {
   const timestamp = nowISO();
 

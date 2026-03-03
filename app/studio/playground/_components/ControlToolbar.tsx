@@ -109,14 +109,16 @@ export default function ControlToolbar({
   const getModelEntryById = useAPIConfigStore(state => state.getModelEntryById);
   const isEditMode = Boolean(config.isEdit) || variant === 'edit';
   const selectableModels = React.useMemo(() => {
-    if (!isEditMode) return availableModels;
+    // If not in edit mode, or if there are no images uploaded, show all models.
+    // This prevents models being hidden when isEdit is accidentally true but no images are present.
+    if (!isEditMode || uploadedImages.length === 0) return availableModels;
     return availableModels.filter((model) => {
       const meta = getModelEntryById(model.id);
       const supportsImageEdit = meta?.capabilities?.supportsImageEdit
         ?? (meta?.capabilities?.supportsMultiImage ?? true);
       return supportsImageEdit;
     });
-  }, [availableModels, getModelEntryById, isEditMode]);
+  }, [availableModels, getModelEntryById, isEditMode, uploadedImages.length]);
   const selectedModelMeta = getModelEntryById(selectedModel);
   const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
     ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4'].includes(selectedModel);
@@ -173,9 +175,17 @@ export default function ControlToolbar({
     const cfg = selectableModels.find(m => m.id === val);
     if (cfg) {
       onModelChange(cfg.id);
-      onConfigChange?.({ model: cfg.id });
 
       const modelMeta = getModelEntryById(val);
+      const supportsImageEdit = modelMeta?.capabilities?.supportsImageEdit ?? true;
+
+      // If switching to a model that doesn't support edit, auto-exit edit mode
+      if (config.isEdit && !supportsImageEdit) {
+        onConfigChange?.({ model: cfg.id, isEdit: false });
+      } else {
+        onConfigChange?.({ model: cfg.id });
+      }
+
       const supportsImageSize = modelMeta?.capabilities?.supportsImageSize
         ?? ['coze_seed4', 'seed4_2_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
 
@@ -247,31 +257,31 @@ export default function ControlToolbar({
   // 模型信息映射：包含 logo 和描述
   const MODEL_INFO: Record<string, { logo: string; description: string }> = {
     'gemini-3-pro-image-preview': {
-      logo: '/models/gemini.svg',
+      logo: '/images/logos/google.png',
       description: 'Google 最强图像生成模型 pro版 谷歌老挂'
     },
     'gemini-3.1-flash-image-preview': {
-      logo: '/models/gemini.svg',
+      logo: '/images/logos/google.png',
       description: 'Google 图像生成模型 Nano banana 2'
     },
     'gemini-2.5-flash-image': {
-      logo: '/models/gemini.svg',
+      logo: '/images/logos/google.png',
       description: '普通版，pro版备胎'
     },
     'coze_seed4': {
-      logo: '/models/seed.svg',
+      logo: '/images/logos/seed.png',
       description: '字节跳动 Seedream 4 模型'
     },
     'seed4_2_lemo': {
-      logo: '/models/seed.svg',
+      logo: '/images/logos/seed.png',
       description: 'Seed 4.2 高质量生成模型'
     },
     'lemo_2dillustator': {
-      logo: '/models/seed.svg',
+      logo: '/images/logos/seed.png',
       description: 'Seed3 Lemo 插画模型'
     },
     [MODEL_ID_FLUX_KLEIN]: {
-      logo: '/models/default.svg',
+      logo: '/images/logos/flux.png',
       description: 'ComfyUI Flux.2 Klein'
     }
   };
@@ -298,13 +308,13 @@ export default function ControlToolbar({
               {/* 选中指示器 */}
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${selectValue === model.id ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
               {/* 模型 Logo */}
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div className="relative w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                 <Image
                   src={info.logo}
                   alt={model.displayName}
-                  width={20}
-                  height={20}
-                  className="object-contain"
+                  fill
+                  sizes="32px"
+                  className="object-cover"
                   onError={(e) => {
                     // 如果图片加载失败，使用首字母作为占位
                     const target = e.target as HTMLImageElement;

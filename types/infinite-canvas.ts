@@ -1,6 +1,6 @@
 import type { ImageEditorSessionSnapshot } from '@/components/image-editor';
 
-export type InfiniteNodeType = 'text' | 'image';
+export type InfiniteNodeType = 'text' | 'image' | 'gallery';
 
 export type InfiniteNodeStatus =
   | 'idle'
@@ -54,6 +54,7 @@ export interface InfiniteCanvasNode {
   etaSeconds?: number;
   isCollapsed?: boolean;
   expandedHeight?: number;
+  galleryImages?: string[];  // Gallery 节点：已收集的图片 URL 列表（有序）
   imageEditorSession?: ImageEditorSessionSnapshot;
   inputAssetId?: string;
   outputs: InfiniteCanvasOutput[];
