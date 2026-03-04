@@ -13,6 +13,7 @@ import {
   Settings2,
   Trash2,
   Upload,
+  WandSparkles,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { InfiniteCanvasNode } from '@/types/infinite-canvas';
 import {
+  DEFAULT_INFINITE_CANVAS_MODEL_ID,
   INFINITE_ASPECT_RATIOS,
   INFINITE_BATCH_SIZES,
   INFINITE_CANVAS_MODELS,
@@ -74,6 +76,8 @@ interface CanvasNodeCardProps {
   onGalleryImagesChange: (nodeId: string, images: string[]) => void;
   onResize: (nodeId: string, width: number, height: number) => void;
   onUploadImage?: (nodeId: string, file: File) => void;
+  onOptimizePrompt?: (nodeId: string) => void;
+  isOptimizing?: boolean;
 }
 
 function formatEta(seconds?: number) {
@@ -366,12 +370,16 @@ export default memo(function CanvasNodeCard({
   onGalleryImagesChange,
   onResize,
   onUploadImage,
+  onOptimizePrompt,
+  isOptimizing = false,
 }: CanvasNodeCardProps) {
   const latestOutput = node.outputs[node.outputs.length - 1];
   const imageParams = node.params || {};
   const isRunning = node.status === 'running';
+  const isTextNode = node.nodeType === 'text';
   const isImageNode = node.nodeType === 'image';
   const isGalleryNode = node.nodeType === 'gallery';
+  const isGenerationNode = isTextNode || isImageNode || isGalleryNode;
   const isCollapsed = Boolean(node.isCollapsed && isImageNode);
   const progress = Math.max(0, Math.min(1, node.progress ?? (isRunning ? 0.08 : 0)));
   const progressPercent = Math.round(progress * 100);
@@ -380,7 +388,7 @@ export default memo(function CanvasNodeCard({
   const getModelEntryById = useAPIConfigStore((state) => state.getModelEntryById);
   const contextModels = getContextModelOptions(providers, 'infinite-canvas', 'image');
   const modelOptions = contextModels.length > 0 ? contextModels : INFINITE_CANVAS_MODELS.map((item) => ({ id: item.id, displayName: item.label }));
-  const selectedModelMeta = getModelEntryById(node.modelId || '');
+  const selectedModelMeta = getModelEntryById(node.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID);
   const supportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize ?? true;
   const supportsBatch = selectedModelMeta?.capabilities?.supportsBatch ?? true;
   const allowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
@@ -457,10 +465,10 @@ export default memo(function CanvasNodeCard({
         )}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {(isImageNode || isGalleryNode) ? (
+        {isGenerationNode ? (
           <>
             <Select
-              value={node.modelId || 'gemini-3-pro-image-preview'}
+              value={node.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID}
               onValueChange={(value) => onImageModelChange(node.nodeId, value)}
             >
               <SelectTrigger className="h-7 w-auto border-none bg-transparent px-2 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100 focus:ring-0 dark:text-[#D9D9D9] dark:hover:bg-[#2C2D2F]">
@@ -561,6 +569,29 @@ export default memo(function CanvasNodeCard({
           </>
         ) : null}
 
+        {isTextNode && onOptimizePrompt ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-7 w-7 rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#A3A3A3] dark:hover:bg-[#2C2D2F] dark:hover:text-[#D9D9D9]',
+                isOptimizing && 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:hover:bg-amber-500/30',
+              )}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOptimizePrompt(node.nodeId);
+              }}
+              disabled={isOptimizing || isRunning}
+              title={isOptimizing ? '优化中' : '优化 Prompt'}
+            >
+              {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <WandSparkles className="h-3.5 w-3.5" />}
+            </Button>
+            <div className="mx-0.5 h-3.5 w-px bg-zinc-300 dark:bg-[#343434]" />
+          </>
+        ) : null}
+
         <Button
           type="button"
           variant="ghost"
@@ -573,7 +604,7 @@ export default memo(function CanvasNodeCard({
             event.stopPropagation();
             onRun(node.nodeId);
           }}
-          disabled={isRunning}
+          disabled={isRunning || isOptimizing}
           title={isRunning ? '生成中' : '运行节点'}
         >
           {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
@@ -744,10 +775,19 @@ export default memo(function CanvasNodeCard({
             <Textarea
               value={node.prompt || ''}
               onChange={(event) => onPromptChange(node.nodeId, event.target.value)}
-              placeholder={node.nodeType === 'text' ? '输入文本内容...' : '输入图片生成 Prompt...'}
+              placeholder={node.nodeType === 'text' ? '输入基础 Prompt，点击优化或直接生成...' : '输入图片生成 Prompt...'}
               className="flex-1 min-h-[80px] resize-none border-none bg-zinc-50 text-xs leading-relaxed text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-1 focus-visible:ring-zinc-300 dark:bg-[#161616] dark:text-[#D9D9D9] dark:placeholder:text-[#737373] dark:focus-visible:ring-[#4A4C4D]"
               onPointerDown={(e) => e.stopPropagation()}
             />
+
+            {isOptimizing ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  正在优化 Prompt，将生成 4 个候选结果
+                </span>
+              </div>
+            ) : null}
 
             {latestOutput?.outputType === 'text' ? (
               <div className="rounded-lg border border-zinc-200 bg-zinc-100 p-2 text-xs text-zinc-900 dark:border-[#C8F88D]/20 dark:bg-[#C8F88D]/10 dark:text-[#D9D9D9]">

@@ -502,6 +502,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       setActiveTab('history');
     },
   });
+  const selectedResultPreviewKey = useMemo(() => {
+    if (!selectedResult) return 'preview-none';
+    const identity =
+      selectedResult.id?.trim() ||
+      selectedResult.outputUrl?.trim() ||
+      selectedResult.createdAt?.trim() ||
+      'unknown';
+    return `preview-${identity}`;
+  }, [selectedResult]);
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
@@ -1584,7 +1593,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         </div>
 
         <ImagePreviewModal
-          key={selectedResult ? `preview-${selectedResult.id}` : 'preview-none'}
+          key={selectedResultPreviewKey}
           isOpen={isImageModalOpen}
           onClose={closeImageModal}
           result={selectedResult}

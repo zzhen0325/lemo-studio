@@ -27,7 +27,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/common/use-toast';
+import { usePromptOptimization } from '@/hooks/ai/usePromptOptimization';
 import { ImageEditDialog, type ImageEditConfirmPayload, type ImageEditorSessionSnapshot } from '@/components/image-editor';
+import { useAPIConfigStore } from '@/lib/store/api-config-store';
 import {
   createProject,
   generateCanvasImage,
@@ -35,7 +37,10 @@ import {
   saveImageAsset,
   saveProject,
 } from '../_lib/api';
-import { type InfinitePanel } from '../_lib/constants';
+import {
+  DEFAULT_INFINITE_CANVAS_MODEL_ID,
+  type InfinitePanel,
+} from '../_lib/constants';
 import {
   computeViewportCenter,
   createId,
@@ -45,6 +50,12 @@ import {
   deepClone,
   nowISO,
 } from '../_lib/helpers';
+import {
+  buildPromptOptimizationVariantsInput,
+  buildPromptOptimizationVariantsSystemPrompt,
+  parsePromptOptimizationVariants,
+  PROMPT_OPTIMIZATION_VARIANT_COUNT,
+} from '../_lib/prompt-optimization';
 import { buildEditedImageNode } from '../_lib/image-edit-node';
 import type {
   InfiniteCanvasAsset,
@@ -272,6 +283,10 @@ function createsCycle(edges: InfiniteCanvasEdge[], sourceNodeId: string, targetN
 export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const optimizeSystemPrompt = useAPIConfigStore((state) => state.settings.services.optimize.systemPrompt);
+  const { optimizePrompt } = usePromptOptimization({
+    systemInstruction: buildPromptOptimizationVariantsSystemPrompt(optimizeSystemPrompt),
+  });
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -303,6 +318,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   const [undoStack, setUndoStack] = useState<InfiniteCanvasProject[]>([]);
   const [redoStack, setRedoStack] = useState<InfiniteCanvasProject[]>([]);
   const [pendingAutoRunNodeId, setPendingAutoRunNodeId] = useState<string | null>(null);
+  const [optimizingNodeIds, setOptimizingNodeIds] = useState<string[]>([]);
   const [imageEditDialogState, setImageEditDialogState] = useState<InfiniteImageEditDialogState>({
     open: false,
     imageUrl: '',
@@ -507,7 +523,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     [mutateProject],
   );
 
-  const updateImageNodeConfig = useCallback(
+  const updateGenerationNodeConfig = useCallback(
     (
       nodeId: string,
       patch: {
@@ -517,7 +533,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     ) => {
       mutateProject((draft) => {
         const node = draft.nodes.find((item) => item.nodeId === nodeId);
-        if (!node || node.nodeType !== 'image') return;
+        if (!node) return;
 
         if (patch.modelId !== undefined) {
           node.modelId = patch.modelId;
@@ -1119,14 +1135,18 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     markDirty();
   }, [markDirty, project]);
 
-  const createHistoryItem = useCallback((node: InfiniteCanvasNode, outputUrl: string): InfiniteCanvasHistoryItem => {
+  const createHistoryItem = useCallback((
+    node: InfiniteCanvasNode,
+    outputUrl: string,
+    promptSnapshot?: string,
+  ): InfiniteCanvasHistoryItem => {
     return {
       historyId: createId(),
       nodeId: node.nodeId,
       outputType: 'image',
       outputUrl,
-      promptSnapshot: node.prompt,
-      modelSnapshot: node.modelId,
+      promptSnapshot: promptSnapshot ?? node.prompt,
+      modelSnapshot: node.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID,
       createdAt: nowISO(),
       status: 'success',
     };
@@ -1166,6 +1186,83 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     };
   }, []);
 
+  const handleOptimizeTextNode = useCallback(
+    async (nodeId: string) => {
+      const currentProject = project;
+      if (!currentProject) return;
+
+      const sourceNode = currentProject.nodes.find((item) => item.nodeId === nodeId);
+      if (!sourceNode || sourceNode.nodeType !== 'text' || sourceNode.isLocked) {
+        return;
+      }
+
+      const basePrompt = sourceNode.prompt?.trim() || '';
+      if (!basePrompt) {
+        toast({
+          title: '请先输入内容',
+          description: '文字节点需要先填写基础 Prompt，才能进行优化。',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setOptimizingNodeIds((prev) => (prev.includes(nodeId) ? prev : [...prev, nodeId]));
+
+      try {
+        const optimizationInput = buildPromptOptimizationVariantsInput(basePrompt);
+        const optimizedText = await optimizePrompt(optimizationInput, 'doubao');
+        const variants = parsePromptOptimizationVariants(optimizedText || '');
+
+        if (variants.length === 0) {
+          throw new Error('未解析到优化结果，请重试。');
+        }
+        if (variants.length < PROMPT_OPTIMIZATION_VARIANT_COUNT) {
+          throw new Error(`优化结果数量不足，仅收到 ${variants.length} 条，请重试。`);
+        }
+
+        pushUndoSnapshot();
+
+        const nextNodes = variants.slice(0, PROMPT_OPTIMIZATION_VARIANT_COUNT).map((prompt, index) => {
+          const column = index % 2;
+          const row = Math.floor(index / 2);
+          const nextNode = createTextNode(
+            sourceNode.position.x + sourceNode.width + 88 + column * (sourceNode.width + 24),
+            sourceNode.position.y + row * (sourceNode.height + 24),
+          );
+
+          nextNode.title = `${sourceNode.title} Prompt ${index + 1}`;
+          nextNode.prompt = prompt;
+          nextNode.status = 'ready';
+          nextNode.width = sourceNode.width;
+          nextNode.height = sourceNode.height;
+          nextNode.modelId = sourceNode.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID;
+          nextNode.params = sourceNode.params ? { ...sourceNode.params } : nextNode.params;
+
+          return nextNode;
+        });
+
+        mutateProject((draft) => {
+          draft.nodes.push(...nextNodes);
+        });
+
+        setSelectedNodeIds(nextNodes.map((node) => node.nodeId));
+        toast({
+          title: 'Prompt 已优化',
+          description: `已生成 ${nextNodes.length} 个优化结果文字节点。`,
+        });
+      } catch (error) {
+        toast({
+          title: 'Prompt 优化失败',
+          description: error instanceof Error ? error.message : '未知错误',
+          variant: 'destructive',
+        });
+      } finally {
+        setOptimizingNodeIds((prev) => prev.filter((id) => id !== nodeId));
+      }
+    },
+    [mutateProject, optimizePrompt, project, pushUndoSnapshot, toast],
+  );
+
   const runSingleNode = useCallback(
     async (nodeId: string) => {
       const currentProject = project;
@@ -1174,29 +1271,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       const node = currentProject.nodes.find((item) => item.nodeId === nodeId);
       if (!node || node.isLocked) return;
 
-      if (node.nodeType === 'text') {
-        mutateProject((draft) => {
-          const target = draft.nodes.find((item) => item.nodeId === nodeId);
-          if (!target) return;
-          target.status = target.prompt?.trim() ? 'success' : 'idle';
-          target.outputs = target.prompt?.trim()
-            ? [
-              {
-                outputId: createId(),
-                outputType: 'text',
-                textContent: target.prompt.trim(),
-                createdAt: nowISO(),
-              },
-            ]
-            : [];
-          target.progress = undefined;
-          target.etaSeconds = undefined;
-          target.updatedAt = nowISO();
-        });
-        return;
-      }
-
-      const mergedPrompt = [node.prompt?.trim(), ...collectReferences(currentProject, node).textPrompts]
+      const { textPrompts, referenceImages } = collectReferences(currentProject, node);
+      const mergedPrompt = [node.prompt?.trim(), ...textPrompts]
         .filter(Boolean)
         .join('\n')
         .trim();
@@ -1213,11 +1289,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         return;
       }
 
-      const references = collectReferences(currentProject, node).referenceImages;
       const queueId = createId();
       const startedAt = nowISO();
       const controller = new AbortController();
-      const estimatedSeconds = estimateNodeRunSeconds(node, references.length);
+      const estimatedSeconds = estimateNodeRunSeconds(node, referenceImages.length);
       const startTs = Date.now();
       abortControllersRef.current.set(nodeId, controller);
 
@@ -1273,13 +1348,13 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
       try {
         const response = await generateCanvasImage({
-          model: node.modelId || 'gemini-3-pro-image-preview',
+          model: node.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID,
           prompt: mergedPrompt,
           aspectRatio: node.params?.aspectRatio,
           imageSize: node.params?.imageSize,
           batchSize: node.params?.batchSize,
           seed: node.params?.seed,
-          referenceImages: references,
+          referenceImages,
           signal: controller.signal,
         });
 
@@ -1302,7 +1377,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
             assetUrl: imageUrl,
             thumbnailUrl: imageUrl,
             promptSnapshot: mergedPrompt,
-            modelSnapshot: source.modelId,
+            modelSnapshot: source.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID,
             createdAt: nowISO(),
           }));
 
@@ -1316,10 +1391,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
             // Gallery 节点：将生成图片追加到 galleryImages，不创建新子节点
             source.galleryImages = [...(source.galleryImages ?? []), ...response.images];
             response.images.forEach((imageUrl) => {
-              draft.history.unshift(createHistoryItem(source, imageUrl));
+              draft.history.unshift(createHistoryItem(source, imageUrl, mergedPrompt));
             });
           } else {
-            // 普通 image 节点：为每张图片创建独立输出节点
+            // 普通生成节点：为每张图片创建独立输出节点
             response.images.forEach((imageUrl, index) => {
               const generatedNode = createImageNode(
                 source.position.x + source.width + 120 + index * 24,
@@ -1329,7 +1404,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               generatedNode.title = `${source.title} Output ${index + 1}`;
               generatedNode.prompt = mergedPrompt;
               generatedNode.status = 'success';
-              generatedNode.modelId = source.modelId;
+              generatedNode.modelId = source.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID;
+              generatedNode.params = source.params ? { ...source.params } : generatedNode.params;
               generatedNode.outputs = [
                 {
                   outputId: createId(),
@@ -1337,7 +1413,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                   assetUrl: imageUrl,
                   thumbnailUrl: imageUrl,
                   promptSnapshot: mergedPrompt,
-                  modelSnapshot: source.modelId,
+                  modelSnapshot: source.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID,
                   createdAt: nowISO(),
                 },
               ];
@@ -1351,7 +1427,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                 targetPort: 'input',
                 createdAt: nowISO(),
               });
-              draft.history.unshift(createHistoryItem(source, imageUrl));
+              draft.history.unshift(createHistoryItem(source, imageUrl, mergedPrompt));
             });
           }
 
@@ -2774,10 +2850,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               onPromptChange={(nodeId, value) => updateNodeById(nodeId, { prompt: value })}
               onTitleChange={(nodeId, value) => updateNodeById(nodeId, { title: value })}
               onImageModelChange={(nodeId, modelId) =>
-                updateImageNodeConfig(nodeId, { modelId })
+                updateGenerationNodeConfig(nodeId, { modelId })
               }
               onImageParamsChange={(nodeId, params) =>
-                updateImageNodeConfig(nodeId, { params })
+                updateGenerationNodeConfig(nodeId, { params })
               }
               onRun={(nodeId) => runSingleNode(nodeId)}
               onDelete={(nodeId) => removeNodes([nodeId])}
@@ -2798,6 +2874,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                 })
               }
               onUploadImage={handleNodeImageUpload}
+              onOptimizePrompt={handleOptimizeTextNode}
+              isOptimizing={optimizingNodeIds.includes(node.nodeId)}
             />
           ))}
         </div>

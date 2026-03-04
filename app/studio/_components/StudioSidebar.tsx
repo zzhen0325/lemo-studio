@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   User as UserIcon,
   ChevronDown,
@@ -34,10 +34,17 @@ export const StudioSidebar = observer(function StudioSidebar() {
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
   const { setViewMode } = usePlaygroundStore();
   const prefetchRoute = useCallback((href: string) => {
     void router.prefetch(href);
   }, [router]);
+  const currentUser = hasHydrated ? userStore.currentUser : null;
+
+  useEffect(() => {
+    setHasHydrated(true);
+    void userStore.init();
+  }, []);
 
   return (
     <header className="fixed top-2 px-10 left-0 right-0 h-14 z-50 flex items-center justify-between select-none">
@@ -85,33 +92,36 @@ export const StudioSidebar = observer(function StudioSidebar() {
       </nav>
 
       <div className="flex items-center">
-        {userStore.currentUser ? (
+        {currentUser ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10 outline-none">
+              <button
+                type="button"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10 outline-none"
+              >
                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden">
-                  {userStore.currentUser.avatar ? (
+                  {currentUser.avatar ? (
                     <Image
-                      src={userStore.currentUser.avatar}
-                      alt={userStore.currentUser.name}
+                      src={currentUser.avatar}
+                      alt={currentUser.name}
                       width={20}
                       height={20}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <span className="text-[10px] font-bold text-white">
-                      {userStore.currentUser.name.charAt(0)}
+                      {currentUser.name.charAt(0)}
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-white/80">{userStore.currentUser.name}</span>
+                <span className="text-xs text-white/80">{currentUser.name}</span>
                 <ChevronDown className="w-3 h-3 text-white/50" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-black/90 border-white/10 backdrop-blur-xl text-white">
               <div className="px-2 py-1.5 text-xs text-white/50 font-medium">
                 Signed in as <br />
-                <span className="text-white font-bold truncate block">{userStore.currentUser.name}</span>
+                <span className="text-white font-bold truncate block">{currentUser.name}</span>
               </div>
               <DropdownMenuSeparator className="bg-white/10" />
 

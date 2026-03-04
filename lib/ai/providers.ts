@@ -9,8 +9,6 @@ import {
   ImageResult,
   ModelConfig,
 } from "./types";
-import { promises as fs } from "fs";
-import path from "path";
 import {
   generateNonce,
   generateSign,
@@ -18,10 +16,8 @@ import {
   getProxyAgent,
   getUndiciDispatcher,
 } from "./utils";
-
-// Ensure we always return ArrayBuffer (not SharedArrayBuffer) for Blob
-const bufferToArrayBuffer = (buf: Buffer): ArrayBuffer =>
-  Uint8Array.from(buf).buffer;
+import { readLocalPublicImage } from "./imageInput";
+import { uploadToCoze } from "./cozeUploader";
 
 type DoubaoResponseContentItem = { type?: string; text?: string };
 type DoubaoResponseOutputItem = {
@@ -32,35 +28,6 @@ type DoubaoResponse = {
   output?: DoubaoResponseOutputItem[];
   output_text?: string | string[];
 };
-
-function getWorkspaceRoot(): string {
-  const cwd = process.cwd();
-  return cwd.endsWith(`${path.sep}server`) ? path.join(cwd, "..") : cwd;
-}
-
-function getMimeTypeFromPath(filePath: string): string {
-  const ext = path.extname(filePath).slice(1).toLowerCase();
-  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
-  if (ext === "webp") return "image/webp";
-  if (ext === "gif") return "image/gif";
-  return "image/png";
-}
-
-async function readLocalPublicImage(
-  rawPath: string
-): Promise<{ data: string; mimeType: string } | null> {
-  const normalized = rawPath.replace(/\\/g, "/").trim();
-  if (!normalized.startsWith("/") || normalized.includes("..")) {
-    return null;
-  }
-
-  const publicPath = path.join(getWorkspaceRoot(), "public", normalized);
-  const buffer = await fs.readFile(publicPath);
-  return {
-    data: buffer.toString("base64"),
-    mimeType: getMimeTypeFromPath(publicPath),
-  };
-}
 
 function extractDoubaoOutputText(data: DoubaoResponse): string {
   const outputs = Array.isArray(data.output) ? data.output : [];
@@ -992,124 +959,13 @@ export class CozeImageProvider implements ImageProvider {
   }
 
   private async uploadToCoze(imageUrl: string): Promise<string> {
-    // console.log(`[CozeImageProvider] Uploading file to Coze...`);
     try {
-      let blob: Blob;
-
-      if (imageUrl.startsWith("data:")) {
-        // 1. Handle Data URL (Base64)
-        // console.log(
-        //   `[CozeImageProvider] Processing image from Data URL (Base64)`
-        // );
-        const [header, base64Data] = imageUrl.split(",");
-        const mimeMatch = header.match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : "image/png";
-        const buffer = Buffer.from(base64Data, "base64");
-        blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-      } else if (imageUrl.startsWith("/") && imageUrl.length < 2048) {
-        // 2. Handle local file paths (with sanity check on length to avoid misidentifying long base64)
-        try {
-          const publicPath = path.join(process.cwd(), "public", imageUrl);
-          const buffer = await fs.readFile(publicPath);
-          const ext = path.extname(publicPath).slice(1) || "png";
-          const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
-          blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-        } catch {
-          // Fallback to fetch if local read fails (e.g. running in a restricted env)
-          const baseUrl =
-            process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-          const response = await fetch(`${baseUrl}${imageUrl}`);
-          if (!response.ok)
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
-          const arrayBuffer = await response.arrayBuffer();
-          const contentType =
-            response.headers.get("content-type") || "image/png";
-          blob = new Blob([arrayBuffer], { type: contentType });
-        }
-      } else if (imageUrl.startsWith("http")) {
-        // 3. Handle external URLs
-        const response = await fetch(imageUrl);
-        if (!response.ok)
-          throw new Error(
-            `Failed to fetch image: ${response.status} ${response.statusText}`
-          );
-        const arrayBuffer = await response.arrayBuffer();
-        const contentType = response.headers.get("content-type") || "image/png";
-        blob = new Blob([arrayBuffer], { type: contentType });
-      } else {
-        // 4. Handle raw Base64 (without data prefix)
-        // console.log(
-        //   `[CozeImageProvider] Processing image from raw Base64 string`
-        // );
-        const buffer = Buffer.from(imageUrl, "base64");
-        // Simple magic bytes check
-        let mime = "image/png";
-        if (buffer.length > 3) {
-          if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)
-            mime = "image/jpeg";
-          else if (
-            buffer[0] === 0x89 &&
-            buffer[1] === 0x50 &&
-            buffer[2] === 0x4e &&
-            buffer[3] === 0x47
-          )
-            mime = "image/png";
-          else if (
-            buffer[0] === 0x47 &&
-            buffer[1] === 0x49 &&
-            buffer[2] === 0x46
-          )
-            mime = "image/gif";
-          else if (
-            buffer[0] === 0x52 &&
-            buffer[1] === 0x49 &&
-            buffer[2] === 0x46 &&
-            buffer[3] === 0x46
-          )
-            mime = "image/webp";
-        }
-        blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-      }
-
-      // 4. Upload to Coze using FormData (multipart/form-data)
-      let uploadUrl = "https://api.coze.cn/v1/files/upload";
-      const baseURL = this.config.baseURL || "";
-      if (baseURL.includes("coze.com")) {
-        uploadUrl = "https://api.coze.com/v1/files/upload";
-      } else if (baseURL.includes("bytedance.net")) {
-        uploadUrl = "https://bot-open-api.bytedance.net/v1/files/upload";
-      }
-
-      const formData = new FormData();
-      formData.append("file", blob, "image.png");
-
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
-          // Content-Type header is omitted to let fetch set the boundary
-        },
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error(
-          `Coze File Upload failed (${uploadResponse.status}): ${errorText}`
-        );
-      }
-
-      const result = await uploadResponse.json();
-      if (result.code !== 0) {
-        throw new Error(`Coze File Upload API error: ${result.msg}`);
-      }
-
-      // console.log(
-      //   `[CozeImageProvider] File uploaded successfully, ID: ${result.data.id}`
-      // );
-      return result.data.id;
+      return await uploadToCoze(
+        imageUrl,
+        this.config.apiKey,
+        this.config.baseURL || ""
+      );
     } catch (error) {
-      // console.error(`[CozeImageProvider] Error in uploadToCoze:`, error);
       throw error;
     }
   }
@@ -1256,66 +1112,11 @@ export class CozeChatVisionProvider implements VisionProvider {
 
   private async uploadToCoze(imageUrl: string): Promise<string> {
     try {
-      let blob: Blob;
-
-      if (imageUrl.startsWith("data:")) {
-        const [header, base64Data] = imageUrl.split(",");
-        const mimeMatch = header.match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : "image/png";
-        const buffer = Buffer.from(base64Data, "base64");
-        blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-      } else if (imageUrl.startsWith("/") && imageUrl.length < 2048) {
-        const publicPath = path.join(process.cwd(), "public", imageUrl);
-        const buffer = await fs.readFile(publicPath);
-        const ext = path.extname(publicPath).slice(1) || "png";
-        const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
-        blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-      } else if (imageUrl.startsWith("http")) {
-        const response = await fetch(imageUrl);
-        if (!response.ok)
-          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-        const arrayBuffer = await response.arrayBuffer();
-        const contentType = response.headers.get("content-type") || "image/png";
-        blob = new Blob([arrayBuffer], { type: contentType });
-      } else {
-        const buffer = Buffer.from(imageUrl, "base64");
-        let mime = "image/png";
-        if (buffer.length > 3) {
-          if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) mime = "image/jpeg";
-          else if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) mime = "image/png";
-        }
-        blob = new Blob([bufferToArrayBuffer(buffer)], { type: mime });
-      }
-
-      let uploadUrl = "https://api.coze.cn/v1/files/upload";
-      const baseURL = this.config.baseURL || "";
-      if (baseURL.includes("coze.com")) {
-        uploadUrl = "https://api.coze.com/v1/files/upload";
-      } else if (baseURL.includes("bytedance.net")) {
-        uploadUrl = "https://bot-open-api.bytedance.net/v1/files/upload";
-      }
-
-      const formData = new FormData();
-      formData.append("file", blob, "image.png");
-
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
-        },
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        throw new Error(`Coze File Upload failed (${uploadResponse.status}): ${errorText}`);
-      }
-
-      const result = await uploadResponse.json();
-      if (result.code !== 0) {
-        throw new Error(`Coze File Upload API error: ${result.msg}`);
-      }
-      return result.data.id;
+      return await uploadToCoze(
+        imageUrl,
+        this.config.apiKey,
+        this.config.baseURL || ""
+      );
     } catch (error) {
       throw error;
     }

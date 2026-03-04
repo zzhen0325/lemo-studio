@@ -11,13 +11,30 @@ class UserStore {
     currentUser: User | null = null;
     users: User[] = [];
     isLoading: boolean = false;
+    isInitialized: boolean = false;
+    isInitializing: boolean = false;
     error: string | null = null;
 
     constructor() {
         makeAutoObservable(this);
-        if (typeof window !== 'undefined') {
-            this.loadUsers().then(() => {
-                this.loadSession();
+    }
+
+    async init() {
+        if (typeof window === 'undefined' || this.isInitialized || this.isInitializing) {
+            return;
+        }
+
+        runInAction(() => {
+            this.isInitializing = true;
+        });
+
+        try {
+            await this.loadUsers();
+            this.loadSession();
+        } finally {
+            runInAction(() => {
+                this.isInitializing = false;
+                this.isInitialized = true;
             });
         }
     }
@@ -46,9 +63,9 @@ class UserStore {
             const savedId = localStorage.getItem('CURRENT_USER_ID');
             if (savedId) {
                 const user = this.users.find(u => u.id === savedId);
-                if (user) {
-                    this.currentUser = user;
-                }
+                this.currentUser = user || null;
+            } else {
+                this.currentUser = null;
             }
             // Fallback for demo: if no user but users exist, use first one? 
             // Better to stay logged out if no session.

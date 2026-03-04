@@ -187,6 +187,7 @@ export default function ImagePreviewModal({
               <AnimatePresence>
                 {hasPrev && (
                   <motion.div
+                    key="preview-nav-prev"
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
@@ -207,6 +208,7 @@ export default function ImagePreviewModal({
                 )}
                 {hasNext && (
                   <motion.div
+                    key="preview-nav-next"
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}

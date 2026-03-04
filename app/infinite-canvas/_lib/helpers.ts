@@ -3,6 +3,10 @@ import type {
   InfiniteCanvasProject,
   InfiniteCanvasViewport,
 } from '@/types/infinite-canvas';
+import {
+  DEFAULT_INFINITE_CANVAS_MODEL_ID,
+  DEFAULT_INFINITE_NODE_PARAMS,
+} from './constants';
 
 export function nowISO() {
   return new Date().toISOString();
@@ -56,6 +60,8 @@ export function createTextNode(x: number, y: number): InfiniteCanvasNode {
     height: 240,
     status: 'idle',
     prompt: '',
+    modelId: DEFAULT_INFINITE_CANVAS_MODEL_ID,
+    params: { ...DEFAULT_INFINITE_NODE_PARAMS },
     outputs: [],
     isLocked: false,
     isSelected: false,
@@ -75,12 +81,8 @@ export function createImageNode(x: number, y: number): InfiniteCanvasNode {
     height: 320,
     status: 'idle',
     prompt: '',
-    modelId: 'gemini-3-pro-image-preview',
-    params: {
-      aspectRatio: '1:1',
-      imageSize: '1024x1024',
-      batchSize: 1,
-    },
+    modelId: DEFAULT_INFINITE_CANVAS_MODEL_ID,
+    params: { ...DEFAULT_INFINITE_NODE_PARAMS },
     outputs: [],
     isLocked: false,
     isSelected: false,
@@ -100,6 +102,8 @@ export function createGalleryNode(x: number, y: number): InfiniteCanvasNode {
     height: 360,
     status: 'idle',
     prompt: '',
+    modelId: DEFAULT_INFINITE_CANVAS_MODEL_ID,
+    params: { ...DEFAULT_INFINITE_NODE_PARAMS },
     galleryImages: [],
     outputs: [],
     isLocked: false,
