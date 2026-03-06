@@ -35,6 +35,7 @@ function buildImageRemotePatterns() {
     '**.byteimg.com',
     '**.byteintl.net',
     '**.coze.cn',
+    '**.fn-boe.bytedance.net',
     'localhost',
     '127.0.0.1',
   ];

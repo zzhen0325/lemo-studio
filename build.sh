@@ -2,23 +2,15 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
-SERVER_DIR="${REPO_ROOT}/server"
-SERVER_OUTPUT_DIR="${SERVER_DIR}/output"
-ROOT_OUTPUT_DIR="${REPO_ROOT}/output"
 
-echo "进入 server 目录..."
-cd "${SERVER_DIR}"
+echo "进入前端项目目录..."
+cd "${REPO_ROOT}"
 echo "当前目录: $(pwd)"
 
-echo "安装依赖..."
-npm install
+echo "安装前端依赖..."
+npm ci
 
-echo "构建 Gulux 服务..."
+echo "构建 Next.js 前端..."
 npm run build
 
-echo "同步产物到仓库根目录 output/ ..."
-rm -rf "${ROOT_OUTPUT_DIR}"
-mkdir -p "${ROOT_OUTPUT_DIR}"
-cp -R "${SERVER_OUTPUT_DIR}/." "${ROOT_OUTPUT_DIR}/"
-
-echo "根目录产物已生成: ${ROOT_OUTPUT_DIR}"
+echo "前端构建完成。启动命令: NODE_ENV=production next start -p \$PORT"

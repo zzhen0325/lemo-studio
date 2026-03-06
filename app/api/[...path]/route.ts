@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { normalizeConfiguredApiBase } from '@/lib/api-base';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 function resolveInternalApiBase(): URL {
-  const base = (
-    process.env.GULUX_API_BASE?.trim()
-    || process.env.INTERNAL_API_BASE?.trim()
-    || 'http://127.0.0.1:3000/api'
-  ).replace(/\/$/, '');
+  const base = normalizeConfiguredApiBase(process.env.GULUX_API_BASE)
+    || normalizeConfiguredApiBase(process.env.INTERNAL_API_BASE)
+    || 'http://127.0.0.1:3000/api';
 
   return new URL(base);
 }

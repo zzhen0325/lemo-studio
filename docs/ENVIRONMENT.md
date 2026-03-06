@@ -2,9 +2,19 @@
 
 ## Frontend (Next.js)
 
+- `PORT`
+  - Frontend runtime port.
+  - Usually injected by the deployment platform; no need to hardcode locally.
 - `GULUX_API_BASE`
-  - Internal backend target for the Next route-handler proxy at `/api/:path*`.
-  - Default: `http://127.0.0.1:3000/api`.
+  - Server-side backend target for the Next route-handler proxy at `/api/:path*`.
+  - Required for split frontend/backend deployment.
+  - Default local value: `http://127.0.0.1:3000/api`.
+  - Recommended production value: `https://qzcnzen0.fn-boe.bytedance.net/api`.
+- `NEXT_PUBLIC_API_BASE`
+  - Optional browser-side direct API base.
+  - If omitted, browser requests use same-origin `/api`.
+  - Recommended production value: `https://qzcnzen0.fn-boe.bytedance.net/api`.
+  - The runtime now auto-appends `/api` when you only provide the backend origin, but the full `/api` form is still recommended.
 - `NEXT_PUBLIC_COMFYUI_URL`
   - Optional UI preset value for ComfyUI endpoint in Settings.
 - `NEXT_PUBLIC_APP_PORT`
@@ -13,6 +23,9 @@
   - Optional shell mode override.
   - `playground-only`: only show Playground entry.
   - `full`: show full sidebar.
+- `NEXT_IMAGE_ALLOWED_HOSTS`
+  - Optional comma-separated allowlist for remote image domains used by `next/image`.
+  - Only needed when image URLs come from hosts outside the built-in defaults.
 
 ## Backend (Gulux server)
 
@@ -25,6 +38,9 @@
 - `API_CONFIG_ENCRYPTION_KEY`
   - Secret key for encrypting stored provider `apiKey`.
   - Should be a high-entropy secret managed outside source control.
+- `CORS_ALLOW_ORIGINS`
+  - Required when `NEXT_PUBLIC_API_BASE` points browser requests to a different origin.
+  - Use a comma-separated list of allowed frontend origins, for example `https://your-frontend.example.com`.
 
 ## API Access Rule
 

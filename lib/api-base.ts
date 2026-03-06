@@ -1,16 +1,65 @@
+function normalizeHttpApiBase(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return trimmed;
+    }
+
+    const withoutTrailingSlash = trimmed.replace(/\/$/, '');
+    if (withoutTrailingSlash === '/api' || withoutTrailingSlash.endsWith('/api')) {
+        return withoutTrailingSlash;
+    }
+
+    try {
+        const url = trimmed.startsWith('/')
+            ? new URL(trimmed, 'http://placeholder.local')
+            : new URL(trimmed);
+        const pathname = url.pathname.replace(/\/$/, '');
+
+        if (!pathname) {
+            url.pathname = '/api';
+        } else if (pathname === '/') {
+            url.pathname = '/api';
+        } else {
+            return withoutTrailingSlash;
+        }
+
+        if (trimmed.startsWith('/')) {
+            return `${url.pathname}${url.search}${url.hash}`.replace(/\/$/, '');
+        }
+
+        return url.toString().replace(/\/$/, '');
+    } catch {
+        return withoutTrailingSlash;
+    }
+}
+
+export function normalizeConfiguredApiBase(value: string | undefined | null): string | null {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    return normalizeHttpApiBase(trimmed);
+}
+
 export function getApiBase(): string {
     // Client side: allow explicit override for LAN/direct mode, otherwise same-origin proxy route.
     if (typeof window !== 'undefined') {
-        const envBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
+        const envBase = normalizeConfiguredApiBase(process.env.NEXT_PUBLIC_API_BASE);
         if (envBase) {
-            return envBase.replace(/\/$/, '');
+            return envBase;
         }
         return '/api';
     }
 
-    const internalBase = process.env.GULUX_API_BASE?.trim() || process.env.INTERNAL_API_BASE?.trim();
+    const internalBase = normalizeConfiguredApiBase(process.env.GULUX_API_BASE)
+        || normalizeConfiguredApiBase(process.env.INTERNAL_API_BASE);
     if (internalBase) {
-        return internalBase.replace(/\/$/, '');
+        return internalBase;
     }
 
     return 'http://127.0.0.1:3000/api';
