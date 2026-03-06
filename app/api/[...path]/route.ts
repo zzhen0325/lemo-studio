@@ -28,6 +28,10 @@ function buildUpstreamHeaders(request: NextRequest): Headers {
   headers.delete('host');
   headers.delete('connection');
   headers.delete('content-length');
+  // Avoid upstream compression because Node fetch transparently decodes
+  // the response body. Forwarding a decoded body with the original
+  // content-encoding header breaks browser/curl decoding.
+  headers.set('accept-encoding', 'identity');
   headers.set('x-forwarded-host', request.headers.get('x-forwarded-host') || request.nextUrl.host);
   headers.set('x-forwarded-proto', request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', ''));
 
@@ -39,6 +43,8 @@ function buildDownstreamHeaders(response: Response): Headers {
 
   headers.delete('connection');
   headers.delete('content-length');
+  headers.delete('content-encoding');
+  headers.delete('transfer-encoding');
   if (!headers.has('cache-control')) {
     headers.set('cache-control', 'no-store');
   }
