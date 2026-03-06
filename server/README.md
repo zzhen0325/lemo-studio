@@ -26,6 +26,8 @@ npm start
 ## 关键环境变量
 
 - `MONGODB_URI` / `MONGODB_DB`：MongoDB 连接配置。
+  - 生产部署必须显式提供 `MONGODB_URI`，服务不会再回退到内置默认库。
+  - 若 URI 本身不带库名，也请同时提供 `MONGODB_DB`。
 - `API_CONFIG_ENCRYPTION_KEY`：用于加密 `api-config` 中保存的 `apiKey`。  
   - 建议使用 32 字节随机密钥（base64 / base64url / hex 均可）。
   - 未设置时，系统保持明文兼容模式（仅返回值脱敏）。

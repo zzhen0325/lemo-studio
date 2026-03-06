@@ -18,8 +18,10 @@
 
 - `MONGODB_URI`
   - Mongo connection URI.
+  - Required in production deployment. The server only falls back to a local dev URI outside production.
 - `MONGODB_DB`
   - Mongo database name.
+  - Set this explicitly when your URI does not include a database name.
 - `API_CONFIG_ENCRYPTION_KEY`
   - Secret key for encrypting stored provider `apiKey`.
   - Should be a high-entropy secret managed outside source control.

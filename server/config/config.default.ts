@@ -3,6 +3,7 @@ import path from "path";
 import { ApplicationConfig } from "@gulux/gulux";
 import GlobalExceptionMiddleware from "../middleware/global-exception";
 import CorsMiddleware from "../middleware/cors";
+import { resolveMongoConfig } from "./mongo";
 
 // 约定：GuluX 服务通常从 server/ 目录启动；若从仓库根目录启动也能兼容。
 const cwd = process.cwd();
@@ -38,6 +39,9 @@ if (fs.existsSync(envLocalPath)) {
 }
 console.info("[ServerConfig] COMFYUI_API_URL resolved", process.env.COMFYUI_API_URL || "");
 
+const mongoConfig = resolveMongoConfig();
+console.info("[MongoConfig] source", mongoConfig.source, "db", mongoConfig.dbName);
+
 const config: ApplicationConfig = {
   name: "lemo-ai-studio-server",
   middleware: [CorsMiddleware, GlobalExceptionMiddleware],
@@ -52,10 +56,8 @@ const config: ApplicationConfig = {
   typegoose: {
     clients: {
       default: {
-        uri:
-          process.env.MONGODB_URI ||
-          "mongodb+consul+token://bytedance.bytedoc.lemon8_design_aigc/lemon8_design_aigc?connectTimeoutMS=2000",
-        dbName: process.env.MONGODB_DB || "lemon8_design_aigc",
+        uri: mongoConfig.uri,
+        dbName: mongoConfig.dbName,
         // @ts-ignore option passthrough to driver
         useNewUrlParser: true,
         // @ts-ignore option passthrough to driver
