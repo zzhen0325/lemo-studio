@@ -805,11 +805,15 @@ export default memo(function CanvasNodeCard({
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                <img
+                <Image
                   src={latestOutput.assetUrl}
                   alt={node.title}
-                  className="block w-full h-auto object-contain transition-transform duration-500 group-hover/img:scale-105"
+                  width={0}
+                  height={0}
+                  sizes="100vw"
+                  className="block h-auto w-full object-contain transition-transform duration-500 group-hover/img:scale-105"
                   draggable={false}
+                  unoptimized
                 />
                 {onEditImage ? (
                   <span className="absolute right-2 top-2 inline-flex items-center gap-1 opacity-0 rounded-lg border border-[#4A4C4D] bg-[#161616]/85 px-2 py-1 text-[11px] text-[#D9D9D9] backdrop-blur transition-opacity group-hover/img:opacity-100">
