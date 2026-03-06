@@ -262,33 +262,7 @@
     "baseURL": "",
     "models": [
       {
-        "modelId": "seed4_lemo1230",
-        "displayName": "Seed4 Lemo",
-        "task": [
-          "image"
-        ],
-        "category": "seedream",
-        "contexts": [
-          "playground",
-          "infinite-canvas",
-          "service:imageGeneration"
-        ],
-        "status": "active",
-        "priority": 160,
-        "capabilities": {
-          "supportsImage": true,
-          "supportsAspectRatio": true,
-          "supportsImageSize": false,
-          "supportsSeed": true,
-          "supportsBatch": true,
-          "maxBatchSize": 4,
-          "supportsMultiImage": false,
-          "maxReferenceImages": 1,
-          "supportsImageEdit": false
-        }
-      },
-      {
-        "modelId": "seed4_2_lemo",
+        "modelId": "seed4_v2_0226lemo",
         "displayName": "Seed4.2 Lemo",
         "task": [
           "image"
@@ -317,58 +291,6 @@
         },
         "status": "active",
         "priority": 140
-      },
-      {
-        "modelId": "lemo_2dillustator",
-        "displayName": "Lemo 2D Illustrator",
-        "task": [
-          "image"
-        ],
-        "category": "seedream",
-        "contexts": [
-          "playground",
-          "infinite-canvas",
-          "service:imageGeneration"
-        ],
-        "status": "active",
-        "priority": 150,
-        "capabilities": {
-          "supportsImage": true,
-          "supportsAspectRatio": true,
-          "supportsImageSize": false,
-          "supportsSeed": true,
-          "supportsBatch": true,
-          "maxBatchSize": 4,
-          "supportsMultiImage": false,
-          "maxReferenceImages": 1,
-          "supportsImageEdit": false
-        }
-      },
-      {
-        "modelId": "lemoseedt2i",
-        "displayName": "Seed 4",
-        "task": [
-          "image"
-        ],
-        "category": "seedream",
-        "contexts": [
-          "playground",
-          "infinite-canvas",
-          "service:imageGeneration"
-        ],
-        "status": "active",
-        "priority": 155,
-        "capabilities": {
-          "supportsImage": true,
-          "supportsAspectRatio": true,
-          "supportsImageSize": false,
-          "supportsSeed": true,
-          "supportsBatch": true,
-          "maxBatchSize": 4,
-          "supportsMultiImage": false,
-          "maxReferenceImages": 1,
-          "supportsImageEdit": false
-        }
       }
     ],
     "isEnabled": true,
@@ -383,8 +305,48 @@
     "baseURL": "https://bot-open-api.bytedance.net/v3/chat",
     "models": [
       {
-        "modelId": "coze_seed4",
-        "displayName": "Seedream 4",
+        "modelId": "coze-prompt",
+        "displayName": "Coze Prompt",
+        "task": [
+          "text",
+          "vision"
+        ],
+        "category": "coze",
+        "contexts": [
+          "service:optimize",
+          "service:describe"
+        ],
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": true,
+          "supportsImage": false,
+          "supportsImageEdit": false,
+          "supportsAspectRatio": false,
+          "supportsImageSize": false,
+          "supportsSeed": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        },
+        "status": "active",
+        "priority": 120
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-17T00:00:00.000Z",
+    "updatedAt": "2026-01-17T00:00:00.000Z"
+  },
+  {
+    "id": "provider-coze-seed",
+    "name": "Coze Workflow (Seedream 4.5)",
+    "providerType": "coze-image",
+    "apiKey": "",
+    "baseURL": "https://2q3rqt6rnh.coze.site/run",
+    "models": [
+      {
+        "modelId": "coze_seedream4_5",
+        "displayName": "Seedream 4.5",
         "task": [
           "image"
         ],
@@ -402,20 +364,20 @@
             "2K",
             "4K"
           ],
-          "supportsSeed": true,
-          "supportsBatch": true,
-          "maxBatchSize": 4,
+          "supportsSeed": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
           "supportsMultiImage": true,
           "maxReferenceImages": 4,
           "supportsImageEdit": true
         },
         "status": "active",
-        "priority": 130
+        "priority": 125
       }
     ],
     "isEnabled": true,
-    "createdAt": "2026-01-17T00:00:00.000Z",
-    "updatedAt": "2026-01-17T00:00:00.000Z"
+    "createdAt": "2026-03-06T00:00:00.000Z",
+    "updatedAt": "2026-03-06T00:00:00.000Z"
   },
   {
     "id": "provider-workflow-local",

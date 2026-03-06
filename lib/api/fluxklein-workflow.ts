@@ -79,6 +79,15 @@ function setInput(workflow: Workflow, nodeId: string | undefined, key: string, v
   node.inputs[key] = value;
 }
 
+function setTargetSize(workflow: Workflow, schedulerId: string | undefined, latentId: string | undefined, width: number, height: number) {
+  const targetWidth = Math.floor(Number(width) || 1024);
+  const targetHeight = Math.floor(Number(height) || 1024);
+  setInput(workflow, schedulerId, "width", targetWidth);
+  setInput(workflow, schedulerId, "height", targetHeight);
+  setInput(workflow, latentId, "width", targetWidth);
+  setInput(workflow, latentId, "height", targetHeight);
+}
+
 function getNextIdFactory(workflow: Workflow) {
   const maxId = Object.keys(workflow).reduce((max, id) => {
     const parsed = Number.parseInt(id, 10);
@@ -118,6 +127,7 @@ export async function buildFluxKleinWorkflow(args: FluxKleinBuildArgs): Promise<
 
   const batchSizeValue = Math.max(1, Math.floor(Number(args.batchSize || 1)));
   setInput(workflow, latentId, "batch_size", batchSizeValue);
+  setTargetSize(workflow, schedulerId, latentId, args.width, args.height);
 
   const viewComfyInputs: Array<{ key: string; value: string | number | boolean }> = [];
 
@@ -130,10 +140,6 @@ export async function buildFluxKleinWorkflow(args: FluxKleinBuildArgs): Promise<
     });
     setInput(workflow, cfgGuiderId, "positive", [clipTextId, 0]);
     setInput(workflow, cfgGuiderId, "negative", [conditioningZeroId, 0]);
-    setInput(workflow, schedulerId, "width", Math.floor(Number(args.width) || 1024));
-    setInput(workflow, schedulerId, "height", Math.floor(Number(args.height) || 1024));
-    setInput(workflow, latentId, "width", Math.floor(Number(args.width) || 1024));
-    setInput(workflow, latentId, "height", Math.floor(Number(args.height) || 1024));
     if (getImageSizeId) {
       delete workflow[getImageSizeId];
     }
@@ -147,7 +153,6 @@ export async function buildFluxKleinWorkflow(args: FluxKleinBuildArgs): Promise<
     const nextId = getNextIdFactory(workflow);
     let prevPosId = clipTextId;
     let prevNegId = conditioningZeroId;
-    let firstScaleId: string | undefined;
 
     for (let i = 0; i < referenceImages.length; i += 1) {
       const loadId = nextId();
@@ -168,22 +173,12 @@ export async function buildFluxKleinWorkflow(args: FluxKleinBuildArgs): Promise<
       prevPosId = posId;
       prevNegId = negId;
 
-      if (!firstScaleId) firstScaleId = scaleId;
       const refImage = referenceImages[i];
       viewComfyInputs.push({ key: `${loadId}-inputs-image`, value: refImage });
     }
 
-    if (getImageSizeId && firstScaleId) {
-      setInput(workflow, getImageSizeId, "image", [firstScaleId, 0]);
-      setInput(workflow, schedulerId, "width", [getImageSizeId, 0]);
-      setInput(workflow, schedulerId, "height", [getImageSizeId, 1]);
-      setInput(workflow, latentId, "width", [getImageSizeId, 0]);
-      setInput(workflow, latentId, "height", [getImageSizeId, 1]);
-    } else {
-      setInput(workflow, schedulerId, "width", Math.floor(Number(args.width) || 1024));
-      setInput(workflow, schedulerId, "height", Math.floor(Number(args.height) || 1024));
-      setInput(workflow, latentId, "width", Math.floor(Number(args.width) || 1024));
-      setInput(workflow, latentId, "height", Math.floor(Number(args.height) || 1024));
+    if (getImageSizeId) {
+      delete workflow[getImageSizeId];
     }
 
     setInput(workflow, cfgGuiderId, "positive", [prevPosId, 0]);

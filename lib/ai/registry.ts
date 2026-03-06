@@ -73,12 +73,12 @@ export const REGISTRY: RegistryItem[] = [
         }
     },
     {
-        id: 'seed4_2_lemo',
+        id: 'seed4_v2_0226lemo',
         providerType: 'bytedance-afr',
         task: ['image'],
         defaultConfig: {
             providerId: 'bytedance',
-            modelId: 'seed4_2_lemo'
+            modelId: 'seed4_v2_0226lemo'
         }
     },
     {
@@ -108,6 +108,28 @@ export const REGISTRY: RegistryItem[] = [
             modelId: '7594371442356256806',
             apiKey: process.env.COZE_API_TOKEN,
             baseURL: 'https://bot-open-api.bytedance.net/v3/chat'
+        }
+    },
+    {
+        id: 'coze_seedream4_5',
+        providerType: 'coze-image',
+        task: ['image'],
+        defaultConfig: {
+            providerId: 'coze',
+            modelId: 'coze_seedream4_5',
+            apiKey: process.env.COZE_SEED_API_TOKEN,
+            baseURL: process.env.COZE_SEED_RUN_URL || 'https://2q3rqt6rnh.coze.site/run'
+        }
+    },
+    {
+        id: 'coze-prompt',
+        providerType: 'coze-vision',
+        task: ['text', 'vision'],
+        defaultConfig: {
+            providerId: 'coze',
+            modelId: 'coze-prompt',
+            apiKey: process.env.COZE_PROMPT_API_TOKEN || process.env.COZE_API_TOKEN,
+            baseURL: process.env.COZE_PROMPT_RUN_URL || 'https://m5385m4ryw.coze.site/run'
         }
     },
     {

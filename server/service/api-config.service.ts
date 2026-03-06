@@ -12,6 +12,26 @@ import { normalizeProviderConfigs } from '../../lib/model-center';
 
 const EMPTY_BINDING: ServiceBinding = { providerId: '', modelId: '' };
 
+const MODEL_ID_MIGRATIONS: Record<string, string> = {
+  seed4_2_lemo: 'seed4_v2_0226lemo',
+};
+
+function migrateModelId(modelId?: string): string {
+  if (!modelId) return '';
+  return MODEL_ID_MIGRATIONS[modelId] || modelId;
+}
+
+function migrateModels(models: Record<string, unknown>[] | undefined): Record<string, unknown>[] {
+  if (!Array.isArray(models)) return [];
+  return models.map((model) => {
+    const rawModelId = typeof model.modelId === 'string' ? model.modelId : '';
+    if (!rawModelId) return model;
+    const nextModelId = migrateModelId(rawModelId);
+    if (nextModelId === rawModelId) return model;
+    return { ...model, modelId: nextModelId };
+  });
+}
+
 const DEFAULT_TRANSLATE_SYSTEM_PROMPT = [
   'You are a professional prompt translation engine for text-to-image workflows.',
   'Translate only. Do not explain, annotate, or add extra content.',
@@ -63,7 +83,7 @@ function withBinding(input?: Partial<ServiceConfig>, fallback?: ServiceBinding):
   return {
     binding: {
       providerId: input?.binding?.providerId || fallbackBinding.providerId,
-      modelId: input?.binding?.modelId || fallbackBinding.modelId,
+      modelId: migrateModelId(input?.binding?.modelId || fallbackBinding.modelId),
     },
     systemPrompt: input?.systemPrompt,
   };
@@ -102,9 +122,9 @@ function resolveSettings(settings: APIConfigSettings | Record<string, unknown> |
         providerId: incomingServices?.datasetLabel?.binding?.providerId
           || incomingServices?.describe?.binding?.providerId
           || DEFAULT_SETTINGS.services.datasetLabel.binding.providerId,
-        modelId: incomingServices?.datasetLabel?.binding?.modelId
+        modelId: migrateModelId(incomingServices?.datasetLabel?.binding?.modelId
           || incomingServices?.describe?.binding?.modelId
-          || DEFAULT_SETTINGS.services.datasetLabel.binding.modelId,
+          || DEFAULT_SETTINGS.services.datasetLabel.binding.modelId),
       }
     }
   };
@@ -154,6 +174,11 @@ interface ApiProviderLeanDoc {
   updatedAt?: string;
 }
 
+interface FileProvidersReadResult {
+  fallbackDate: string;
+  providers: APIProviderConfig[];
+}
+
 function shouldKeepExistingMaskedApiKey(value: string | undefined): boolean {
   return typeof value === 'string' && value.startsWith('[MASKED:');
 }
@@ -177,7 +202,7 @@ export class ApiConfigService {
       providerType: (doc.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
       apiKey: maskStoredApiKey(doc.apiKey),
       baseURL: doc.baseURL,
-      models: (doc.models || []) as unknown as APIProviderConfig['models'],
+      models: migrateModels(doc.models) as unknown as APIProviderConfig['models'],
       isEnabled: doc.isEnabled ?? true,
       createdAt: (doc.createdAt as string) || fallbackDate,
       updatedAt: (doc.updatedAt as string) || fallbackDate,
@@ -194,7 +219,7 @@ export class ApiConfigService {
       providerType: (doc.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
       apiKey: decryptedApiKey ?? '',
       baseURL: doc.baseURL,
-      models: (doc.models || []) as unknown as APIProviderConfig['models'],
+      models: migrateModels(doc.models) as unknown as APIProviderConfig['models'],
       isEnabled: doc.isEnabled ?? true,
       createdAt: (doc.createdAt as string) || fallbackDate,
       updatedAt: (doc.updatedAt as string) || fallbackDate,
@@ -232,6 +257,20 @@ export class ApiConfigService {
   }
 
   private async importProvidersFromFile(): Promise<APIProviderConfig[]> {
+    const { fallbackDate, providers: parsedProviders } = await this.readProvidersFromFile();
+    const existingProviders = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+    const operations = this.buildFullUpsertOperations(parsedProviders, existingProviders);
+
+    if (operations.length > 0) {
+      await this.apiProviderModel.bulkWrite(operations, { ordered: false });
+    }
+
+    const providersRaw = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+    await this.migratePlaintextApiKeys(providersRaw);
+    return providersRaw.map((doc) => this.toMaskedProvider(doc, fallbackDate));
+  }
+
+  private async readProvidersFromFile(): Promise<FileProvidersReadResult> {
     const fallbackDate = new Date().toISOString();
     const candidatePaths = [
       path.join(process.cwd(), 'data/api-config/providers.json'),
@@ -258,7 +297,10 @@ export class ApiConfigService {
       throw new HttpError(400, 'Failed to read providers.json');
     }
 
-    const existingProviders = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+    return { fallbackDate, providers: parsedProviders };
+  }
+
+  private buildFullUpsertOperations(parsedProviders: APIProviderConfig[], existingProviders: ApiProviderLeanDoc[]) {
     const existingById = new Map<string, ApiProviderLeanDoc>();
     for (const provider of existingProviders) {
       const id = provider.id || (provider._id ? String(provider._id) : '');
@@ -266,7 +308,7 @@ export class ApiConfigService {
     }
 
     const now = new Date().toISOString();
-    const operations = parsedProviders.map((provider) => {
+    return parsedProviders.map((provider) => {
       const id = provider.id || randomUUID();
       const existing = existingById.get(id);
       const incomingApiKey = typeof provider.apiKey === 'string' ? provider.apiKey : '';
@@ -284,7 +326,7 @@ export class ApiConfigService {
             providerType: provider.providerType || 'openai-compatible',
             apiKey: finalApiKey,
             baseURL: provider.baseURL,
-            models: (provider.models || []) as unknown as Record<string, unknown>[],
+            models: migrateModels((provider.models || []) as unknown as Record<string, unknown>[]),
             isEnabled: provider.isEnabled ?? true,
             createdAt: provider.createdAt || existing?.createdAt || now,
             updatedAt: now,
@@ -293,20 +335,91 @@ export class ApiConfigService {
         }
       };
     });
+  }
 
-    if (operations.length > 0) {
-      await this.apiProviderModel.bulkWrite(operations, { ordered: false });
+  private async syncMissingProvidersFromFile(existingProviders: ApiProviderLeanDoc[]): Promise<ApiProviderLeanDoc[]> {
+    let fileProviders: APIProviderConfig[];
+    try {
+      const loaded = await this.readProvidersFromFile();
+      fileProviders = loaded.providers;
+    } catch {
+      return existingProviders;
     }
 
-    const providersRaw = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
-    await this.migratePlaintextApiKeys(providersRaw);
-    return providersRaw.map((doc) => this.toMaskedProvider(doc, fallbackDate));
+    const now = new Date().toISOString();
+    const existingById = new Map<string, ApiProviderLeanDoc>();
+    for (const provider of existingProviders) {
+      const id = provider.id || (provider._id ? String(provider._id) : '');
+      if (id) existingById.set(id, provider);
+    }
+
+    const operations: Array<{
+      updateOne: {
+        filter: { id: string };
+        update: Record<string, unknown>;
+        upsert?: boolean;
+      };
+    }> = [];
+
+    for (const provider of fileProviders) {
+      const id = provider.id || randomUUID();
+      const existing = existingById.get(id);
+
+      if (!existing) {
+        const incomingApiKey = typeof provider.apiKey === 'string' ? provider.apiKey : '';
+        operations.push({
+          updateOne: {
+            filter: { id },
+            update: {
+              id,
+              name: provider.name || 'Unnamed Provider',
+              providerType: provider.providerType || 'openai-compatible',
+              apiKey: incomingApiKey ? encryptApiKey(incomingApiKey) : '',
+              baseURL: provider.baseURL,
+              models: migrateModels((provider.models || []) as unknown as Record<string, unknown>[]),
+              isEnabled: provider.isEnabled ?? true,
+              createdAt: provider.createdAt || now,
+              updatedAt: now,
+            },
+            upsert: true,
+          }
+        });
+        continue;
+      }
+
+      const existingModels = Array.isArray(existing.models) ? existing.models : [];
+      const existingModelIds = new Set(
+        existingModels
+          .map((model) => (typeof model?.modelId === 'string' ? model.modelId : ''))
+          .filter(Boolean)
+      );
+      const missingModels = (provider.models || []).filter((model) => !existingModelIds.has(model.modelId));
+      if (missingModels.length === 0) continue;
+
+      operations.push({
+        updateOne: {
+          filter: { id },
+          update: {
+            models: migrateModels([...existingModels, ...missingModels] as unknown as Record<string, unknown>[]),
+            updatedAt: now,
+          },
+        }
+      });
+    }
+
+    if (operations.length === 0) {
+      return existingProviders;
+    }
+
+    await this.apiProviderModel.bulkWrite(operations, { ordered: false });
+    return (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
   }
 
   public async getAll(): Promise<APIConfigResponse> {
     try {
       const fallbackDate = new Date().toISOString();
-      const providersRaw = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+      const dbProviders = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+      const providersRaw = await this.syncMissingProvidersFromFile(dbProviders);
       await this.migratePlaintextApiKeys(providersRaw);
       const settingsDoc = await this.apiSettingsModel.findOne({ key: 'default' }).lean();
       const settings = resolveSettings((settingsDoc?.settings as unknown as APIConfigSettings) || DEFAULT_SETTINGS);
@@ -322,7 +435,8 @@ export class ApiConfigService {
   public async getRuntimeProviders(): Promise<APIProviderConfig[]> {
     try {
       const fallbackDate = new Date().toISOString();
-      const providersRaw = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+      const dbProviders = (await this.apiProviderModel.find().lean()) as unknown as ApiProviderLeanDoc[];
+      const providersRaw = await this.syncMissingProvidersFromFile(dbProviders);
       await this.migratePlaintextApiKeys(providersRaw);
       const runtimeProviders = providersRaw.map((doc) => this.toRuntimeProvider(doc, fallbackDate));
       return normalizeProviderConfigs(runtimeProviders);
@@ -386,7 +500,7 @@ export class ApiConfigService {
             providerType: providerData.providerType,
             apiKey: finalApiKey ?? existing.apiKey,
             baseURL: providerData.baseURL,
-            models: (providerData.models || []) as unknown as Record<string, unknown>[],
+            models: migrateModels((providerData.models || []) as unknown as Record<string, unknown>[]),
             isEnabled: providerData.isEnabled,
             updatedAt: now,
           },
@@ -401,7 +515,7 @@ export class ApiConfigService {
           providerType: providerData.providerType || 'openai-compatible',
           apiKey: encryptApiKey(incomingApiKey),
           baseURL: providerData.baseURL,
-          models: providerData.models || [],
+          models: migrateModels((providerData.models || []) as unknown as Record<string, unknown>[]),
           isEnabled: providerData.isEnabled ?? true,
           createdAt: now,
           updatedAt: now,

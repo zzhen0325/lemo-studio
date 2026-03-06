@@ -14,6 +14,10 @@ const CANONICAL_IMAGE_SIZE_TO_PX: Record<'1K' | '2K' | '4K', number> = {
     '2K': 2048,
     '4K': 4096,
 };
+const REMOVED_PROVIDER_MODEL_IDS: Partial<Record<string, Set<string>>> = {
+    'provider-bytedance': new Set(['seed4_lemo1230', 'lemo_2dillustator', 'lemoseedt2i']),
+    'provider-coze': new Set(['coze_seed4']),
+};
 let warnedLegacyModelMigration = false;
 
 const CONTEXTS_BY_TASK: Record<ModelTask, ModelContext[]> = {
@@ -174,9 +178,14 @@ export function normalizeModelEntry(model: ModelEntry): ModelEntry {
 }
 
 export function normalizeProviderConfig(provider: APIProviderConfig): APIProviderConfig {
+    const removedModelIds = REMOVED_PROVIDER_MODEL_IDS[provider.id];
+    const filteredModels = removedModelIds
+        ? (provider.models || []).filter((model) => !removedModelIds.has(model.modelId))
+        : (provider.models || []);
+
     return {
         ...provider,
-        models: (provider.models || []).map(normalizeModelEntry),
+        models: filteredModels.map(normalizeModelEntry),
     };
 }
 

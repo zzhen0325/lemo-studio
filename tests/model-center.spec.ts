@@ -80,6 +80,51 @@ describe('model-center', () => {
     expect(validation.valid).toBe(true);
   });
 
+  it('filters removed built-in models from legacy provider records', () => {
+    const providers = normalizeProviderConfigs([
+      createProvider({
+        id: 'provider-bytedance',
+        providerType: 'bytedance-afr',
+        models: [
+          {
+            modelId: 'seed4_lemo1230',
+            displayName: 'Seed4 Lemo',
+            task: ['image'],
+          },
+          {
+            modelId: 'seed4_v2_0226lemo',
+            displayName: 'Seed4.2 Lemo',
+            task: ['image'],
+          },
+          {
+            modelId: 'lemo_2dillustator',
+            displayName: 'Lemo 2D Illustrator',
+            task: ['image'],
+          },
+        ],
+      }),
+      createProvider({
+        id: 'provider-coze',
+        providerType: 'coze-image',
+        models: [
+          {
+            modelId: 'coze_seed4',
+            displayName: 'Seedream 4',
+            task: ['image'],
+          },
+          {
+            modelId: 'coze-prompt',
+            displayName: 'Coze Prompt',
+            task: ['text', 'vision'],
+          },
+        ],
+      }),
+    ]);
+
+    expect(providers[0]?.models.map((model) => model.modelId)).toEqual(['seed4_v2_0226lemo']);
+    expect(providers[1]?.models.map((model) => model.modelId)).toEqual(['coze-prompt']);
+  });
+
   it('filters models by context/task/status/provider enabled', () => {
     const providers: APIProviderConfig[] = [
       createProvider({

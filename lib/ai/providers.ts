@@ -29,6 +29,16 @@ type DoubaoResponse = {
   output_text?: string | string[];
 };
 
+const DEFAULT_COZE_PROMPT_RUN_URL = "https://m5385m4ryw.coze.site/run";
+const DEFAULT_COZE_SEED_RUN_URL = "https://2q3rqt6rnh.coze.site/run";
+
+type CozePromptImagePayload = {
+  url: string;
+  file_type: string;
+};
+
+type CozeWorkflowReferenceImagesPayload = string[];
+
 function extractDoubaoOutputText(data: DoubaoResponse): string {
   const outputs = Array.isArray(data.output) ? data.output : [];
 
@@ -59,6 +69,262 @@ function extractDoubaoOutputText(data: DoubaoResponse): string {
   }
 
   return "";
+}
+
+function normalizeFileType(value: string | undefined): string {
+  if (!value) return "png";
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return "png";
+
+  if (normalized.includes("/")) {
+    const mimeType = normalized.split(";")[0];
+    const subType = mimeType.split("/")[1] || "";
+    if (!subType) return "png";
+    if (subType === "jpg") return "jpeg";
+    return subType.replace(/[^a-z0-9]/g, "") || "png";
+  }
+
+  if (normalized === "jpg") return "jpeg";
+  return normalized.replace(/[^a-z0-9]/g, "") || "png";
+}
+
+function inferFileTypeFromUrl(url: string): string | undefined {
+  const match = url.match(/\.([a-zA-Z0-9]+)(?:[?#][^#?]*)?$/);
+  if (!match?.[1]) return undefined;
+  return normalizeFileType(match[1]);
+}
+
+function isLikelyBase64(value: string): boolean {
+  if (!value || value.length < 24) return false;
+  const sanitized = value.replace(/\s+/g, "");
+  return /^[A-Za-z0-9+/=]+$/.test(sanitized);
+}
+
+async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImagePayload> {
+  if (!imageInput) {
+    throw new Error("Coze API requires image input");
+  }
+
+  if (imageInput.startsWith("data:")) {
+    const mimeMatch = imageInput.match(/^data:([^;,]+);base64,/i);
+    return {
+      url: imageInput,
+      file_type: normalizeFileType(mimeMatch?.[1]),
+    };
+  }
+
+  if (imageInput.startsWith("/")) {
+    const localImage = await readLocalPublicImage(imageInput);
+    if (!localImage) {
+      throw new Error(`Invalid local image path: ${imageInput}`);
+    }
+    return {
+      url: `data:${localImage.mimeType};base64,${localImage.data}`,
+      file_type: normalizeFileType(localImage.mimeType),
+    };
+  }
+
+  if (/^https?:\/\//i.test(imageInput)) {
+    return {
+      url: imageInput,
+      file_type: inferFileTypeFromUrl(imageInput) || "png",
+    };
+  }
+
+  if (isLikelyBase64(imageInput)) {
+    const sanitized = imageInput.replace(/\s+/g, "");
+    return {
+      url: `data:image/png;base64,${sanitized}`,
+      file_type: "png",
+    };
+  }
+
+  throw new Error("Unsupported image input for Coze API");
+}
+
+function pushUniqueImage(images: string[], candidate: string): void {
+  const value = candidate.trim();
+  if (!value || images.includes(value)) return;
+  images.push(value);
+}
+
+function extractImageUrlsFromString(input: string): string[] {
+  const images: string[] = [];
+  const value = input.trim();
+  if (!value) return images;
+
+  if (value.startsWith("data:image/")) {
+    pushUniqueImage(images, value);
+  } else if (/^https?:\/\/[^\s"'<>]+$/i.test(value)) {
+    pushUniqueImage(images, value);
+  } else if (isLikelyBase64(value)) {
+    pushUniqueImage(images, `data:image/png;base64,${value.replace(/\s+/g, "")}`);
+  }
+
+  const cozeRegex = /https?:\/\/[st]\.coze\.cn\/t\/[a-zA-Z0-9_-]+\//gi;
+  let match: RegExpExecArray | null;
+  while ((match = cozeRegex.exec(value)) !== null) {
+    pushUniqueImage(images, match[0]);
+  }
+
+  const fileRegex =
+    /https?:\/\/[^\s"'<>]+?\.(?:png|jpe?g|gif|webp|bmp)(?:\?[^\s"'<>]*)?(?:#[^\s"'<>]*)?/gi;
+  while ((match = fileRegex.exec(value)) !== null) {
+    pushUniqueImage(images, match[0]);
+  }
+
+  return images;
+}
+
+function extractCozeWorkflowImageUrls(payload: unknown): string[] {
+  const images: string[] = [];
+  const queue: unknown[] = [payload];
+  const visited = new Set<unknown>();
+  const preferredKeys = [
+    "url",
+    "image",
+    "image_url",
+    "imageUrl",
+    "images",
+    "generated_image_urls",
+    "output",
+    "result",
+    "data",
+    "content",
+    "message",
+    "response",
+  ];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === null || current === undefined) continue;
+
+    if (typeof current === "string") {
+      for (const candidate of extractImageUrlsFromString(current)) {
+        pushUniqueImage(images, candidate);
+      }
+      continue;
+    }
+
+    if (typeof current !== "object") continue;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    if (Array.isArray(current)) {
+      for (const item of current) queue.push(item);
+      continue;
+    }
+
+    const record = current as Record<string, unknown>;
+    for (const key of preferredKeys) {
+      const value = record[key];
+      if (typeof value === "string") {
+        for (const candidate of extractImageUrlsFromString(value)) {
+          pushUniqueImage(images, candidate);
+        }
+      } else if (value !== undefined) {
+        queue.push(value);
+      }
+    }
+
+    for (const value of Object.values(record)) {
+      if (typeof value === "string" || typeof value === "object") {
+        queue.push(value);
+      }
+    }
+  }
+
+  return images;
+}
+
+function buildCozePromptTextPayload(params: {
+  input: string;
+  systemPrompt?: string;
+  mode: "optimize" | "describe";
+}): Record<string, unknown> {
+  const input = params.input.trim();
+  const systemPrompt = (params.systemPrompt || "").trim();
+  const mergedInput = systemPrompt ? `${systemPrompt}\n\n${input}` : input;
+
+  return {
+    mode: params.mode,
+    input: mergedInput,
+    prompt: input,
+    system_prompt: systemPrompt,
+  };
+}
+
+function extractCozePromptText(payload: unknown): string {
+  const preferredKeys = [
+    "text",
+    "output_text",
+    "output",
+    "result",
+    "answer",
+    "content",
+    "message",
+    "response",
+    "data",
+  ];
+
+  const queue: unknown[] = [payload];
+  const visited = new Set<unknown>();
+  let fallbackUrl = "";
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === null || current === undefined) continue;
+
+    if (typeof current === "string") {
+      const value = current.trim();
+      if (!value) continue;
+
+      if (/^https?:\/\//i.test(value) && !fallbackUrl) {
+        fallbackUrl = value;
+        continue;
+      }
+
+      return value;
+    }
+
+    if (typeof current !== "object") continue;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    if (Array.isArray(current)) {
+      for (const item of current) queue.push(item);
+      continue;
+    }
+
+    const record = current as Record<string, unknown>;
+    const role = typeof record.role === "string" ? record.role.toLowerCase() : "";
+    if (role === "assistant" && typeof record.content === "string" && record.content.trim()) {
+      return record.content.trim();
+    }
+
+    for (const key of preferredKeys) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) {
+        if (/^https?:\/\//i.test(value) && !fallbackUrl) {
+          fallbackUrl = value.trim();
+          continue;
+        }
+        return value.trim();
+      }
+    }
+
+    for (const key of preferredKeys) {
+      if (record[key] !== undefined) queue.push(record[key]);
+    }
+    for (const value of Object.values(record)) {
+      if (typeof value === "string" || typeof value === "object") {
+        queue.push(value);
+      }
+    }
+  }
+
+  return fallbackUrl;
 }
 
 export class OpenAICompatibleProvider implements TextProvider {
@@ -517,6 +783,227 @@ export class GoogleGenAIProvider
 }
 
 /**
+ * Coze Prompt API Provider (https://*.coze.site/run)
+ * 用于 prompt 优化（text）和图片描述（vision）。
+ */
+export class CozePromptProvider implements TextProvider, VisionProvider {
+  private config: ModelConfig;
+
+  constructor(config: ModelConfig) {
+    this.config = config;
+  }
+
+  async generateText(params: TextGenerationInput): Promise<TextResult> {
+    const input = params.input?.trim();
+    if (!input) {
+      throw new Error("Coze Prompt API requires non-empty input");
+    }
+
+    const body = {
+      image: {
+        url: "",
+        file_type: "",
+      },
+      text: buildCozePromptTextPayload({
+        input,
+        systemPrompt: params.systemPrompt,
+        mode: "optimize",
+      }),
+    };
+
+    const text = await this.callRunApi(body);
+    return { text };
+  }
+
+  async describeImage(params: VisionGenerationInput): Promise<TextResult> {
+    const image = await this.buildImagePayload(params.image);
+    const prompt = (params.prompt || "请描述这张图片").trim();
+
+    const body = {
+      image,
+      text: buildCozePromptTextPayload({
+        input: prompt,
+        systemPrompt: params.systemPrompt,
+        mode: "describe",
+      }),
+    };
+
+    const text = await this.callRunApi(body);
+    return { text };
+  }
+
+  private resolveRunUrl(): string {
+    const configured = this.config.baseURL?.trim();
+    if (configured && configured.includes("/run")) {
+      return configured;
+    }
+    return process.env.COZE_PROMPT_RUN_URL || DEFAULT_COZE_PROMPT_RUN_URL;
+  }
+
+  private async buildImagePayload(imageInput: string): Promise<CozePromptImagePayload> {
+    return buildCozeImagePayload(imageInput);
+  }
+
+  private async callRunApi(payload: {
+    image: CozePromptImagePayload;
+    text: Record<string, unknown>;
+  }): Promise<string> {
+    const resolvedApiKey = this.resolveApiKey();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (resolvedApiKey) {
+      headers.Authorization = `Bearer ${resolvedApiKey}`;
+    }
+
+    const agent = getProxyAgent();
+    const fetchOptions: RequestInit & { agent?: unknown } = {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    };
+
+    if (agent) {
+      fetchOptions.agent = agent;
+    }
+
+    const response = await fetch(this.resolveRunUrl(), fetchOptions);
+    const raw = await response.text();
+
+    if (!response.ok) {
+      const truncatedError = raw.length > 500 ? `${raw.slice(0, 500)}...` : raw;
+      throw new Error(`Coze Prompt API Error: ${response.status} - ${truncatedError}`);
+    }
+
+    let parsed: unknown = raw;
+    if (raw.trim()) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = raw;
+      }
+    }
+
+    const text = extractCozePromptText(parsed).trim();
+    if (!text) {
+      const truncatedPayload = raw.length > 500 ? `${raw.slice(0, 500)}...` : raw;
+      throw new Error(`Coze Prompt API returned empty text: ${truncatedPayload}`);
+    }
+
+    return text;
+  }
+
+  private resolveApiKey(): string {
+    return process.env.COZE_PROMPT_API_TOKEN || this.config.apiKey || process.env.COZE_API_TOKEN || "";
+  }
+}
+
+export class CozeWorkflowImageProvider implements ImageProvider {
+  private config: ModelConfig;
+
+  constructor(config: ModelConfig) {
+    this.config = config;
+  }
+
+  async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
+    const { prompt, width, height, imageSize, image, images } = params;
+    const resolvedApiKey = this.resolveApiKey();
+    if (!resolvedApiKey) {
+      throw new Error("Missing COZE_SEED_API_TOKEN for Coze workflow image generation");
+    }
+
+    const refInputs = (images && images.length > 0) ? images : (image ? [image] : []);
+    const body = {
+      prompt: prompt || "",
+      reference_images: await this.buildReferenceImagesPayload(refInputs),
+      size: this.resolveSize(width, height, imageSize),
+      watermark: false,
+    };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${resolvedApiKey}`,
+    };
+
+    const agent = getProxyAgent();
+    const fetchOptions: RequestInit & { agent?: unknown } = {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    };
+
+    if (agent) {
+      fetchOptions.agent = agent;
+    }
+
+    const response = await fetch(this.resolveRunUrl(), fetchOptions);
+    const raw = await response.text();
+
+    if (!response.ok) {
+      const truncatedError = raw.length > 500 ? `${raw.slice(0, 500)}...` : raw;
+      throw new Error(`Coze Seed workflow API Error: ${response.status} - ${truncatedError}`);
+    }
+
+    let parsed: unknown = raw;
+    if (raw.trim()) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = raw;
+      }
+    }
+
+    const resolvedImages = extractCozeWorkflowImageUrls(parsed);
+    if (resolvedImages.length === 0) {
+      const truncatedPayload = raw.length > 500 ? `${raw.slice(0, 500)}...` : raw;
+      throw new Error(`Coze Seed workflow returned no images: ${truncatedPayload}`);
+    }
+
+    return {
+      images: resolvedImages,
+      metadata: (typeof parsed === "object" && parsed)
+        ? (parsed as Record<string, unknown>)
+        : { raw },
+    };
+  }
+
+  private resolveRunUrl(): string {
+    const configured = this.config.baseURL?.trim();
+    if (configured && configured.includes("/run")) {
+      return configured;
+    }
+    return process.env.COZE_SEED_RUN_URL || DEFAULT_COZE_SEED_RUN_URL;
+  }
+
+  private resolveApiKey(): string {
+    return process.env.COZE_SEED_API_TOKEN || this.config.apiKey || "";
+  }
+
+  private async buildReferenceImagesPayload(inputs: string[]): Promise<CozeWorkflowReferenceImagesPayload> {
+    return Promise.all(inputs.map(async (item) => {
+      const payload = await buildCozeImagePayload(item);
+      return payload.url;
+    }));
+  }
+
+  private resolveSize(width?: number, height?: number, imageSize?: string): string {
+    if (Number.isFinite(width) && Number.isFinite(height) && Number(width) > 0 && Number(height) > 0) {
+      return `${Math.round(Number(width))}x${Math.round(Number(height))}`;
+    }
+
+    const normalized = (imageSize || "").trim().toUpperCase();
+    if (normalized === "1K") return "1024x1024";
+    if (normalized === "2K") return "2048x2048";
+    if (normalized === "4K") return "4096x4096";
+    if (/^\d+\s*x\s*\d+$/i.test(normalized)) {
+      return normalized.replace(/\s+/g, "");
+    }
+
+    return "1024x1024";
+  }
+}
+
+/**
  * Bytedance Standard Image Generation API (Seed4 / ByteArtist)
  */
 export class BytedanceAfrProvider implements ImageProvider {
@@ -553,20 +1040,21 @@ export class BytedanceAfrProvider implements ImageProvider {
     const url = `${API_CONFIG.BASE_URL
       }/media/api/pic/afr?${queryParams.toString()}`;
 
-    const isSeed42 = this.config.modelId === "seed4_2_lemo";
-    const conf: Record<string, unknown> = {
-      width: width || (isSeed42 ? 2048 : 1024),
-      height: height || (isSeed42 ? 2048 : 1024),
-      seed: options?.seed || Math.floor(Math.random() * 2147483647),
-    };
-
-    if (isSeed42) {
-      conf["Prompt"] = prompt; // Capital P as requested
-      conf["local_lora_name"] = "lemo_seed4_0104_doubao@v4.safetensors";
-    } else {
-      conf["prompt"] = prompt;
-      conf["batch_size"] = batchSize || 1;
-    }
+    const isSeed42 = this.config.modelId === "seed4_v2_0226lemo";
+    const conf: Record<string, unknown> = isSeed42
+      ? {
+        width: 2048,
+        height: 2048,
+        seed: -1,
+        string: prompt,
+      }
+      : {
+        width: width || 1024,
+        height: height || 1024,
+        seed: options?.seed ?? Math.floor(Math.random() * 2147483647),
+        prompt,
+        batch_size: batchSize || 1,
+      };
 
     const formData = new URLSearchParams();
     formData.append("conf", JSON.stringify(conf));

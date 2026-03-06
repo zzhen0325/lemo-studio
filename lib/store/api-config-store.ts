@@ -10,6 +10,7 @@ import {
     ServiceType
 } from '../api-config/types';
 import { getApiBase } from "../api-base";
+import { mergeBuiltinProviders } from '@/lib/api-config/builtins';
 import { getModelById, normalizeProviderConfigs, selectModelsForContext } from '@/lib/model-center';
 
 interface APIConfigState {
@@ -17,13 +18,14 @@ interface APIConfigState {
     settings: APIConfigSettings;
     isLoading: boolean;
     error: string | null;
-    fetchConfig: () => Promise<void>;
+    fetchConfig: (force?: boolean) => Promise<void>;
     addProvider: (provider: Partial<APIProviderConfig>) => Promise<void>;
     updateProvider: (id: string, updates: Partial<APIProviderConfig>) => Promise<void>;
     removeProvider: (id: string) => Promise<void>;
     updateSettings: (settings: Partial<APIConfigSettings>) => Promise<void>;
     updateServiceConfig: (service: ServiceType, config: Partial<ServiceConfig>) => Promise<void>;
     importProvidersFromFile: () => Promise<void>;
+    ensureBuiltinProviders: () => void;
     getEnabledProviders: () => APIProviderConfig[];
     getProviderById: (id: string) => APIProviderConfig | undefined;
     getModelsForTask: (task: 'text' | 'vision' | 'image') => { providerId: string; providerName: string; modelId: string; displayName: string }[];
@@ -35,6 +37,25 @@ interface APIConfigState {
 }
 
 const EMPTY_BINDING: ServiceBinding = { providerId: '', modelId: '' };
+
+const MODEL_ID_MIGRATIONS: Record<string, string> = {
+    seed4_2_lemo: 'seed4_v2_0226lemo',
+};
+
+function migrateModelId(modelId?: string): string {
+    if (!modelId) return '';
+    return MODEL_ID_MIGRATIONS[modelId] || modelId;
+}
+
+function migrateProviderModelIds(providers: APIProviderConfig[]): APIProviderConfig[] {
+    return providers.map((provider) => ({
+        ...provider,
+        models: (provider.models || []).map((model) => ({
+            ...model,
+            modelId: migrateModelId(model.modelId),
+        })),
+    }));
+}
 
 const DEFAULT_TRANSLATE_SYSTEM_PROMPT = [
     'You are a professional prompt translation engine for text-to-image workflows.',
@@ -115,12 +136,16 @@ const DEFAULT_SETTINGS: APIConfigSettings = {
     comfyUrl: ''
 };
 
+function normalizeProvidersWithBuiltins(providers: APIProviderConfig[]): APIProviderConfig[] {
+    return normalizeProviderConfigs(migrateProviderModelIds(mergeBuiltinProviders(providers)));
+}
+
 function withBinding(input?: Partial<ServiceConfig>, fallback?: ServiceBinding): ServiceConfig {
     const fallbackBinding = fallback || EMPTY_BINDING;
     return {
         binding: {
             providerId: input?.binding?.providerId || fallbackBinding.providerId,
-            modelId: input?.binding?.modelId || fallbackBinding.modelId
+            modelId: migrateModelId(input?.binding?.modelId || fallbackBinding.modelId)
         },
         systemPrompt: input?.systemPrompt
     };
@@ -199,9 +224,9 @@ function normalizeSettings(data: Record<string, unknown>): APIConfigSettings {
                 providerId: incomingServices?.datasetLabel?.binding?.providerId
                     || incomingServices?.describe?.binding?.providerId
                     || DEFAULT_SETTINGS.services.datasetLabel.binding.providerId,
-                modelId: incomingServices?.datasetLabel?.binding?.modelId
+                modelId: migrateModelId(incomingServices?.datasetLabel?.binding?.modelId
                     || incomingServices?.describe?.binding?.modelId
-                    || DEFAULT_SETTINGS.services.datasetLabel.binding.modelId,
+                    || DEFAULT_SETTINGS.services.datasetLabel.binding.modelId),
             }
         }
     };
@@ -218,16 +243,16 @@ function getMergedSettings(data: Record<string, unknown>): APIConfigSettings {
 }
 
 export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
-    providers: [],
+    providers: normalizeProvidersWithBuiltins([]),
     settings: DEFAULT_SETTINGS,
     isLoading: false,
     error: null,
     _configLoading: false,
     _configLoaded: false,
 
-    fetchConfig: async () => {
+    fetchConfig: async (force = false) => {
         const state = get();
-        if (state._configLoading || state._configLoaded) return;
+        if (state._configLoading || (state._configLoaded && !force)) return;
         set({ isLoading: true, error: null, _configLoading: true });
         try {
             const response = await fetch(`${getApiBase()}/api-config`);
@@ -236,7 +261,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
             const mergedSettings = getMergedSettings((data.settings || {}) as Record<string, unknown>);
 
             set({
-                providers: normalizeProviderConfigs(data.providers || []),
+                providers: normalizeProvidersWithBuiltins(data.providers || []),
                 settings: mergedSettings,
                 isLoading: false,
                 _configLoaded: true,
@@ -257,7 +282,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
             });
             if (!response.ok) throw new Error('Failed to add provider');
             const data = await response.json();
-            set({ providers: normalizeProviderConfigs(data.providers || []), isLoading: false });
+            set({ providers: normalizeProvidersWithBuiltins(data.providers || []), isLoading: false });
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
             throw error;
@@ -274,7 +299,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
             });
             if (!response.ok) throw new Error('Failed to update provider');
             const data = await response.json();
-            set({ providers: normalizeProviderConfigs(data.providers || []), isLoading: false });
+            set({ providers: normalizeProvidersWithBuiltins(data.providers || []), isLoading: false });
         } catch (error) {
             set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
             throw error;
@@ -362,7 +387,7 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
             if (!response.ok) throw new Error('Failed to import providers from file');
             const data = await response.json();
             set({
-                providers: normalizeProviderConfigs(data.providers || []),
+                providers: normalizeProvidersWithBuiltins(data.providers || []),
                 isLoading: false,
                 _configLoaded: true,
                 _configLoading: false,
@@ -371,6 +396,12 @@ export const useAPIConfigStore = create<APIConfigState>((set, get) => ({
             set({ error: error instanceof Error ? error.message : 'Unknown error', isLoading: false });
             throw error;
         }
+    },
+
+    ensureBuiltinProviders: () => {
+        set((state) => ({
+            providers: normalizeProvidersWithBuiltins(state.providers),
+        }));
     },
 
     getEnabledProviders: () => {

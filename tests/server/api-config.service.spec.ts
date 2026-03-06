@@ -23,6 +23,12 @@ interface ProviderDoc {
 class FakeApiProviderModel {
   public docs: ProviderDoc[] = [];
 
+  public async findOne(filter: { id?: string }) {
+    const id = String(filter.id || '');
+    const doc = this.docs.find((item) => item.id === id || item._id === id);
+    return doc ? { ...doc } : null;
+  }
+
   public find() {
     return {
       lean: async () => this.docs.map((doc) => ({ ...doc })),
@@ -34,8 +40,8 @@ class FakeApiProviderModel {
     return doc ? { ...doc } : null;
   }
 
-  public async updateOne(filter: { _id?: string }, updates: Partial<ProviderDoc>) {
-    const id = String(filter._id || '');
+  public async updateOne(filter: { _id?: string; id?: string }, updates: Partial<ProviderDoc>) {
+    const id = String(filter._id || filter.id || '');
     const index = this.docs.findIndex((item) => item._id === id || item.id === id);
     if (index === -1) {
       return { modifiedCount: 0 };
@@ -50,16 +56,25 @@ class FakeApiProviderModel {
   }
 
   public async bulkWrite(
-    operations: Array<{ updateOne: { filter: { _id?: string }; update: Partial<ProviderDoc> } }>
+    operations: Array<{ updateOne: { filter: { _id?: string; id?: string }; update: Partial<ProviderDoc>; upsert?: boolean } }>
   ) {
     for (const operation of operations) {
-      await this.updateOne(operation.updateOne.filter, operation.updateOne.update);
+      const result = await this.updateOne(operation.updateOne.filter, operation.updateOne.update);
+      if (result.modifiedCount === 0 && operation.updateOne.upsert) {
+        const id = String(operation.updateOne.filter._id || operation.updateOne.filter.id || operation.updateOne.update.id || '');
+        this.docs.push({
+          _id: id,
+          id,
+          name: String(operation.updateOne.update.name || 'Unnamed Provider'),
+          ...operation.updateOne.update,
+        } as ProviderDoc);
+      }
     }
     return { modifiedCount: operations.length };
   }
 
-  public async deleteOne(filter: { _id?: string }) {
-    const id = String(filter._id || '');
+  public async deleteOne(filter: { _id?: string; id?: string }) {
+    const id = String(filter._id || filter.id || '');
     const before = this.docs.length;
     this.docs = this.docs.filter((item) => item._id !== id && item.id !== id);
     return { deletedCount: before - this.docs.length };
@@ -168,5 +183,74 @@ describe('ApiConfigService encryption flow', () => {
 
     expect(providerModel.docs[0].apiKey?.startsWith('enc:v1:')).toBe(true);
     expect(response.providers[0].apiKey).toBe('[MASKED:12]');
+  });
+
+  it('maps legacy seed model id to the new id in providers and settings', async () => {
+    providerModel.docs = [
+      {
+        _id: 'provider-bytedance',
+        id: 'provider-bytedance',
+        name: 'Bytedance',
+        providerType: 'bytedance-afr',
+        apiKey: '',
+        models: [
+          {
+            modelId: 'seed4_2_lemo',
+            displayName: 'Seed4',
+            task: ['image'],
+          }
+        ],
+        isEnabled: true,
+      },
+    ];
+    settingsModel.settingsDoc = {
+      key: 'default',
+      settings: {
+        services: {
+          imageGeneration: {
+            binding: {
+              providerId: 'provider-bytedance',
+              modelId: 'seed4_2_lemo',
+            }
+          },
+        },
+      },
+    };
+
+    const response = await service.getAll();
+
+    expect(response.providers[0].models?.[0]?.modelId).toBe('seed4_v2_0226lemo');
+    expect(response.settings.services.imageGeneration.binding.modelId).toBe('seed4_v2_0226lemo');
+  });
+
+  it('hydrates missing providers and models from providers.json during getAll', async () => {
+    providerModel.docs = [
+      {
+        _id: 'provider-coze',
+        id: 'provider-coze',
+        name: 'Coze (Seedream)',
+        providerType: 'coze-image',
+        apiKey: '',
+        baseURL: 'https://bot-open-api.bytedance.net/v3/chat',
+        models: [
+          {
+            modelId: 'coze_seed4',
+            displayName: 'Seedream 4',
+            task: ['image'],
+          }
+        ],
+        isEnabled: true,
+      },
+    ];
+
+    const response = await service.getAll();
+
+    const workflowProvider = response.providers.find((provider) => provider.id === 'provider-coze-seed');
+    expect(workflowProvider).toBeDefined();
+    expect(workflowProvider?.models?.some((model) => model.modelId === 'coze_seedream4_5')).toBe(true);
+
+    const legacyCozeProvider = response.providers.find((provider) => provider.id === 'provider-coze');
+    expect(legacyCozeProvider?.models?.some((model) => model.modelId === 'coze_seed4')).toBe(false);
+    expect(legacyCozeProvider?.models?.some((model) => model.modelId === 'coze-prompt')).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { TextProvider, VisionProvider, ImageProvider, ModelConfig } from './types';
-import { OpenAICompatibleProvider, GoogleGenAIProvider, BytedanceAfrProvider, DoubaoVisionProvider, CozeImageProvider, CozeChatVisionProvider } from './providers';
+import { OpenAICompatibleProvider, GoogleGenAIProvider, BytedanceAfrProvider, DoubaoVisionProvider, CozeImageProvider, CozeChatVisionProvider, CozePromptProvider, CozeWorkflowImageProvider } from './providers';
 import { REGISTRY } from './registry';
 import fs from 'fs';
 import path from 'path';
@@ -18,6 +18,8 @@ const DOUBAO_VISION_MODELS = [
     'doubao-1-8-pro',
     'doubao-1.5-vision'
 ];
+
+const COZE_SEEDREAM_WORKFLOW_MODEL_ID = 'coze_seedream4_5';
 
 type ProviderRuntimeConfig = Pick<APIProviderConfig, 'id' | 'apiKey' | 'baseURL' | 'providerType' | 'models' | 'isEnabled'>;
 
@@ -40,6 +42,7 @@ const PROVIDER_ENV_MAP: Record<string, string> = {
     'provider-deepseek': 'DEEPSEEK_API_KEY',
     'provider-google': 'GOOGLE_API_KEY',
     'provider-coze': 'COZE_API_TOKEN',
+    'provider-coze-seed': 'COZE_SEED_API_TOKEN',
     'provider-workflow-local': ''
 };
 
@@ -167,9 +170,20 @@ export function getProvider(
         ...overrideConfig
     };
 
+    if (entry.id === 'coze-prompt') {
+        config.apiKey = process.env.COZE_PROMPT_API_TOKEN || config.apiKey || process.env.COZE_API_TOKEN;
+        config.baseURL = process.env.COZE_PROMPT_RUN_URL || config.baseURL;
+    }
+    if (entry.id === COZE_SEEDREAM_WORKFLOW_MODEL_ID) {
+        config.apiKey = process.env.COZE_SEED_API_TOKEN || config.apiKey;
+        config.baseURL = process.env.COZE_SEED_RUN_URL || config.baseURL;
+    }
+
     // Fallback: Try to load from environment variables if apiKey is missing
     if (!config.apiKey) {
-        if (entry.providerType === 'coze-image' || entry.providerType === 'coze-vision') {
+        if (entry.id === COZE_SEEDREAM_WORKFLOW_MODEL_ID) {
+            config.apiKey = process.env.COZE_SEED_API_TOKEN;
+        } else if (entry.providerType === 'coze-image' || entry.providerType === 'coze-vision') {
             config.apiKey = process.env.COZE_API_TOKEN;
         } else if (entry.providerType === 'google-genai') {
             config.apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
@@ -183,10 +197,16 @@ export function getProvider(
         throw new Error(`Missing API Key for model ${modelId} (Provider: ${entry.providerType})`);
     }
 
+    if (entry.id === 'coze-prompt') {
+        return new CozePromptProvider(config);
+    }
+
     if (entry.providerType === 'google-genai') {
         return new GoogleGenAIProvider(config);
     } else if (entry.providerType === 'bytedance-afr') {
         return new BytedanceAfrProvider(config);
+    } else if (entry.id === COZE_SEEDREAM_WORKFLOW_MODEL_ID) {
+        return new CozeWorkflowImageProvider(config);
     } else if (entry.providerType === 'coze-image') {
         return new CozeImageProvider(config);
     } else if (entry.providerType === 'coze-vision') {

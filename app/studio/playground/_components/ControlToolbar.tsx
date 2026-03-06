@@ -121,7 +121,7 @@ export default function ControlToolbar({
   }, [availableModels, getModelEntryById, isEditMode, uploadedImages.length]);
   const selectedModelMeta = getModelEntryById(selectedModel);
   const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
-    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_2_lemo', 'coze_seed4'].includes(selectedModel);
+    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_v2_0226lemo', 'coze_seedream4_5'].includes(selectedModel);
   const selectedAllowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
     ? selectedModelMeta.capabilities.allowedImageSizes
     : (['1K', '2K', '4K'] as const);
@@ -187,7 +187,7 @@ export default function ControlToolbar({
       }
 
       const supportsImageSize = modelMeta?.capabilities?.supportsImageSize
-        ?? ['coze_seed4', 'seed4_2_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
+        ?? ['coze_seedream4_5', 'seed4_v2_0226lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
 
       if (supportsImageSize) {
         const allowed = modelMeta?.capabilities?.allowedImageSizes?.length
@@ -268,17 +268,13 @@ export default function ControlToolbar({
       logo: '/images/logos/google.png',
       description: '普通版，pro版备胎'
     },
-    'coze_seed4': {
+    'coze_seedream4_5': {
       logo: '/images/logos/seed.png',
-      description: '字节跳动 Seedream 4 模型'
+      description: '扣子工作流版 Seedream 4.5'
     },
-    'seed4_2_lemo': {
+    'seed4_v2_0226lemo': {
       logo: '/images/logos/seed.png',
       description: 'Seed 4.2 高质量生成模型'
-    },
-    'lemo_2dillustator': {
-      logo: '/images/logos/seed.png',
-      description: 'Seed3 Lemo 插画模型'
     },
     [MODEL_ID_FLUX_KLEIN]: {
       logo: '/images/logos/flux.png',

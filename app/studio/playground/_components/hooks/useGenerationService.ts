@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { userStore } from "@/lib/store/user-store";
 import { useAIService } from "@/hooks/ai/useAIService";
@@ -28,15 +28,19 @@ export const FALLBACK_AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
     { id: 'gemini-3.1-flash-image-preview', displayName: 'Nano banana 2' },
     { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
-
-    { id: 'coze_seed4', displayName: 'Seedream 4' },
-    { id: 'seed4_2_lemo', displayName: 'Seed4 ' },
-    { id: 'lemo_2dillustator', displayName: 'Seed3 Lemo' },
+    { id: 'coze_seedream4_5', displayName: 'Seedream 4.5' },
+    { id: 'seed4_v2_0226lemo', displayName: 'Seed4 ' },
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
 ];
 
 export function usePlaygroundAvailableModels(): UnifiedModelConfig[] {
     const providers = useAPIConfigStore(state => state.providers);
+    const ensureBuiltinProviders = useAPIConfigStore(state => state.ensureBuiltinProviders);
+
+    useEffect(() => {
+        ensureBuiltinProviders();
+    }, [ensureBuiltinProviders]);
+
     return useMemo(() => {
         const fromCenter = getContextModelOptions(providers, 'playground', 'image');
         if (fromCenter.length > 0) {

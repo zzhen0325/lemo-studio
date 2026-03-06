@@ -49,7 +49,7 @@ const serviceIcons: Record<ServiceType, React.ReactNode> = {
     datasetLabel: <Tags className="size-4" />,
 };
 
-const serviceList: ServiceType[] = ['optimize', 'describe', 'translate', 'datasetLabel'];
+const serviceList: ServiceType[] = ['imageGeneration', 'optimize', 'describe', 'translate', 'datasetLabel'];
 
 const contextLabelMap: Record<ModelContext, string> = {
     'playground': 'playground',
@@ -109,11 +109,13 @@ export function SettingsView() {
         updateSettings,
         updateServiceConfig,
         importProvidersFromFile,
+        ensureBuiltinProviders,
     } = useAPIConfigStore();
 
     useEffect(() => {
+        ensureBuiltinProviders();
         fetchConfig();
-    }, [fetchConfig]);
+    }, [ensureBuiltinProviders, fetchConfig]);
 
     useEffect(() => {
         setComfyUrlDraft(comfyUrlFromEnv || settings.comfyUrl || "");
@@ -402,7 +404,7 @@ export function SettingsView() {
                                             </div>
                                             <div className="flex gap-2">
                                                 <Button
-                                                    onClick={fetchConfig}
+                                                    onClick={() => fetchConfig(true)}
                                                     disabled={isLoading}
                                                     variant="ghost"
                                                     size="icon"
