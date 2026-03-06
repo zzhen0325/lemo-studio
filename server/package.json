@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "PORT=3000 HOST=0.0.0.0 NODE_ENV=development DOAS_ZONE=boe GULUX_ENV=dev:http,dev PSM=i18n_fe.opera.node  ROUTE_IP=common-consul-boe.bytedance.net gulux dev ",
     "start": "PORT=$PORT NODE_ENV=production gulux start",
-    "build": "node ./scripts/ensure-root-node-modules.mjs && rm -rf dist && gulux build"
+    "build": "gulux build"
   },
   "dependencies": {
     "@byted/typegoose": "8.3.1",
