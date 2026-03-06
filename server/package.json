@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "PORT=3000 HOST=0.0.0.0 NODE_ENV=development DOAS_ZONE=boe GULUX_ENV=dev:http,dev PSM=i18n_fe.opera.node  ROUTE_IP=common-consul-boe.bytedance.net gulux dev ",
     "start": "PORT=$PORT NODE_ENV=production gulux start",
-    "build": "rm -rf dist && gulux build"
+    "build": "node ./scripts/ensure-root-node-modules.mjs && rm -rf dist && gulux build"
   },
   "dependencies": {
     "@byted/typegoose": "8.3.1",
@@ -21,6 +21,7 @@
   "devDependencies": {
     "@gulux/cli": "1.25.16",
     "@types/dotenv": "^6.1.1",
+    "@types/mime-types": "2.1.4",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
     "typescript": "5.9.3"

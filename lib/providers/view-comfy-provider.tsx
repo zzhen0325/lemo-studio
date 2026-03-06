@@ -1,53 +1,8 @@
 "use client"
 import type { IMultiValueInput } from '@/lib/workflow-api-parser';
 import React, { createContext, useContext, useReducer, type ReactNode, type Dispatch } from 'react';
-
-export interface IViewComfyBase {
-    title: string;
-    description: string;
-    textOutputEnabled?: boolean;
-    viewcomfyEndpoint?: string;
-    coverImage?: string;
-    previewImages: string[];
-    inputs: IMultiValueInput[];
-    advancedInputs: IMultiValueInput[];
-    mappingConfig?: {
-        components: unknown[]; // To avoid circular dependency, using unknown or duplicating UIComponent type
-    };
-}
-
-export interface IViewComfyDraft {
-    viewComfyJSON: IViewComfyBase;
-    workflowApiJSON?: object | undefined;
-    file?: File | undefined;
-}
-
-export interface IViewComfyWorkflow extends IViewComfyBase {
-    id: string;
-}
-
-export interface IViewComfyJSON {
-    appTitle?: string;
-    appImg?: string;
-    file_type?: string;
-    file_version?: string;
-    version?: string;
-    viewComfys: IViewComfy[];
-}
-
-export interface IViewComfy {
-    viewComfyJSON: IViewComfyWorkflow;
-    workflowApiJSON?: object | undefined;
-    file?: File | undefined;
-}
-
-export interface IViewComfyState {
-    appTitle?: string;
-    appImg?: string;
-    viewComfys: IViewComfy[];
-    viewComfyDraft: IViewComfyDraft | undefined;
-    currentViewComfy: IViewComfy | undefined;
-}
+import type { IViewComfy, IViewComfyDraft, IViewComfyJSON, IViewComfyState } from '@/lib/view-comfy-types';
+export type { IViewComfy, IViewComfyBase, IViewComfyDraft, IViewComfyJSON, IViewComfyState, IViewComfyWorkflow } from '@/lib/view-comfy-types';
 
 // Define action types as an enum
 export enum ActionType {

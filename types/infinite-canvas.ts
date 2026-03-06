@@ -1,4 +1,4 @@
-import type { ImageEditorSessionSnapshot } from '@/components/image-editor';
+import type { ImageEditorSessionSnapshot } from '@/components/image-editor/types';
 
 export type InfiniteNodeType = 'text' | 'image' | 'gallery';
 

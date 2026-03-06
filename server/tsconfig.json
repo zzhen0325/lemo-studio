@@ -59,6 +59,8 @@
     "dist",
     "**/*.test.ts",
     "../lib/store",
+    "../lib/ai/hooks.ts",
+    "../types/global.d.ts",
     "../lib/**/__tests__",
     "../**/*.test.ts"
   ]
