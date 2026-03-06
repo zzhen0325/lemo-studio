@@ -77,6 +77,18 @@ cp -R public "${FRONTEND_OUTPUT_DIR}/public"
 
 cat > "${FRONTEND_OUTPUT_DIR}/bootstrap.js" <<'EOF'
 process.chdir(__dirname);
+
+const { isIP } = require('node:net');
+const explicitHost = process.env.BIND_HOST || process.env.HOST || process.env.NEXT_HOST;
+const rawHostname = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME.trim() : '';
+const isIpLiteral = rawHostname ? isIP(rawHostname) > 0 : false;
+
+if (explicitHost) {
+  process.env.HOSTNAME = explicitHost;
+} else if (!rawHostname || isIpLiteral) {
+  process.env.HOSTNAME = '0.0.0.0';
+}
+
 require('./server.js');
 EOF
 
@@ -96,6 +108,14 @@ echo "产物启动命令: cd output && NODE_ENV=production node bootstrap.js"
 ### Frontend Packaging Note
 
 The current packaging pipeline shown on 2026-03-07 still executes `cd ${PRODUCT_OUTPUT_DIR}` before packaging metadata, and its default runtime entry is `node bootstrap.js`. Because of that, the frontend build must leave a real `output/` directory behind and include a `bootstrap.js` entry file. The root `build.sh` now assembles a standalone Next.js runtime into `output/` and generates that bootstrap file so product packaging can succeed.
+
+### Host Binding Note
+
+Some runtimes inject `HOSTNAME` as a pod IPv6 address that is not bindable from inside the container. The generated `bootstrap.js` normalizes that case back to `0.0.0.0`. If your platform requires a specific bind host, provide one of these env vars:
+
+- `BIND_HOST`
+- `HOST`
+- `NEXT_HOST`
 
 ### Frontend Env
 

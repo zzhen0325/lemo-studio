@@ -23,6 +23,21 @@ cp -R public "${FRONTEND_OUTPUT_DIR}/public"
 
 cat > "${FRONTEND_OUTPUT_DIR}/bootstrap.js" <<'EOF'
 process.chdir(__dirname);
+
+const { isIP } = require('node:net');
+const explicitHost = process.env.BIND_HOST || process.env.HOST || process.env.NEXT_HOST;
+const rawHostname = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME.trim() : '';
+const isIpLiteral = rawHostname ? isIP(rawHostname) > 0 : false;
+
+// Next standalone reads process.env.HOSTNAME directly. Some runtimes inject an
+// IPv6 address that is not actually bindable inside the container, so we force
+// a safe wildcard host unless an explicit bind host was provided.
+if (explicitHost) {
+  process.env.HOSTNAME = explicitHost;
+} else if (!rawHostname || isIpLiteral) {
+  process.env.HOSTNAME = '0.0.0.0';
+}
+
 require('./server.js');
 EOF
 
