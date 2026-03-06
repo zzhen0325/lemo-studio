@@ -170,3 +170,15 @@ export const SERVICE_METADATA: Record<ServiceType, {
         hasSystemPrompt: false
     }
 };
+
+export function serviceSupportsSystemPrompt(service: ServiceType, binding?: ServiceBinding): boolean {
+    if (service === 'datasetLabel') {
+        return false;
+    }
+
+    if ((service === 'describe' || service === 'optimize') && binding?.modelId === 'coze-prompt') {
+        return false;
+    }
+
+    return SERVICE_METADATA[service].hasSystemPrompt;
+}

@@ -1,5 +1,5 @@
 export function getApiBase(): string {
-    // Client side: allow explicit override for LAN/direct mode, otherwise same-origin rewrite.
+    // Client side: allow explicit override for LAN/direct mode, otherwise same-origin proxy route.
     if (typeof window !== 'undefined') {
         const envBase = process.env.NEXT_PUBLIC_API_BASE?.trim();
         if (envBase) {

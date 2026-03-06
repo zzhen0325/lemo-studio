@@ -53,11 +53,6 @@ function buildImageRemotePatterns() {
   return patterns;
 }
 
-const guluxApiBase = (
-  process.env.GULUX_API_BASE ||
-  'http://localhost:3000/api'
-).replace(/\/$/, '');
-
 const legacyStudioRouteRedirects = [
   { source: '/playground', destination: '/studio/playground', permanent: false },
   { source: '/mapping-editor', destination: '/studio/mapping-editor', permanent: false },
@@ -79,14 +74,6 @@ const nextConfig = {
     return [
       ...legacyStudioRouteRedirects,
       ...loadExternalAssetRedirects(),
-    ];
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${guluxApiBase}/:path*`,
-      },
     ];
   },
   images: {

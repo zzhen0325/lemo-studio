@@ -1,12 +1,5 @@
-"use client";
-
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
-
-const SettingsView = dynamic(() => import("./_components/SettingsView").then((m) => m.SettingsView), {
-  loading: () => <div className="flex h-full items-center justify-center text-white">Loading Settings...</div>,
-  ssr: false,
-});
+import { SettingsView } from "./_components/SettingsView";
 
 export default function SettingsPage() {
   return (

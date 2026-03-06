@@ -31,7 +31,7 @@ Do not place temporary scripts, test drafts, or generated screenshots in root.
 ## API Access Convention
 
 - Frontend must use same-origin `/api/*` only (`getApiBase()` -> `/api` in browser).
-- Next.js rewrite forwards `/api/:path*` to Gulux backend (`GULUX_API_BASE`, default `http://127.0.0.1:3000/api`).
+- Next.js route handler proxy forwards `/api/:path*` to the Gulux backend (`GULUX_API_BASE`, default `http://127.0.0.1:3000/api`) and preserves streaming responses.
 - Do not hardcode cross-port backend URLs in client code.
 - Centralize public env reads in `lib/env/public.ts`.
 - See [ENVIRONMENT.md](./ENVIRONMENT.md) for env variable contract.

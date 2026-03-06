@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Box,
@@ -28,10 +29,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { useToast } from "@/hooks/common/use-toast";
 import { useMediaQuery } from "@/hooks/common/use-media-query";
-import MappingEditorPage from "../../mapping-editor/_components/mapping-editor-page";
 import { Badge } from "@/components/ui/badge";
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
-import { APIProviderConfig, MODEL_CONTEXT_BY_SERVICE, ModelContext, ServiceType, SERVICE_METADATA } from "@/lib/api-config/types";
+import {
+    APIProviderConfig,
+    MODEL_CONTEXT_BY_SERVICE,
+    ModelContext,
+    ServiceType,
+    SERVICE_METADATA,
+    serviceSupportsSystemPrompt
+} from "@/lib/api-config/types";
 import { selectModelsForContext } from "@/lib/model-center";
 import { getPublicComfyUrl } from "@/lib/env/public";
 import { ProviderFormModal } from "./ProviderFormModal";
@@ -40,6 +47,13 @@ enum SettingsTab {
     Models = "models",
     MappingEditor = "mapping-editor"
 }
+
+const MappingEditorPage = dynamic(
+    () => import("../../mapping-editor/_components/mapping-editor-page"),
+    {
+        loading: () => <div className="flex h-full min-h-[800px] items-center justify-center text-white">Loading Mapping Editor...</div>,
+    }
+);
 
 const serviceIcons: Record<ServiceType, React.ReactNode> = {
     imageGeneration: <ImageIcon className="size-4" />,
@@ -574,7 +588,7 @@ export function SettingsView() {
                                         <div>
                                             <h2 className="text-[16px] font-medium text-white">System Services</h2>
                                             <p className="text-[13px] text-zinc-400 mt-[2px]">
-                                                Bind default models to specific system tasks and tweak optimization prompts.
+                                                Bind default models to system tasks. Extra instruction prompts appear only when the current model supports them.
                                             </p>
                                         </div>
 
@@ -597,6 +611,10 @@ export function SettingsView() {
                                                     const serviceSystemPrompt = serviceConfig && 'systemPrompt' in serviceConfig
                                                         ? serviceConfig.systemPrompt
                                                         : '';
+                                                    const showSystemPrompt = serviceSupportsSystemPrompt(serviceType, serviceConfig?.binding);
+                                                    const usesManagedPrompt = !showSystemPrompt
+                                                        && (serviceType === 'describe' || serviceType === 'optimize')
+                                                        && serviceConfig?.binding?.modelId === 'coze-prompt';
                                                     const models = getModelsForService(serviceType);
                                                     const currentValue = serviceConfig?.binding
                                                         ? `${serviceConfig.binding.providerId}:${serviceConfig.binding.modelId}`
@@ -657,7 +675,13 @@ export function SettingsView() {
                                                                         </p>
                                                                     )}
 
-                                                                    {meta.hasSystemPrompt && serviceType !== 'datasetLabel' && (
+                                                                    {usesManagedPrompt && (
+                                                                        <p className="text-[12px] text-zinc-500">
+                                                                            Current binding uses Coze Prompt. No extra system prompt is needed here.
+                                                                        </p>
+                                                                    )}
+
+                                                                    {showSystemPrompt && (
                                                                         <div className="space-y-2 max-w-2xl">
                                                                             <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold">Instruction Prompt</Label>
                                                                             <Textarea

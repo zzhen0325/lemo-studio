@@ -1,19 +1,5 @@
-"use client";
-
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
-
-const MappingEditorPage = dynamic(
-  () => import("./_components/mapping-editor-page"),
-  {
-    loading: () => (
-      <div className="flex h-full items-center justify-center text-white">
-        Loading Mapping Editor...
-      </div>
-    ),
-    ssr: false,
-  }
-);
+import MappingEditorPage from "./_components/mapping-editor-page";
 
 export default function WorkflowMappingPage() {
   return (

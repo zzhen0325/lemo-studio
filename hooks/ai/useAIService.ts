@@ -11,15 +11,15 @@ import {
     ClientImageParams
 } from '@/lib/ai/client';
 import { useAPIConfigStore } from '@/lib/store/api-config-store';
-import { ServiceType } from '@/lib/api-config/types';
+import { ServiceType, serviceSupportsSystemPrompt } from '@/lib/api-config/types';
 import { selectModelsForContext } from '@/lib/model-center';
 
 // 硬编码的默认值，确保即使store还没加载完也有fallback
 const FALLBACK_DEFAULTS: Record<ServiceType, string> = {
     imageGeneration: 'gemini-3-pro-image-preview',
     translate: 'doubao-seed-2-0-lite-260215',
-    describe: 'doubao-seed-2-0-lite-260215',
-    optimize: 'doubao-seed-1-8-251228',
+    describe: 'coze-prompt',
+    optimize: 'coze-prompt',
     datasetLabel: 'doubao-seed-2-0-lite-260215',
 };
 
@@ -37,6 +37,18 @@ export function useAIService() {
         fetchConfig();
     }, [fetchConfig]);
 
+    const resolveSystemPrompt = useCallback(
+        (service: ServiceType, modelId: string, systemPrompt?: string) => {
+            if (!serviceSupportsSystemPrompt(service, { providerId: '', modelId })) {
+                return undefined;
+            }
+
+            const normalizedPrompt = systemPrompt?.trim();
+            return normalizedPrompt ? normalizedPrompt : undefined;
+        },
+        []
+    );
+
     // 获取指定服务的模型ID和系统提示词
     const getServiceConfig = useCallback((service: ServiceType): { modelId: string; systemPrompt?: string } => {
         const serviceConfig = settings.services?.[service];
@@ -47,26 +59,26 @@ export function useAIService() {
         if (serviceConfig?.binding?.modelId) {
             return {
                 modelId: serviceConfig.binding.modelId,
-                systemPrompt: servicePrompt
+                systemPrompt: resolveSystemPrompt(service, serviceConfig.binding.modelId, servicePrompt)
             };
         }
 
         if (service === 'imageGeneration') {
             const model = selectModelsForContext(providers, 'service:imageGeneration', { requiredTask: 'image' })[0];
             if (model?.modelId) {
-                return { modelId: model.modelId, systemPrompt: servicePrompt };
+                return { modelId: model.modelId, systemPrompt: resolveSystemPrompt(service, model.modelId, servicePrompt) };
             }
         }
         if (service === 'describe') {
             const model = selectModelsForContext(providers, 'service:describe', { requiredTask: 'vision' })[0];
             if (model?.modelId) {
-                return { modelId: model.modelId, systemPrompt: servicePrompt };
+                return { modelId: model.modelId, systemPrompt: resolveSystemPrompt(service, model.modelId, servicePrompt) };
             }
         }
         if (service === 'optimize') {
             const model = selectModelsForContext(providers, 'service:optimize', { requiredTask: 'text' })[0];
             if (model?.modelId) {
-                return { modelId: model.modelId, systemPrompt: servicePrompt };
+                return { modelId: model.modelId, systemPrompt: resolveSystemPrompt(service, model.modelId, servicePrompt) };
             }
         }
         if (service === 'datasetLabel') {
@@ -77,8 +89,9 @@ export function useAIService() {
         }
 
         // 最终fallback
-        return { modelId: FALLBACK_DEFAULTS[service] };
-    }, [settings, providers]);
+        const modelId = FALLBACK_DEFAULTS[service];
+        return { modelId, systemPrompt: resolveSystemPrompt(service, modelId, servicePrompt) };
+    }, [settings, providers, resolveSystemPrompt]);
 
     const callText = async (params: Partial<ClientGenerationParams> & { input: string }) => {
         setIsLoading(true);
@@ -86,8 +99,11 @@ export function useAIService() {
             // 获取优化服务的配置
             const optimizeConfig = getServiceConfig('optimize');
             const model = params.model || optimizeConfig.modelId;
-            // 如果没有传入systemPrompt，使用设置中的systemPrompt
-            const systemPrompt = params.systemPrompt || optimizeConfig.systemPrompt;
+            const systemPrompt = resolveSystemPrompt(
+                'optimize',
+                model,
+                params.systemPrompt ?? optimizeConfig.systemPrompt
+            );
 
             const result = await clientGenerateText({
                 ...params,
@@ -107,11 +123,14 @@ export function useAIService() {
     const callVision = async (params: Partial<ClientDescribeParams> & { image: string }) => {
         setIsLoading(true);
         try {
-            // 获取描述服务的配置
-            const describeConfig = getServiceConfig('describe');
+            const targetService: ServiceType = params.context === 'service:datasetLabel' ? 'datasetLabel' : 'describe';
+            const describeConfig = getServiceConfig(targetService);
             const model = params.model || describeConfig.modelId;
-            // 如果没有传入systemPrompt，使用设置中的systemPrompt
-            const systemPrompt = params.systemPrompt !== undefined ? params.systemPrompt : describeConfig.systemPrompt;
+            const systemPrompt = resolveSystemPrompt(
+                targetService,
+                model,
+                params.systemPrompt ?? describeConfig.systemPrompt
+            );
 
             const result = await clientDescribeImage({
                 ...params,

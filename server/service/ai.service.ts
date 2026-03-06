@@ -11,6 +11,7 @@ import { Inject, Injectable } from '@gulux/gulux';
 import { HttpError } from '../utils/http-error';
 import { ApiConfigService } from './api-config.service';
 import { normalizeImageSizeToken, validateModelUsage } from '../../lib/model-center';
+import { serviceSupportsSystemPrompt } from '../../lib/api-config/types';
 
 export interface DescribeRequestBody {
   image: string;
@@ -78,8 +79,11 @@ export class AiService {
       throw new HttpError(400, `Model ${model} does not support vision tasks`);
     }
 
-    let resolvedSystemPrompt = explicitSystemPrompt;
-    if (resolvedSystemPrompt === undefined && profileId) {
+    const describeService = describeContext === 'service:datasetLabel' ? 'datasetLabel' : 'describe';
+    const canUseSystemPrompt = serviceSupportsSystemPrompt(describeService, { providerId: '', modelId: model });
+
+    let resolvedSystemPrompt = canUseSystemPrompt ? explicitSystemPrompt : undefined;
+    if (canUseSystemPrompt && resolvedSystemPrompt === undefined && profileId) {
       let providerIdForPrompt = 'unknown';
       if (model.includes('gemini') || model.includes('google')) providerIdForPrompt = 'google';
       else if (model.includes('doubao')) providerIdForPrompt = 'doubao';
@@ -194,8 +198,10 @@ export class AiService {
 
     const providerInstance = getProvider(model, undefined, providers);
 
-    let resolvedSystemPrompt = explicitSystemPrompt;
-    if (resolvedSystemPrompt === undefined && profileId) {
+    const canUseSystemPrompt = serviceSupportsSystemPrompt('optimize', { providerId: '', modelId: model });
+
+    let resolvedSystemPrompt = canUseSystemPrompt ? explicitSystemPrompt : undefined;
+    if (canUseSystemPrompt && resolvedSystemPrompt === undefined && profileId) {
       let providerIdForPrompt = 'unknown';
       if (model.includes('doubao')) providerIdForPrompt = 'doubao';
       else if (model.includes('deepseek')) providerIdForPrompt = 'deepseek';

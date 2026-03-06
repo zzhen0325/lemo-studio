@@ -1,62 +1,82 @@
 {
-  "generatedAt": "2026-02-26T12:32:07.818Z",
+  "generatedAt": "2026-03-06T08:46:36.517Z",
   "root": "/Users/bytedance/Desktop/seeseezz/gulux",
   "threshold": 500,
   "strict": false,
-  "totalFiles": 296,
-  "totalLines": 46972,
+  "totalFiles": 337,
+  "totalLines": 58541,
   "files": [
     {
+      "path": "app/infinite-canvas/_components/InfiniteCanvasEditor.tsx",
+      "lines": 2918
+    },
+    {
       "path": "app/studio/playground/_components/containers/PlaygroundPageContainer.tsx",
-      "lines": 1522
+      "lines": 1677
+    },
+    {
+      "path": "lib/ai/providers.ts",
+      "lines": 1613
+    },
+    {
+      "path": "app/studio/playground/_components/Banner/BannerModePanel.tsx",
+      "lines": 1592
+    },
+    {
+      "path": "components/image-editor/hooks/use-fabric-image-editor.ts",
+      "lines": 1328
     },
     {
       "path": "app/studio/playground/_components/hooks/useImageEditor.ts",
       "lines": 1301
     },
     {
-      "path": "lib/ai/providers.ts",
-      "lines": 1282
-    },
-    {
-      "path": "app/studio/playground/_components/Banner/BannerModePanel.tsx",
-      "lines": 1248
-    },
-    {
       "path": "app/studio/dataset/_components/CollectionDetail.tsx",
-      "lines": 982
-    },
-    {
-      "path": "app/studio/playground/_components/history/HistoryCards.tsx",
-      "lines": 838
-    },
-    {
-      "path": "app/studio/playground/_components/GalleryView.tsx",
-      "lines": 834
-    },
-    {
-      "path": "app/studio/playground/_components/Dialogs/TldrawEditorView.tsx",
-      "lines": 817
-    },
-    {
-      "path": "app/studio/playground/_components/Dialogs/PresetManagerDialog.tsx",
-      "lines": 786
+      "lines": 984
     },
     {
       "path": "app/studio/playground/_components/hooks/useGenerationService.ts",
-      "lines": 762
+      "lines": 935
+    },
+    {
+      "path": "app/infinite-canvas/_components/CanvasNodeCard.tsx",
+      "lines": 895
+    },
+    {
+      "path": "app/studio/settings/_components/ProviderFormModal.tsx",
+      "lines": 867
+    },
+    {
+      "path": "app/studio/playground/_components/GalleryView.tsx",
+      "lines": 843
+    },
+    {
+      "path": "app/studio/playground/_components/history/HistoryCards.tsx",
+      "lines": 841
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/PresetManagerDialog.tsx",
+      "lines": 787
     },
     {
       "path": "app/studio/mapping-editor/_components/mapping-editor-page.tsx",
       "lines": 748
     },
     {
+      "path": "app/studio/settings/_components/SettingsView.tsx",
+      "lines": 748
+    },
+    {
       "path": "app/studio/dataset/_components/collection-detail/useCollectionDetailAiWorkflow.tsx",
-      "lines": 718
+      "lines": 722
     },
     {
       "path": "app/studio/playground/_components/PlaygroundInputSection.tsx",
       "lines": 667
+    },
+    {
+      "path": "app/studio/playground/_components/ControlToolbar.tsx",
+      "lines": 590
     },
     {
       "path": "app/studio/dataset/_components/collection-detail/CollectionDetailHeader.tsx",
@@ -64,23 +84,19 @@
     },
     {
       "path": "lib/store/playground-store.ts",
-      "lines": 569
+      "lines": 555
+    },
+    {
+      "path": "server/service/api-config.service.ts",
+      "lines": 553
     },
     {
       "path": "app/studio/playground/_components/StyleDetailView.tsx",
       "lines": 552
     },
     {
-      "path": "app/studio/playground/_components/ControlToolbar.tsx",
-      "lines": 532
-    },
-    {
       "path": "lib/store/playground-store.library-actions.ts",
-      "lines": 522
-    },
-    {
-      "path": "app/studio/settings/_components/SettingsView.tsx",
-      "lines": 513
+      "lines": 516
     },
     {
       "path": "app/studio/mapping-editor/_components/workflow-analyzer.tsx",
@@ -92,11 +108,19 @@
     },
     {
       "path": "app/studio/playground/_components/Dialogs/ImagePreviewModal.tsx",
-      "lines": 489
+      "lines": 491
+    },
+    {
+      "path": "lib/api/comfyui-api-service.ts",
+      "lines": 484
     },
     {
       "path": "components/ui/gradient-shader-card.tsx",
       "lines": 460
+    },
+    {
+      "path": "lib/store/api-config-store.ts",
+      "lines": 443
     },
     {
       "path": "app/studio/playground/_components/HistoryList.tsx",
@@ -107,8 +131,16 @@
       "lines": 432
     },
     {
-      "path": "lib/api/comfyui-api-service.ts",
-      "lines": 398
+      "path": "server/service/infinite-canvas.service.ts",
+      "lines": 423
+    },
+    {
+      "path": "lib/prompt/banner-prompt.ts",
+      "lines": 422
+    },
+    {
+      "path": "lib/model-center.ts",
+      "lines": 419
     },
     {
       "path": "lib/api/comfyui-service.ts",
@@ -127,27 +159,27 @@
       "lines": 375
     },
     {
-      "path": "app/studio/playground/_components/Dialogs/TldrawShapes.tsx",
-      "lines": 370
+      "path": "components/image-editor/ImageEditDialog.tsx",
+      "lines": 347
     },
     {
       "path": "components/visual-effects/GradualBlur.tsx",
       "lines": 346
     },
     {
-      "path": "app/studio/playground/_components/Dialogs/TldrawEditorWidgets.tsx",
-      "lines": 328
+      "path": "server/db/models.ts",
+      "lines": 329
     },
     {
       "path": "components/visual-effects/ColorBends.tsx",
       "lines": 328
     },
     {
-      "path": "app/studio/playground/_components/StyleCollageEditor.tsx",
-      "lines": 314
+      "path": "server/service/translate.service.ts",
+      "lines": 324
     },
     {
-      "path": "app/studio/settings/_components/ProviderFormModal.tsx",
+      "path": "app/studio/playground/_components/StyleCollageEditor.tsx",
       "lines": 314
     },
     {
@@ -155,20 +187,32 @@
       "lines": 308
     },
     {
-      "path": "lib/store/api-config-store.ts",
-      "lines": 293
+      "path": "config/banner-templates.ts",
+      "lines": 292
     },
     {
       "path": "components/visual-effects/PixelCard.tsx",
       "lines": 290
     },
     {
-      "path": "server/db/models.ts",
-      "lines": 283
+      "path": "server/service/history.service.ts",
+      "lines": 289
     },
     {
-      "path": "lib/prompt/banner-prompt.ts",
-      "lines": 263
+      "path": "app/infinite-canvas/_components/InfiniteCanvasProjectSidebar.tsx",
+      "lines": 287
+    },
+    {
+      "path": "tests/model-center.spec.ts",
+      "lines": 279
+    },
+    {
+      "path": "app/infinite-canvas/_lib/api.ts",
+      "lines": 275
+    },
+    {
+      "path": "app/infinite-canvas/_components/InfiniteCanvasHome.tsx",
+      "lines": 264
     },
     {
       "path": "app/studio/dataset/_components/collection-detail/CollectionDetailListItem.tsx",
@@ -179,19 +223,23 @@
       "lines": 257
     },
     {
+      "path": "tests/server/api-config.service.spec.ts",
+      "lines": 257
+    },
+    {
       "path": "app/studio/mapping-editor/_components/create-workflow-dialog.tsx",
       "lines": 252
     },
     {
-      "path": "lib/store/playground-store.banner-actions.ts",
-      "lines": 248
+      "path": "server/service/view-comfy.service.ts",
+      "lines": 252
     },
     {
       "path": "app/globals.css",
       "lines": 246
     },
     {
-      "path": "server/service/view-comfy.service.ts",
+      "path": "lib/store/playground-store.banner-actions.ts",
       "lines": 245
     },
     {
@@ -199,16 +247,16 @@
       "lines": 239
     },
     {
-      "path": "server/service/history.service.ts",
-      "lines": 236
-    },
-    {
       "path": "app/studio/tools/_components/ToolsView.tsx",
       "lines": 228
     },
     {
-      "path": "app/studio/dataset/_components/collection-detail/collection-detail.ai.ts",
-      "lines": 224
+      "path": "server/service/ai.service.ts",
+      "lines": 227
+    },
+    {
+      "path": "lib/ai/modelRegistry.ts",
+      "lines": 222
     },
     {
       "path": "types/features/mapping-editor.ts",
@@ -247,15 +295,7 @@
       "lines": 207
     },
     {
-      "path": "server/service/api-config.service.ts",
-      "lines": 207
-    },
-    {
       "path": "components/ui/dropdown-menu.tsx",
-      "lines": 206
-    },
-    {
-      "path": "server/service/translate.service.ts",
       "lines": 206
     },
     {
@@ -267,8 +307,20 @@
       "lines": 202
     },
     {
-      "path": "app/studio/playground/_components/Dialogs/TldrawEditorPanels.tsx",
-      "lines": 194
+      "path": "lib/store/user-store.ts",
+      "lines": 200
+    },
+    {
+      "path": "server/service/save-image.service.ts",
+      "lines": 199
+    },
+    {
+      "path": "tests/coze-workflow-image-provider.spec.ts",
+      "lines": 196
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/collection-detail.ai.ts",
+      "lines": 195
     },
     {
       "path": "scripts/migrate-history.ts",
@@ -279,8 +331,16 @@
       "lines": 193
     },
     {
+      "path": "lib/api/fluxklein-workflow.ts",
+      "lines": 190
+    },
+    {
       "path": "app/studio/dataset/_components/collection-detail/collection-detail.upload.ts",
       "lines": 189
+    },
+    {
+      "path": "lib/ai/client.ts",
+      "lines": 188
     },
     {
       "path": "pixelGRID/ControlPanel.tsx",
@@ -295,14 +355,6 @@
       "lines": 183
     },
     {
-      "path": "lib/store/user-store.ts",
-      "lines": 183
-    },
-    {
-      "path": "lib/ai/modelRegistry.ts",
-      "lines": 182
-    },
-    {
       "path": "app/studio/mapping-editor/_components/mapping-list.tsx",
       "lines": 181
     },
@@ -311,19 +363,15 @@
       "lines": 179
     },
     {
-      "path": "lib/api/fluxklein-workflow.ts",
-      "lines": 179
-    },
-    {
       "path": "components/ui/spiral.tsx",
       "lines": 178
     },
     {
-      "path": "lib/ai/client.ts",
+      "path": "app/studio/settings/_components/ProviderCard.tsx",
       "lines": 173
     },
     {
-      "path": "tests/server/api-config.service.spec.ts",
+      "path": "lib/api-config/types.ts",
       "lines": 173
     },
     {
@@ -336,15 +384,19 @@
     },
     {
       "path": "app/studio/dataset/_components/collection-detail/collection-detail.utils.ts",
-      "lines": 171
+      "lines": 170
     },
     {
-      "path": "server/service/ai.service.ts",
-      "lines": 166
+      "path": "lib/adapters/data-mapping.ts",
+      "lines": 170
     },
     {
       "path": "components/ui/select.tsx",
       "lines": 165
+    },
+    {
+      "path": "app/studio/_components/StudioSidebar.tsx",
+      "lines": 164
     },
     {
       "path": "server/service/presets.service.ts",
@@ -355,28 +407,16 @@
       "lines": 162
     },
     {
-      "path": "lib/adapters/data-mapping.ts",
-      "lines": 162
-    },
-    {
       "path": "lib/swr-cache-provider.tsx",
       "lines": 162
     },
     {
-      "path": "app/studio/_components/StudioSidebar.tsx",
-      "lines": 160
+      "path": "tests/schemas/ai.spec.ts",
+      "lines": 161
     },
     {
       "path": "app/studio/tools/_components/WebGLRenderer.tsx",
       "lines": 158
-    },
-    {
-      "path": "app/studio/playground/_components/Dialogs/tldraw-editor-helpers.ts",
-      "lines": 156
-    },
-    {
-      "path": "app/studio/settings/_components/ProviderCard.tsx",
-      "lines": 156
     },
     {
       "path": "components/ui/command.tsx",
@@ -387,11 +427,15 @@
       "lines": 156
     },
     {
-      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailListView.tsx",
-      "lines": 152
+      "path": "hooks/ai/useAIService.ts",
+      "lines": 156
     },
     {
-      "path": "tests/schemas/ai.spec.ts",
+      "path": "types/database.ts",
+      "lines": 153
+    },
+    {
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailListView.tsx",
       "lines": 152
     },
     {
@@ -403,20 +447,16 @@
       "lines": 151
     },
     {
-      "path": "types/database.ts",
-      "lines": 149
-    },
-    {
       "path": "app/studio/_components/auth/UserProfileDialog.tsx",
       "lines": 147
     },
     {
-      "path": "lib/store/playground-store.types.ts",
+      "path": "lib/ai/registry.ts",
       "lines": 147
     },
     {
-      "path": "server/service/save-image.service.ts",
-      "lines": 147
+      "path": "app/studio/dataset/_components/CollectionList.tsx",
+      "lines": 143
     },
     {
       "path": "components/ui/warp-flow-card.tsx",
@@ -427,16 +467,28 @@
       "lines": 142
     },
     {
-      "path": "app/studio/dataset/_components/CollectionList.tsx",
-      "lines": 141
+      "path": "types/infinite-canvas.ts",
+      "lines": 142
     },
     {
       "path": "app/studio/playground/_components/containers/components/PlaygroundDockSidebar.tsx",
       "lines": 141
     },
     {
+      "path": "lib/store/playground-store.types.ts",
+      "lines": 139
+    },
+    {
       "path": "lib/workflow-governance.ts",
       "lines": 139
+    },
+    {
+      "path": "components/image-editor/utils/migrate-tldraw-snapshot.ts",
+      "lines": 135
+    },
+    {
+      "path": "app/infinite-canvas/_lib/helpers.ts",
+      "lines": 134
     },
     {
       "path": "app/studio/playground/_components/PromptInput.tsx",
@@ -445,6 +497,14 @@
     {
       "path": "components/ui/ShinyText.tsx",
       "lines": 133
+    },
+    {
+      "path": "lib/playground/types.ts",
+      "lines": 130
+    },
+    {
+      "path": "lib/store/playground-store.helpers.ts",
+      "lines": 130
     },
     {
       "path": "pixelGRID/constants.tsx",
@@ -463,23 +523,19 @@
       "lines": 126
     },
     {
-      "path": "hooks/ai/useAIService.ts",
-      "lines": 125
-    },
-    {
-      "path": "lib/playground/types.ts",
-      "lines": 125
-    },
-    {
-      "path": "lib/store/playground-store.helpers.ts",
-      "lines": 124
-    },
-    {
       "path": "components/ui/dialog.tsx",
       "lines": 122
     },
     {
       "path": "lib/storage/local.ts",
+      "lines": 121
+    },
+    {
+      "path": "refactor-dataset.js",
+      "lines": 121
+    },
+    {
+      "path": "tests/coze-prompt-provider.spec.ts",
       "lines": 121
     },
     {
@@ -495,6 +551,14 @@
       "lines": 118
     },
     {
+      "path": "app/studio/playground/_components/hooks/useHistory.ts",
+      "lines": 118
+    },
+    {
+      "path": "tailwind.config.ts",
+      "lines": 117
+    },
+    {
       "path": "app/studio/playground/_components/Dialogs/WorkflowSelectorDialog.tsx",
       "lines": 115
     },
@@ -503,15 +567,7 @@
       "lines": 115
     },
     {
-      "path": "app/studio/playground/_components/containers/components/PlaygroundDockPanels.tsx",
-      "lines": 115
-    },
-    {
       "path": "components/ui/dropzone.tsx",
-      "lines": 115
-    },
-    {
-      "path": "lib/ai/registry.ts",
       "lines": 115
     },
     {
@@ -523,10 +579,6 @@
       "lines": 112
     },
     {
-      "path": "tailwind.config.ts",
-      "lines": 112
-    },
-    {
       "path": "app/studio/dataset/_components/collection-detail/collection-detail.service.ts",
       "lines": 110
     },
@@ -535,11 +587,11 @@
       "lines": 110
     },
     {
-      "path": "app/studio/playground/_components/Dialogs/TldrawEditorModal.tsx",
-      "lines": 109
+      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailGridView.tsx",
+      "lines": 108
     },
     {
-      "path": "app/studio/dataset/_components/collection-detail/CollectionDetailGridView.tsx",
+      "path": "lib/ai/imageInput.ts",
       "lines": 108
     },
     {
@@ -563,7 +615,11 @@
       "lines": 103
     },
     {
-      "path": "config/banner-templates.ts",
+      "path": "refactor-dataset-header.js",
+      "lines": 103
+    },
+    {
+      "path": "refactor-list-item.js",
       "lines": 103
     },
     {
@@ -571,8 +627,8 @@
       "lines": 102
     },
     {
-      "path": "lib/api-config/types.ts",
-      "lines": 101
+      "path": "server/controller/ai.controller.ts",
+      "lines": 102
     },
     {
       "path": "app/studio/dataset/_components/collection-detail/PromptTextareas.tsx",
@@ -583,8 +639,20 @@
       "lines": 98
     },
     {
+      "path": "lib/api-config/builtins.ts",
+      "lines": 97
+    },
+    {
       "path": "server/service/tools-presets.service.ts",
       "lines": 96
+    },
+    {
+      "path": "tests/image-editor/migrate-tldraw-snapshot.spec.ts",
+      "lines": 95
+    },
+    {
+      "path": "app/infinite-canvas/_lib/prompt-optimization.ts",
+      "lines": 92
     },
     {
       "path": "components/ui/PixelDistortion.tsx",
@@ -600,6 +668,10 @@
     },
     {
       "path": "lib/models/errors.ts",
+      "lines": 85
+    },
+    {
+      "path": "refactor-banner.js",
       "lines": 85
     },
     {
@@ -619,7 +691,19 @@
       "lines": 79
     },
     {
+      "path": "hooks/ai/usePromptOptimization.ts",
+      "lines": 79
+    },
+    {
+      "path": "app/infinite-canvas/_components/CanvasContextMenu.tsx",
+      "lines": 78
+    },
+    {
       "path": "server/service/loras.service.ts",
+      "lines": 78
+    },
+    {
+      "path": "tests/google-genai-provider.spec.ts",
       "lines": 78
     },
     {
@@ -627,7 +711,11 @@
       "lines": 77
     },
     {
-      "path": "server/controller/ai.controller.ts",
+      "path": "lib/store/playground-store.persist.ts",
+      "lines": 76
+    },
+    {
+      "path": "server/middleware/cors.ts",
       "lines": 74
     },
     {
@@ -643,6 +731,10 @@
       "lines": 73
     },
     {
+      "path": "app/studio/playground/_components/containers/components/PlaygroundDockPanels.tsx",
+      "lines": 71
+    },
+    {
       "path": "components/visual-effects/AnimatedList.css",
       "lines": 71
     },
@@ -655,15 +747,15 @@
       "lines": 70
     },
     {
+      "path": "lib/api-base.ts",
+      "lines": 70
+    },
+    {
       "path": "lib/models/viewcomfy-api-param-builder.ts",
       "lines": 70
     },
     {
-      "path": "app/studio/layout.tsx",
-      "lines": 69
-    },
-    {
-      "path": "app/studio/playground/_components/hooks/usePromptOptimization.ts",
+      "path": "refactor-grid.js",
       "lines": 69
     },
     {
@@ -699,16 +791,12 @@
       "lines": 67
     },
     {
-      "path": "server/middleware/cors.ts",
-      "lines": 67
-    },
-    {
-      "path": "app/studio/playground/_components/hooks/useHistory.ts",
+      "path": "app/infinite-canvas/page.tsx",
       "lines": 66
     },
     {
-      "path": "lib/api-base.ts",
-      "lines": 66
+      "path": "components/image-editor/utils/build-image-edit-prompt.ts",
+      "lines": 65
     },
     {
       "path": "lib/ai/hooks.ts",
@@ -721,6 +809,10 @@
     {
       "path": "lib/utils/annotation-label.ts",
       "lines": 65
+    },
+    {
+      "path": "app/studio/playground/page.tsx",
+      "lines": 64
     },
     {
       "path": "config/system-prompts.ts",
@@ -743,12 +835,20 @@
       "lines": 62
     },
     {
+      "path": "tests/image-editor/build-image-edit-prompt.spec.ts",
+      "lines": 62
+    },
+    {
       "path": "server/service/comfy-fluxklein.service.ts",
       "lines": 61
     },
     {
       "path": "server/utils/mongo.ts",
       "lines": 61
+    },
+    {
+      "path": "components/image-editor/types.ts",
+      "lines": 60
     },
     {
       "path": "components/ui/alert.tsx",
@@ -765,6 +865,14 @@
     {
       "path": "components/ui/button.tsx",
       "lines": 59
+    },
+    {
+      "path": "server/service/check-google-api.service.ts",
+      "lines": 58
+    },
+    {
+      "path": "app/api/ai/image/route.ts",
+      "lines": 57
     },
     {
       "path": "components/ui/tabs.tsx",
@@ -795,15 +903,23 @@
       "lines": 54
     },
     {
+      "path": "refactor-list.js",
+      "lines": 54
+    },
+    {
       "path": "styles/themes/animations.scss",
       "lines": 54
     },
     {
-      "path": "server/service/check-google-api.service.ts",
-      "lines": 53
+      "path": "tests/image-editor/infinite-image-edit-node.spec.ts",
+      "lines": 54
     },
     {
       "path": "scripts/test-batch-delete.ts",
+      "lines": 52
+    },
+    {
+      "path": "server/controller/infinite-canvas.controller.ts",
       "lines": 52
     },
     {
@@ -811,8 +927,16 @@
       "lines": 52
     },
     {
-      "path": "lib/store/playground-store.persist.ts",
+      "path": "tests/fluxklein-workflow.spec.ts",
+      "lines": 52
+    },
+    {
+      "path": "tests/bytedance-afr-provider.spec.ts",
       "lines": 51
+    },
+    {
+      "path": "app/infinite-canvas/_lib/image-edit-node.ts",
+      "lines": 50
     },
     {
       "path": "components/ui/resizable.tsx",
@@ -835,6 +959,10 @@
       "lines": 48
     },
     {
+      "path": "lib/ai/cozeUploader.ts",
+      "lines": 47
+    },
+    {
       "path": "app/studio/playground/_components/PromptContext.tsx",
       "lines": 46
     },
@@ -844,7 +972,11 @@
     },
     {
       "path": "lib/schemas/ai.ts",
-      "lines": 45
+      "lines": 46
+    },
+    {
+      "path": "tests/infinite-canvas/prompt-optimization.spec.ts",
+      "lines": 46
     },
     {
       "path": "server/controller/tools-presets.controller.ts",
@@ -853,6 +985,10 @@
     {
       "path": "types/global.d.ts",
       "lines": 45
+    },
+    {
+      "path": "lib/model-center-ui.ts",
+      "lines": 44
     },
     {
       "path": "server/controller/api-config.controller.ts",
@@ -943,7 +1079,7 @@
       "lines": 32
     },
     {
-      "path": "app/studio/playground/page.tsx",
+      "path": "app/studio/_lib/navigation.ts",
       "lines": 31
     },
     {
@@ -1019,10 +1155,6 @@
       "lines": 26
     },
     {
-      "path": "app/studio/_lib/navigation.ts",
-      "lines": 25
-    },
-    {
       "path": "components/ui/AppToaster.tsx",
       "lines": 25
     },
@@ -1079,6 +1211,10 @@
       "lines": 19
     },
     {
+      "path": "app/infinite-canvas/_lib/constants.ts",
+      "lines": 18
+    },
+    {
       "path": "hooks/common/use-debounce.ts",
       "lines": 18
     },
@@ -1095,6 +1231,10 @@
       "lines": 16
     },
     {
+      "path": "components/image-editor/theme.ts",
+      "lines": 16
+    },
+    {
       "path": "components/ui/skeleton.tsx",
       "lines": 16
     },
@@ -1105,6 +1245,14 @@
     {
       "path": "lib/utils/model-utils.ts",
       "lines": 16
+    },
+    {
+      "path": "app/studio/layout.tsx",
+      "lines": 15
+    },
+    {
+      "path": "components/image-editor/index.ts",
+      "lines": 14
     },
     {
       "path": "lib/constants/models.ts",
@@ -1143,6 +1291,14 @@
       "lines": 12
     },
     {
+      "path": "app/infinite-canvas/editor/[projectId]/page.tsx",
+      "lines": 11
+    },
+    {
+      "path": "app/infinite-canvas/layout.tsx",
+      "lines": 11
+    },
+    {
       "path": "components/common/loader.tsx",
       "lines": 11
     },
@@ -1156,6 +1312,10 @@
     },
     {
       "path": "components/visual-effects/ColorBends.css",
+      "lines": 7
+    },
+    {
+      "path": "lib/constants/dataset-prompts.ts",
       "lines": 7
     },
     {
@@ -1187,16 +1347,44 @@
       "lines": 4
     },
     {
+      "path": "app/studio/playground/_components/hooks/usePromptOptimization.ts",
+      "lines": 3
+    },
+    {
       "path": "app/studio/playground/_components/types.ts",
       "lines": 2
     }
   ],
   "exceeded": [
     {
-      "path": "app/studio/playground/_components/containers/PlaygroundPageContainer.tsx",
-      "lines": 1522,
-      "overBy": 1022,
+      "path": "app/infinite-canvas/_components/InfiniteCanvasEditor.tsx",
+      "lines": 2918,
+      "overBy": 2418,
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/containers/PlaygroundPageContainer.tsx",
+      "lines": 1677,
+      "overBy": 1177,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "lib/ai/providers.ts",
+      "lines": 1613,
+      "overBy": 1113,
+      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
+    },
+    {
+      "path": "app/studio/playground/_components/Banner/BannerModePanel.tsx",
+      "lines": 1592,
+      "overBy": 1092,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "components/image-editor/hooks/use-fabric-image-editor.ts",
+      "lines": 1328,
+      "overBy": 828,
+      "suggestion": "自定义 Hook 逻辑过于庞大，建议拆分为多个职责单一的 hooks，并将通用工具提取到独立 util 文件。"
     },
     {
       "path": "app/studio/playground/_components/hooks/useImageEditor.ts",
@@ -1205,51 +1393,45 @@
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
-      "path": "lib/ai/providers.ts",
-      "lines": 1282,
-      "overBy": 782,
-      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "app/studio/playground/_components/Banner/BannerModePanel.tsx",
-      "lines": 1248,
-      "overBy": 748,
-      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
-    },
-    {
       "path": "app/studio/dataset/_components/CollectionDetail.tsx",
-      "lines": 982,
-      "overBy": 482,
-      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
-    },
-    {
-      "path": "app/studio/playground/_components/history/HistoryCards.tsx",
-      "lines": 838,
-      "overBy": 338,
-      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
-    },
-    {
-      "path": "app/studio/playground/_components/GalleryView.tsx",
-      "lines": 834,
-      "overBy": 334,
-      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
-    },
-    {
-      "path": "app/studio/playground/_components/Dialogs/TldrawEditorView.tsx",
-      "lines": 817,
-      "overBy": 317,
-      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
-    },
-    {
-      "path": "app/studio/playground/_components/Dialogs/PresetManagerDialog.tsx",
-      "lines": 786,
-      "overBy": 286,
+      "lines": 984,
+      "overBy": 484,
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
       "path": "app/studio/playground/_components/hooks/useGenerationService.ts",
-      "lines": 762,
-      "overBy": 262,
+      "lines": 935,
+      "overBy": 435,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/infinite-canvas/_components/CanvasNodeCard.tsx",
+      "lines": 895,
+      "overBy": 395,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/settings/_components/ProviderFormModal.tsx",
+      "lines": 867,
+      "overBy": 367,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/GalleryView.tsx",
+      "lines": 843,
+      "overBy": 343,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/history/HistoryCards.tsx",
+      "lines": 841,
+      "overBy": 341,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/Dialogs/PresetManagerDialog.tsx",
+      "lines": 787,
+      "overBy": 287,
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
@@ -1259,15 +1441,27 @@
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
+      "path": "app/studio/settings/_components/SettingsView.tsx",
+      "lines": 748,
+      "overBy": 248,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
       "path": "app/studio/dataset/_components/collection-detail/useCollectionDetailAiWorkflow.tsx",
-      "lines": 718,
-      "overBy": 218,
+      "lines": 722,
+      "overBy": 222,
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
       "path": "app/studio/playground/_components/PlaygroundInputSection.tsx",
       "lines": 667,
       "overBy": 167,
+      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
+    },
+    {
+      "path": "app/studio/playground/_components/ControlToolbar.tsx",
+      "lines": 590,
+      "overBy": 90,
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
@@ -1278,8 +1472,14 @@
     },
     {
       "path": "lib/store/playground-store.ts",
-      "lines": 569,
-      "overBy": 69,
+      "lines": 555,
+      "overBy": 55,
+      "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
+    },
+    {
+      "path": "server/service/api-config.service.ts",
+      "lines": 553,
+      "overBy": 53,
       "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
     },
     {
@@ -1289,22 +1489,10 @@
       "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
-      "path": "app/studio/playground/_components/ControlToolbar.tsx",
-      "lines": 532,
-      "overBy": 32,
-      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
-    },
-    {
       "path": "lib/store/playground-store.library-actions.ts",
-      "lines": 522,
-      "overBy": 22,
+      "lines": 516,
+      "overBy": 16,
       "suggestion": "建议按“UI 展示 / 状态管理 / 副作用 / 工具函数”拆分到多个较小文件，每个文件保持单一职责。"
-    },
-    {
-      "path": "app/studio/settings/_components/SettingsView.tsx",
-      "lines": 513,
-      "overBy": 13,
-      "suggestion": "App 目录下文件过大，建议按路由段拆分组件，并将通用逻辑下沉到共享 hooks 与工具函数中。"
     },
     {
       "path": "app/studio/mapping-editor/_components/workflow-analyzer.tsx",

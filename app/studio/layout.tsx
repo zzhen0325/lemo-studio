@@ -1,10 +1,8 @@
-"use client";
-
-import React from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { StudioSidebar } from "./_components/StudioSidebar";
 
-export default function StudioLayout({ children }: { children: React.ReactNode }) {
+export default function StudioLayout({ children }: { children: ReactNode }) {
   return (
     <div className={cn("flex flex-col h-screen w-screen overflow-hidden text-neutral-200 selection:bg-indigo-500/30 relative bg-black")}> 
       <StudioSidebar />

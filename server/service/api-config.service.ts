@@ -2,164 +2,18 @@ import { randomUUID } from 'crypto';
 import { existsSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
-import type { APIProviderConfig, APIConfigSettings, APIConfigResponse, ServiceBinding, ServiceConfig } from '../../lib/api-config/types';
+import type { APIProviderConfig, APIConfigSettings, APIConfigResponse } from '../../lib/api-config/types';
 import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { ApiProvider, ApiSettings } from '../db';
 import { decryptApiKey, encryptApiKey, isApiKeyEncrypted, isApiKeyEncryptionEnabled, maskStoredApiKey } from '../utils/secret-crypto';
 import { normalizeProviderConfigs } from '../../lib/model-center';
-
-const EMPTY_BINDING: ServiceBinding = { providerId: '', modelId: '' };
-
-const MODEL_ID_MIGRATIONS: Record<string, string> = {
-  seed4_2_lemo: 'seed4_v2_0226lemo',
-};
-
-function migrateModelId(modelId?: string): string {
-  if (!modelId) return '';
-  return MODEL_ID_MIGRATIONS[modelId] || modelId;
-}
-
-function migrateModels(models: Record<string, unknown>[] | undefined): Record<string, unknown>[] {
-  if (!Array.isArray(models)) return [];
-  return models.map((model) => {
-    const rawModelId = typeof model.modelId === 'string' ? model.modelId : '';
-    if (!rawModelId) return model;
-    const nextModelId = migrateModelId(rawModelId);
-    if (nextModelId === rawModelId) return model;
-    return { ...model, modelId: nextModelId };
-  });
-}
-
-const DEFAULT_TRANSLATE_SYSTEM_PROMPT = [
-  'You are a professional prompt translation engine for text-to-image workflows.',
-  'Translate only. Do not explain, annotate, or add extra content.',
-  'Output language must strictly match the target language requested by user.',
-  'Preserve original meaning, tone, structure, and detail density.',
-  'Keep comma-separated tag style if the source uses tags.',
-  'Keep placeholders, symbols, model params, lora tags, and proper nouns unchanged when appropriate.',
-  'Return plain translated text only, without quotes or markdown.',
-].join('\n');
-
-const DEFAULT_SETTINGS: APIConfigSettings = {
-  services: {
-    imageGeneration: {
-      binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' },
-    },
-    translate: {
-      binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
-      systemPrompt: DEFAULT_TRANSLATE_SYSTEM_PROMPT,
-    },
-    describe: {
-      binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
-      systemPrompt: '',
-    },
-    optimize: {
-      binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-1-8-251228' },
-      systemPrompt: '',
-    },
-    datasetLabel: {
-      binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
-    },
-  },
-  defaults: {
-    text: {
-      textToText: { binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' } },
-      imageToText: { binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' } },
-      videoToText: { binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' } },
-    },
-    image: {
-      textToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
-      imageToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
-      imagesToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
-    }
-  },
-  comfyUrl: '',
-};
-
-function withBinding(input?: Partial<ServiceConfig>, fallback?: ServiceBinding): ServiceConfig {
-  const fallbackBinding = fallback || EMPTY_BINDING;
-  return {
-    binding: {
-      providerId: input?.binding?.providerId || fallbackBinding.providerId,
-      modelId: migrateModelId(input?.binding?.modelId || fallbackBinding.modelId),
-    },
-    systemPrompt: input?.systemPrompt,
-  };
-}
-
-function resolveSettings(settings: APIConfigSettings | Record<string, unknown> | undefined): APIConfigSettings {
-  const data = (settings || {}) as Record<string, unknown>;
-  const oldBindings = data.serviceBindings as Record<string, ServiceBinding> | undefined;
-  const incomingServices = data.services as Partial<APIConfigSettings['services']> | undefined;
-
-  const services: APIConfigSettings['services'] = {
-    imageGeneration: withBinding(incomingServices?.imageGeneration, DEFAULT_SETTINGS.services.imageGeneration.binding),
-    translate: {
-      ...withBinding(
-        incomingServices?.translate,
-        oldBindings?.translate || DEFAULT_SETTINGS.services.translate.binding,
-      ),
-      systemPrompt: incomingServices?.translate?.systemPrompt || DEFAULT_SETTINGS.services.translate.systemPrompt,
-    },
-    describe: {
-      ...withBinding(
-        incomingServices?.describe,
-        oldBindings?.describe || DEFAULT_SETTINGS.services.describe.binding,
-      ),
-      systemPrompt: incomingServices?.describe?.systemPrompt || DEFAULT_SETTINGS.services.describe.systemPrompt,
-    },
-    optimize: {
-      ...withBinding(
-        incomingServices?.optimize,
-        oldBindings?.optimize || DEFAULT_SETTINGS.services.optimize.binding,
-      ),
-      systemPrompt: incomingServices?.optimize?.systemPrompt || DEFAULT_SETTINGS.services.optimize.systemPrompt,
-    },
-    datasetLabel: {
-      binding: {
-        providerId: incomingServices?.datasetLabel?.binding?.providerId
-          || incomingServices?.describe?.binding?.providerId
-          || DEFAULT_SETTINGS.services.datasetLabel.binding.providerId,
-        modelId: migrateModelId(incomingServices?.datasetLabel?.binding?.modelId
-          || incomingServices?.describe?.binding?.modelId
-          || DEFAULT_SETTINGS.services.datasetLabel.binding.modelId),
-      }
-    }
-  };
-
-  const defaults = data.defaults as APIConfigSettings['defaults'] | undefined;
-  const fallbackDefaults = {
-    text: {
-      textToText: { binding: services.optimize.binding },
-      imageToText: { binding: services.describe.binding },
-      videoToText: { binding: services.describe.binding },
-    },
-    image: {
-      textToImage: { binding: services.imageGeneration.binding },
-      imageToImage: { binding: services.imageGeneration.binding },
-      imagesToImage: { binding: services.imageGeneration.binding },
-    },
-  };
-
-  return {
-    services,
-    defaults: {
-      text: {
-        textToText: withBinding(defaults?.text?.textToText, fallbackDefaults.text.textToText.binding),
-        imageToText: withBinding(defaults?.text?.imageToText, fallbackDefaults.text.imageToText.binding),
-        videoToText: withBinding(defaults?.text?.videoToText, fallbackDefaults.text.videoToText.binding),
-      },
-      image: {
-        textToImage: withBinding(defaults?.image?.textToImage, fallbackDefaults.image.textToImage.binding),
-        imageToImage: withBinding(defaults?.image?.imageToImage, fallbackDefaults.image.imageToImage.binding),
-        imagesToImage: withBinding(defaults?.image?.imagesToImage, fallbackDefaults.image.imagesToImage.binding),
-      },
-    },
-    comfyUrl: (data.comfyUrl as string) || '',
-  };
-}
+import {
+  DEFAULT_API_CONFIG_SETTINGS,
+  migrateLooseModels,
+  normalizeApiConfigSettings,
+} from '../../lib/api-config/core';
 
 interface ApiProviderLeanDoc {
   _id?: unknown;
@@ -202,7 +56,7 @@ export class ApiConfigService {
       providerType: (doc.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
       apiKey: maskStoredApiKey(doc.apiKey),
       baseURL: doc.baseURL,
-      models: migrateModels(doc.models) as unknown as APIProviderConfig['models'],
+      models: migrateLooseModels(doc.models) as unknown as APIProviderConfig['models'],
       isEnabled: doc.isEnabled ?? true,
       createdAt: (doc.createdAt as string) || fallbackDate,
       updatedAt: (doc.updatedAt as string) || fallbackDate,
@@ -219,7 +73,7 @@ export class ApiConfigService {
       providerType: (doc.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
       apiKey: decryptedApiKey ?? '',
       baseURL: doc.baseURL,
-      models: migrateModels(doc.models) as unknown as APIProviderConfig['models'],
+      models: migrateLooseModels(doc.models) as unknown as APIProviderConfig['models'],
       isEnabled: doc.isEnabled ?? true,
       createdAt: (doc.createdAt as string) || fallbackDate,
       updatedAt: (doc.updatedAt as string) || fallbackDate,
@@ -326,7 +180,7 @@ export class ApiConfigService {
             providerType: provider.providerType || 'openai-compatible',
             apiKey: finalApiKey,
             baseURL: provider.baseURL,
-            models: migrateModels((provider.models || []) as unknown as Record<string, unknown>[]),
+            models: migrateLooseModels((provider.models || []) as unknown as Record<string, unknown>[]),
             isEnabled: provider.isEnabled ?? true,
             createdAt: provider.createdAt || existing?.createdAt || now,
             updatedAt: now,
@@ -376,7 +230,7 @@ export class ApiConfigService {
               providerType: provider.providerType || 'openai-compatible',
               apiKey: incomingApiKey ? encryptApiKey(incomingApiKey) : '',
               baseURL: provider.baseURL,
-              models: migrateModels((provider.models || []) as unknown as Record<string, unknown>[]),
+              models: migrateLooseModels((provider.models || []) as unknown as Record<string, unknown>[]),
               isEnabled: provider.isEnabled ?? true,
               createdAt: provider.createdAt || now,
               updatedAt: now,
@@ -400,7 +254,7 @@ export class ApiConfigService {
         updateOne: {
           filter: { id },
           update: {
-            models: migrateModels([...existingModels, ...missingModels] as unknown as Record<string, unknown>[]),
+            models: migrateLooseModels([...existingModels, ...missingModels] as unknown as Record<string, unknown>[]),
             updatedAt: now,
           },
         }
@@ -422,7 +276,7 @@ export class ApiConfigService {
       const providersRaw = await this.syncMissingProvidersFromFile(dbProviders);
       await this.migratePlaintextApiKeys(providersRaw);
       const settingsDoc = await this.apiSettingsModel.findOne({ key: 'default' }).lean();
-      const settings = resolveSettings((settingsDoc?.settings as unknown as APIConfigSettings) || DEFAULT_SETTINGS);
+      const settings = normalizeApiConfigSettings((settingsDoc?.settings as unknown as APIConfigSettings) || DEFAULT_API_CONFIG_SETTINGS);
       const maskedProviders = providersRaw.map((doc) => this.toMaskedProvider(doc, fallbackDate));
 
       return { providers: normalizeProviderConfigs(maskedProviders), settings };
@@ -455,7 +309,7 @@ export class ApiConfigService {
 
       if (action === 'updateSettings') {
         const { settings } = body as { action: string; settings: APIConfigSettings };
-        const resolvedSettings = resolveSettings(settings);
+        const resolvedSettings = normalizeApiConfigSettings(settings);
         await this.apiSettingsModel.updateOne(
           { key: 'default' },
           { settings: resolvedSettings as unknown as Record<string, unknown>, key: 'default' },
@@ -500,7 +354,7 @@ export class ApiConfigService {
             providerType: providerData.providerType,
             apiKey: finalApiKey ?? existing.apiKey,
             baseURL: providerData.baseURL,
-            models: migrateModels((providerData.models || []) as unknown as Record<string, unknown>[]),
+            models: migrateLooseModels((providerData.models || []) as unknown as Record<string, unknown>[]),
             isEnabled: providerData.isEnabled,
             updatedAt: now,
           },
@@ -515,7 +369,7 @@ export class ApiConfigService {
           providerType: providerData.providerType || 'openai-compatible',
           apiKey: encryptApiKey(incomingApiKey),
           baseURL: providerData.baseURL,
-          models: migrateModels((providerData.models || []) as unknown as Record<string, unknown>[]),
+          models: migrateLooseModels((providerData.models || []) as unknown as Record<string, unknown>[]),
           isEnabled: providerData.isEnabled ?? true,
           createdAt: now,
           updatedAt: now,

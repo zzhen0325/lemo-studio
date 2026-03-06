@@ -3,7 +3,7 @@
 ## Frontend (Next.js)
 
 - `GULUX_API_BASE`
-  - Next rewrite target for `/api/:path*`.
+  - Internal backend target for the Next route-handler proxy at `/api/:path*`.
   - Default: `http://127.0.0.1:3000/api`.
 - `NEXT_PUBLIC_COMFYUI_URL`
   - Optional UI preset value for ComfyUI endpoint in Settings.

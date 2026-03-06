@@ -1,12 +1,5 @@
-"use client";
-
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
-
-const DatasetManagerView = dynamic(() => import("./_components/DatasetManagerView"), {
-  loading: () => <div className="flex h-full items-center justify-center text-white">Loading Dataset...</div>,
-  ssr: false,
-});
+import DatasetManagerView from "./_components/DatasetManagerView";
 
 export default function DatasetPage() {
   return (
