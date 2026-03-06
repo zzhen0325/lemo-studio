@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import React, { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { Crop, Eraser, MousePointer2, Pencil, Square } from 'lucide-react';
 import { useToast } from '@/hooks/common/use-toast';
 import { cn } from '@/lib/utils';

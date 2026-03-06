@@ -9,33 +9,41 @@
     "skipLibCheck": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "outDir": "dist",
+    "outDir": "output",
     "rootDir": "..",
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "../*"
+        "../*",
+        "./*"
       ],
       "@/components/*": [
-        "../components/*"
+        "../components/*",
+        "components/*"
       ],
       "@/lib/*": [
-        "../lib/*"
+        "../lib/*",
+        "lib/*"
       ],
       "@/types/*": [
-        "../types/*"
+        "../types/*",
+        "types/*"
       ],
       "@/hooks/*": [
-        "../hooks/*"
+        "../hooks/*",
+        "hooks/*"
       ],
       "@/styles/*": [
-        "../styles/*"
+        "../styles/*",
+        "styles/*"
       ],
       "@/config/*": [
-        "../config/*"
+        "../config/*",
+        "config/*"
       ],
       "@/public/*": [
-        "../public/*"
+        "../public/*",
+        "public/*"
       ]
     },
     "jsx": "react"
