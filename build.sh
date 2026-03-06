@@ -21,6 +21,11 @@ cp -R .next/standalone/. "${FRONTEND_OUTPUT_DIR}/"
 cp -R .next/static "${FRONTEND_OUTPUT_DIR}/.next/static"
 cp -R public "${FRONTEND_OUTPUT_DIR}/public"
 
+cat > "${FRONTEND_OUTPUT_DIR}/bootstrap.js" <<'EOF'
+process.chdir(__dirname);
+require('./server.js');
+EOF
+
 echo "前端构建完成。部署产物目录: ${FRONTEND_OUTPUT_DIR}"
 echo "源码启动命令: NODE_ENV=production next start -p \$PORT"
-echo "产物启动命令: cd output && NODE_ENV=production node server.js"
+echo "产物启动命令: cd output && NODE_ENV=production node bootstrap.js"

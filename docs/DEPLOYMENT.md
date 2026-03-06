@@ -75,9 +75,14 @@ cp -R .next/standalone/. "${FRONTEND_OUTPUT_DIR}/"
 cp -R .next/static "${FRONTEND_OUTPUT_DIR}/.next/static"
 cp -R public "${FRONTEND_OUTPUT_DIR}/public"
 
+cat > "${FRONTEND_OUTPUT_DIR}/bootstrap.js" <<'EOF'
+process.chdir(__dirname);
+require('./server.js');
+EOF
+
 echo "前端构建完成。部署产物目录: ${FRONTEND_OUTPUT_DIR}"
 echo "源码启动命令: NODE_ENV=production next start -p $PORT"
-echo "产物启动命令: cd output && NODE_ENV=production node server.js"
+echo "产物启动命令: cd output && NODE_ENV=production node bootstrap.js"
 ```
 
 ### Frontend Deployment Settings
@@ -86,11 +91,11 @@ echo "产物启动命令: cd output && NODE_ENV=production node server.js"
 - Build: `./build.sh`
 - `PRODUCT_OUTPUT_DIR`: `output`
 - Start if the platform runs from source checkout: `NODE_ENV=production next start -p $PORT`
-- Start if the platform runs packaged artifacts from `output/`: `NODE_ENV=production node server.js`
+- Start if the platform runs packaged artifacts from `output/`: `NODE_ENV=production node bootstrap.js`
 
 ### Frontend Packaging Note
 
-The current packaging pipeline shown on 2026-03-07 still executes `cd ${PRODUCT_OUTPUT_DIR}` before packaging metadata. Because of that, the frontend build must leave a real `output/` directory behind. The root `build.sh` now assembles a standalone Next.js runtime into `output/` so that product packaging can succeed.
+The current packaging pipeline shown on 2026-03-07 still executes `cd ${PRODUCT_OUTPUT_DIR}` before packaging metadata, and its default runtime entry is `node bootstrap.js`. Because of that, the frontend build must leave a real `output/` directory behind and include a `bootstrap.js` entry file. The root `build.sh` now assembles a standalone Next.js runtime into `output/` and generates that bootstrap file so product packaging can succeed.
 
 ### Frontend Env
 
