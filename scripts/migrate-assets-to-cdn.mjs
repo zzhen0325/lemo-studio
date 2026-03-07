@@ -12,7 +12,7 @@ const GOVERNANCE_PATH = path.join(ROOT, 'config', 'asset-governance.json');
 const MANIFEST_PATH = path.join(ROOT, 'config', 'cdn-assets-manifest.json');
 const REDIRECTS_PATH = path.join(ROOT, 'config', 'external-asset-redirects.json');
 
-const CDN_BASE = process.env.NODE_ENV === 'development' ? 'https://ife-cdn.tiktok-row.net' : 'https://ife-cdn.byteintl.net';
+const CDN_BASE = process.env.CDN_BASE_URL || (process.env.NODE_ENV === 'development' ? 'https://ife-cdn.tiktok-row.net' : 'https://ife-cdn.byteintl.net');
 const DEFAULT_EMAIL = process.env.CDN_EMAIL || 'zzhen.0325@bytedance.com';
 const DEFAULT_REGION = process.env.CDN_REGION || 'SG';
 const CDN_DIR = process.env.CDN_DIR || 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/repo_migration_assets';

@@ -4,6 +4,7 @@ import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { StyleStack as StyleStackEntity } from '../db';
+import { readJsonAsset } from '../../lib/runtime-assets';
 
 @Injectable()
 export class StylesService {
@@ -12,7 +13,12 @@ export class StylesService {
 
   public async listStyles(): Promise<StyleStack[]> {
     try {
-      const styles = await this.styleStackModel.find().sort({ updatedAt: -1 }).lean();
+      let styles = await this.styleStackModel.find().sort({ updatedAt: -1 }).lean();
+      if (styles.length === 0) {
+        await this.migrateFromCatalog();
+        styles = await this.styleStackModel.find().sort({ updatedAt: -1 }).lean();
+      }
+
       return styles.map((s) => ({
         id: String(s._id),
         name: s.name,
@@ -28,6 +34,39 @@ export class StylesService {
     } catch (error) {
       console.error('Failed to fetch styles', error);
       throw new HttpError(500, 'Failed to fetch styles');
+    }
+  }
+
+  private async migrateFromCatalog(): Promise<void> {
+    try {
+      const catalog = await readJsonAsset<StyleStack[]>('config/style-catalog.json');
+      if (!Array.isArray(catalog) || catalog.length === 0) {
+        return;
+      }
+
+      await Promise.all(
+        catalog.map(async (style) => {
+          const id = style.id || randomUUID();
+          const updatedAt = style.updatedAt ? new Date(style.updatedAt) : new Date();
+          await this.styleStackModel.updateOne(
+            { _id: id },
+            {
+              $set: {
+                name: style.name || 'Untitled Style',
+                prompt: style.prompt || '',
+                imagePaths: style.imagePaths || [],
+                previewUrls: style.imagePaths || [],
+                collageImageUrl: style.collageImageUrl,
+                collageConfig: style.collageConfig,
+                updatedAt,
+              },
+            },
+            { upsert: true },
+          );
+        }),
+      );
+    } catch (error) {
+      console.warn('[StylesService] Failed to migrate styles from CDN catalog:', error);
     }
   }
 

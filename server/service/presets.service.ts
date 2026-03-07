@@ -6,6 +6,7 @@ import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { Preset as PresetEntity, ImageAsset } from '../db';
+import { readJsonAsset } from '../../lib/runtime-assets';
 
 const PRESET_DIR = path.join(process.cwd(), 'public/preset');
 
@@ -45,6 +46,11 @@ export class PresetsService {
   }
 
   private async migrateFromFiles() {
+    const migratedFromCatalog = await this.migrateFromCatalog();
+    if (migratedFromCatalog) {
+      return;
+    }
+
     try {
       await fs.access(PRESET_DIR);
       const files = await fs.readdir(PRESET_DIR);
@@ -71,21 +77,7 @@ export class PresetsService {
             } catch { /* ignore */ }
           }
 
-          await this.presetModel.updateOne(
-            { _id: id },
-            {
-              name: presetData.name,
-              coverUrl: dataUrl,
-              coverData: dataUrl?.startsWith('data:') ? dataUrl : undefined,
-              config: presetData.config,
-              editConfig: presetData.editConfig,
-              category: presetData.category,
-              projectId: presetData.projectId,
-              type: presetData.type,
-              createdAt: presetData.createdAt || new Date().toISOString(),
-            },
-            { upsert: true }
-          );
+          await this.upsertPreset(id, presetData, dataUrl);
         } catch (e) {
           console.error(`Failed to migrate preset ${file}`, e);
         }
@@ -93,6 +85,44 @@ export class PresetsService {
     } catch {
       // Directory doesn't exist or other error, skip migration
     }
+  }
+
+  private async migrateFromCatalog(): Promise<boolean> {
+    try {
+      const catalog = await readJsonAsset<Preset[]>('config/preset-catalog.json');
+      if (!Array.isArray(catalog) || catalog.length === 0) {
+        return false;
+      }
+
+      await Promise.all(
+        catalog.map(async (preset) => {
+          const id = preset.id || randomUUID();
+          await this.upsertPreset(id, preset, preset.coverUrl);
+        }),
+      );
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async upsertPreset(id: string, presetData: Preset, coverUrl?: string) {
+    await this.presetModel.updateOne(
+      { _id: id },
+      {
+        name: presetData.name,
+        coverUrl,
+        coverData: coverUrl?.startsWith('data:') ? coverUrl : undefined,
+        config: presetData.config,
+        editConfig: presetData.editConfig,
+        category: presetData.category,
+        projectId: presetData.projectId,
+        type: presetData.type,
+        createdAt: presetData.createdAt || new Date().toISOString(),
+      },
+      { upsert: true }
+    );
   }
 
   public async savePresetFromFormData(formData: FormData): Promise<Preset> {

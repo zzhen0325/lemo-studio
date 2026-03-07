@@ -1,11 +1,10 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { PresetCategory } from '../db';
+import { readJsonAsset } from '../../lib/runtime-assets';
 
-const CATEGORIES_PATH = path.join(process.cwd(), 'public/preset/categories.json');
+const CATEGORIES_PATH = 'public/preset/categories.json';
 const DEFAULT_CATEGORIES = ['General', 'Portrait', 'Landscape', 'Anime', '3D', 'Architecture', 'Character', 'Workflow', 'Other'];
 
 @Injectable()
@@ -33,8 +32,7 @@ export class PresetCategoriesService {
 
   private async migrateFromFiles(): Promise<string[] | null> {
     try {
-      const content = await fs.readFile(CATEGORIES_PATH, 'utf-8');
-      const categories = JSON.parse(content) as string[];
+      const categories = await readJsonAsset<string[]>(CATEGORIES_PATH);
       if (categories && categories.length > 0) {
         await this.saveCategories(categories);
         return categories;

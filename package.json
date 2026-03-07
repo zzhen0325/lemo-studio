@@ -22,7 +22,8 @@
     "dedup:workflows": "node ./scripts/dedup-workflows.mjs --apply",
     "check:assets": "node ./scripts/check-assets.mjs",
     "check:assets:strict": "node ./scripts/check-assets.mjs --strict",
-    "migrate:assets:cdn": "node ./scripts/migrate-assets-to-cdn.mjs --apply"
+    "migrate:assets:cdn": "node ./scripts/migrate-assets-to-cdn.mjs --apply",
+    "migrate:runtime-assets:cdn": "node ./scripts/migrate-runtime-assets-to-cdn.mjs --apply"
   },
   "dependencies": {
     "@byted/typegoose": "^8.3.1",

@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { fetch, FormData, File } from 'undici';
 
-const CDN_BASE = process.env.NODE_ENV === 'development' ? 'https://ife-cdn.tiktok-row.net' : 'https://ife-cdn.byteintl.net';
+const CDN_BASE = process.env.CDN_BASE_URL || (process.env.NODE_ENV === 'development' ? 'https://ife-cdn.tiktok-row.net' : 'https://ife-cdn.byteintl.net');
 const DEFAULT_DIR = process.env.CDN_DIR || 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design';
 const DEFAULT_REGION = process.env.CDN_REGION || 'SG';
 const DEFAULT_EMAIL = process.env.CDN_EMAIL || (process.env.NODE_ENV === 'production' ? '' : 'anonymous@localhost');

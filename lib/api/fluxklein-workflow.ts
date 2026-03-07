@@ -1,5 +1,5 @@
-import fs from "node:fs/promises";
 import path from "node:path";
+import { readJsonAsset } from "../runtime-assets";
 
 type WorkflowNode = {
   class_type?: string;
@@ -28,31 +28,8 @@ async function loadTemplate(name: "t2i" | "i2i"): Promise<Workflow> {
   const cached = templateCache[name];
   if (cached) return cached;
   const fileName = name === "t2i" ? "Flux_klein_T2I.json" : "Flux_klein_I2I.json";
-  const candidatePaths = [
-    path.join(process.cwd(), "workflows", "templates", "flux-klein", fileName),
-    path.join(process.cwd(), "..", "workflows", "templates", "flux-klein", fileName),
-    // Legacy fallback paths
-    path.join(process.cwd(), fileName),
-    path.join(process.cwd(), "..", fileName),
-  ];
-
-  let content: string | undefined;
-  let lastError: unknown;
-  for (const candidatePath of candidatePaths) {
-    try {
-      content = await fs.readFile(candidatePath, "utf8");
-      break;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  if (!content) {
-    throw new Error(
-      `FluxKlein template not found: ${fileName}. Tried: ${candidatePaths.join(", ")}. ${String(lastError)}`
-    );
-  }
-  const parsed = JSON.parse(content) as Workflow;
+  const relativePath = path.join("workflows", "templates", "flux-klein", fileName).replace(/\\/g, "/");
+  const parsed = await readJsonAsset<Workflow>(relativePath);
   templateCache[name] = parsed;
   return parsed;
 }

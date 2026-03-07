@@ -1,12 +1,12 @@
 import path from "node:path";
 import type { IComfyInput } from "../../types/comfy-input";
 import { ComfyWorkflow } from "../models/comfy-workflow";
-import fs from "node:fs/promises";
 import { ComfyErrorHandler } from "../comfy-error-handler";
 import { ComfyError, ComfyWorkflowError } from "../models/errors";
 import { ComfyUIAPIService, ComfyUIAPIServiceConfig } from "./comfyui-api-service";
 import mime from 'mime-types';
 import { missingViewComfyFileError, viewComfyFileName } from "../constants";
+import { readJsonAsset, resolvePublicAssetUrl } from "../runtime-assets";
 
 export class ComfyUIService {
     private comfyErrorHandler: ComfyErrorHandler;
@@ -196,11 +196,8 @@ export class ComfyUIService {
         let workflow: unknown = undefined;
 
         try {
-            const filePath = path.join(process.cwd(), viewComfyFileName);
-            const fileContent = await fs.readFile(filePath, "utf8");
-            workflow = JSON.parse(fileContent);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (_error) {
+            workflow = await readJsonAsset<Record<string, unknown>>(viewComfyFileName);
+        } catch {
             throw missingWorkflowError;
         }
 
@@ -291,39 +288,6 @@ export class ComfyUIService {
         return nextInputs;
     }
 
-    private async resolvePublicFilePath(rawPath: string): Promise<string | undefined> {
-        const cleanedPath = rawPath.split("?")[0].split("#")[0];
-        const normalizedPath = cleanedPath.replace(/^\/+/, '');
-        if (!normalizedPath) return undefined;
-
-        const publicDirs = [
-            path.join(process.cwd(), 'public'),
-            path.join(process.cwd(), '..', 'public'),
-        ];
-
-        for (const publicDir of publicDirs) {
-            const candidate = path.join(publicDir, normalizedPath);
-            try {
-                await fs.access(candidate);
-                return candidate;
-            } catch {
-                // try next candidate
-            }
-        }
-        return undefined;
-    }
-
-    private async readLocalPublicImage(rawPath: string): Promise<{ blob: Blob; filename: string } | undefined> {
-        const absolutePath = await this.resolvePublicFilePath(rawPath);
-        if (!absolutePath) return undefined;
-
-        const fileBuffer = await fs.readFile(absolutePath);
-        const filename = path.basename(absolutePath);
-        const mimeType = (mime.lookup(filename) || 'image/png') as string;
-        const blob = new Blob([Uint8Array.from(fileBuffer)], { type: mimeType });
-        return { blob, filename };
-    }
-
     private async uploadImageToComfyUI(imagePathOrUrl: string): Promise<string> {
         try {
             let blob: Blob;
@@ -343,40 +307,32 @@ export class ComfyUIService {
                 const url = new URL(imagePathOrUrl);
                 filename = path.basename(url.pathname);
                 if (!filename || filename.length === 0) filename = `upload_${Date.now()}.png`;
-                // URL 下载；若 URL 指向本地静态资源但端口不可达/返回 404，则回退到 public 文件读取
-                try {
-                    const response = await fetch(imagePathOrUrl);
-                    if (!response.ok) {
-                        throw new Error(`status=${response.status} ${response.statusText}`);
-                    }
-                    blob = await response.blob();
-                } catch (error) {
-                    const localFallback = await this.readLocalPublicImage(url.pathname);
-                    if (localFallback) {
-                        console.warn(`[ComfyUIService] Remote image fetch failed, fallback to local file: ${imagePathOrUrl}`);
-                        blob = localFallback.blob;
-                        filename = localFallback.filename;
-                    } else {
-                        const reason = error instanceof Error ? error.message : String(error);
-                        throw new Error(`Failed to fetch image from URL: ${reason}`);
-                    }
+                const response = await fetch(imagePathOrUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch image from URL: status=${response.status} ${response.statusText}`);
                 }
+                blob = await response.blob();
 
             } else {
-                // 本地文件读取
-                const localImage = await this.readLocalPublicImage(imagePathOrUrl);
-                if (!localImage) {
-                    const normalizedForCheck = imagePathOrUrl.replace(/^\/+/, '');
-                    const looksLikePath = imagePathOrUrl.includes('/') || normalizedForCheck.includes('/');
-                    if (looksLikePath) {
-                        throw new Error(`Local image not found: ${imagePathOrUrl}`);
-                    }
-                    console.warn(`File not found in known public dirs, keep original filename: ${imagePathOrUrl}`);
+                const normalizedForCheck = imagePathOrUrl.replace(/^\/+/, '');
+                const looksLikePath = imagePathOrUrl.includes('/') || normalizedForCheck.includes('/');
+                if (!looksLikePath) {
+                    console.warn(`Image input already looks like a ComfyUI filename, keep original value: ${imagePathOrUrl}`);
                     return path.basename(imagePathOrUrl);
                 }
 
-                filename = localImage.filename;
-                blob = localImage.blob;
+                const resolvedUrl = await resolvePublicAssetUrl(imagePathOrUrl);
+                if (!resolvedUrl) {
+                    throw new Error(`CDN mapping not found for public asset: ${imagePathOrUrl}`);
+                }
+
+                const response = await fetch(resolvedUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch CDN image: status=${response.status} ${response.statusText} url=${resolvedUrl}`);
+                }
+
+                filename = path.basename(new URL(resolvedUrl).pathname) || `upload_${Date.now()}.png`;
+                blob = await response.blob();
             }
 
             console.info(`Uploading image to ComfyUI: ${filename} ...`);

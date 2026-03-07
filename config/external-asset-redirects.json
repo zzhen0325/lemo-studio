@@ -1,12 +1,17 @@
 [
   {
-    "source": "/images/6.png",
-    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/6_6844f7a79c.png",
+    "source": "/images/333.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/333_f95c69facd.png",
     "permanent": true
   },
   {
-    "source": "/images/333.png",
-    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/333_f95c69facd.png",
+    "source": "/images/5.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/5_ea460376ab.png",
+    "permanent": true
+  },
+  {
+    "source": "/images/6.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/6_6844f7a79c.png",
     "permanent": true
   },
   {
@@ -15,8 +20,668 @@
     "permanent": true
   },
   {
-    "source": "/images/5.png",
-    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/5_ea460376ab.png",
+    "source": "/loras/【插画】治愈风科幻世界大冒险_1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__1.0_9097fdec00.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/2dlemoV3.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_2dlemoV3_cd818dc485.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/35MM_Photography_FLUX.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_35MM_Photography_FLUX_602f13f973.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/3D_Chibi_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_3D_Chibi_rank128_bf16_e65f32ab96.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/3D渲染黄色奶酪制成食物渲染.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_3D__d2740491c1.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/AardmanAnimationsStyle.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_AardmanAnimationsStyle_e4c606dc03.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/AIGC朋克机甲字体SDXL.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_AIGC_SDXL_39e51d72b9.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Alt-Country Poster.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Alt-Country_Poster_1028b7fb81.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Amateur Snapshot Photo[FLUX].webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Amateur_Snapshot_Photo_FLUX__35c65d6372.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/American_Cartoon_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_American_Cartoon_rank128_bf16_c9a4b41414.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/APP卡通头像-GPT4o_v1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_APP_-GPT4o_v1_87ad1556ab.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/blindbox_flux_lora_v2.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_blindbox_flux_lora_v2_7c0a81e4a9.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/CG Aesthetics CG美学.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_CG_Aesthetics_CG__0dea5b6b7d.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/CharacterSheet_Flux.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_CharacterSheet_Flux_dc6eb1a279.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/ChatGPT-4o Renderer.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_ChatGPT-4o_Renderer_a6532bd213.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Chiaroscuro Lighting Style Flux.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Chiaroscuro_Lighting_Style_Flux_cc6a52ff68.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Chinese_Ink_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Chinese_Ink_rank128_bf16_070c0bf1a1.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Cinna_Pixel.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Cinna_Pixel_4e5b4db914.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/citypop.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_citypop_212e84eb0e.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Clay_Toy_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Clay_Toy_rank128_bf16_0a7ad8caa1.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/CliffordWebbFlux.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_CliffordWebbFlux_b9390ad5d7.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/CLUMSY 3D MIX.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_CLUMSY_3D_MIX_0c40a8d21b.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/detailed texture+.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_detailed_texture__aaadd88dbb.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Doulingo_Pony.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Doulingo_Pony_00433dfb68.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/DP Grainy Illustration Style Flux.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_DP_Grainy_Illustration_Style_Flux_020b06fb17.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/EldritchImpressionismXL.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_EldritchImpressionismXL_6eb05292a8.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Fabric_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Fabric_rank128_bf16_cd0621fd00.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/FilipHodasStyle.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_FilipHodasStyle_d080c35822.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Flux Dev模型4步出图lora_Flux Dev模型4步出图lora_Flux Dev 4-step.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Flux_Dev_4_lora_Flux_Dev_4_lora_Flux_Dev_4-step_ca901117f1.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/FLUX Modern Minimalist Illustration.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_FLUX_Modern_Minimalist_Illustration_d67e295107.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Flux_Dynamic Blur Effect.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Flux_Dynamic_Blur_Effect_1f6d20e9e5.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/flux_realism_lora.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_flux_realism_lora_a1541f340a.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/flux-artX-lineart-lora-000008.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_flux-artX-lineart-lora-000008_606818bc10.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/FLUX-maorong-F.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_FLUX-maorong-F_99c901cacc.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/FLUX.1-Turbo-Alpha.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_FLUX.1-Turbo-Alpha_4b440d6b56.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/flux1-depth-dev-lora.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_flux1-depth-dev-lora_fcd5da1de7.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Fluxartis IIB.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Fluxartis_IIB_b28cbac8a5.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Flux矢量海报.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Flux__3c142458fd.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Ghibli_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Ghibli_rank128_bf16_d29f4b8510.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/GPT-4o陶瓷材质.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_GPT-4o__c4948a554d.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/GrainScape_UltraReal_v2.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_GrainScape_UltraReal_v2_d01bab8b52.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/HiroshiNagaiStyle.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_HiroshiNagaiStyle_d4418e04d7.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/HIRO真实质感美式证件照FLUX模型_v5.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_HIRO_FLUX__v5.0_59d97d7e88.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/ImpressionismMJ7SDXL.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_ImpressionismMJ7SDXL_5afb9d5088.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/InkEdgeMono-Complex_flux.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_InkEdgeMono-Complex_flux_a8e548c8c8.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Irasutoya_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Irasutoya_rank128_bf16_d3cd4d4497.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Ismail_Inceoglu.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Ismail_Inceoglu_fe3f49631c.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/J_flat_illustration.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_J_flat_illustration_5b507d83c9.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Jojo_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Jojo_rank128_bf16_1743ff713a.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/JPbannerV1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_JPbannerV1_f310861c5b.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/jpcha.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_jpcha_ac78aef65f.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/JPv3.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_JPv3_0dd531efc4.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Karinami Inkblush mode_v2_15ep_clean.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Karinami_Inkblush_mode_v2_15ep_clean_1453475b93.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Katamari_Damacy_Style_FLUXCaption-000015.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Katamari_Damacy_Style_FLUXCaption-000015_c31faa7552.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/keithharing1_cap_d6a3.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_keithharing1_cap_d6a3_fe3ffc571a.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/LEGO_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_LEGO_rank128_bf16_1e183873db.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/lemo_flux_v1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_lemo_flux_v1_e8cc8be482.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/lemon8手绘插画.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_lemon8__5f0f24e05f.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/lemopin1_v1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_lemopin1_v1_5c0a3de5b9.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Line_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Line_rank128_bf16_3f8fb0f283.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Macaron_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Macaron_rank128_bf16_d60be0513a.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/MEME and other bullshit generator.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_MEME_and_other_bullshit_generator_71cfe37666.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Midjourney 7 Pastel Film Photography.safetensors.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Midjourney_7_Pastel_Film_Photography.safetensors_90c6602535.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/ms-fluentui_emoji_flux_lora_000001750.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_ms-fluentui_emoji_flux_lora_000001750_63e5716584.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/niji插画v3 768.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_niji_v3_768_e0382cad1e.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Oil_Painting_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Oil_Painting_rank128_bf16_973434061d.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Origami_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Origami_rank128_bf16_655975dd03.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/p33x_B.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_p33x_B_1b0aa2cc21.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Paper_Cutting_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Paper_Cutting_rank128_bf16_e1ac4be567.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Picasso_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Picasso_rank128_bf16_056b39ad63.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Pixel_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Pixel_rank128_bf16_dbf626f8cb.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Poly_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Poly_rank128_bf16_9aee8dfe51.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Pop_Art_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Pop_Art_rank128_bf16_ba94933344.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Rick_Morty_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Rick_Morty_rank128_bf16_f063c120b2.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Rookie_清新扁平插图设计.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Rookie___c00ce49e7c.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Samaritan 3d Cartoon SDXL.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Samaritan_3d_Cartoon_SDXL_f9e76374c3.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Scandinavian_graphic_illustration-000001.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Scandinavian_graphic_illustration-000001_3edddf09ac.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/SDXL_Building_block_world 乐高世界_v2.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_SDXL_Building_block_world__v2.0_03a974d7f9.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/SDXL-Emoji-Lora-r4.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_SDXL-Emoji-Lora-r4_c762fcb0ba.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Shen-neocubism_flux.d.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Shen-neocubism_flux.d_3efcf7c75c.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Snoopy_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Snoopy_rank128_bf16_64a6f5bf49.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/sref662824xx60804_flux.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_sref662824xx60804_flux_a4a2521b94.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Starter Pack V2.1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Starter_Pack_V2.1_53915a76d4.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/USKV_V1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_USKV_V1_6ad6e7a217.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Van_Gogh_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Van_Gogh_rank128_bf16_3e2455b377.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Vector_rank128_bf16.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Vector_rank128_bf16_d4fffca76a.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Vintage_Polaroid.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Vintage_Polaroid_7b35f2aaea.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/w1z_p0pc0r3.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_w1z_p0pc0r3_f7c7c6b42b.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/WDS 撕拉片宝丽来风格照片.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_WDS__f0ac600928.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/weirdream_000003750.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_weirdream_000003750_d545e92aef.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/Whimsical Pop Illustration.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_Whimsical_Pop_Illustration_42fc733cef.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/wpolaroidf1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_wpolaroidf1_8fa96b8aee.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/xlabs_realismlora.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_xlabs_realismlora_c2dbc4598d.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/双旦专享_潮萌毛绒挂件钥匙扣_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras____v1.0_c088707aef.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/品牌IP角色手办人物XL_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_IP_XL_v1.0_1db569debb.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/复古彩色叙事摄影风格.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__6acdee6b4e.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/布材质玩偶_挂件_布材质玩偶挂件.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras______fd7a942cdb.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/扁平平面圆润人物插图_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__v1.0_593a1dfb6e.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/手绘shouhui_style.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_shouhui_style_2406cc7400.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/新年毛绒材质风格渲染_1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__1.0_6e77e52bec.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/时尚欧美插画-扁平风_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_-__v1.0_046e234fe2.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/极简风格人物插画_FLUX.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__FLUX_ff28a784b2.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/清新淡雅色调丨美学艺术_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__v1.0_73ede89ec4.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/狂想曲 疯狂扁平插画_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__v1.0_8d2122bbc2.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/童趣超可爱平面插画_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__v1.0_d2f096371d.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/筑梦工业 _ 乐高世界XL_v1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras___XL_v1.0_0806f5eebc.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/绘梦flux毛绒玩偶设计.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_flux__93c2566f7f.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/美式喜剧风格插画_GPT4o(同款)_1.0.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras__GPT4o__1.0_d4930e4daa.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/辛普森-风格_FLUX-V1.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_-__FLUX-V1_619b46b224.webp",
+    "permanent": true
+  },
+  {
+    "source": "/loras/墨影F.1-Claytoon.webp",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_loras_F.1-Claytoon_054d4b0318.webp",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766050472641_lklov9.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766050472641_lklov9_a955b04eb5.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766050507248_ovejte.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766050507248_ovejte_c3536a71ea.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766051004239_1qpyg5.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766051004239_1qpyg5_1e6dd8a4f8.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766130961237_fe58pu.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766130961237_fe58pu_60b5e2fb5f.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766136832744_4q2t4k.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766136832744_4q2t4k_19234108e2.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766398834317_ku82ye.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766398834317_ku82ye_bc987034d8.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766398994868_gvbysq.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766398994868_gvbysq_d7be1c6867.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766402822674_8tj04d.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766402822674_8tj04d_38ab846b65.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766403301779_2xa1tc.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766403301779_2xa1tc_b3a9fa32ce.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766403400793_893vm2.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766403400793_893vm2_8eec799138.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766403579174_b547vo.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766403579174_b547vo_b68e0ee893.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766414399165_d3kpe7.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766414399165_d3kpe7_5edfd05dfd.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766565172763_zfbw1b.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766565172763_zfbw1b_5bb4e1ab8f.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766565914077_6jwn71.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766565914077_6jwn71_d55ab48b27.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766565997810_dchpc9.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766565997810_dchpc9_4f23d9f598.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766566504309_7bbznj.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766566504309_7bbznj_9445c8a2e4.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766566648991_hclujp.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766566648991_hclujp_4f48d3ffdf.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766568400314_f2v0bj.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766568400314_f2v0bj_6512c2f0fa.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766568401254_s5ssx7.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766568401254_s5ssx7_b5ec50e72a.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766568404076_v266yo.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766568404076_v266yo_eb7bc5edae.png",
+    "permanent": true
+  },
+  {
+    "source": "/outputs/img_1766578948729_c15te4.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_outputs_img_1766578948729_c15te4_a2adc81f9b.png",
+    "permanent": true
+  },
+  {
+    "source": "/preset/59f35ef7-33fb-4124-8ce2-a25f66f5d0d8.png",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_preset_59f35ef7-33fb-4124-8ce2-a25f66f5d0d8_a67a1e3774.png",
+    "permanent": true
+  },
+  {
+    "source": "/preset/categories.json",
+    "destination": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/public_preset_categories_91960f8ed8.json",
     "permanent": true
   }
 ]

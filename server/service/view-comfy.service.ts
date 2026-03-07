@@ -1,7 +1,8 @@
-import { promises as fs } from 'fs';
 import path from 'path';
 import { Injectable } from '@gulux/gulux';
 import { HttpError } from '../utils/http-error';
+import { readJsonAsset } from '../../lib/runtime-assets';
+import { uploadTextAssetToRuntimeCdn } from '../utils/runtime-cdn-manifest';
 import {
   createGovernedWorkflowEntry,
   governWorkflowIndex,
@@ -19,23 +20,28 @@ export interface ViewComfyConfigPayload {
 export class ViewComfyConfigService {
   private getLegacyFallbackPaths() {
     return [
-      path.join(process.cwd(), '../config/legacy/view_comfy.json'),
-      path.join(process.cwd(), '../view_comfy.json'),
+      path.posix.join('config', 'legacy', 'view_comfy.json'),
     ];
   }
 
   private getWorkflowsDir() {
-    return path.join(process.cwd(), 'workflows');
+    return 'workflows';
   }
 
   private getIndexPath() {
-    return path.join(this.getWorkflowsDir(), 'index.json');
+    return path.posix.join(this.getWorkflowsDir(), 'index.json');
+  }
+
+  private getWorkflowFiles(folder: string) {
+    const normalizedFolder = folder.replace(/\\/g, '/');
+    return {
+      configPath: path.posix.join(this.getWorkflowsDir(), normalizedFolder, 'config.json'),
+      workflowApiPath: path.posix.join(this.getWorkflowsDir(), normalizedFolder, 'workflow.json'),
+    };
   }
 
   private async readGovernedIndex(): Promise<WorkflowIndexData> {
-    const indexPath = this.getIndexPath();
-    const indexContent = await fs.readFile(indexPath, 'utf-8');
-    const parsed = JSON.parse(indexContent) as WorkflowIndexData;
+    const parsed = await readJsonAsset<WorkflowIndexData>(this.getIndexPath());
     const { normalized, changed, issues } = governWorkflowIndex(parsed);
 
     if (issues.length > 0) {
@@ -46,49 +52,32 @@ export class ViewComfyConfigService {
     }
 
     if (changed) {
-      await fs.writeFile(indexPath, JSON.stringify(normalized, null, 2), 'utf-8');
+      console.warn('[ViewComfyService] workflow index needed normalization. Re-run CDN migration to persist the governed index.');
     }
 
     return normalized;
   }
 
   public async getConfig(lightweight: boolean = false): Promise<unknown> {
-    const workflowsDir = this.getWorkflowsDir();
-
     try {
       const indexData = await this.readGovernedIndex();
 
       const viewComfys: Record<string, unknown>[] = [];
       for (const workflow of indexData.workflows) {
-        const workflowDir = path.join(workflowsDir, workflow.folder);
-        const configPath = path.join(workflowDir, 'config.json');
-        const workflowApiPath = path.join(workflowDir, 'workflow.json');
+        const { configPath, workflowApiPath } = this.getWorkflowFiles(workflow.folder);
 
         try {
           if (lightweight) {
-            const configContent = await fs.readFile(configPath, 'utf-8');
-            const config = JSON.parse(configContent) as Record<string, unknown>;
-            if (config.id !== workflow.id) {
-              config.id = workflow.id;
-              await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-            }
-            viewComfys.push({ viewComfyJSON: config });
+            const config = await readJsonAsset<Record<string, unknown>>(configPath);
+            viewComfys.push({ viewComfyJSON: { ...config, id: workflow.id } });
           } else {
-            const [configContent, workflowApiContent] = await Promise.all([
-              fs.readFile(configPath, 'utf-8'),
-              fs.readFile(workflowApiPath, 'utf-8'),
+            const [config, workflowApi] = await Promise.all([
+              readJsonAsset<Record<string, unknown>>(configPath),
+              readJsonAsset<unknown>(workflowApiPath),
             ]);
 
-            const config = JSON.parse(configContent) as Record<string, unknown>;
-            const workflowApi = JSON.parse(workflowApiContent);
-
-            if (config.id !== workflow.id) {
-              config.id = workflow.id;
-              await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-            }
-
             viewComfys.push({
-              viewComfyJSON: config,
+              viewComfyJSON: { ...config, id: workflow.id },
               workflowApiJSON: workflowApi,
             });
           }
@@ -105,8 +94,7 @@ export class ViewComfyConfigService {
     } catch (error) {
       for (const fallbackPath of this.getLegacyFallbackPaths()) {
         try {
-          const fileContent = await fs.readFile(fallbackPath, 'utf-8');
-          return JSON.parse(fileContent);
+          return await readJsonAsset<unknown>(fallbackPath);
         } catch {
           // try next fallback
         }
@@ -117,12 +105,9 @@ export class ViewComfyConfigService {
   }
 
   public async saveConfig(payload: ViewComfyConfigPayload): Promise<{ message: string }> {
-    const workflowsDir = this.getWorkflowsDir();
     const indexPath = this.getIndexPath();
 
     try {
-      await fs.mkdir(workflowsDir, { recursive: true });
-
       const indexData: WorkflowIndexData = {
         appTitle: payload.appTitle || 'ViewComfy',
         appImg: payload.appImg || '',
@@ -141,9 +126,7 @@ export class ViewComfyConfigService {
           usedFolders,
           usedIds,
         );
-        const workflowDir = path.join(workflowsDir, entry.folder);
-
-        await fs.mkdir(workflowDir, { recursive: true });
+        const { configPath, workflowApiPath } = this.getWorkflowFiles(entry.folder);
 
         const normalizedConfig = {
           ...config,
@@ -152,29 +135,19 @@ export class ViewComfyConfigService {
         };
 
         await Promise.all([
-          fs.writeFile(path.join(workflowDir, 'config.json'), JSON.stringify(normalizedConfig, null, 2), 'utf-8'),
-          fs.writeFile(path.join(workflowDir, 'workflow.json'), JSON.stringify(workflowApi ?? {}, null, 2), 'utf-8'),
+          uploadTextAssetToRuntimeCdn(configPath, JSON.stringify(normalizedConfig, null, 2), 'application/json'),
+          uploadTextAssetToRuntimeCdn(workflowApiPath, JSON.stringify(workflowApi ?? {}, null, 2), 'application/json'),
         ]);
 
         indexData.workflows.push(entry);
       }
 
       const { normalized } = governWorkflowIndex(indexData);
-      await fs.writeFile(indexPath, JSON.stringify(normalized, null, 2), 'utf-8');
+      await uploadTextAssetToRuntimeCdn(indexPath, JSON.stringify(normalized, null, 2), 'application/json');
       return { message: 'Workflow configuration saved successfully' };
     } catch (error) {
-      const fallbackPath = this.getLegacyFallbackPaths()[0];
-      try {
-        await fs.mkdir(path.dirname(fallbackPath), { recursive: true });
-        await fs.writeFile(fallbackPath, JSON.stringify(payload, null, 2), 'utf-8');
-        return { message: 'Configuration saved to config/legacy/view_comfy.json (fallback)' };
-      } catch (fallbackError) {
-        console.error('Failed to save workflow configuration', error, fallbackError);
-        throw new HttpError(500, 'Failed to save workflow configuration', {
-          error,
-          fallbackError,
-        });
-      }
+      console.error('Failed to save workflow configuration to CDN', error);
+      throw new HttpError(500, 'Failed to save workflow configuration', { error });
     }
   }
 
@@ -182,7 +155,6 @@ export class ViewComfyConfigService {
     id: string,
     payload: { viewComfyJSON: Record<string, unknown>; workflowApiJSON: Record<string, unknown> },
   ): Promise<{ message: string }> {
-    const workflowsDir = this.getWorkflowsDir();
     const indexPath = this.getIndexPath();
 
     try {
@@ -194,7 +166,7 @@ export class ViewComfyConfigService {
       }
 
       const workflowItem = indexData.workflows[workflowIndex];
-      const workflowDir = path.join(workflowsDir, workflowItem.folder);
+      const { configPath, workflowApiPath } = this.getWorkflowFiles(workflowItem.folder);
 
       const normalizedConfig = {
         ...payload.viewComfyJSON,
@@ -203,14 +175,14 @@ export class ViewComfyConfigService {
       };
 
       await Promise.all([
-        fs.writeFile(path.join(workflowDir, 'config.json'), JSON.stringify(normalizedConfig, null, 2), 'utf-8'),
-        fs.writeFile(path.join(workflowDir, 'workflow.json'), JSON.stringify(payload.workflowApiJSON, null, 2), 'utf-8'),
+        uploadTextAssetToRuntimeCdn(configPath, JSON.stringify(normalizedConfig, null, 2), 'application/json'),
+        uploadTextAssetToRuntimeCdn(workflowApiPath, JSON.stringify(payload.workflowApiJSON, null, 2), 'application/json'),
       ]);
 
       if (normalizedConfig.title !== workflowItem.title) {
         indexData.workflows[workflowIndex].title = normalizedConfig.title;
         const { normalized } = governWorkflowIndex(indexData);
-        await fs.writeFile(indexPath, JSON.stringify(normalized, null, 2), 'utf-8');
+        await uploadTextAssetToRuntimeCdn(indexPath, JSON.stringify(normalized, null, 2), 'application/json');
       }
 
       return { message: 'Workflow updated successfully' };
@@ -222,8 +194,6 @@ export class ViewComfyConfigService {
   }
 
   public async getWorkflowById(id: string): Promise<Record<string, unknown>> {
-    const workflowsDir = this.getWorkflowsDir();
-
     const indexData = await this.readGovernedIndex();
 
     const workflowItem = indexData.workflows.find((wf) => wf.id === id);
@@ -231,21 +201,15 @@ export class ViewComfyConfigService {
       throw new HttpError(404, `Workflow with id ${id} not found`);
     }
 
-    const workflowDir = path.join(workflowsDir, workflowItem.folder);
-    const [configContent, workflowApiContent] = await Promise.all([
-      fs.readFile(path.join(workflowDir, 'config.json'), 'utf-8'),
-      fs.readFile(path.join(workflowDir, 'workflow.json'), 'utf-8'),
+    const { configPath, workflowApiPath } = this.getWorkflowFiles(workflowItem.folder);
+    const [config, workflowApi] = await Promise.all([
+      readJsonAsset<Record<string, unknown>>(configPath),
+      readJsonAsset<unknown>(workflowApiPath),
     ]);
 
-    const config = JSON.parse(configContent) as Record<string, unknown>;
-    if (config.id !== workflowItem.id) {
-      config.id = workflowItem.id;
-      await fs.writeFile(path.join(workflowDir, 'config.json'), JSON.stringify(config, null, 2), 'utf-8');
-    }
-
     return {
-      viewComfyJSON: config,
-      workflowApiJSON: JSON.parse(workflowApiContent),
+      viewComfyJSON: { ...config, id: workflowItem.id },
+      workflowApiJSON: workflowApi,
     };
   }
 }
