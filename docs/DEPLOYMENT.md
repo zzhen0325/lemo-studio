@@ -1,135 +1,154 @@
 # Deployment Notes
 
-## Server Deployment Record
+## Quick Reference
 
-The Gulux backend deployment was verified on 2026-03-07. The previous root `build.sh` has been preserved as [`scripts/build-server.sh`](../scripts/build-server.sh).
+### Frontend (Next.js)
 
-### Server Build Script
+- Build script: `./build.sh`
+- Packaging output dir: `output`
+- Start command: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
+- Health check path: `/healthz`
+- Required env: `GULUX_API_BASE`
+- Optional env: `NEXT_PUBLIC_API_BASE`
 
-```bash
-#!/bin/bash
-set -euo pipefail
+### Backend (Gulux server)
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SERVER_DIR="${REPO_ROOT}/server"
-SERVER_OUTPUT_DIR="${SERVER_DIR}/output"
-ROOT_OUTPUT_DIR="${REPO_ROOT}/output"
+- Build script: `./scripts/build-server.sh`
+- Start command: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
+- Required env:
+  - `MONGODB_URI`
+  - `MONGODB_DB`
+  - `API_CONFIG_ENCRYPTION_KEY`
 
-echo "进入 server 目录..."
-cd "${SERVER_DIR}"
-echo "当前目录: $(pwd)"
+## Deployment Scripts
 
-echo "安装依赖..."
-npm install
+### Frontend Script
 
-echo "构建 Gulux 服务..."
-npm run build
+File: `build.sh`
 
-echo "同步产物到仓库根目录 output/ ..."
-rm -rf "${ROOT_OUTPUT_DIR}"
-mkdir -p "${ROOT_OUTPUT_DIR}"
-cp -R "${SERVER_OUTPUT_DIR}/." "${ROOT_OUTPUT_DIR}/"
+Responsibilities:
 
-echo "根目录产物已生成: ${ROOT_OUTPUT_DIR}"
-```
+- Run `npm ci`
+- Run `npm run build`
+- Copy `.next/standalone`, `.next/static`, and `public/` into `output/`
+- Generate `output/bootstrap.js` for packaged runtime startup
 
-### Server Deployment Settings
+Why the bootstrap file exists:
 
-- Install: handled inside `scripts/build-server.sh` with `cd server && npm install`
-- Build: handled inside `scripts/build-server.sh` with `cd server && npm run build`
-- Start: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
+- Product packaging still expects `output/`
+- Runtime startup still defaults to `node bootstrap.js`
+- Some Node/FaaS runtimes inject an IPv6 `HOSTNAME` that is not bindable, so the bootstrap normalizes that case to `0.0.0.0`
 
-### Server Required Env
+### Backend Script
 
-- `MONGODB_URI`
-- `MONGODB_DB`
-- `API_CONFIG_ENCRYPTION_KEY`
+File: `scripts/build-server.sh`
 
-## Frontend Deployment
+Responsibilities:
 
-The root [`build.sh`](../build.sh) now targets the Next.js frontend deployment.
+- Enter `server/`
+- Run `npm install`
+- Run `npm run build`
+- Copy `server/output/` back to root `output/`
 
-### Frontend Build Script
+## Runtime Model
 
-```bash
-#!/bin/bash
-set -euo pipefail
+### Recommended Frontend API Mode
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
-FRONTEND_OUTPUT_DIR="${REPO_ROOT}/output"
+Use same-origin `/api/*` on the frontend.
 
-echo "进入前端项目目录..."
-cd "${REPO_ROOT}"
-echo "当前目录: $(pwd)"
+- Browser requests: `https://<frontend-domain>/api/*`
+- Frontend proxy target: `GULUX_API_BASE=https://qzcnzen0.fn-boe.bytedance.net/api`
 
-echo "安装前端依赖..."
-npm ci
+This is the preferred mode because:
 
-echo "构建 Next.js 前端..."
-npm run build
+- it does not depend on `NEXT_PUBLIC_API_BASE` being injected at build time
+- it avoids backend CORS requirements
+- the browser never needs to call the backend domain directly
 
-echo "整理前端部署产物到 output/ ..."
-rm -rf "${FRONTEND_OUTPUT_DIR}"
-mkdir -p "${FRONTEND_OUTPUT_DIR}/.next"
-cp -R .next/standalone/. "${FRONTEND_OUTPUT_DIR}/"
-cp -R .next/static "${FRONTEND_OUTPUT_DIR}/.next/static"
-cp -R public "${FRONTEND_OUTPUT_DIR}/public"
+### Direct Browser Backend Calls
 
-cat > "${FRONTEND_OUTPUT_DIR}/bootstrap.js" <<'EOF'
-process.chdir(__dirname);
+Only use direct browser calls when you explicitly need them.
 
-const { isIP } = require('node:net');
-const explicitHost = process.env.BIND_HOST || process.env.HOST || process.env.NEXT_HOST;
-const rawHostname = typeof process.env.HOSTNAME === 'string' ? process.env.HOSTNAME.trim() : '';
-const isIpLiteral = rawHostname ? isIP(rawHostname) > 0 : false;
+Requirements:
 
-if (explicitHost) {
-  process.env.HOSTNAME = explicitHost;
-} else if (!rawHostname || isIpLiteral) {
-  process.env.HOSTNAME = '0.0.0.0';
-}
+- set `NEXT_PUBLIC_API_BASE=https://qzcnzen0.fn-boe.bytedance.net/api` at build time
+- set backend `CORS_ALLOW_ORIGINS=https://<frontend-domain>`
 
-require('./server.js');
-EOF
+If the browser requests `https://<frontend-domain>/api/*`, that is expected and correct in proxy mode.
 
-echo "前端构建完成。部署产物目录: ${FRONTEND_OUTPUT_DIR}"
-echo "源码启动命令: NODE_ENV=production next start -p $PORT"
-echo "产物启动命令: cd output && NODE_ENV=production node bootstrap.js"
-```
+## Recommended Platform Configuration
 
-### Frontend Deployment Settings
+### Frontend
 
-- Install: `npm ci`
-- Build: `./build.sh`
+- Build command: `./build.sh`
 - `PRODUCT_OUTPUT_DIR`: `output`
-- Start if the platform runs from source checkout: `NODE_ENV=production next start -p $PORT`
-- Start if the platform runs packaged artifacts from `output/`: `NODE_ENV=production node bootstrap.js`
+- Start command: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
+- Health check path: `/healthz`
+- Auto-install npm dependencies: off
 
-### Frontend Packaging Note
+### Backend
 
-The current packaging pipeline shown on 2026-03-07 still executes `cd ${PRODUCT_OUTPUT_DIR}` before packaging metadata, and its default runtime entry is `node bootstrap.js`. Because of that, the frontend build must leave a real `output/` directory behind and include a `bootstrap.js` entry file. The root `build.sh` now assembles a standalone Next.js runtime into `output/` and generates that bootstrap file so product packaging can succeed.
+- Build command: `./scripts/build-server.sh`
+- Start command: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
 
-### Host Binding Note
+## Verification
 
-Some runtimes inject `HOSTNAME` as a pod IPv6 address that is not bindable from inside the container. The generated `bootstrap.js` normalizes that case back to `0.0.0.0`. If your platform requires a specific bind host, provide one of these env vars:
+### Frontend
 
-- `BIND_HOST`
-- `HOST`
-- `NEXT_HOST`
+- Health:
+  - `https://<frontend-domain>/healthz`
+- Proxy path:
+  - `https://<frontend-domain>/api/history?page=1&limit=1&lightweight=1&minimal=1`
 
-### Frontend Env
+### Backend
 
-- Required for split deployment:
-  - `GULUX_API_BASE=https://qzcnzen0.fn-boe.bytedance.net/api`
-- Recommended for browser direct requests:
-  - `NEXT_PUBLIC_API_BASE=https://qzcnzen0.fn-boe.bytedance.net/api`
-- Platform provided:
-  - `PORT`
+- `https://qzcnzen0.fn-boe.bytedance.net/api/view-comfy?lightweight=true`
+- `https://qzcnzen0.fn-boe.bytedance.net/api/history?page=1&limit=1&lightweight=1&minimal=1`
 
-### Cross-Origin Note
+### Helper Script
 
-If the browser uses `NEXT_PUBLIC_API_BASE` to call the backend origin directly, the backend must also allow the frontend origin:
+Run:
 
-- `CORS_ALLOW_ORIGINS=https://your-frontend-domain`
+```bash
+./skills/lemo-deploy/scripts/verify_deploy.sh \
+  --frontend https://<frontend-domain> \
+  --backend https://qzcnzen0.fn-boe.bytedance.net
+```
 
-If you keep browser requests on same-origin `/api`, `NEXT_PUBLIC_API_BASE` can be left empty and CORS is usually unnecessary.
+## Known Issues
+
+### `EADDRNOTAVAIL`
+
+Symptom:
+
+- runtime startup fails while binding an IPv6 `HOSTNAME`
+
+Fix:
+
+- use `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
+
+### `ERR_CONTENT_DECODING_FAILED`
+
+Symptom:
+
+- browser requests to frontend `/api/history` or similar return `200`, but decoding fails
+
+Cause:
+
+- the frontend proxy forwarded mismatched compression headers
+
+Fix:
+
+- redeploy frontend with the latest proxy fix in `app/api/[...path]/route.ts`
+
+### CORS Confusion
+
+Symptom:
+
+- the browser appears to call the frontend domain instead of the backend domain
+
+Interpretation:
+
+- this is normal in same-origin proxy mode
+
+Only configure backend `CORS_ALLOW_ORIGINS` when the browser directly calls the backend domain.
