@@ -3,7 +3,7 @@ import path from 'path';
 import { fetch, FormData, File } from 'undici';
 
 const CDN_BASE = process.env.CDN_BASE_URL || (process.env.NODE_ENV === 'development' ? 'https://ife-cdn.tiktok-row.net' : 'https://ife-cdn.byteintl.net');
-const DEFAULT_DIR = process.env.CDN_DIR || 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design';
+export const DEFAULT_CDN_DIR = process.env.CDN_DIR || 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design';
 const DEFAULT_REGION = process.env.CDN_REGION || 'SG';
 const DEFAULT_EMAIL = process.env.CDN_EMAIL || (process.env.NODE_ENV === 'production' ? '' : 'anonymous@localhost');
 
@@ -74,7 +74,7 @@ function makeFileName(name?: string) {
 
 export async function uploadBufferToCdn(buffer: Buffer, opts: UploadOptions = {}): Promise<UploadResult> {
   const fileName = makeFileName(opts.fileName);
-  const dir = opts.dir || DEFAULT_DIR;
+  const dir = opts.dir || DEFAULT_CDN_DIR;
   const region = opts.region || DEFAULT_REGION;
   const email = opts.email || DEFAULT_EMAIL;
   if (!email) {
@@ -122,7 +122,7 @@ export async function uploadBufferToCdn(buffer: Buffer, opts: UploadOptions = {}
 }
 
 export function buildCdnPath(subdir: string, fileName: string, region = DEFAULT_REGION) {
-  const dir = path.posix.join(DEFAULT_DIR, subdir).replace(/\\/g, '/');
+  const dir = path.posix.join(DEFAULT_CDN_DIR, subdir).replace(/\\/g, '/');
   // 当前域名未体现 region，保留参数便于未来切换
   void region;
   return buildUrl(dir, fileName);

@@ -21,14 +21,6 @@ interface UserProfileDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
-const PRESET_AVATARS = [
-    '/avatars/1.png',
-    '/avatars/2.png',
-    '/avatars/3.png',
-    '/avatars/4.png',
-    '/avatars/5.png',
-];
-
 const AvatarImage = ({ src, alt, width, height, className }: { src: string; alt: string; width: number; height: number; className?: string }) => {
     const source = useImageSource(src);
     if (!source) return null;
@@ -102,18 +94,6 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
                             />
                         </div>
                         <p className="text-xs text-neutral-400">Click to upload custom avatar</p>
-                        
-                        <div className="flex gap-2 justify-center flex-wrap">
-                            {PRESET_AVATARS.map((src, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setAvatar(src)}
-                                    className={`w-8 h-8 rounded-full overflow-hidden border-2 transition-colors ${avatar === src ? 'border-indigo-500' : 'border-transparent hover:border-neutral-600'}`}
-                                >
-                                    <AvatarImage src={src} alt={`Preset ${i}`} width={32} height={32} className="w-full h-full object-cover" />
-                                </button>
-                            ))}
-                        </div>
                     </div>
 
                     <div className="space-y-2">

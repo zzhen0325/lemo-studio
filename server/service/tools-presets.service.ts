@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { ToolPreset as ToolPresetEntity, ImageAsset } from '../db';
+import { tryNormalizeAssetUrlToCdn, uploadImageBufferToCdn } from '../utils/cdn-image-url';
 
 export interface ToolPreset {
   id: string;
@@ -20,16 +21,30 @@ export class ToolsPresetsService {
   @Inject(ImageAsset)
   private imageAssetModel!: ModelType<ImageAsset>;
 
+  private async normalizeThumbnail(id: string, thumbnail?: string) {
+    const normalized = await tryNormalizeAssetUrlToCdn(thumbnail, {
+      preferredSubdir: 'public/tools-presets',
+      preferredFileName: `${id}.png`,
+    });
+
+    if (normalized && normalized !== thumbnail) {
+      await this.toolPresetModel.updateOne({ _id: id }, { $set: { thumbnail: normalized } });
+      return normalized;
+    }
+
+    return normalized || thumbnail || '';
+  }
+
   public async listPresets(toolId: string): Promise<ToolPreset[]> {
     try {
       const presets = await this.toolPresetModel.find({ toolId }).sort({ timestamp: -1 }).lean();
-      return presets.map((p) => ({
+      return Promise.all(presets.map(async (p) => ({
         id: String(p._id),
         name: p.name,
         values: (p.values || {}) as Record<string, unknown>,
-        thumbnail: p.thumbnail || '',
+        thumbnail: await this.normalizeThumbnail(String(p._id), p.thumbnail),
         timestamp: p.timestamp || 0,
-      }));
+      })));
     } catch (error) {
       console.error('Failed to fetch tool presets', error);
       throw new HttpError(500, 'Failed to fetch presets');
@@ -54,11 +69,17 @@ export class ToolsPresetsService {
 
       let thumbnailPath = '';
       if (screenshotUrl) {
-        thumbnailPath = screenshotUrl;
+        thumbnailPath = (await tryNormalizeAssetUrlToCdn(screenshotUrl, {
+          preferredSubdir: 'public/tools-presets',
+          preferredFileName: `${id}.png`,
+        })) || screenshotUrl;
       } else if (screenshot) {
         const buffer = Buffer.from(await screenshot.arrayBuffer());
-        const dataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
-        thumbnailPath = dataUrl;
+        thumbnailPath = await uploadImageBufferToCdn(buffer, {
+          preferredSubdir: 'public/tools-presets',
+          preferredFileName: `${id}.png`,
+          mimeType: 'image/png',
+        });
       }
 
       const preset: ToolPreset = {

@@ -7,6 +7,7 @@ import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { Preset as PresetEntity, ImageAsset } from '../db';
 import { readJsonAsset } from '../../lib/runtime-assets';
+import { tryNormalizeAssetUrlToCdn, uploadImageBufferToCdn } from '../utils/cdn-image-url';
 
 const PRESET_DIR = path.join(process.cwd(), 'public/preset');
 
@@ -18,6 +19,23 @@ export class PresetsService {
   @Inject(ImageAsset)
   private imageAssetModel!: ModelType<ImageAsset>;
 
+  private async normalizeStoredPresetCover(id: string, coverUrl?: string, coverData?: string) {
+    const normalized = await tryNormalizeAssetUrlToCdn(coverUrl || coverData, {
+      preferredSubdir: 'public/preset',
+      preferredFileName: `${id}.png`,
+    });
+
+    if (normalized && normalized !== coverUrl) {
+      await this.presetModel.updateOne(
+        { _id: id },
+        { $set: { coverUrl: normalized, coverData: undefined } },
+      );
+      return normalized;
+    }
+
+    return normalized || coverUrl || '';
+  }
+
   public async listPresets(): Promise<Preset[]> {
     try {
       let presets = await this.presetModel.find().sort({ createdAt: -1 }).lean();
@@ -28,17 +46,17 @@ export class PresetsService {
         presets = await this.presetModel.find().sort({ createdAt: -1 }).lean();
       }
 
-      return presets.map((p) => ({
+      return Promise.all(presets.map(async (p) => ({
         id: String(p._id),
         name: p.name,
-        coverUrl: p.coverUrl || '',
+        coverUrl: await this.normalizeStoredPresetCover(String(p._id), p.coverUrl, p.coverData),
         config: (p.config || {}) as unknown as Preset['config'],
         editConfig: (p.editConfig as unknown as Preset['editConfig']) || undefined,
         category: p.category,
         projectId: p.projectId,
         createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
         type: p.type,
-      }));
+      })));
     } catch (error) {
       console.error('Failed to fetch presets', error);
       throw new HttpError(500, 'Failed to fetch presets');
@@ -108,12 +126,19 @@ export class PresetsService {
   }
 
   private async upsertPreset(id: string, presetData: Preset, coverUrl?: string) {
+    const normalizedCoverUrl = coverUrl
+      ? await tryNormalizeAssetUrlToCdn(coverUrl, {
+        preferredSubdir: 'public/preset',
+        preferredFileName: `${id}.png`,
+      })
+      : undefined;
+
     await this.presetModel.updateOne(
       { _id: id },
       {
         name: presetData.name,
-        coverUrl,
-        coverData: coverUrl?.startsWith('data:') ? coverUrl : undefined,
+        coverUrl: normalizedCoverUrl || coverUrl,
+        coverData: undefined,
         config: presetData.config,
         editConfig: presetData.editConfig,
         category: presetData.category,
@@ -143,10 +168,11 @@ export class PresetsService {
       if (coverFile && coverFile.size && coverFile.size > 0) {
         const arrayBuffer = await coverFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const base64 = buffer.toString('base64');
-        const dataUrl = `data:${coverFile.type || 'image/png'};base64,${base64}`;
-
-        presetData.coverUrl = dataUrl;
+        presetData.coverUrl = await uploadImageBufferToCdn(buffer, {
+          preferredSubdir: 'public/preset',
+          preferredFileName: `${presetData.id}.${(coverFile.type || 'image/png').includes('jpeg') ? 'jpg' : 'png'}`,
+          mimeType: coverFile.type || 'image/png',
+        });
       }
 
       // 如果客户端直接传了 URL (比如已经是 CDN 地址)，但不是 DataURL，也不是 local:
@@ -156,12 +182,22 @@ export class PresetsService {
         presetData.coverUrl = formDataCoverUrl;
       }
 
+      const normalizedCoverUrl = presetData.coverUrl
+        ? await tryNormalizeAssetUrlToCdn(presetData.coverUrl, {
+          preferredSubdir: 'public/preset',
+          preferredFileName: `${presetData.id}.png`,
+        })
+        : undefined;
+      if (normalizedCoverUrl) {
+        presetData.coverUrl = normalizedCoverUrl;
+      }
+
       await this.presetModel.findOneAndUpdate(
         { _id: presetData.id },
         {
           name: presetData.name,
           coverUrl: presetData.coverUrl,
-          coverData: presetData.coverUrl?.startsWith('data:') ? presetData.coverUrl : undefined,
+          coverData: undefined,
           config: presetData.config,
           editConfig: presetData.editConfig,
           category: presetData.category,

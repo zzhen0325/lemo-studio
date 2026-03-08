@@ -2,11 +2,30 @@ import { Inject, Injectable } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
 import { HttpError } from '../utils/http-error';
 import { User } from '../db';
+import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 
 @Injectable()
 export class UsersService {
   @Inject(User)
   private userModel!: ModelType<User>;
+
+  private async normalizeAvatar(userId: string, avatar?: string | null): Promise<string | undefined> {
+    const normalized = await tryNormalizeAssetUrlToCdn(avatar, {
+      preferredSubdir: 'public/avatars',
+      preferredFileName: `${userId}.png`,
+    });
+
+    if (normalized && normalized !== avatar) {
+      await this.userModel.updateOne({ _id: userId }, { $set: { avatar: normalized } });
+      return normalized;
+    }
+
+    if (!normalized && avatar) {
+      await this.userModel.updateOne({ _id: userId }, { $unset: { avatar: 1 } });
+    }
+
+    return normalized || undefined;
+  }
 
   public async getUsers(userId?: string | null): Promise<{ user?: Record<string, unknown>; users?: Record<string, unknown>[] }> {
     try {
@@ -17,15 +36,25 @@ export class UsersService {
         }
         const safeUser = { ...(user as unknown as Record<string, unknown>) };
         delete safeUser.password;
-        return { user: { ...safeUser, id: String(user._id) } as Record<string, unknown> };
+        return {
+          user: {
+            ...safeUser,
+            id: String(user._id),
+            avatar: await this.normalizeAvatar(String(user._id), user.avatar),
+          } as Record<string, unknown>,
+        };
       }
 
       const users = await this.userModel.find().lean();
-      const safeUsers = users.map((u) => {
+      const safeUsers = await Promise.all(users.map(async (u) => {
         const rest = { ...(u as unknown as Record<string, unknown>) };
         delete rest.password;
-        return { ...rest, id: String(u._id) };
-      });
+        return {
+          ...rest,
+          id: String(u._id),
+          avatar: await this.normalizeAvatar(String(u._id), u.avatar),
+        };
+      }));
       return { users: safeUsers as Record<string, unknown>[] };
     } catch (error) {
       if (error instanceof HttpError) throw error;
@@ -51,7 +80,6 @@ export class UsersService {
         const newUser = await this.userModel.create({
           name: username,
           password,
-          avatar: `/avatars/${Math.floor(Math.random() * 5) + 1}.png`,
           createdAt: new Date().toISOString(),
         });
 
@@ -98,7 +126,9 @@ export class UsersService {
       }
 
       if (name) user.name = name;
-      if (avatar) user.avatar = avatar;
+      if (avatar !== undefined) {
+        user.avatar = await this.normalizeAvatar(String(user._id), avatar);
+      }
       if (password) user.password = password;
 
       await user.save();

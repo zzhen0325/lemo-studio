@@ -6,6 +6,7 @@ import type { Generation, GenerationConfig } from '../../types/database';
 import { isValidObjectId } from '@byted/bytedmongoose';
 import type { UpdateQuery } from '@byted/bytedmongoose';
 import { sanitizeMongoKeys, restoreMongoKeys } from '../utils/mongo';
+import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 
 export interface HistoryQuery {
   page: number;
@@ -21,6 +22,38 @@ export class HistoryService {
 
   @Inject(ImageAsset)
   private imageAssetModel!: ModelType<ImageAsset>;
+
+  private async normalizeGenerationUrls(itemId: string, outputUrl?: string, sourceImageUrls: string[] = []) {
+    const normalizedOutputUrl = outputUrl
+      ? (await tryNormalizeAssetUrlToCdn(outputUrl, { preferredSubdir: 'outputs' })) || outputUrl
+      : undefined;
+    const normalizedSourceImageUrls = await Promise.all(
+      sourceImageUrls.map(async (sourceImageUrl) => {
+        const normalized = await tryNormalizeAssetUrlToCdn(sourceImageUrl, { preferredSubdir: 'upload' });
+        return normalized || sourceImageUrl;
+      }),
+    );
+
+    const changedOutput = normalizedOutputUrl !== outputUrl;
+    const changedSources = normalizedSourceImageUrls.some((value, index) => value !== sourceImageUrls[index]);
+
+    if (itemId && (changedOutput || changedSources)) {
+      const updatePayload: Record<string, unknown> = {};
+      if (changedOutput) {
+        updatePayload.outputUrl = normalizedOutputUrl;
+      }
+      if (changedSources) {
+        updatePayload['config.sourceImageUrls'] = normalizedSourceImageUrls;
+        updatePayload['config.sourceImageUrl'] = normalizedSourceImageUrls[0];
+      }
+      await this.generationModel.updateOne({ _id: itemId }, { $set: updatePayload });
+    }
+
+    return {
+      outputUrl: normalizedOutputUrl,
+      sourceImageUrls: normalizedSourceImageUrls,
+    };
+  }
 
   public async getHistory(query: HistoryQuery): Promise<{ history: Generation[]; total: number; hasMore: boolean }> {
     const { page, limit, projectId, userId } = query;
@@ -75,7 +108,7 @@ export class HistoryService {
         });
       }
 
-      const history = items.map((item) => {
+      const history = await Promise.all(items.map(async (item) => {
         const restoredItem = restoreMongoKeys(item) as Record<string, unknown>;
         const storedSourceUrls = (restoredItem as Record<string, unknown>).sourceImageUrls as string[] | undefined;
         const restoredConfig = (restoredItem.config || {}) as Record<string, unknown>;
@@ -96,14 +129,20 @@ export class HistoryService {
           : (restoredItem as Record<string, unknown>).localSourceIds as string[] ||
           (restoredConfig.localSourceId ? [restoredConfig.localSourceId] : []);
 
+        const normalizedUrls = await this.normalizeGenerationUrls(
+          String(restoredItem._id),
+          outputUrl,
+          sourceImageUrls,
+        );
+
         return {
           id: String(restoredItem._id),
           userId: (restoredItem.userId as string) || 'anonymous',
           projectId: (restoredItem.projectId as string) || 'default',
-          outputUrl,
+          outputUrl: normalizedUrls.outputUrl,
           config: {
             ...restoredConfig,
-            sourceImageUrls,
+            sourceImageUrls: normalizedUrls.sourceImageUrls,
             localSourceIds,
           },
           status: (restoredItem.status as 'pending' | 'completed' | 'failed') || 'completed',
@@ -112,7 +151,7 @@ export class HistoryService {
           progressStage: restoredItem.progressStage as string | undefined,
           llmResponse: restoredItem.llmResponse as string | undefined,
         } as Generation;
-      });
+      }));
 
 
       return {
@@ -196,16 +235,34 @@ export class HistoryService {
       const cfg = (item.config || {}) as GenerationConfig;
 
       // 优先从 config 中读取 sourceImageUrls，兼容旧数据结构
-      const effectiveSourceImageUrls = cfg.sourceImageUrls || (item as unknown as Record<string, unknown>).sourceImageUrls || [];
-      const effectiveLocalSourceIds = cfg.localSourceIds || (item as unknown as Record<string, unknown>).localSourceIds || [];
+      const effectiveSourceImageUrls = Array.isArray(cfg.sourceImageUrls)
+        ? cfg.sourceImageUrls
+        : Array.isArray((item as unknown as Record<string, unknown>).sourceImageUrls)
+          ? ((item as unknown as Record<string, unknown>).sourceImageUrls as string[])
+          : [];
+      const effectiveLocalSourceIds = Array.isArray(cfg.localSourceIds)
+        ? cfg.localSourceIds
+        : Array.isArray((item as unknown as Record<string, unknown>).localSourceIds)
+          ? ((item as unknown as Record<string, unknown>).localSourceIds as string[])
+          : [];
+
+      const normalizedOutputUrl = item.outputUrl
+        ? (await tryNormalizeAssetUrlToCdn(item.outputUrl, { preferredSubdir: 'outputs' })) || item.outputUrl
+        : item.outputUrl;
+      const normalizedSourceImageUrls = await Promise.all(
+        (effectiveSourceImageUrls || []).map(async (sourceImageUrl) => {
+          const normalized = await tryNormalizeAssetUrlToCdn(sourceImageUrl, { preferredSubdir: 'upload' });
+          return normalized || sourceImageUrl;
+        }),
+      );
 
       const record = {
         userId: item.userId || 'anonymous',
         projectId: item.projectId || 'default',
-        outputUrl: item.outputUrl,
+        outputUrl: normalizedOutputUrl,
         config: {
           ...cfg,
-          sourceImageUrls: effectiveSourceImageUrls,
+          sourceImageUrls: normalizedSourceImageUrls,
           localSourceIds: effectiveLocalSourceIds,
         },
         status: item.status || 'completed',
@@ -232,13 +289,13 @@ export class HistoryService {
         );
       } else {
         const newDoc = await this.generationModel.create(sanitizedRecord);
-        if (item.outputUrl) {
+        if (normalizedOutputUrl) {
           await this.imageAssetModel.updateOne(
-            { url: item.outputUrl },
+            { url: normalizedOutputUrl },
             { $set: { type: 'generation', generationId: String(newDoc._id) } },
             { upsert: true },
           );
-          const outputImage = await this.imageAssetModel.findOne({ url: item.outputUrl });
+          const outputImage = await this.imageAssetModel.findOne({ url: normalizedOutputUrl });
           await this.generationModel.updateOne({ _id: newDoc._id }, { outputImageId: outputImage?._id });
         }
       }

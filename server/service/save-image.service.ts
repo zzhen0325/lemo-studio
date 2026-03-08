@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { Injectable, Inject } from '@gulux/gulux';
 import type { ModelType } from '@gulux/gulux/typegoose';
-import fs from 'fs/promises';
-import path from 'path';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
 import { ImageAsset } from '../db';
@@ -51,11 +49,6 @@ function tryExtractImageUrlFromHtml(html: string): string | null {
   return null;
 }
 
-function getWorkspaceRoot(): string {
-  const cwd = process.cwd();
-  return cwd.endsWith(`${path.sep}server`) ? path.join(cwd, '..') : cwd;
-}
-
 function sanitizeSubdir(subdir: string): string {
   const normalized = subdir
     .replace(/\\/g, '/')
@@ -63,26 +56,6 @@ function sanitizeSubdir(subdir: string): string {
     .replace(/\.\./g, '')
     .replace(/[^a-zA-Z0-9/_-]/g, '');
   return normalized || 'outputs';
-}
-
-async function saveBufferToLocalPublic(
-  buffer: Buffer,
-  subdir: string,
-  fileName: string,
-): Promise<{ path: string; dir: string; fileName: string }> {
-  const safeSubdir = sanitizeSubdir(subdir);
-  const workspaceRoot = getWorkspaceRoot();
-  const localDir = path.join(workspaceRoot, 'public', safeSubdir);
-  await fs.mkdir(localDir, { recursive: true });
-
-  const absPath = path.join(localDir, fileName);
-  await fs.writeFile(absPath, buffer);
-
-  return {
-    path: `/${safeSubdir}/${fileName}`.replace(/\\/g, '/'),
-    dir: `public/${safeSubdir}`,
-    fileName,
-  };
 }
 
 async function fetchImageBuffer(url: string, depth = 0): Promise<{ buffer: Buffer; mime?: string }> {
@@ -128,7 +101,8 @@ export class SaveImageService {
       throw new HttpError(400, 'Invalid payload', parsed.error.flatten());
     }
 
-    const { imageBase64, subdir } = parsed.data;
+    const { imageBase64 } = parsed.data;
+    const safeSubdir = sanitizeSubdir(parsed.data.subdir);
     let ext = normalizeExt(parsed.data.ext);
     let inferredMime: string | undefined;
 
@@ -159,40 +133,23 @@ export class SaveImageService {
     }
 
     const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/${subdir}`;
-
-    let storedPath = '';
-    let storedDir = dir;
-    let storedFileName = filename;
-    let storedRegion = 'SG';
-    try {
-      const cdnRes = await uploadBufferToCdn(imageBuffer, {
-        fileName: filename,
-        dir,
-        region: 'SG',
-        mimeType: inferredMime
-      });
-      storedPath = cdnRes.url;
-      storedDir = cdnRes.dir;
-      storedFileName = cdnRes.fileName;
-    } catch (error) {
-      console.error('[SaveImageService] CDN upload failed, fallback to local public storage:', error);
-      const localRes = await saveBufferToLocalPublic(imageBuffer, subdir, filename);
-      storedPath = localRes.path;
-      storedDir = localRes.dir;
-      storedFileName = localRes.fileName;
-      storedRegion = 'LOCAL';
-    }
+    const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/${safeSubdir}`;
+    const cdnRes = await uploadBufferToCdn(imageBuffer, {
+      fileName: filename,
+      dir,
+      region: 'SG',
+      mimeType: inferredMime,
+    });
 
     await this.imageAssetModel.create({
-      url: storedPath,
-      dir: storedDir,
-      fileName: storedFileName,
-      region: storedRegion,
-      type: subdir === 'outputs' ? 'generation' : 'upload',
+      url: cdnRes.url,
+      dir: cdnRes.dir,
+      fileName: cdnRes.fileName,
+      region: 'SG',
+      type: safeSubdir === 'outputs' ? 'generation' : 'upload',
       meta: parsed.data.metadata ?? undefined,
     });
 
-    return { path: storedPath };
+    return { path: cdnRes.url };
   }
 }

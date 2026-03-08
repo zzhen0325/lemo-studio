@@ -3,6 +3,7 @@ import type { ModelType } from '@gulux/gulux/typegoose';
 import { datasetEvents, DATASET_SYNC_EVENT } from '../../lib/server/dataset-events';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
+import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 import {
   DatasetCollection,
   DatasetEntry,
@@ -88,6 +89,39 @@ export class DatasetService {
   @Inject(ImageAsset)
   private imageAssetModel!: ModelType<ImageAsset>;
 
+  private async normalizeEntryUrl(
+    entry: { collectionName: string; fileName: string; url: string },
+  ): Promise<string> {
+    const normalized = await tryNormalizeAssetUrlToCdn(entry.url, {
+      preferredSubdir: `dataset/${entry.collectionName}`,
+      preferredFileName: entry.fileName,
+    });
+
+    if (normalized && normalized !== entry.url) {
+      await this.datasetEntryModel.updateOne(
+        { collectionName: entry.collectionName, fileName: entry.fileName },
+        { $set: { url: normalized } },
+      );
+      await this.imageAssetModel.updateOne(
+        { url: entry.url },
+        {
+          $set: {
+            url: normalized,
+            dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
+            fileName: entry.fileName,
+            region: 'SG',
+            type: 'dataset',
+            meta: { collection: entry.collectionName },
+          },
+        },
+        { upsert: true },
+      );
+      return normalized;
+    }
+
+    return normalized || entry.url;
+  }
+
   public async getDataset(query: DatasetQuery): Promise<unknown> {
     const collectionName = query.collection ?? null;
 
@@ -103,14 +137,25 @@ export class DatasetService {
           (collectionMeta.order || []).map((filename, index) => [filename, index]),
         );
 
-        const images = entries
-          .map((e) => ({
-            id: e.fileName,
-            filename: e.fileName,
-            url: e.url,
-            promptZh: e.promptZh || e.prompt || '',
-            promptEn: e.promptEn || '',
-            prompt: e.promptZh || e.prompt || e.promptEn || '',
+        const normalizedEntries = await Promise.all(
+          entries.map(async (entry) => ({
+            entry,
+            url: await this.normalizeEntryUrl({
+              collectionName,
+              fileName: entry.fileName,
+              url: entry.url,
+            }),
+          })),
+        );
+
+        const images = normalizedEntries
+          .map(({ entry, url }) => ({
+            id: entry.fileName,
+            filename: entry.fileName,
+            url,
+            promptZh: entry.promptZh || entry.prompt || '',
+            promptEn: entry.promptEn || '',
+            prompt: entry.promptZh || entry.prompt || entry.promptEn || '',
           }))
           .sort((a, b) => {
             const ia = orderMap.get(a.filename);
@@ -136,11 +181,18 @@ export class DatasetService {
             .sort({ order: 1 })
             .limit(4)
             .lean();
+          const previews = await Promise.all(
+            previewEntries.map((entry) => this.normalizeEntryUrl({
+              collectionName: c.name,
+              fileName: entry.fileName,
+              url: entry.url,
+            })),
+          );
           return {
             id: c.name,
             name: c.name,
             imageCount: await this.datasetEntryModel.countDocuments({ collectionName: c.name }),
-            previews: previewEntries.map((p) => p.url),
+            previews,
           };
         }),
       );

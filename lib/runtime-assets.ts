@@ -160,10 +160,33 @@ async function fetchText(url: string): Promise<string> {
   return response.text();
 }
 
+async function readLocalTextAsset(relativeFilePath: string): Promise<string | undefined> {
+  const existingPath = await findSupportingFile(relativeFilePath);
+  if (!existingPath) {
+    return undefined;
+  }
+
+  return fs.readFile(existingPath, 'utf-8');
+}
+
 export async function readTextAsset(relativeFilePath: string): Promise<string> {
   const cdnUrl = await getCdnUrlForFile(relativeFilePath);
   if (cdnUrl) {
-    return fetchText(cdnUrl);
+    try {
+      return await fetchText(cdnUrl);
+    } catch (error) {
+      const localContent = await readLocalTextAsset(relativeFilePath);
+      if (typeof localContent === 'string') {
+        console.warn(`[runtime-assets] Falling back to local asset for ${normalizeRelativeFilePath(relativeFilePath)} after CDN fetch failure:`, error);
+        return localContent;
+      }
+      throw error;
+    }
+  }
+
+  const localContent = await readLocalTextAsset(relativeFilePath);
+  if (typeof localContent === 'string') {
+    return localContent;
   }
 
   throw new Error(`CDN asset not found in manifest: ${normalizeRelativeFilePath(relativeFilePath)}`);
