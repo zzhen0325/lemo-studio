@@ -24,6 +24,10 @@
 - `NEXT_IMAGE_ALLOWED_HOSTS`
   - Optional comma-separated allowlist for remote image domains used by `next/image`.
   - Only needed when image URLs come from hosts outside the built-in defaults.
+- `NEXT_DISABLE_IMAGE_OPTIMIZATION`
+  - Optional boolean toggle for the Next.js `/_next/image` optimizer.
+  - Default: `true`, so remote CDN images load directly in the browser instead of being fetched server-side.
+  - Set to `false` only in environments where the frontend server can reliably reach all remote image hosts without `504 Gateway Timeout` errors.
 - `NEXT_PUBLIC_ENABLE_TWEAKCN_LIVE_PREVIEW`
   - Optional feature flag for the tweakcn live preview shell.
   - Set to `true` only when that preview flow is needed.

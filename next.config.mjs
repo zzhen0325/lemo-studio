@@ -46,6 +46,16 @@ function parseCsvEnv(value) {
     .filter(Boolean);
 }
 
+function parseBooleanEnv(value, defaultValue = false) {
+  if (typeof value !== 'string') return defaultValue;
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return defaultValue;
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return defaultValue;
+}
+
 function buildImageRemotePatterns() {
   const defaultHosts = [
     'ife-cdn.tiktok-row.net',
@@ -73,6 +83,11 @@ function buildImageRemotePatterns() {
   return patterns;
 }
 
+const disableNextImageOptimization = parseBooleanEnv(
+  process.env.NEXT_DISABLE_IMAGE_OPTIMIZATION,
+  true
+);
+
 const legacyStudioRouteRedirects = [
   { source: '/playground', destination: '/studio/playground', permanent: false },
   { source: '/mapping-editor', destination: '/studio/mapping-editor', permanent: false },
@@ -97,6 +112,9 @@ const nextConfig = {
     ];
   },
   images: {
+    // Remote CDN images regularly 504 behind the BOE gateway when routed through
+    // Next's optimizer. Default to direct browser loading and allow opt-in.
+    unoptimized: disableNextImageOptimization,
     remotePatterns: buildImageRemotePatterns(),
     minimumCacheTTL: 604800, // 增加缓存时间到 7 天
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
