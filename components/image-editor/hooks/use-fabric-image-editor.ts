@@ -69,7 +69,7 @@ type Interaction =
   | { type: 'draw-stroke'; stroke: InternalStroke }
   | null;
 
-const DEFAULT_BRUSH_COLOR = IMAGE_EDITOR_THEME.action;
+const DEFAULT_BRUSH_COLOR: string = IMAGE_EDITOR_THEME.action;
 const DEFAULT_BRUSH_WIDTH = 4;
 const BANNER_ANNOTATION_BORDER_COLOR = IMAGE_EDITOR_THEME.annotation.border;
 const BANNER_ANNOTATION_LABEL_BACKGROUND = IMAGE_EDITOR_THEME.annotation.labelBackground;
@@ -384,7 +384,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
   const cropRef = useRef<ImageEditorCrop | undefined>(initialSession?.crop);
 
   const toolRef = useRef<ImageEditorTool>('select');
-  const brushColorRef = useRef(DEFAULT_BRUSH_COLOR);
+  const brushColorRef = useRef<string>(DEFAULT_BRUSH_COLOR);
   const brushWidthRef = useRef(DEFAULT_BRUSH_WIDTH);
   const isReadyRef = useRef(false);
   const interactionRef = useRef<Interaction>(null);
@@ -398,7 +398,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     height: initialSession?.imageHeight || 1024,
   });
   const [tool, setTool] = useState<ImageEditorTool>('select');
-  const [brushColor, setBrushColor] = useState(DEFAULT_BRUSH_COLOR);
+  const [brushColor, setBrushColor] = useState<string>(DEFAULT_BRUSH_COLOR);
   const [brushWidth, setBrushWidth] = useState(DEFAULT_BRUSH_WIDTH);
   const [annotations, setAnnotations] = useState<ImageEditorAnnotation[]>(initialSession?.annotations || []);
   const [crop, setCrop] = useState<ImageEditorCrop | undefined>(initialSession?.crop);
