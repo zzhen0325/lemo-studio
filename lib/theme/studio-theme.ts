@@ -1,4 +1,6 @@
-import type { CSSProperties } from "react";
+type CssCustomProperties = {
+  [key: `--${string}`]: string | number;
+};
 
 export const STUDIO_DARK_PALETTE = {
   base: "#0E0E0E",
@@ -33,7 +35,7 @@ export const IMAGE_EDITOR_THEME = {
   },
 } as const;
 
-export const SETTINGS_THEME_VARS: CSSProperties = {
+export const SETTINGS_THEME_VARS: CssCustomProperties = {
   ["--settings-bg" as string]: STUDIO_DARK_PALETTE.base,
   ["--settings-sidebar-bg" as string]: STUDIO_DARK_PALETTE.canvas,
   ["--settings-sidebar-active" as string]: STUDIO_DARK_PALETTE.surface,
