@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { compareAnnotationLabels, formatAnnotationLabel, parseAnnotationLabelIndex } from '@/lib/utils/annotation-label';
-import { IMAGE_EDITOR_ANNOTATION_LABEL } from '../theme';
+import { IMAGE_EDITOR_ANNOTATION_LABEL, IMAGE_EDITOR_THEME } from '../theme';
 import type {
   ImageEditorAnnotation,
   ImageEditorCrop,
@@ -69,11 +69,11 @@ type Interaction =
   | { type: 'draw-stroke'; stroke: InternalStroke }
   | null;
 
-const DEFAULT_BRUSH_COLOR = '#C8F88D';
+const DEFAULT_BRUSH_COLOR = IMAGE_EDITOR_THEME.action;
 const DEFAULT_BRUSH_WIDTH = 4;
-const BANNER_ANNOTATION_BORDER_COLOR = '#FF0000';
-const BANNER_ANNOTATION_LABEL_BACKGROUND = '#FF0000';
-const BANNER_ANNOTATION_LABEL_TEXT_COLOR = '#ffffff';
+const BANNER_ANNOTATION_BORDER_COLOR = IMAGE_EDITOR_THEME.annotation.border;
+const BANNER_ANNOTATION_LABEL_BACKGROUND = IMAGE_EDITOR_THEME.annotation.labelBackground;
+const BANNER_ANNOTATION_LABEL_TEXT_COLOR = IMAGE_EDITOR_THEME.annotation.labelText;
 const BANNER_ANNOTATION_LABEL_FONT = '400 10px sans-serif';
 const BANNER_ANNOTATION_LABEL_OFFSET_Y = 20;
 const MIN_DRAW_SIZE = 8;
@@ -338,7 +338,7 @@ function drawHandles(context: CanvasRenderingContext2D, rect: ImageEditorCrop, b
     context.fillStyle = borderColor;
     context.fill();
     context.lineWidth = 1.5;
-    context.strokeStyle = '#ffffff';
+    context.strokeStyle = IMAGE_EDITOR_THEME.annotation.handleStroke;
     context.stroke();
   });
 
@@ -437,7 +437,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     }
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = '#161616';
+    context.fillStyle = IMAGE_EDITOR_THEME.background;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
 
@@ -479,8 +479,8 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       const cropRect = cropRef.current;
 
       context.save();
-      context.fillStyle = 'rgba(200, 248, 141, 0.05)';
-      context.strokeStyle = '#C8F88D';
+      context.fillStyle = IMAGE_EDITOR_THEME.actionSurface;
+      context.strokeStyle = IMAGE_EDITOR_THEME.action;
       context.lineWidth = 2;
       context.setLineDash([10, 6]);
       context.fillRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
@@ -488,7 +488,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       context.restore();
 
       if (showHandles && selectionRef.current?.kind === 'crop') {
-        drawHandles(context, cropRect, '#C8F88D');
+        drawHandles(context, cropRect, IMAGE_EDITOR_THEME.action);
       }
     }
 
@@ -497,7 +497,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       const draftRect = rectFromPoints(interaction.start, interaction.current, canvas.width, canvas.height);
       context.save();
       context.lineWidth = 2;
-      context.strokeStyle = interaction.type === 'draw-crop' ? '#C8F88D' : BANNER_ANNOTATION_BORDER_COLOR;
+      context.strokeStyle = interaction.type === 'draw-crop' ? IMAGE_EDITOR_THEME.action : BANNER_ANNOTATION_BORDER_COLOR;
       context.setLineDash(interaction.type === 'draw-crop' ? [10, 6] : [8, 4]);
       context.strokeRect(draftRect.x, draftRect.y, draftRect.width, draftRect.height);
       context.restore();

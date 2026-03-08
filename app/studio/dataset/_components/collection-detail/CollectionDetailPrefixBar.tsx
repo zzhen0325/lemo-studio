@@ -25,7 +25,7 @@ export function CollectionDetailPrefixBar({
         {activeTags.map((tag) => (
           <div
             key={tag}
-            className="flex items-center gap-1 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 px-3 py-1 rounded-lg text-[13px] font-medium animate-in fade-in zoom-in-95 duration-200"
+            className="flex items-center gap-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-3 py-1 rounded-lg text-[13px] font-medium animate-in fade-in zoom-in-95 duration-200"
           >
             {tag}
             <button

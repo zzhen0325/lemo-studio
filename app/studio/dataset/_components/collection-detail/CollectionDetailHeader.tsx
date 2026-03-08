@@ -166,7 +166,7 @@ export function CollectionDetailHeader({
                   onBlur={onNameCommit}
                   onKeyDown={(e) => e.key === 'Enter' && onNameCommit()}
                   autoFocus
-                  className="h-8 py-1 text-lg font-semibold w-[200px] bg-[#1a1a1a] border-[#2e2e2e] text-white focus-visible:ring-1 focus-visible:ring-teal-500/50"
+                  className="h-8 py-1 text-lg font-semibold w-[200px] bg-[#1a1a1a] border-[#2e2e2e] text-white focus-visible:ring-1 focus-visible:ring-primary/40"
                 />
               ) : (
                 <h1
@@ -254,7 +254,7 @@ export function CollectionDetailHeader({
             size="sm"
             disabled={isProcessing}
             onClick={onSaveAllData}
-            className="text-teal-500 border-teal-500/30 hover:bg-teal-500/10 hover:text-teal-400 h-9 px-3 rounded-lg"
+            className="text-primary border-primary/30 hover:bg-primary/10 hover:text-primary h-9 px-3 rounded-lg"
           >
             {isProcessing ? <LoadingSpinner size={16} /> : <Save className="h-4 w-4" />}
             Save All
@@ -263,7 +263,7 @@ export function CollectionDetailHeader({
           <Button
             variant="outline"
             size="sm"
-            className="text-teal-500 border-teal-500/30 hover:bg-teal-500/10 hover:text-teal-400 h-9 px-3 rounded-lg"
+            className="text-primary border-primary/30 hover:bg-primary/10 hover:text-primary h-9 px-3 rounded-lg"
             onClick={onTogglePromptPanel}
           >
             AI Settings
@@ -401,7 +401,7 @@ export function CollectionDetailHeader({
             variant={selectedCount > 0 ? 'default' : 'outline'}
             disabled={isProcessing || (selectedCount > 0 && !batchPrefix.trim())}
             onClick={onPrimaryBatchAction}
-            className={selectedCount > 0 ? 'bg-teal-600 border-teal-600 text-white hover:bg-teal-500 h-9 px-3 rounded-lg shadow-sm' : 'text-zinc-300 border-[#2e2e2e] bg-[#1a1a1a] hover:bg-[#2a2a2a] hover:text-white h-9 px-3 rounded-lg shadow-sm'}
+            className={selectedCount > 0 ? 'bg-primary border-primary text-primary-foreground hover:bg-primary/90 h-9 px-3 rounded-lg shadow-sm' : 'text-zinc-300 border-[#2e2e2e] bg-[#1a1a1a] hover:bg-[#2a2a2a] hover:text-white h-9 px-3 rounded-lg shadow-sm'}
           >
             {isProcessing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -414,13 +414,13 @@ export function CollectionDetailHeader({
           </Button>
 
           {selectedCount > 0 && (
-            <div className="flex items-center gap-1 bg-teal-500/10 border border-teal-500/20 rounded-lg px-2 py-1 h-9 animate-in fade-in slide-in-from-top-2 duration-100">
-              <span className="text-xs font-medium text-teal-500 mr-2">{selectedCount} Selected</span>
+            <div className="flex items-center gap-1 bg-primary/10 border border-primary/20 rounded-lg px-2 py-1 h-9 animate-in fade-in slide-in-from-top-2 duration-100">
+              <span className="text-xs font-medium text-primary mr-2">{selectedCount} Selected</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onSelectAll}
-                className="h-8 text-[10px] px-2 hover:bg-teal-500/20 text-teal-400"
+                className="h-8 text-[10px] px-2 hover:bg-primary/20 text-primary"
               >
                 Select All
               </Button>
@@ -428,7 +428,7 @@ export function CollectionDetailHeader({
                 variant="ghost"
                 size="sm"
                 onClick={onDeselectAll}
-                className="h-8 text-[10px] px-2 hover:bg-teal-500/20 text-teal-400"
+                className="h-8 text-[10px] px-2 hover:bg-primary/20 text-primary"
               >
                 Deselect
               </Button>
@@ -439,7 +439,7 @@ export function CollectionDetailHeader({
                 size="sm"
                 onClick={onOptimizeSelected}
                 disabled={isProcessing}
-                className="h-8 text-[10px] px-3 font-bold border-teal-500/30 text-teal-500 hover:bg-teal-500/10"
+                className="h-8 text-[10px] px-3 font-bold border-primary/30 text-primary hover:bg-primary/10"
                 title="AI Optimize selected images"
               >
                 {isProcessing ? (

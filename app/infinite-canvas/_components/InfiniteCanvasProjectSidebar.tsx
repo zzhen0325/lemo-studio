@@ -159,17 +159,17 @@ export default function InfiniteCanvasProjectSidebar({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-zinc-200/90 dark:border-[#4A4C4D] px-4 py-3">
+      <div className="border-b border-studio-border px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500 dark:text-[#A3A3A3]">Projects</p>
-            <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]">项目列表</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-studio-muted">Projects</p>
+            <p className="mt-1 text-sm font-semibold text-studio-foreground">项目列表</p>
           </div>
           <Button
             size="sm"
             onClick={handleCreate}
             disabled={creating}
-            className="h-8 rounded-lg bg-zinc-900 px-3 text-xs text-white dark:bg-[#C8F88D] dark:text-[#0E0E0E] hover:opacity-90"
+            className="studio-action-button h-8 rounded-lg px-3 text-xs"
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             {creating ? "创建中..." : "新建"}
@@ -177,12 +177,12 @@ export default function InfiniteCanvasProjectSidebar({
         </div>
 
         <label className="relative mt-3 block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-[#737373]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-studio-subtle" />
           <Input
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             placeholder="搜索项目名..."
-            className="h-10 border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#161616] pl-10 text-sm text-zinc-900 dark:text-[#D9D9D9] placeholder:text-zinc-400 dark:placeholder:text-[#737373]"
+            className="studio-input h-10 pl-10 text-sm"
           />
         </label>
       </div>
@@ -190,13 +190,13 @@ export default function InfiniteCanvasProjectSidebar({
       <div className="flex-1 space-y-2 overflow-y-auto p-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="h-24 animate-pulse rounded-xl border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-100 dark:bg-[#2C2D2F]" />
+            <div key={idx} className="studio-panel h-24 animate-pulse rounded-xl bg-studio-surface-strong dark:bg-studio-surface" />
           ))
         ) : filteredProjects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-transparent px-4 py-8 text-center">
-            <Sparkles className="h-5 w-5 text-zinc-400 dark:text-[#A3A3A3]" />
-            <p className="mt-2 text-sm text-zinc-700 dark:text-[#D9D9D9]">还没有项目</p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-[#737373]">点击右上角新建项目</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-studio-border bg-studio-surface-muted/60 px-4 py-8 text-center">
+            <Sparkles className="h-5 w-5 text-studio-muted" />
+            <p className="mt-2 text-sm text-studio-foreground">还没有项目</p>
+            <p className="mt-1 text-xs text-studio-subtle">点击右上角新建项目</p>
           </div>
         ) : (
           filteredProjects.map((project) => {
@@ -205,10 +205,10 @@ export default function InfiniteCanvasProjectSidebar({
               <Card
                 key={project.projectId}
                 className={cn(
-                  "overflow-hidden rounded-xl border bg-white dark:bg-[#2C2D2F] p-0",
+                  "studio-panel overflow-hidden rounded-xl p-0",
                   isActive
-                    ? "border-zinc-900/25 dark:border-[#C8F88D]/45 ring-1 ring-zinc-900/10 dark:ring-[#C8F88D]/20"
-                    : "border-zinc-200 dark:border-[#4A4C4D]",
+                    ? "border-studio-accent/25 ring-1 ring-studio-accent/10 dark:border-[#C8F88D]/45 dark:ring-[#C8F88D]/20"
+                    : "",
                 )}
               >
                 <button
@@ -216,7 +216,7 @@ export default function InfiniteCanvasProjectSidebar({
                   onClick={() => onSelectProject(project.projectId)}
                   className="w-full text-left"
                 >
-                  <div className="relative h-20 w-full border-b border-zinc-100 dark:border-[#161616] bg-zinc-100 dark:bg-[#161616]">
+                  <div className="relative h-20 w-full border-b border-studio-surface-muted bg-studio-surface-strong dark:border-studio-canvas dark:bg-studio-surface-muted">
                     {project.lastOutputPreview ? (
                       <Image
                         src={project.lastOutputPreview}
@@ -228,18 +228,18 @@ export default function InfiniteCanvasProjectSidebar({
                     ) : null}
                   </div>
                   <div className="px-3 py-2">
-                    <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]">{project.projectName}</p>
-                    <p className="mt-1 text-[11px] text-zinc-500 dark:text-[#737373]">
+                    <p className="truncate text-sm font-semibold text-studio-foreground">{project.projectName}</p>
+                    <p className="mt-1 text-[11px] text-studio-subtle">
                       {project.nodeCount} 节点 · {formatDate(project.updatedAt)}
                     </p>
                   </div>
                 </button>
 
-                <div className="flex items-center justify-between border-t border-zinc-100 px-2.5 py-2 dark:border-[#161616]">
+                <div className="flex items-center justify-between border-t border-studio-surface-muted px-2.5 py-2 dark:border-studio-canvas">
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] text-[11px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+                    className="studio-secondary-button h-7 rounded-md text-[11px]"
                     onClick={() => onSelectProject(project.projectId)}
                   >
                     <FolderOpen className="mr-1 h-3.5 w-3.5" />
@@ -250,7 +250,7 @@ export default function InfiniteCanvasProjectSidebar({
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 rounded-md text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+                      className="studio-icon-button h-7 w-7 rounded-md"
                       onClick={() => handleRename(project)}
                       title="重命名"
                     >
@@ -259,7 +259,7 @@ export default function InfiniteCanvasProjectSidebar({
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-7 w-7 rounded-md text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+                      className="studio-icon-button h-7 w-7 rounded-md"
                       onClick={() => handleDuplicate(project.projectId)}
                       title="复制"
                     >

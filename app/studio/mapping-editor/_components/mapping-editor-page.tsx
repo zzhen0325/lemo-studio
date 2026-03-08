@@ -627,7 +627,7 @@ export function MappingEditorPage() {
                     <Layers className="w-5 h-5 text-white" />
                   </div>
                   <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">
-                    Mapping <span className="text-primary not-italic">Library</span> IS UPDATED 12345
+                    Mapping <span className="text-primary not-italic">Library</span>
                   </h1>
                 </div>
                 <p className="text-zinc-500 text-sm font-medium tracking-wide">管理、映射并部署您的高级 ComfyUI 生产流</p>

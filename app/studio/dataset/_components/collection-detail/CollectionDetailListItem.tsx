@@ -66,12 +66,12 @@ export function CollectionDetailListItem({
   return (
     <div
       className={`flex flex-col sm:flex-row min-h-[300px] bg-[#1a1a1a] border rounded-2xl overflow-hidden group transition-all duration-200 shadow-sm ${isSelected
-        ? 'border-teal-500 ring-1 ring-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.15)] bg-teal-500/5'
+        ? 'border-primary ring-1 ring-primary/40 bg-primary/5'
         : 'border-[#2e2e2e] hover:border-[#3a3a3a] hover:bg-[#1f1f1f]'
         }`}
     >
       <div
-        className={`w-full sm:w-[280px] lg:w-[320px] shrink-0 relative bg-[#161616] sm:min-h-[240px] border-b sm:border-b-0 sm:border-r border-[#2e2e2e] flex items-center justify-center p-2 cursor-pointer transition-colors ${isSelected ? 'bg-teal-500/5' : ''}`}
+        className={`w-full sm:w-[280px] lg:w-[320px] shrink-0 relative bg-[#161616] sm:min-h-[240px] border-b sm:border-b-0 sm:border-r border-[#2e2e2e] flex items-center justify-center p-2 cursor-pointer transition-colors ${isSelected ? 'bg-primary/5' : ''}`}
         onClick={(e) => {
           if ((e.target as HTMLElement).closest('.image-zoom-trigger')) return;
           onSelect(img.id, e.shiftKey);
@@ -95,11 +95,11 @@ export function CollectionDetailListItem({
         >
           <div
             className={`w-6 h-6 rounded-full border flex items-center justify-center shadow-md transition-colors ${isSelected
-              ? 'bg-teal-500 border-teal-500 text-white'
+              ? 'bg-primary border-primary text-primary-foreground'
               : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'
               }`}
           >
-            {isSelected && <Plus className="w-4 h-4 text-white rotate-45" />}
+            {isSelected && <Plus className="w-4 h-4 text-primary-foreground rotate-45" />}
           </div>
         </div>
 
@@ -161,7 +161,7 @@ export function CollectionDetailListItem({
               title="Optimize with AI"
             >
               <Wand2
-                className={`h-3.5 w-3.5 ${img.isOptimizing ? 'animate-pulse text-primary' : 'text-teal-500'}`}
+                className={`h-3.5 w-3.5 ${img.isOptimizing ? 'animate-pulse text-primary' : 'text-primary'}`}
               />
               AI 优化
             </Button>

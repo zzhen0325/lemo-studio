@@ -53,6 +53,11 @@ const STATUS_COLOR: Record<InfiniteCanvasNode['status'], string> = {
   locked: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-100 dark:border-indigo-300/40',
 };
 
+const NODE_ICON_BUTTON_CLASS = "studio-icon-button h-7 w-7 rounded-full";
+const NODE_TRIGGER_CLASS = "h-7 w-auto border-none bg-transparent px-2 text-[11px] font-medium text-studio-foreground hover:bg-studio-surface-strong focus:ring-0";
+const NODE_FORM_TRIGGER_CLASS = "h-7 border-studio-border bg-studio-surface-muted px-2 text-[11px] text-studio-foreground";
+const NODE_TEXTAREA_CLASS = "border-none bg-studio-surface-muted text-studio-foreground placeholder:text-studio-subtle";
+
 interface CanvasNodeCardProps {
   node: InfiniteCanvasNode;
   selected: boolean;
@@ -208,7 +213,7 @@ function GalleryNodeCard({ node, onGalleryImagesChange }: GalleryNodeCardProps) 
         isDropTargetActive
           ? 'border-[#C8F88D] bg-[#C8F88D]/5'
           : images.length === 0
-            ? 'border-zinc-300 dark:border-[#4A4C4D]'
+            ? 'border-studio-border'
             : 'border-transparent',
       )}
       onDragOver={handleContainerDragOver}
@@ -216,7 +221,7 @@ function GalleryNodeCard({ node, onGalleryImagesChange }: GalleryNodeCardProps) 
       onDrop={handleContainerDrop}
     >
       {images.length === 0 ? (
-        <div className="flex h-32 flex-col items-center justify-center gap-2 text-zinc-400 dark:text-[#737373]">
+        <div className="flex h-32 flex-col items-center justify-center gap-2 text-studio-subtle">
           <GalleryHorizontalEnd className="h-8 w-8 opacity-40" />
           <p className="text-xs">将画布中的图片拖入此处</p>
         </div>
@@ -230,7 +235,7 @@ function GalleryNodeCard({ node, onGalleryImagesChange }: GalleryNodeCardProps) 
               key={`${url}-${index}`}
               draggable
               className={cn(
-                'group/cell relative overflow-hidden rounded-lg bg-zinc-100 transition-all duration-150 dark:bg-[#161616]',
+                'group/cell relative overflow-hidden rounded-lg bg-studio-surface-strong transition-all duration-150 dark:bg-studio-surface-muted',
                 dragOverIndex === index ? 'ring-2 ring-[#C8F88D] scale-[0.97]' : '',
               )}
               style={{ height: cellSize, minHeight: 80 }}
@@ -270,7 +275,7 @@ function GalleryNodeCard({ node, onGalleryImagesChange }: GalleryNodeCardProps) 
           {/* 空格子——添加更多 */}
           <div
             className={cn(
-              'flex items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 text-zinc-400 transition-colors hover:border-zinc-400 dark:border-[#4A4C4D] dark:text-[#737373]',
+              'flex items-center justify-center rounded-lg border-2 border-dashed border-studio-border text-studio-subtle transition-colors hover:border-studio-border-strong',
               dragOverIndex === images.length ? 'border-[#C8F88D] bg-[#C8F88D]/5' : '',
             )}
             style={{ height: cellSize, minHeight: 80 }}
@@ -433,10 +438,10 @@ export default memo(function CanvasNodeCard({
     <article
       data-node-id={node.nodeId}
       className={cn(
-        'group absolute flex flex-col rounded-2xl border bg-white shadow-lg dark:bg-[#2C2D2F]',
+        'group absolute flex flex-col rounded-2xl border bg-studio-surface shadow-lg',
         selected
           ? 'border-[#343434] dark:border-[#c8f88d7d] ring-4 ring-zinc-900/10 dark:ring-[#C8F88D]/20 z-10'
-          : 'border-zinc-200 hover:border-zinc-300 dark:border-[#4A4C4D] dark:hover:border-[#737373] z-0 hover:z-10',
+          : 'border-studio-border hover:border-studio-border-strong z-0 hover:z-10',
         isRunning && !selected ? 'ring-4 ring-amber-500/20 border-amber-500/50 dark:border-amber-400/50' : '',
         node.errorMsg && !selected ? 'ring-4 ring-rose-500/20 border-rose-500/50 dark:border-rose-400/50 animate-[shake_0.4s_ease-in-out_0s_1]' : '',
         isGalleryNode ? 'border-violet-200 dark:border-violet-900/60' : '',
@@ -458,7 +463,7 @@ export default memo(function CanvasNodeCard({
       {/* 悬浮工具栏 (Node Action Bar) */}
       <div
         className={cn(
-          'absolute -top-14 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-xl border border-zinc-200 bg-white p-1.5 shadow-md transition-all duration-200 dark:border-[#343434] dark:bg-[#1C1C1C]',
+          'absolute -top-14 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-xl border border-studio-border bg-studio-surface p-1.5 shadow-md transition-all duration-200 dark:bg-studio-canvas',
           selected
             ? 'opacity-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 translate-y-1 pointer-events-none'
@@ -471,7 +476,7 @@ export default memo(function CanvasNodeCard({
               value={node.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID}
               onValueChange={(value) => onImageModelChange(node.nodeId, value)}
             >
-              <SelectTrigger className="h-7 w-auto border-none bg-transparent px-2 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100 focus:ring-0 dark:text-[#D9D9D9] dark:hover:bg-[#2C2D2F]">
+              <SelectTrigger className={NODE_TRIGGER_CLASS}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -483,13 +488,13 @@ export default memo(function CanvasNodeCard({
               </SelectContent>
             </Select>
 
-            <div className="mx-0.5 h-3.5 w-px bg-zinc-300 dark:bg-[#343434]" />
+            <div className="mx-0.5 h-3.5 w-px bg-studio-border" />
 
             <Select
               value={imageParams.aspectRatio || '1:1'}
               onValueChange={(value) => onImageParamsChange(node.nodeId, { aspectRatio: value })}
             >
-              <SelectTrigger className="h-7 w-auto border-none bg-transparent px-2 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100 focus:ring-0 dark:text-[#D9D9D9] dark:hover:bg-[#2C2D2F]">
+              <SelectTrigger className={NODE_TRIGGER_CLASS}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -501,20 +506,20 @@ export default memo(function CanvasNodeCard({
               </SelectContent>
             </Select>
 
-            <div className="mx-0.5 h-3.5 w-px bg-zinc-300 dark:bg-[#343434]" />
+            <div className="mx-0.5 h-3.5 w-px bg-studio-border" />
 
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#A3A3A3] dark:hover:bg-[#2C2D2F] dark:hover:text-[#D9D9D9]"
+                  className={NODE_ICON_BUTTON_CLASS}
                 >
                   <Settings2 className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-48 border-zinc-200 bg-white p-3 shadow-xl dark:border-[#343434] dark:bg-[#1C1C1C]"
+                className="w-48 border-studio-border bg-studio-surface p-3 shadow-xl dark:bg-studio-canvas"
                 align="center"
                 side="top"
                 sideOffset={10}
@@ -523,12 +528,12 @@ export default memo(function CanvasNodeCard({
                 <div className="space-y-3">
                   {supportsImageSize && (
                     <div className="space-y-1.5">
-                      <p className="text-[10px] text-zinc-500 dark:text-[#A3A3A3]">尺寸 (Image Size)</p>
+                      <p className="text-[10px] text-studio-muted">尺寸 (Image Size)</p>
                       <Select
                         value={imageParams.imageSize || imageSizeOptions[0]}
                         onValueChange={(value) => onImageParamsChange(node.nodeId, { imageSize: value })}
                       >
-                        <SelectTrigger className="h-7 border-zinc-200 bg-zinc-50 px-2 text-[11px] text-zinc-900 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#D9D9D9]">
+                        <SelectTrigger className={NODE_FORM_TRIGGER_CLASS}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -544,12 +549,12 @@ export default memo(function CanvasNodeCard({
 
                   {supportsBatch && (
                     <div className="space-y-1.5">
-                      <p className="text-[10px] text-zinc-500 dark:text-[#A3A3A3]">批量 (Batch Size)</p>
+                      <p className="text-[10px] text-studio-muted">批量 (Batch Size)</p>
                       <Select
                         value={String(Math.min(imageParams.batchSize || 1, batchSizeOptions[batchSizeOptions.length - 1] || 1))}
                         onValueChange={(value) => onImageParamsChange(node.nodeId, { batchSize: Number(value) })}
                       >
-                        <SelectTrigger className="h-7 border-zinc-200 bg-zinc-50 px-2 text-[11px] text-zinc-900 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#D9D9D9]">
+                        <SelectTrigger className={NODE_FORM_TRIGGER_CLASS}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -565,7 +570,7 @@ export default memo(function CanvasNodeCard({
                 </div>
               </PopoverContent>
             </Popover>
-            <div className="mx-0.5 h-3.5 w-px bg-zinc-300 dark:bg-[#343434]" />
+            <div className="mx-0.5 h-3.5 w-px bg-studio-border" />
           </>
         ) : null}
 
@@ -576,7 +581,7 @@ export default memo(function CanvasNodeCard({
               variant="ghost"
               size="icon"
               className={cn(
-                'h-7 w-7 rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#A3A3A3] dark:hover:bg-[#2C2D2F] dark:hover:text-[#D9D9D9]',
+                NODE_ICON_BUTTON_CLASS,
                 isOptimizing && 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:hover:bg-amber-500/30',
               )}
               onClick={(event) => {
@@ -588,7 +593,7 @@ export default memo(function CanvasNodeCard({
             >
               {isOptimizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <WandSparkles className="h-3.5 w-3.5" />}
             </Button>
-            <div className="mx-0.5 h-3.5 w-px bg-zinc-300 dark:bg-[#343434]" />
+            <div className="mx-0.5 h-3.5 w-px bg-studio-border" />
           </>
         ) : null}
 
@@ -597,7 +602,7 @@ export default memo(function CanvasNodeCard({
           variant="ghost"
           size="icon"
           className={cn(
-            'h-7 w-7 rounded-full text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#A3A3A3] dark:hover:bg-[#2C2D2F] dark:hover:text-[#D9D9D9]',
+            NODE_ICON_BUTTON_CLASS,
             isRunning && 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:hover:bg-amber-500/30'
           )}
           onClick={(event) => {
@@ -640,7 +645,7 @@ export default memo(function CanvasNodeCard({
             'h-3.5 w-3.5 rounded-full border transition-all duration-200',
             isConnectionTarget
               ? 'scale-125 border-[#C8F88D] bg-[#C8F88D] shadow-[0_0_0_4px_rgba(200,248,141,0.25)]'
-              : 'border-zinc-300 bg-white ring-2 ring-transparent group-hover:border-zinc-400 dark:border-[#6C6E6F] dark:bg-[#161616] dark:group-hover:border-[#A3A3A3]',
+              : 'border-studio-border-strong bg-studio-surface ring-2 ring-transparent group-hover:border-studio-muted dark:bg-studio-surface-muted',
           )}
         />
       </button>
@@ -660,7 +665,7 @@ export default memo(function CanvasNodeCard({
             'h-3.5 w-3.5 rounded-full border transition-all duration-200',
             isConnectionSource
               ? 'scale-125 border-[#C8F88D] bg-[#C8F88D] shadow-[0_0_0_4px_rgba(200,248,141,0.25)]'
-              : 'border-zinc-300 bg-white ring-2 ring-transparent group-hover:border-zinc-400 dark:border-[#6C6E6F] dark:bg-[#161616] dark:group-hover:border-[#A3A3A3]',
+              : 'border-studio-border-strong bg-studio-surface ring-2 ring-transparent group-hover:border-studio-muted dark:bg-studio-surface-muted',
           )}
         />
       </button>
@@ -686,12 +691,12 @@ export default memo(function CanvasNodeCard({
                     setIsEditingTitle(false);
                   }
                 }}
-                className="h-7 w-32 border-transparent bg-transparent px-0 text-sm font-semibold text-zinc-900 focus-visible:ring-0 dark:text-[#D9D9D9]"
+                className="h-7 w-32 border-transparent bg-transparent px-0 text-sm font-semibold text-studio-foreground focus-visible:ring-0"
                 onPointerDown={(e) => e.stopPropagation()}
               />
             ) : (
               <span
-                className="cursor-text select-none text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]"
+                className="cursor-text select-none text-sm font-semibold text-studio-foreground"
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   setIsEditingTitle(true);
@@ -707,7 +712,7 @@ export default memo(function CanvasNodeCard({
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-6 w-6 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#A3A3A3] dark:hover:bg-[#4A4C4D] dark:hover:text-[#D9D9D9]"
+                className="studio-icon-button h-6 w-6"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -736,7 +741,7 @@ export default memo(function CanvasNodeCard({
               value={node.prompt || ''}
               onChange={(event) => onPromptChange(node.nodeId, event.target.value)}
               placeholder="输入图片生成 Prompt，点击运行批量生成..."
-              className="min-h-16 resize-none border-none bg-zinc-50 text-xs leading-relaxed text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-1 focus-visible:ring-violet-300/60 dark:bg-[#161616] dark:text-[#D9D9D9] dark:placeholder:text-[#737373] dark:focus-visible:ring-violet-700/50"
+              className={cn("min-h-16 resize-none text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-violet-300/60 dark:focus-visible:ring-violet-700/50", NODE_TEXTAREA_CLASS)}
               onPointerDown={(e) => e.stopPropagation()}
             />
             <GalleryNodeCard
@@ -749,7 +754,7 @@ export default memo(function CanvasNodeCard({
             {latestOutput?.outputType === 'image' && latestOutput.assetUrl ? (
               <button
                 type="button"
-                className="relative h-20 w-full overflow-hidden rounded-lg bg-zinc-100 text-left dark:bg-[#161616]"
+                className="relative h-20 w-full overflow-hidden rounded-lg bg-studio-surface-strong text-left dark:bg-studio-surface-muted"
                 onClick={(event) => {
                   event.stopPropagation();
                   onEditImage?.(node.nodeId);
@@ -765,7 +770,7 @@ export default memo(function CanvasNodeCard({
                 />
               </button>
             ) : (
-              <p className="line-clamp-2 rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-2 text-[11px] text-zinc-500 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#A3A3A3]">
+              <p className="line-clamp-2 rounded-lg border border-dashed border-studio-border bg-studio-surface-muted p-2 text-[11px] text-studio-muted">
                 {(node.prompt || '').trim() || '折叠状态：暂无内容'}
               </p>
             )}
@@ -776,7 +781,7 @@ export default memo(function CanvasNodeCard({
               value={node.prompt || ''}
               onChange={(event) => onPromptChange(node.nodeId, event.target.value)}
               placeholder={node.nodeType === 'text' ? '输入基础 Prompt，点击优化或直接生成...' : '输入图片生成 Prompt...'}
-              className="flex-1 min-h-[80px] resize-none border-none bg-zinc-50 text-xs leading-relaxed text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-1 focus-visible:ring-zinc-300 dark:bg-[#161616] dark:text-[#D9D9D9] dark:placeholder:text-[#737373] dark:focus-visible:ring-[#4A4C4D]"
+              className={cn("flex-1 min-h-[80px] resize-none text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-zinc-300 dark:focus-visible:ring-studio-border", NODE_TEXTAREA_CLASS)}
               onPointerDown={(e) => e.stopPropagation()}
             />
 
@@ -790,14 +795,14 @@ export default memo(function CanvasNodeCard({
             ) : null}
 
             {latestOutput?.outputType === 'text' ? (
-              <div className="rounded-lg border border-zinc-200 bg-zinc-100 p-2 text-xs text-zinc-900 dark:border-[#C8F88D]/20 dark:bg-[#C8F88D]/10 dark:text-[#D9D9D9]">
+              <div className="rounded-lg border border-studio-accent/20 bg-studio-accent/10 p-2 text-xs text-studio-foreground">
                 {latestOutput.textContent || '空文本输出'}
               </div>
             ) : null}
 
             {latestOutput?.outputType === 'image' && latestOutput.assetUrl ? (
               <div
-                className="group/img relative w-full overflow-hidden rounded-lg bg-zinc-100 text-left dark:bg-[#161616]"
+                className="group/img relative w-full overflow-hidden rounded-lg bg-studio-surface-strong text-left dark:bg-studio-surface-muted"
                 draggable
                 onDragStart={(event) => {
                   event.dataTransfer.setData('application/canvas-node-image-url', latestOutput.assetUrl!);
@@ -816,7 +821,7 @@ export default memo(function CanvasNodeCard({
                   unoptimized
                 />
                 {onEditImage ? (
-                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 opacity-0 rounded-lg border border-[#4A4C4D] bg-[#161616]/85 px-2 py-1 text-[11px] text-[#D9D9D9] backdrop-blur transition-opacity group-hover/img:opacity-100">
+                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-lg border border-studio-border bg-studio-surface-muted/85 px-2 py-1 text-[11px] text-studio-foreground opacity-0 backdrop-blur transition-opacity group-hover/img:opacity-100">
                     <Pencil className="h-3 w-3" />
                     编辑
                   </span>
@@ -828,7 +833,7 @@ export default memo(function CanvasNodeCard({
               </div>
             ) : isImageNode && !node.inputAssetId ? (
               <div
-                className="group/upload relative flex h-full min-h-[120px] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-200 bg-zinc-50 text-zinc-400 transition-colors hover:border-zinc-300 hover:bg-zinc-100 dark:border-[#4A4C4D] dark:bg-[#161616] dark:text-[#737373] dark:hover:border-[#737373] dark:hover:bg-[#2C2D2F]"
+                className="group/upload relative flex h-full min-h-[120px] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-studio-border bg-studio-surface-muted text-studio-subtle transition-colors hover:border-studio-border-strong hover:bg-studio-surface"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}

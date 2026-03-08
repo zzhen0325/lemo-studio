@@ -139,60 +139,60 @@ export default function InfiniteCanvasHome() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#161616] text-zinc-900 dark:text-[#D9D9D9] transition-colors">
+    <div className="studio-shell min-h-screen">
       <div className="mx-auto w-full max-w-7xl px-6 py-10 md:px-10 md:py-14">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 dark:text-[#A3A3A3]">AI Infinite Canvas</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-studio-muted">AI Infinite Canvas</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight [font-family:var(--font-instrument)]">项目首页</h1>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-[#A3A3A3]">创建项目并进入独立无限画布编辑器，支持节点化工作流。</p>
+            <p className="mt-2 text-sm text-studio-muted">创建项目并进入独立无限画布编辑器，支持节点化工作流。</p>
           </div>
           <Button
             onClick={handleCreate}
             disabled={creating}
-            className="h-11 rounded-xl bg-zinc-900 text-white dark:bg-[#C8F88D] px-5 font-semibold dark:text-[#0E0E0E] hover:opacity-90 transition-opacity"
+            className="studio-action-button h-11 rounded-xl px-5 font-semibold"
           >
             <Plus className="mr-2 h-4 w-4" />
             {creating ? '创建中...' : '新建项目'}
           </Button>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-zinc-200/80 dark:border-[#4A4C4D]/50 bg-white/50 dark:bg-[#2C2D2F]/50 p-4 backdrop-blur-xl transition-colors">
+        <div className="studio-panel-frost mt-8 rounded-2xl p-4 transition-colors">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-[#737373]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-studio-subtle" />
             <Input
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="搜索项目名..."
-              className="h-11 border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#161616] pl-10 text-sm text-zinc-900 dark:text-[#D9D9D9] placeholder:text-zinc-400 dark:placeholder:text-[#737373] focus-visible:ring-zinc-400 dark:focus-visible:ring-[#A3A3A3] transition-colors"
+              className="studio-input h-11 pl-10 text-sm"
             />
           </label>
 
           {loading ? (
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={idx} className="h-44 animate-pulse rounded-2xl border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-100 dark:bg-[#2C2D2F]" />
+                <div key={idx} className="studio-panel h-44 animate-pulse rounded-2xl bg-studio-surface-strong dark:bg-studio-surface" />
               ))}
             </div>
           ) : filteredProjects.length === 0 ? (
-            <div className="mt-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-transparent px-6 py-14 text-center">
-              <Sparkles className="h-6 w-6 text-zinc-400 dark:text-[#A3A3A3]" />
-              <p className="mt-3 text-base font-medium text-zinc-700 dark:text-[#D9D9D9]">还没有项目</p>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-[#737373]">先创建一个空白项目，开始搭建你的图像工作流。</p>
+            <div className="mt-10 flex flex-col items-center justify-center rounded-2xl border border-dashed border-studio-border bg-studio-surface-muted/60 px-6 py-14 text-center">
+              <Sparkles className="h-6 w-6 text-studio-muted" />
+              <p className="mt-3 text-base font-medium text-studio-foreground">还没有项目</p>
+              <p className="mt-1 text-sm text-studio-subtle">先创建一个空白项目，开始搭建你的图像工作流。</p>
             </div>
           ) : (
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredProjects.map((project) => (
                 <Card
                   key={project.projectId}
-                  className="group overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#2C2D2F] p-0 text-zinc-900 dark:text-zinc-100 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:hover:border-[#737373]"
+                  className="studio-panel group overflow-hidden rounded-2xl p-0 text-studio-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-studio-border-strong hover:shadow-md"
                 >
                   <button
                     type="button"
                     onClick={() => router.push(`/infinite-canvas/editor/${project.projectId}`)}
                     className="w-full text-left"
                   >
-                    <div className="relative h-28 w-full border-b border-zinc-100 dark:border-[#161616] bg-zinc-100 dark:bg-[#161616]">
+                    <div className="relative h-28 w-full border-b border-studio-surface-muted bg-studio-surface-strong dark:border-studio-canvas dark:bg-studio-surface-muted">
                       {project.lastOutputPreview ? (
                         <Image
                           src={project.lastOutputPreview}
@@ -207,8 +207,8 @@ export default function InfiniteCanvasHome() {
 
                   <div className="space-y-3 px-4 py-4">
                     <div>
-                      <p className="truncate text-base font-semibold text-zinc-900 dark:text-[#D9D9D9]">{project.projectName}</p>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 dark:text-[#737373]">
+                      <p className="truncate text-base font-semibold text-studio-foreground">{project.projectName}</p>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-studio-subtle">
                         <span>{project.nodeCount} 个节点</span>
                         <span>更新于 {formatDate(project.updatedAt)}</span>
                       </div>
@@ -218,7 +218,7 @@ export default function InfiniteCanvasHome() {
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="h-8 rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+                        className="studio-secondary-button h-8 rounded-lg text-xs"
                         onClick={() => router.push(`/infinite-canvas/editor/${project.projectId}`)}
                       >
                         <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
@@ -228,7 +228,7 @@ export default function InfiniteCanvasHome() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 rounded-lg text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+                          className="studio-icon-button h-8 w-8 rounded-lg"
                           onClick={() => handleRename(project)}
                         >
                           <Edit3 className="h-3.5 w-3.5" />
@@ -236,7 +236,7 @@ export default function InfiniteCanvasHome() {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 rounded-lg text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+                          className="studio-icon-button h-8 w-8 rounded-lg"
                           onClick={() => handleDuplicate(project.projectId)}
                         >
                           <Copy className="h-3.5 w-3.5" />

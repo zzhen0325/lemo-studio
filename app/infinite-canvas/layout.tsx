@@ -6,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function InfiniteCanvasLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen w-full bg-zinc-50 dark:bg-[#161616] text-zinc-900 dark:text-zinc-100 transition-colors">{children}</div>;
+  return <div className="studio-shell min-h-screen w-full">{children}</div>;
 }

@@ -39,6 +39,12 @@ export const StudioSidebar = observer(function StudioSidebar() {
   const prefetchRoute = useCallback((href: string) => {
     void router.prefetch(href);
   }, [router]);
+  const navigateToTab = useCallback((href: string) => {
+    if (href === STUDIO_ROUTES.playground) {
+      setViewMode("home");
+    }
+    router.push(href);
+  }, [router, setViewMode]);
   const currentUser = hasHydrated ? userStore.currentUser : null;
 
   useEffect(() => {
@@ -51,8 +57,7 @@ export const StudioSidebar = observer(function StudioSidebar() {
       <div
         className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
         onClick={() => {
-          setViewMode("home");
-          router.push(STUDIO_ROUTES.playground);
+          navigateToTab(STUDIO_ROUTES.playground);
         }}
       >
         <span className="text-white font-bold text-lg">LEMO STUDIO</span>
@@ -66,7 +71,7 @@ export const StudioSidebar = observer(function StudioSidebar() {
             <button
               key={item.value}
               type="button"
-              onClick={() => router.push(item.href)}
+              onClick={() => navigateToTab(item.href)}
               onMouseEnter={() => prefetchRoute(item.href)}
               onFocus={() => prefetchRoute(item.href)}
               className={cn(

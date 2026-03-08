@@ -199,7 +199,7 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
                                 onClick={() => jsonInputRef.current?.click()}
                                 className={cn(
                                     "h-14 rounded-xl border border-white/5 bg-zinc-900/50 flex items-center px-4 gap-3 cursor-pointer hover:bg-white/[0.03] transition-colors group",
-                                    fileName && "border-emerald-500/20 bg-emerald-500/[0.02]"
+                                    fileName && "border-primary/20 bg-primary/[0.04]"
                                 )}
                             >
                                 <input
@@ -211,14 +211,14 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
                                 />
                                 <div className={cn(
                                     "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                                    fileName ? "bg-emerald-500/20 text-emerald-500" : "bg-white/5 text-zinc-500 group-hover:text-white"
+                                    fileName ? "bg-primary/20 text-primary" : "bg-white/5 text-zinc-500 group-hover:text-white"
                                 )}>
                                     {fileName ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                                 </div>
                                 <div className="flex-1 flex flex-col min-w-0">
                                     <span className={cn(
                                         "text-[11px] font-medium truncate",
-                                        fileName ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"
+                                        fileName ? "text-primary" : "text-zinc-500 group-hover:text-zinc-300"
                                     )}>
                                         {fileName || "上传 API JSON 定义"}
                                     </span>
@@ -238,7 +238,7 @@ export function CreateWorkflowDialog({ open, onOpenChange, onSubmit }: CreateWor
                         取消
                     </Button>
                     <Button
-                        className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold uppercase tracking-widest text-[10px] shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+                        className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold uppercase tracking-widest text-[10px] shadow-[0_0_20px_rgba(218,255,172,0.24)]"
                         onClick={handleSubmit}
                         disabled={isUploading}
                     >

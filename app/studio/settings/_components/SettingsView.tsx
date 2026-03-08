@@ -31,6 +31,7 @@ import { useToast } from "@/hooks/common/use-toast";
 import { useMediaQuery } from "@/hooks/common/use-media-query";
 import { Badge } from "@/components/ui/badge";
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
+import { SETTINGS_THEME_VARS } from "@/lib/theme/studio-theme";
 import {
     APIProviderConfig,
     MODEL_CONTEXT_BY_SERVICE,
@@ -85,21 +86,7 @@ const providerTypeLabelMap: Record<string, string> = {
     'openai-compatible': 'OpenAI兼容模型',
 };
 
-// Use the styling from the image reference
-const themeVars: React.CSSProperties = {
-    ['--settings-bg' as string]: '#0e0e0e',
-    ['--settings-sidebar-bg' as string]: '#161616',
-    ['--settings-sidebar-active' as string]: '#2C2D2F',
-    ['--settings-panel' as string]: '#1C1C1C',
-    ['--settings-panel-soft' as string]: '#161616',
-    ['--settings-border' as string]: '#2e2e2e',
-    ['--settings-border-subtle' as string]: 'rgba(255,255,255,0.06)',
-    ['--settings-text' as string]: '#ffffff',
-    ['--settings-text-muted' as string]: '#9ca3af',
-    ['--settings-text-subtle' as string]: '#6b7280',
-    ['--settings-accent' as string]: '#E3FF9C', // green accent
-    ['--settings-accent-fg' as string]: '#ffffff',
-};
+const themeVars = SETTINGS_THEME_VARS;
 
 export function SettingsView() {
     const [currentTab, setCurrentTab] = useState<SettingsTab>(SettingsTab.Models);
@@ -358,7 +345,7 @@ export function SettingsView() {
                                 className={cn(
                                     "w-10 h-10 rounded-2xl transition-all duration-200",
                                     isActive
-                                        ? "bg-primary/20 text-white border border-white/40 hover:bg-primary/30 hover:border-white/60 hover:scale-105"
+                                        ? "bg-primary/20 text-primary border border-primary/35 hover:bg-primary/25 hover:border-primary/45 hover:scale-105"
                                         : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:scale-110"
                                 )}
                                 onClick={() => setCurrentTab(item.id)}
@@ -436,7 +423,7 @@ export function SettingsView() {
                                                 </Button>
                                                 <Button
                                                     onClick={handleOpenAddProvider}
-                                                    className="h-[34px] px-4 rounded-lg bg-[--settings-accent] hover:bg-[--settings-accent-fg] text-zinc-800 gap-2 border-0 text-[12px] font-medium transition-colors"
+                                                    className="h-[34px] px-4 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground gap-2 border-0 text-[12px] font-medium transition-colors"
                                                 >
                                                     <Plus className="size-[14px]" />
                                                     Add Provider
@@ -452,7 +439,7 @@ export function SettingsView() {
                                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-[14px] text-zinc-500" />
                                                         <Input
                                                             placeholder="Search providers..."
-                                                            className="h-8 pl-9 bg-[#1c1c1c] border-[#2e2e2e] text-[13px] rounded-lg focus-visible:ring-1 focus-visible:ring-teal-500/50"
+                                                            className="h-8 pl-9 bg-[#1c1c1c] border-[#2e2e2e] text-[13px] rounded-lg focus-visible:ring-1 focus-visible:ring-primary/40"
                                                         />
                                                     </div>
                                                 </div>
@@ -468,7 +455,7 @@ export function SettingsView() {
                                                                     className={cn(
                                                                         "w-full text-left px-3 py-2.5 rounded-xl transition-colors flex items-center justify-between group",
                                                                         isSelected
-                                                                            ? "bg-[#2a2a2a] text-white ring-1 ring-[#3a3a3a]"
+                                                                            ? "bg-primary/10 text-white ring-1 ring-primary/20"
                                                                             : "text-zinc-400 hover:bg-[#222222] hover:text-zinc-200"
                                                                     )}
                                                                 >
@@ -476,7 +463,7 @@ export function SettingsView() {
                                                                         <div className="text-[13px] font-medium truncate">{provider.name}</div>
                                                                         <div className="text-[11.5px] text-zinc-500 mt-0.5">{provider.models?.length || 0} models</div>
                                                                     </div>
-                                                                    <div className={cn("size-2 rounded-full flex-shrink-0 border border-white/5", provider.isEnabled ? "bg-teal-500" : "bg-zinc-600")} />
+                                                                    <div className={cn("size-2 rounded-full flex-shrink-0 border border-white/5", provider.isEnabled ? "bg-primary" : "bg-zinc-600")} />
                                                                 </button>
                                                             )
                                                         })
@@ -527,7 +514,7 @@ export function SettingsView() {
                                                             <div className="text-[13px] text-zinc-500">No models configured.</div>
                                                             <Button
                                                                 onClick={handleAddModelToSelectedProvider}
-                                                                className="h-[30px] px-3 rounded-lg bg-[--settings-accent] hover:bg-[--settings-accent-fg] text-zinc-800 text-[12px] font-medium border-0"
+                                                                className="h-[30px] px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-[12px] font-medium border-0"
                                                             >
                                                                 Add first model
                                                             </Button>
@@ -556,7 +543,7 @@ export function SettingsView() {
                                                                         {/* Mock Toggle exactly like the image - Green when active */}
                                                                         <div className={cn(
                                                                             "w-10 h-6 rounded-full flex items-center px-[2px] cursor-pointer relative shrink-0 transition-colors shadow-inner",
-                                                                            model.status === 'active' ? "bg-[teal-500]" : "bg-[#2e2e2e]"
+                                                                            model.status === 'active' ? "bg-primary" : "bg-[#2e2e2e]"
                                                                         )}>
                                                                             <div className={cn(
                                                                                 "w-[20px] h-[20px] rounded-full bg-white transition-transform drop-shadow-sm",
@@ -570,7 +557,7 @@ export function SettingsView() {
                                                                 <Button
                                                                     variant="outline"
                                                                     onClick={handleAddModelToSelectedProvider}
-                                                                    className="w-full h-9 border-dashed border-[#3a3a3a] bg-transparent text-zinc-400 hover:text-white hover:border-teal-500/50 hover:bg-teal-500/5 rounded-xl text-[12.5px]"
+                                                                    className="w-full h-9 border-dashed border-[#3a3a3a] bg-transparent text-zinc-400 hover:text-white hover:border-primary/50 hover:bg-primary/5 rounded-xl text-[12.5px]"
                                                                 >
                                                                     <Plus className="size-3.5 mr-2" />
                                                                     Add Another Model
@@ -598,7 +585,7 @@ export function SettingsView() {
                                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-500" />
                                                     <Input
                                                         placeholder="Search services by name or function..."
-                                                        className="pl-9 h-8 bg-[#1c1c1c] border-[#2e2e2e] text-[13px] rounded-lg focus-visible:ring-1 focus-visible:ring-teal-500/50"
+                                                        className="pl-9 h-8 bg-[#1c1c1c] border-[#2e2e2e] text-[13px] rounded-lg focus-visible:ring-1 focus-visible:ring-primary/40"
                                                     />
                                                 </div>
                                             </div>
@@ -630,7 +617,7 @@ export function SettingsView() {
                                                                 <div className="flex items-center justify-between py-[18px] px-5 cursor-pointer hover:bg-white/[0.02] transition-colors">
                                                                     <div>
                                                                         <div className="text-[13.5px] font-medium text-white flex items-center gap-2 mb-1">
-                                                                            <div className="text-teal-500">{serviceIcons[serviceType]}</div>
+                                                                            <div className="text-primary">{serviceIcons[serviceType]}</div>
                                                                             {meta.label}
                                                                         </div>
                                                                         <div className="text-[12.5px] text-[#A3A3A3] leading-snug pl-6">
@@ -687,7 +674,7 @@ export function SettingsView() {
                                                                             <Textarea
                                                                                 value={serviceSystemPrompt || ''}
                                                                                 onChange={(e) => updateServiceConfig(serviceType, { systemPrompt: e.target.value })}
-                                                                                className="min-h-[140px] rounded-xl bg-[#1a1a1a] border-[#2e2e2e] text-[13px] text-zinc-300 leading-relaxed focus-visible:ring-1 focus-visible:ring-teal-500/50 resize-none p-4 custom-scrollbar"
+                                                                                className="min-h-[140px] rounded-xl bg-[#1a1a1a] border-[#2e2e2e] text-[13px] text-zinc-300 leading-relaxed focus-visible:ring-1 focus-visible:ring-primary/40 resize-none p-4 custom-scrollbar"
                                                                             />
                                                                         </div>
                                                                     )}
@@ -707,7 +694,7 @@ export function SettingsView() {
                                             <div className="flex items-center justify-between py-[18px] px-5">
                                                 <div>
                                                     <div className="text-[13.5px] font-medium text-white flex items-center gap-2 mb-1">
-                                                        <Globe className="size-4 text-teal-500" />
+                                                        <Globe className="size-4 text-primary" />
                                                         ComfyUI Endpoint
                                                     </div>
                                                     <div className="text-[12.5px] text-zinc-400 pl-6">
@@ -751,7 +738,7 @@ export function SettingsView() {
                         >
                             <Button
                                 onClick={handleSaveSettings}
-                                className="pointer-events-auto rounded-xl px-10 h-11 bg-white hover:bg-zinc-200 text-black font-semibold text-[13.5px] transition-all border border-white"
+                                className="pointer-events-auto rounded-xl px-10 h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[13.5px] transition-all border border-primary"
                             >
                                 Save Settings
                             </Button>

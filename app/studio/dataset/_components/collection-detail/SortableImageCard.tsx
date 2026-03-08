@@ -52,8 +52,8 @@ export function SortableImageCard({
         }
       }}
       className={`group relative aspect-square bg-[#1a1a1a] border rounded-2xl overflow-hidden transition-all select-none touch-none ${isSelected
-        ? 'ring-2 ring-teal-500 border-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.2)]'
-        : 'border-[#2e2e2e] hover:ring-2 hover:ring-teal-500/50'
+        ? 'ring-2 ring-primary border-primary'
+        : 'border-[#2e2e2e] hover:ring-2 hover:ring-primary/50'
         }`}
     >
       <Image
@@ -66,8 +66,8 @@ export function SortableImageCard({
       />
 
       <div className={`absolute top-3 left-3 z-10 transition-opacity duration-200 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-        <div className={`w-6 h-6 rounded-full border flex items-center justify-center shadow-md transition-colors ${isSelected ? 'bg-teal-500 border-teal-500 text-white' : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'}`}>
-          {isSelected && <Plus className="w-4 h-4 text-white rotate-45" />}
+        <div className={`w-6 h-6 rounded-full border flex items-center justify-center shadow-md transition-colors ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'bg-black/40 border-white/60 backdrop-blur-sm hover:border-white'}`}>
+          {isSelected && <Plus className="w-4 h-4 text-primary-foreground rotate-45" />}
         </div>
       </div>
 

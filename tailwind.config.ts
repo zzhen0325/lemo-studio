@@ -68,7 +68,20 @@ const config = {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
           border: "hsl(var(--sidebar-border) / <alpha-value>)",
           ring: "hsl(var(--sidebar-ring) / <alpha-value>)",
-        }
+        },
+        studio: {
+          canvas: "rgb(var(--studio-canvas) / <alpha-value>)",
+          surface: "rgb(var(--studio-surface) / <alpha-value>)",
+          "surface-muted": "rgb(var(--studio-surface-muted) / <alpha-value>)",
+          "surface-strong": "rgb(var(--studio-surface-strong) / <alpha-value>)",
+          border: "rgb(var(--studio-border) / <alpha-value>)",
+          "border-strong": "rgb(var(--studio-border-strong) / <alpha-value>)",
+          foreground: "rgb(var(--studio-foreground) / <alpha-value>)",
+          muted: "rgb(var(--studio-muted) / <alpha-value>)",
+          subtle: "rgb(var(--studio-subtle) / <alpha-value>)",
+          accent: "rgb(var(--studio-accent) / <alpha-value>)",
+          "accent-foreground": "rgb(var(--studio-accent-foreground) / <alpha-value>)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

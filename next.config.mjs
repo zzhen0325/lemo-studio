@@ -1,6 +1,20 @@
 import path from 'path';
 import fs from 'fs';
 
+function normalizeRedirectLiteralPath(source) {
+  const raw = typeof source === 'string' ? source : '';
+  if (!raw) return raw;
+
+  try {
+    const encoded = encodeURI(decodeURI(raw));
+    // Next redirect sources use path-to-regexp syntax, so literal special chars
+    // in asset file names need escaping before they are returned here.
+    return encoded.replace(/([\\:+*?()[\]{}!])/g, '\\$1');
+  } catch {
+    return raw.replace(/([\\:+*?()[\]{}!])/g, '\\$1');
+  }
+}
+
 function loadExternalAssetRedirects() {
   try {
     const redirectsPath = path.join(import.meta.dirname, 'config', 'external-asset-redirects.json');
@@ -12,7 +26,12 @@ function loadExternalAssetRedirects() {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter((item) => item && item.source && item.destination);
+    return parsed
+      .filter((item) => item && item.source && item.destination)
+      .map((item) => ({
+        ...item,
+        source: normalizeRedirectLiteralPath(item.source),
+      }));
   } catch (error) {
     console.warn('[next.config] Failed to load external asset redirects:', error);
     return [];

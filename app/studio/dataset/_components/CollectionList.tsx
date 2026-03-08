@@ -54,7 +54,7 @@ export default function CollectionList({
                         <RefreshCw className="w-4 h-4" />
                     </Button>
                     <Button
-                        className="bg-teal-600 hover:bg-teal-500 shadow-sm text-white rounded-xl h-9 px-4 text-sm font-medium border-0"
+                        className="bg-primary hover:bg-primary/90 shadow-sm text-primary-foreground rounded-xl h-9 px-4 text-sm font-medium border-0"
                         onClick={() => {
                             const name = window.prompt("Enter new collection name:");
                             if (name && name.trim()) {

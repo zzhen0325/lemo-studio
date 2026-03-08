@@ -101,9 +101,9 @@ export function CollectionDetailListView({
         </DialogContent>
       </Dialog>
 
-      <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-[#2e2e2e] bg-[#161616] rounded-2xl p-6 hover:border-teal-500/50 hover:bg-teal-500/5 transition-all group min-h-[240px] h-full">
+      <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-[#2e2e2e] bg-[#161616] rounded-2xl p-6 hover:border-primary/50 hover:bg-primary/5 transition-all group min-h-[240px] h-full">
         <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center group-hover:scale-110 transition-all">
-          <Plus className="h-8 w-8 text-zinc-500 group-hover:text-teal-500" />
+          <Plus className="h-8 w-8 text-zinc-500 group-hover:text-primary" />
         </div>
         <span className="mt-4 text-white text-xl font-medium group-hover:text-primary transition-colors">
           Add

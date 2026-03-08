@@ -50,10 +50,10 @@ export function CollectionDetailGridView({
           className="grid gap-4"
           style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
         >
-          <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-[#2e2e2e] bg-[#161616] rounded-2xl aspect-square hover:border-teal-500/50 hover:bg-teal-500/5 transition-all group relative overflow-hidden">
+          <label className="flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-[#2e2e2e] bg-[#161616] rounded-2xl aspect-square hover:border-primary/50 hover:bg-primary/5 transition-all group relative overflow-hidden">
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <Plus className="h-8 w-8 text-zinc-500 group-hover:text-teal-500 mb-2 transition-colors" />
-              <span className="text-xs text-zinc-500 font-medium group-hover:text-teal-500 transition-colors">Add Image</span>
+              <Plus className="h-8 w-8 text-zinc-500 group-hover:text-primary mb-2 transition-colors" />
+              <span className="text-xs text-zinc-500 font-medium group-hover:text-primary transition-colors">Add Image</span>
             </div>
             <input
               type="file"

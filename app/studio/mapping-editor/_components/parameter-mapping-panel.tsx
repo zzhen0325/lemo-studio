@@ -213,14 +213,14 @@ export function ParameterMappingPanel({
                 </div>
               ) : existingMappingIndex >= 0 ? (
                 /* 2. 如果已经映射过，显示已映射状态 */
-                <div className="p-4 bg-emerald-500/5 border border-emerald-500 rounded-2xl flex items-center justify-between">
+                <div className="p-4 bg-primary/5 border border-primary/30 rounded-2xl flex items-center justify-between">
                   <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                      <Check className="w-4 h-4 text-emerald-500" />
+                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                      <Check className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-emerald-500/80 uppercase tracking-wider">已映射 (Already Mapped)</h4>
-                      <p className="text-[11px] text-emerald-400/30 mt-1 leading-relaxed">已配置并准备就绪。</p>
+                      <h4 className="text-xs font-bold text-primary uppercase tracking-wider">已映射 (Already Mapped)</h4>
+                      <p className="text-[11px] text-primary/50 mt-1 leading-relaxed">已配置并准备就绪。</p>
                     </div>
                   </div>
                   <Button
@@ -254,7 +254,7 @@ export function ParameterMappingPanel({
                     ))}
                   </div>
                   <Button
-                    className="w-full bg-white text-black hover:bg-white/90 font-bold text-[11px] uppercase tracking-widest h-12 rounded-xl mt-4"
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-[11px] uppercase tracking-widest h-12 rounded-xl mt-4"
                     onClick={() => selectedParameterInfo && setNewComponent({
                       label: selectedParameterInfo.parameterKey,
                       type: selectedParameterInfo.valueType === 'number' ? 'number' : 'text',
@@ -288,7 +288,7 @@ export function ParameterMappingPanel({
                     <div className="space-y-2">
                       <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">组件标签</Label>
                       <Input
-                        className="bg-white/5 border-white/5 text-white h-10 rounded-lg focus:border-blue-500/50"
+                        className="bg-white/5 border-white/5 text-white h-10 rounded-lg focus:border-primary/50"
                         value={newComponent.label || ""}
                         onChange={(e) => setNewComponent(prev => prev ? { ...prev, label: e.target.value } : null)}
                         placeholder="UI 中显示的名称..."
@@ -297,14 +297,14 @@ export function ParameterMappingPanel({
                     <div className="space-y-2">
                       <Label className="text-[10px] text-white/20 uppercase tracking-widest font-bold">默认值</Label>
                       <Input
-                        className="bg-white/5 border-white/5 text-white h-10 rounded-lg focus:border-blue-500/50"
+                        className="bg-white/5 border-white/5 text-white h-10 rounded-lg focus:border-primary/50"
                         value={newComponent.properties?.defaultValue || ""}
                         onChange={(e) => setNewComponent(prev => prev ? { ...prev, properties: { ...prev.properties!, defaultValue: e.target.value } } : null)}
                       />
                     </div>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <Button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold text-[10px] uppercase tracking-widest h-10 rounded-lg" onClick={() => { onComponentCreate?.(newComponent as UIComponent); setNewComponent(null); }}>
+                    <Button className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] uppercase tracking-widest h-10 rounded-lg" onClick={() => { onComponentCreate?.(newComponent as UIComponent); setNewComponent(null); }}>
                       确认创建
                     </Button>
                     <Button variant="ghost" className="px-3 text-white/40 hover:text-white hover:bg-white/5" onClick={() => setNewComponent(null)}>
@@ -371,7 +371,7 @@ function MappingEditor({ component, onSave, onCancel }: { component: UIComponent
         />
       </div>
       <div className="flex gap-2">
-        <Button className="flex-1 bg-white text-black hover:bg-white/90 font-bold text-[10px] uppercase tracking-widest h-10 rounded-lg" onClick={() => onSave(edited)}>
+        <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-[10px] uppercase tracking-widest h-10 rounded-lg" onClick={() => onSave(edited)}>
           保存修改
         </Button>
         <Button variant="ghost" className="px-3 text-white/40 hover:text-white" onClick={onCancel}>

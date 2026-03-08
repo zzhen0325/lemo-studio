@@ -536,7 +536,7 @@ export function ProviderFormModal({ isOpen, onClose, onSave, provider }: Provide
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleAddModel('image-editable')}
-                                        className="text-xs border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+                                        className="text-xs border-primary/30 text-primary hover:bg-primary/10"
                                     >
                                         <Plus className="size-3 mr-1" />
                                         图像模型（可编辑）
@@ -668,7 +668,7 @@ export function ProviderFormModal({ isOpen, onClose, onSave, provider }: Provide
                                                             <Checkbox
                                                                 checked={Boolean(model.contexts?.includes(option.value))}
                                                                 onCheckedChange={() => handleContextToggle(index, option.value)}
-                                                                className="size-3.5 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                                                                className="size-3.5 border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                                             />
                                                             {option.label}
                                                         </label>
@@ -732,7 +732,7 @@ export function ProviderFormModal({ isOpen, onClose, onSave, provider }: Provide
                                                                     <Checkbox
                                                                         checked={model.task?.includes(task.value)}
                                                                         onCheckedChange={() => handleTaskToggle(index, task.value)}
-                                                                        className="size-3.5 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                                                                        className="size-3.5 border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                                                     />
                                                                     {task.label}
                                                                 </label>
@@ -764,7 +764,7 @@ export function ProviderFormModal({ isOpen, onClose, onSave, provider }: Provide
                                                                     <Checkbox
                                                                         checked={Boolean(model.capabilities?.[item.key as keyof NonNullable<ModelEntry['capabilities']>])}
                                                                         onCheckedChange={() => handleCapabilityToggle(index, item.key)}
-                                                                        className="size-3.5 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                                                                        className="size-3.5 border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                                                     />
                                                                     {item.label}
                                                                 </label>
@@ -854,7 +854,7 @@ export function ProviderFormModal({ isOpen, onClose, onSave, provider }: Provide
                         <Button
                             onClick={handleSubmit}
                             disabled={isSaving || !formData.name?.trim()}
-                            className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
                         >
                             {isSaving ? '保存中...' : (isEditing ? '保存更改' : '创建 Provider')}
                         </Button>

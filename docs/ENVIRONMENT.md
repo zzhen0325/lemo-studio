@@ -12,7 +12,8 @@
   - Recommended production value: `https://qzcnzen0.fn-boe.bytedance.net/api`.
 - `NEXT_PUBLIC_API_BASE`
   - Optional browser-side direct API base.
-  - If omitted, browser requests use same-origin `/api`.
+  - If omitted or empty, browser requests use same-origin `/api`.
+  - Recommended local dev value: leave empty and use the Next proxy.
   - Recommended production value: `https://qzcnzen0.fn-boe.bytedance.net/api`.
   - The runtime now auto-appends `/api` when you only provide the backend origin, but the full `/api` form is still recommended.
 - `NEXT_PUBLIC_COMFYUI_URL`
@@ -46,3 +47,4 @@
 
 - Browser calls must use same-origin `/api/*`.
 - Do not hardcode cross-port backend URLs in frontend code.
+- For local debug, prefer `npm run dev` or `npm run dev:proxy:boe` over editing `.env.local`.

@@ -11,7 +11,7 @@ export function PlaygroundBackground() {
         className="absolute inset-0 transition-all duration-1000"
         style={{
           background: showHistory
-            ? "#161616"
+            ? "linear-gradient(180deg, #0F0F15 0%, #131718 100%)"
             : "linear-gradient(180deg, #0F0F15 0%, #131718 30%, #1079BB 60%, #FBC6E2 80.56%, #FFD7B8 92%, #EB9469 100%)",
         }}
       />

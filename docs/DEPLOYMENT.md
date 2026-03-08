@@ -4,7 +4,8 @@
 
 ### Frontend (Next.js)
 
-- Build script: `./build.sh`
+- Build script: `./build.frontend.sh`
+- Compatibility alias: `./build.sh`
 - Packaging output dir: `output`
 - Start command: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
 - Health check path: `/healthz`
@@ -13,7 +14,8 @@
 
 ### Backend (Gulux server)
 
-- Build script: `./scripts/build-server.sh`
+- Build script: `./build.backend.sh`
+- Compatibility target: `./scripts/build-server.sh`
 - Start command: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
 - Required env:
   - `MONGODB_URI`
@@ -25,6 +27,10 @@
 ### Frontend Script
 
 File: `build.sh`
+
+Compatibility alias to `build.frontend.sh`.
+
+File: `build.frontend.sh`
 
 Responsibilities:
 
@@ -42,6 +48,8 @@ Why the bootstrap file exists:
 ### Backend Script
 
 File: `scripts/build-server.sh`
+
+Wrapped by root `build.backend.sh`.
 
 Responsibilities:
 
@@ -64,6 +72,7 @@ This is the preferred mode because:
 - it does not depend on `NEXT_PUBLIC_API_BASE` being injected at build time
 - it avoids backend CORS requirements
 - the browser never needs to call the backend domain directly
+- it matches the local debug scripts `npm run dev` and `npm run dev:proxy:boe`
 
 ### Direct Browser Backend Calls
 
@@ -81,6 +90,7 @@ If the browser requests `https://<frontend-domain>/api/*`, that is expected and 
 ### Frontend
 
 - Build command: `./build.sh`
+- Preferred explicit build command: `./build.frontend.sh`
 - `PRODUCT_OUTPUT_DIR`: `output`
 - Start command: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
 - Health check path: `/healthz`
@@ -89,6 +99,7 @@ If the browser requests `https://<frontend-domain>/api/*`, that is expected and 
 ### Backend
 
 - Build command: `./scripts/build-server.sh`
+- Preferred explicit build command: `./build.backend.sh`
 - Start command: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
 
 ## Verification

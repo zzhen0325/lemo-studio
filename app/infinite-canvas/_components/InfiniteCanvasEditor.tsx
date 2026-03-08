@@ -179,6 +179,10 @@ function formatEtaLabel(seconds?: number) {
   return `${mins}m ${rest}s`;
 }
 
+const EDITOR_ICON_BUTTON_CLASS = "studio-icon-button h-10 w-10 rounded-xl";
+const EDITOR_SECONDARY_BUTTON_CLASS = "studio-secondary-button h-8 rounded-lg text-xs";
+const EDITOR_COMPACT_BUTTON_CLASS = "studio-secondary-button h-7 rounded-md px-1 text-[10px]";
+const EDITOR_SIDE_PANEL_CLASS = "studio-panel-glass absolute top-4 z-40 h-[calc(100%-2rem)] w-[320px] overflow-hidden rounded-2xl";
 
 
 function intersectsRect(
@@ -2300,7 +2304,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
   if (loading || !project) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-[#161616] text-zinc-500 dark:text-[#D9D9D9]">
+      <div className="studio-shell flex min-h-screen items-center justify-center text-studio-muted">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         加载项目中...
       </div>
@@ -2315,36 +2319,36 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   const chromeLeft = sidePanelLeft + 4;
 
   return (
-    <div className="relative flex h-screen w-full overflow-hidden bg-zinc-50 dark:bg-[#161616] text-zinc-900 dark:text-[#D9D9D9] transition-colors">
-      <aside className="absolute left-4 top-4 z-40 flex flex-col gap-2 rounded-2xl border border-zinc-200 dark:border-[#4A4C4D] bg-white/60 dark:bg-[#2C2D2F]/60 p-2 backdrop-blur-xl">
+    <div className="studio-shell relative flex h-screen w-full overflow-hidden">
+      <aside className="studio-panel-frost absolute left-4 top-4 z-40 flex flex-col gap-2 rounded-2xl p-2">
         <Button
           size="icon"
           variant="ghost"
-          className="h-10 w-10 rounded-xl text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+          className={EDITOR_ICON_BUTTON_CLASS}
           onClick={() => router.push('/playground')}
           title="返回主页"
         >
           <Home className="h-4 w-4" />
         </Button>
 
-        <div className="h-px bg-zinc-200 dark:bg-[#4A4C4D]" />
+        <div className="h-px bg-studio-border" />
 
         <Button
           size="icon"
           variant="ghost"
-          className="h-10 w-10 rounded-xl text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+          className={EDITOR_ICON_BUTTON_CLASS}
           onClick={() => setProjectSidebarOpen((open) => !open)}
           title={projectSidebarOpen ? '收起项目侧栏' : '展开项目侧栏'}
         >
           {projectSidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
         </Button>
 
-        <div className="h-px bg-zinc-200 dark:bg-[#4A4C4D]" />
+        <div className="h-px bg-studio-border" />
 
         <Button
           size="icon"
           variant="ghost"
-          className="h-10 w-10 rounded-xl text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+          className={EDITOR_ICON_BUTTON_CLASS}
           onClick={() => createNodeAtCenter('text')}
           title="创建 Text 节点"
         >
@@ -2354,7 +2358,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         <Button
           size="icon"
           variant="ghost"
-          className="h-10 w-10 rounded-xl text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+          className={EDITOR_ICON_BUTTON_CLASS}
           onClick={() => createNodeAtCenter('image')}
           title="创建 Image 节点"
         >
@@ -2364,7 +2368,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         <Button
           size="icon"
           variant="ghost"
-          className="h-10 w-10 rounded-xl text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]"
+          className={EDITOR_ICON_BUTTON_CLASS}
           onClick={() => {
             if (!project || !canvasRef.current) return;
             const center = computeViewportCenter(viewport, {
@@ -2382,12 +2386,15 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           <GalleryHorizontalEnd className="h-4 w-4" />
         </Button>
 
-        <div className="h-px bg-zinc-200 dark:bg-[#4A4C4D]" />
+        <div className="h-px bg-studio-border" />
 
         <Button
           size="icon"
           variant="ghost"
-          className={cn('h-10 w-10 rounded-xl transition-colors hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]', activePanel === 'assets' ? 'bg-zinc-200 dark:bg-[#C8F88D]/20 text-zinc-900 dark:text-[#C8F88D]' : 'text-zinc-500 dark:text-[#A3A3A3]')}
+          className={cn(
+            'h-10 w-10 rounded-xl transition-colors hover:bg-studio-border hover:text-studio-foreground',
+            activePanel === 'assets' ? 'bg-studio-accent/15 text-studio-accent dark:bg-[#C8F88D]/20' : 'text-studio-muted',
+          )}
           onClick={() => setActivePanel((panel) => (panel === 'assets' ? null : 'assets'))}
           title="资产面板"
         >
@@ -2397,7 +2404,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         <Button
           size="icon"
           variant="ghost"
-          className={cn('h-10 w-10 rounded-xl transition-colors hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]', activePanel === 'history' ? 'bg-zinc-200 dark:bg-[#C8F88D]/20 text-zinc-900 dark:text-[#C8F88D]' : 'text-zinc-500 dark:text-[#A3A3A3]')}
+          className={cn(
+            'h-10 w-10 rounded-xl transition-colors hover:bg-studio-border hover:text-studio-foreground',
+            activePanel === 'history' ? 'bg-studio-accent/15 text-studio-accent dark:bg-[#C8F88D]/20' : 'text-studio-muted',
+          )}
           onClick={() => setActivePanel((panel) => (panel === 'history' ? null : 'history'))}
           title="历史记录"
         >
@@ -2407,7 +2417,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         <Button
           size="icon"
           variant="ghost"
-          className={cn('h-10 w-10 rounded-xl transition-colors hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]', activePanel === 'flows' ? 'bg-zinc-200 dark:bg-[#C8F88D]/20 text-zinc-900 dark:text-[#C8F88D]' : 'text-zinc-500 dark:text-[#A3A3A3]')}
+          className={cn(
+            'h-10 w-10 rounded-xl transition-colors hover:bg-studio-border hover:text-studio-foreground',
+            activePanel === 'flows' ? 'bg-studio-accent/15 text-studio-accent dark:bg-[#C8F88D]/20' : 'text-studio-muted',
+          )}
           onClick={() => setActivePanel((panel) => (panel === 'flows' ? null : 'flows'))}
           title="模板库"
         >
@@ -2417,7 +2430,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         <Button
           size="icon"
           variant="ghost"
-          className={cn('h-10 w-10 rounded-xl transition-colors hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]', activePanel === 'queue' ? 'bg-zinc-200 dark:bg-[#C8F88D]/20 text-zinc-900 dark:text-[#C8F88D]' : 'text-zinc-500 dark:text-[#A3A3A3]')}
+          className={cn(
+            'h-10 w-10 rounded-xl transition-colors hover:bg-studio-border hover:text-studio-foreground',
+            activePanel === 'queue' ? 'bg-studio-accent/15 text-studio-accent dark:bg-[#C8F88D]/20' : 'text-studio-muted',
+          )}
           onClick={() => setActivePanel((panel) => (panel === 'queue' ? null : 'queue'))}
           title="执行队列"
         >
@@ -2428,7 +2444,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       {projectSidebarOpen ? (
         <section
           data-panel
-          className="absolute top-4 z-40 h-[calc(100%-2rem)] w-[320px] overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#4A4C4D] bg-white/80 dark:bg-[#2C2D2F]/80 backdrop-blur-xl shadow-lg"
+          className={EDITOR_SIDE_PANEL_CLASS}
           style={{ left: projectSidebarLeft }}
         >
           <InfiniteCanvasProjectSidebar
@@ -2441,14 +2457,14 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       {activePanel ? (
         <section
           data-panel
-          className="absolute top-4 z-40 h-[calc(100%-2rem)] w-[320px] overflow-hidden rounded-2xl border border-zinc-200 dark:border-[#4A4C4D] bg-white/80 dark:bg-[#2C2D2F]/80 backdrop-blur-xl shadow-lg"
+          className={EDITOR_SIDE_PANEL_CLASS}
           style={{ left: sidePanelLeft }}
         >
           {activePanel === 'assets' ? (
             <div className="flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-[#4A4C4D] px-4 py-3">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]">Assets</p>
-                <Button size="sm" className="h-8 rounded-lg bg-zinc-900 text-white dark:bg-[#C8F88D] dark:text-[#0E0E0E] hover:opacity-90 transition-opacity" onClick={() => fileInputRef.current?.click()}>
+              <div className="flex items-center justify-between border-b border-studio-border px-4 py-3">
+                <p className="text-sm font-semibold text-studio-foreground">Assets</p>
+                <Button size="sm" className="studio-action-button h-8 rounded-lg" onClick={() => fileInputRef.current?.click()}>
                   <Upload className="mr-1.5 h-3.5 w-3.5" />上传
                 </Button>
                 <input
@@ -2465,18 +2481,18 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
                 {project.assets.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-transparent p-3 text-xs text-zinc-500 dark:text-[#737373]">暂无素材，上传后可一键插入画布。</p>
+                  <p className="rounded-lg border border-dashed border-studio-border bg-studio-surface-muted/60 p-3 text-xs text-studio-subtle">暂无素材，上传后可一键插入画布。</p>
                 ) : (
                   project.assets.map((asset) => (
-                    <div key={asset.assetId} className="rounded-xl border border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#161616] p-2">
-                      <div className="relative h-24 w-full overflow-hidden rounded-lg border border-zinc-100 dark:border-[#161616] bg-zinc-100 dark:bg-black/40">
+                    <div key={asset.assetId} className="rounded-xl border border-studio-border bg-studio-surface-muted p-2">
+                      <div className="relative h-24 w-full overflow-hidden rounded-lg border border-studio-surface-muted bg-studio-surface-strong dark:border-studio-canvas dark:bg-studio-canvas/40">
                         <Image src={asset.thumbnailUrl || asset.url} alt={asset.name} fill sizes="300px" className="object-cover" unoptimized />
                       </div>
-                      <p className="mt-2 truncate text-xs text-zinc-700 dark:text-[#D9D9D9]">{asset.name}</p>
+                      <p className="mt-2 truncate text-xs text-studio-foreground">{asset.name}</p>
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="mt-2 h-7 w-full rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#2C2D2F] text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+                        className="studio-secondary-button mt-2 h-7 w-full rounded-lg text-xs"
                         onClick={() => insertAssetAsNode(asset)}
                       >
                         插入画布
@@ -2490,25 +2506,25 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
           {activePanel === 'history' ? (
             <div className="flex h-full flex-col">
-              <div className="border-b border-zinc-200 dark:border-[#4A4C4D] px-4 py-3">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]">Generation History</p>
+              <div className="border-b border-studio-border px-4 py-3">
+                <p className="text-sm font-semibold text-studio-foreground">Generation History</p>
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
                 {project.history.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-transparent p-3 text-xs text-zinc-500 dark:text-[#737373]">暂无历史生成结果。</p>
+                  <p className="rounded-lg border border-dashed border-studio-border bg-studio-surface-muted/60 p-3 text-xs text-studio-subtle">暂无历史生成结果。</p>
                 ) : (
                   project.history.map((item) => (
-                    <div key={item.historyId} className="rounded-xl border border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#161616] p-2">
+                    <div key={item.historyId} className="rounded-xl border border-studio-border bg-studio-surface-muted p-2">
                       {item.outputUrl ? (
-                        <div className="relative h-24 w-full overflow-hidden rounded-lg border border-zinc-100 dark:border-[#161616] bg-zinc-100 dark:bg-black/40">
+                        <div className="relative h-24 w-full overflow-hidden rounded-lg border border-studio-surface-muted bg-studio-surface-strong dark:border-studio-canvas dark:bg-studio-canvas/40">
                           <Image src={item.outputUrl} alt="history" fill sizes="300px" className="object-cover" unoptimized />
                         </div>
                       ) : null}
-                      <p className="mt-2 line-clamp-2 text-[11px] text-zinc-600 dark:text-[#A3A3A3]">{item.promptSnapshot || '无 Prompt 快照'}</p>
+                      <p className="mt-2 line-clamp-2 text-[11px] text-studio-muted">{item.promptSnapshot || '无 Prompt 快照'}</p>
                       <Button
                         size="sm"
                         variant="secondary"
-                        className="mt-2 h-7 w-full rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#2C2D2F] text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+                        className="studio-secondary-button mt-2 h-7 w-full rounded-lg text-xs"
                         onClick={() => insertHistoryAsNode(item)}
                       >
                         继续编辑
@@ -2522,17 +2538,17 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
           {activePanel === 'flows' ? (
             <div className="flex h-full flex-col">
-              <div className="border-b border-zinc-200 dark:border-[#4A4C4D] px-4 py-3">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]">Flows Library</p>
+              <div className="border-b border-studio-border px-4 py-3">
+                <p className="text-sm font-semibold text-studio-foreground">Flows Library</p>
               </div>
-              <div className="flex-1 space-y-3 overflow-y-auto p-4 text-xs text-zinc-600 dark:text-[#A3A3A3]">
-                <div className="rounded-lg border border-zinc-200 dark:border-[#C8F88D]/20 bg-zinc-100 dark:bg-[#C8F88D]/10 p-3">
-                  <span className="text-zinc-700 dark:text-[#D9D9D9]">模板能力为 P1，当前提供快捷创建：</span>
+              <div className="flex-1 space-y-3 overflow-y-auto p-4 text-xs text-studio-muted">
+                <div className="rounded-lg border border-studio-accent/20 bg-studio-accent/10 p-3">
+                  <span className="text-studio-foreground">模板能力为 P1，当前提供快捷创建：</span>
                   <div className="mt-2 flex gap-2">
-                    <Button size="sm" className="h-7 rounded-lg bg-zinc-900 text-white dark:bg-[#C8F88D] dark:text-[#0E0E0E] hover:opacity-90" onClick={() => createNodeAtCenter('text')}>
+                    <Button size="sm" className="studio-action-button h-7 rounded-lg" onClick={() => createNodeAtCenter('text')}>
                       Text 模板
                     </Button>
-                    <Button size="sm" className="h-7 rounded-lg bg-zinc-900 text-white dark:bg-[#C8F88D] dark:text-[#0E0E0E] hover:opacity-90" onClick={() => createNodeAtCenter('image')}>
+                    <Button size="sm" className="studio-action-button h-7 rounded-lg" onClick={() => createNodeAtCenter('image')}>
                       Image 模板
                     </Button>
                   </div>
@@ -2543,12 +2559,12 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
           {activePanel === 'queue' ? (
             <div className="flex h-full flex-col">
-              <div className="border-b border-zinc-200 dark:border-[#4A4C4D] px-4 py-3">
-                <p className="text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]">Run Queue</p>
+              <div className="border-b border-studio-border px-4 py-3">
+                <p className="text-sm font-semibold text-studio-foreground">Run Queue</p>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto p-4">
                 {project.runQueue.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-transparent p-3 text-xs text-zinc-500 dark:text-[#737373]">暂无任务。</p>
+                  <p className="rounded-lg border border-dashed border-studio-border bg-studio-surface-muted/60 p-3 text-xs text-studio-subtle">暂无任务。</p>
                 ) : (
                   project.runQueue.map((item) => {
                     const progress = Math.max(0, Math.min(1, item.progress ?? (item.status === 'success' ? 1 : 0)));
@@ -2556,21 +2572,21 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                     const showProgress = item.status === 'running' || item.status === 'success';
 
                     return (
-                      <div key={item.queueId} className="rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-white dark:bg-[#161616] p-2 text-xs">
+                      <div key={item.queueId} className="rounded-lg border border-studio-border bg-studio-surface-muted p-2 text-xs">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-zinc-700 dark:text-[#D9D9D9]">{item.nodeTitle}</p>
-                          <span className="rounded border border-zinc-200 dark:border-[#4A4C4D] px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 dark:text-[#A3A3A3]">{item.status}</span>
+                          <p className="truncate text-studio-foreground">{item.nodeTitle}</p>
+                          <span className="rounded border border-studio-border px-1.5 py-0.5 text-[10px] uppercase text-studio-muted">{item.status}</span>
                         </div>
 
                         {showProgress ? (
                           <div className="mt-2 space-y-1">
-                            <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-[#A3A3A3]">
+                            <div className="flex items-center justify-between text-[10px] text-studio-muted">
                               <span>{progressPercent}%</span>
                               <span>ETA {formatEtaLabel(item.etaSeconds)}</span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-zinc-200 dark:bg-[#2C2D2F]">
+                            <div className="h-1.5 rounded-full bg-studio-surface">
                               <div
-                                className="h-full rounded-full bg-zinc-700 dark:bg-[#C8F88D]"
+                                className="h-full rounded-full bg-studio-accent"
                                 style={{ width: `${Math.max(4, progressPercent)}%` }}
                               />
                             </div>
@@ -2582,7 +2598,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-6 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#2C2D2F] px-2 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+                            className="studio-secondary-button h-6 rounded-md px-2 text-[10px]"
                             onClick={() => runSingleNode(item.nodeId)}
                           >
                             重试
@@ -2616,16 +2632,16 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                 draft.projectName = sanitizeName(draft.projectName);
               });
             }}
-            className="h-10 w-30 text-sm font-semibold border-none text-zinc-900 dark:text-[#D9D9D9] "
+            className="h-10 w-30 border-none bg-transparent text-sm font-semibold text-studio-foreground"
           />
-          <span className="text-xs text-zinc-500 dark:text-[#737373]">{saving ? '保存中...' : `已保存 ${lastSavedAt ? new Date(lastSavedAt).toLocaleTimeString() : '--'}`}</span>
+          <span className="text-xs text-studio-subtle">{saving ? '保存中...' : `已保存 ${lastSavedAt ? new Date(lastSavedAt).toLocaleTimeString() : '--'}`}</span>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="secondary"
-            className="h-8 rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+            className={EDITOR_SECONDARY_BUTTON_CLASS}
             onClick={handleUndo}
             disabled={undoStack.length === 0}
           >
@@ -2634,14 +2650,14 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           <Button
             size="sm"
             variant="secondary"
-            className="h-8 rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+            className={EDITOR_SECONDARY_BUTTON_CLASS}
             onClick={handleRedo}
             disabled={redoStack.length === 0}
           >
             Redo
           </Button>
 
-          <Button size="sm" className="h-8 rounded-lg bg-zinc-900 text-white dark:bg-[#C8F88D] px-3 text-xs font-semibold dark:text-[#0E0E0E] hover:opacity-90 transition-opacity" onClick={runSelectedNodes} disabled={running}>
+          <Button size="sm" className="studio-action-button h-8 rounded-lg px-3 text-xs font-semibold" onClick={runSelectedNodes} disabled={running}>
             {running ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
             运行
           </Button>
@@ -2649,58 +2665,58 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           <Button
             size="sm"
             variant="secondary"
-            className="h-8 rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-3 text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+            className="studio-secondary-button h-8 rounded-lg px-3 text-xs"
             onClick={stopRunning}
             disabled={!running}
           >
             <Square className="mr-1.5 h-3.5 w-3.5" />停止
           </Button>
 
-          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]" onClick={() => setViewport((current) => ({ ...current, scale: Math.min(2.4, current.scale * 1.1) }))}>
+          <Button size="icon" variant="ghost" className="studio-icon-button h-8 w-8 rounded-lg" onClick={() => setViewport((current) => ({ ...current, scale: Math.min(2.4, current.scale * 1.1) }))}>
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-zinc-500 dark:text-[#A3A3A3] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D] hover:text-zinc-900 dark:hover:text-[#D9D9D9]" onClick={() => setViewport((current) => ({ ...current, scale: Math.max(0.2, current.scale * 0.9) }))}>
+          <Button size="icon" variant="ghost" className="studio-icon-button h-8 w-8 rounded-lg" onClick={() => setViewport((current) => ({ ...current, scale: Math.max(0.2, current.scale * 0.9) }))}>
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="secondary" className="h-8 rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={fitCanvas}>
+          <Button size="sm" variant="secondary" className={EDITOR_SECONDARY_BUTTON_CLASS} onClick={fitCanvas}>
             适配画布 ({Math.round(viewport.scale * 100)}%)
           </Button>
         </div>
       </header>
 
-      <div className="absolute right-4 top-20 z-20 w-[300px] rounded-2xl border border-zinc-200 dark:border-[#4A4C4D] bg-white/80 dark:bg-[#2C2D2F]/80 p-4 backdrop-blur-xl shadow-lg">
-        <div className="space-y-2 text-xs text-zinc-600 dark:text-[#A3A3A3]">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-[#D9D9D9]">项目信息</p>
+      <div className="studio-panel-glass absolute right-4 top-20 z-20 w-[300px] rounded-2xl p-4">
+        <div className="space-y-2 text-xs text-studio-muted">
+          <p className="text-sm font-semibold text-studio-foreground">项目信息</p>
           <p>节点数：{project.nodes.length}</p>
           <p>连线数：{project.edges.length}</p>
           <p>历史输出：{project.history.length}</p>
           <p>当前选中：{selectedNodeIds.length}</p>
-          <p className="rounded-lg border border-zinc-200 dark:border-[#C8F88D]/20 bg-zinc-100 dark:bg-[#C8F88D]/10 p-2 text-[11px] text-zinc-700 dark:text-[#C8F88D]">
+          <p className="rounded-lg border border-studio-accent/20 bg-studio-accent/10 p-2 text-[11px] text-studio-foreground dark:text-studio-accent">
             节点参数（模型、比例、尺寸、批量、Seed）请直接在节点卡片中修改。
           </p>
           <div className="space-y-1.5 pt-1">
-            <p className="text-[11px] text-zinc-700 dark:text-[#D9D9D9]">对齐</p>
+            <p className="text-[11px] text-studio-foreground">对齐</p>
             <div className="grid grid-cols-3 gap-1">
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('left')} disabled={selectedNodeIds.length < 2}>左</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('hCenter')} disabled={selectedNodeIds.length < 2}>中</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('right')} disabled={selectedNodeIds.length < 2}>右</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('top')} disabled={selectedNodeIds.length < 2}>上</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('vCenter')} disabled={selectedNodeIds.length < 2}>中线</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('bottom')} disabled={selectedNodeIds.length < 2}>下</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('left')} disabled={selectedNodeIds.length < 2}>左</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('hCenter')} disabled={selectedNodeIds.length < 2}>中</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('right')} disabled={selectedNodeIds.length < 2}>右</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('top')} disabled={selectedNodeIds.length < 2}>上</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('vCenter')} disabled={selectedNodeIds.length < 2}>中线</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('bottom')} disabled={selectedNodeIds.length < 2}>下</Button>
             </div>
-            <p className="pt-1 text-[11px] text-zinc-700 dark:text-[#D9D9D9]">排列</p>
+            <p className="pt-1 text-[11px] text-studio-foreground">排列</p>
             <div className="grid grid-cols-2 gap-1">
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('hDistribute')} disabled={selectedNodeIds.length < 3}>横向分布</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('vDistribute')} disabled={selectedNodeIds.length < 3}>纵向分布</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('tidy')} disabled={selectedNodeIds.length < 2}>网格整理</Button>
-              <Button size="sm" variant="secondary" className="h-7 rounded-md border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] px-1 text-[10px] text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]" onClick={() => alignSelectedNodes('topology')}>拓扑整理</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('hDistribute')} disabled={selectedNodeIds.length < 3}>横向分布</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('vDistribute')} disabled={selectedNodeIds.length < 3}>纵向分布</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('tidy')} disabled={selectedNodeIds.length < 2}>网格整理</Button>
+              <Button size="sm" variant="secondary" className={EDITOR_COMPACT_BUTTON_CLASS} onClick={() => alignSelectedNodes('topology')}>拓扑整理</Button>
             </div>
           </div>
           <div className="pt-2">
             <Button
               size="sm"
               variant="secondary"
-              className="h-8 rounded-lg border border-zinc-200 dark:border-[#4A4C4D] bg-zinc-50 dark:bg-[#161616] text-xs text-zinc-700 dark:text-[#D9D9D9] hover:bg-zinc-100 dark:hover:bg-[#4A4C4D]"
+              className={EDITOR_SECONDARY_BUTTON_CLASS}
               onClick={async () => {
                 try {
                   const response = await createProject(`${project.projectName} 副本`);
@@ -2765,7 +2781,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
                 className={cn(
                   isProcessing
                     ? "stroke-amber-500 opacity-80 animate-[flow_1s_linear_infinite]"
-                    : "stroke-[#0E0E0E] dark:stroke-[#737373] opacity-30 animate-[flow_4s_linear_infinite]"
+                    : "stroke-zinc-900 dark:stroke-studio-subtle opacity-30 animate-[flow_4s_linear_infinite]"
                 )}
                 strokeWidth={isProcessing ? 3 : 2}
                 strokeDasharray="6 6"
@@ -2882,7 +2898,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       </div>
 
       <footer
-        className="absolute bottom-4 z-20 flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-[#4A4C4D] bg-white/60 dark:bg-[#2C2D2F]/60 px-3 py-2 text-xs text-zinc-600 dark:text-[#A3A3A3] backdrop-blur-xl shadow-sm"
+        className="studio-panel-frost absolute bottom-4 z-20 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-studio-muted shadow-sm"
         style={{ left: chromeLeft }}
       >
         <Save className="h-3.5 w-3.5" />

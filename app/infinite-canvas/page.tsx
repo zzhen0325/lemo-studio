@@ -47,7 +47,7 @@ export default function InfiniteCanvasPage() {
 
   if (!error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 text-zinc-600 dark:bg-[#161616] dark:text-[#D9D9D9]">
+      <div className="studio-shell flex min-h-screen items-center justify-center text-studio-muted">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         正在进入画布...
       </div>
@@ -55,9 +55,9 @@ export default function InfiniteCanvasPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-50 px-6 text-center text-zinc-700 dark:bg-[#161616] dark:text-[#D9D9D9]">
+    <div className="studio-shell flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center text-studio-foreground">
       <p className="text-sm">{error}</p>
-      <Button onClick={() => window.location.reload()} className="h-9 rounded-lg">
+      <Button onClick={() => window.location.reload()} className="studio-action-button h-9 rounded-lg">
         重试
       </Button>
     </div>
