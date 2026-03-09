@@ -698,7 +698,7 @@ export function SettingsView() {
                                                         ComfyUI Endpoint
                                                     </div>
                                                     <div className="text-[12.5px] text-zinc-400 pl-6">
-                                                        Managed by env `COMFYUI_API_URL` (read-only in this environment)
+                                                        Browser direct mode uses env `NEXT_PUBLIC_COMFYUI_URL` (read-only in this environment)
                                                     </div>
                                                 </div>
                                                 <div className="w-[300px]">

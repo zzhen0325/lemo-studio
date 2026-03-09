@@ -1,4 +1,6 @@
 import { IViewComfy } from "@/types/comfy-input";
+import { runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
+import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from "@/lib/comfyui/direct-config";
 import { ErrorTypes, ResponseError } from "@/lib/models/errors";
 import { useSearchParams } from "next/navigation";
 import { useState, useCallback } from "react"
@@ -23,22 +25,35 @@ export const usePostPlayground = () => {
     const doPost = useCallback(async ({ viewComfy, workflow, viewcomfyEndpoint, onSuccess, onError }: IUsePostPlayground) => {
         setLoading(true);
         try {
-            const url = `${getApiBase()}/comfy`;
+            const apiBase = getApiBase();
+            const url = `${apiBase}/comfy`;
+            const directComfyUrl = getConfiguredDirectComfyUrl();
 
-            const formData = new FormData();
-
+            let apiKeyFromLocalStorage: string | undefined;
             try {
                 const storedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
-                let apiKeyFromLocalStorage: string | undefined;
                 if (storedSettings) {
                     const settings = JSON.parse(storedSettings);
                     if (settings.apiKey) apiKeyFromLocalStorage = settings.apiKey;
                 }
-                if (apiKeyFromLocalStorage) {
-                    formData.append('apiKey', apiKeyFromLocalStorage);
-                }
             } catch (e) {
                 console.error("Failed to load settings", e);
+            }
+
+            if (workflow && shouldUseDirectComfyUi(directComfyUrl)) {
+                const blobs = await runDirectComfyWorkflow({
+                    workflow,
+                    viewComfy,
+                    apiKey: apiKeyFromLocalStorage,
+                    comfyUrl: directComfyUrl,
+                });
+                onSuccess(blobs);
+                return;
+            }
+
+            const formData = new FormData();
+            if (apiKeyFromLocalStorage) {
+                formData.append('apiKey', apiKeyFromLocalStorage);
             }
 
             const viewComfyJSON: IViewComfy = {

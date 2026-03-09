@@ -1,15 +1,5 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildFluxKleinWorkflow } from '@/lib/api/fluxklein-workflow';
-
-vi.mock('@/lib/runtime-assets', () => ({
-  readJsonAsset: async (relativePath: string) => {
-    const absolutePath = path.join(process.cwd(), relativePath);
-    const content = await fs.readFile(absolutePath, 'utf-8');
-    return JSON.parse(content);
-  },
-}));
 
 type WorkflowNode = {
   class_type?: string;

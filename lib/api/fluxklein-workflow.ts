@@ -1,5 +1,5 @@
-import path from "node:path";
-import { readJsonAsset } from "../runtime-assets";
+import fluxKleinI2iTemplate from "@/workflows/templates/flux-klein/Flux_klein_I2I.json";
+import fluxKleinT2iTemplate from "@/workflows/templates/flux-klein/Flux_klein_T2I.json";
 
 type WorkflowNode = {
   class_type?: string;
@@ -23,13 +23,16 @@ type FluxKleinBuildResult = {
 };
 
 const templateCache: { t2i?: Workflow; i2i?: Workflow } = {};
+const TEMPLATE_MAP: Record<"t2i" | "i2i", Workflow> = {
+  t2i: fluxKleinT2iTemplate as Workflow,
+  i2i: fluxKleinI2iTemplate as Workflow,
+};
 
 async function loadTemplate(name: "t2i" | "i2i"): Promise<Workflow> {
   const cached = templateCache[name];
   if (cached) return cached;
-  const fileName = name === "t2i" ? "Flux_klein_T2I.json" : "Flux_klein_I2I.json";
-  const relativePath = path.join("workflows", "templates", "flux-klein", fileName).replace(/\\/g, "/");
-  const parsed = await readJsonAsset<Workflow>(relativePath);
+
+  const parsed = TEMPLATE_MAP[name];
   templateCache[name] = parsed;
   return parsed;
 }

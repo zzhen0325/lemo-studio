@@ -1,4 +1,7 @@
 import { getApiBase } from '@/lib/api-base';
+import { buildFluxKleinWorkflow } from '@/lib/api/fluxklein-workflow';
+import { runDirectComfyWorkflow } from '@/lib/comfyui/browser-client';
+import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from '@/lib/comfyui/direct-config';
 import type {
   InfiniteCanvasProject,
   InfiniteCanvasProjectSummary,
@@ -98,6 +101,28 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 
 async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string[] }> {
   const { width, height } = parseSize(payload.imageSize);
+  const directComfyUrl = getConfiguredDirectComfyUrl();
+
+  if (shouldUseDirectComfyUi(directComfyUrl)) {
+    const { workflow, viewComfyInputs } = await buildFluxKleinWorkflow({
+      prompt: payload.prompt,
+      width,
+      height,
+      seed: payload.seed,
+      batchSize: payload.batchSize,
+      referenceImages: payload.referenceImages,
+    });
+    const blobs = await runDirectComfyWorkflow({
+      workflow,
+      viewComfy: {
+        inputs: viewComfyInputs,
+        textOutputEnabled: false,
+      },
+      comfyUrl: directComfyUrl,
+    });
+    const images = await Promise.all(blobs.map((blob) => blobToDataUrl(blob)));
+    return { images: images.filter(Boolean) };
+  }
 
   const response = await fetch(`${apiBase}/comfy-fluxklein`, {
     method: 'POST',
