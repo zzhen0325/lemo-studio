@@ -46,6 +46,20 @@ const PROVIDER_ENV_MAP: Record<string, string> = {
     'provider-workflow-local': ''
 };
 
+function getGoogleEnvApiKey(): string {
+    return process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || '';
+}
+
+function resolveProviderApiKey(provider: ProviderRuntimeConfig): string {
+    if (provider.id === 'provider-google') {
+        return getGoogleEnvApiKey() || provider.apiKey || '';
+    }
+
+    const envVarName = provider.id ? PROVIDER_ENV_MAP[provider.id] : '';
+    const envApiKey = envVarName ? process.env[envVarName] || '' : '';
+    return provider.apiKey || envApiKey;
+}
+
 // 根据modelId查找对应的provider配置
 export function findProviderConfigForModel(
     modelId: string,
@@ -57,11 +71,7 @@ export function findProviderConfigForModel(
         if (!provider.isEnabled) continue;
         for (const model of (provider.models || [])) {
             if (model.modelId === modelId) {
-                // 如果 providers.json 中没有 key，尝试从环境变量读取
-                let apiKey = provider.apiKey;
-                if (!apiKey && provider.id && PROVIDER_ENV_MAP[provider.id]) {
-                    apiKey = process.env[PROVIDER_ENV_MAP[provider.id]] || '';
-                }
+                const apiKey = resolveProviderApiKey(provider);
 
                 return {
                     apiKey: apiKey,
@@ -72,10 +82,7 @@ export function findProviderConfigForModel(
         }
         // 模糊匹配：如果modelId以provider的模型前缀开头
         if (modelId.startsWith('doubao-') && (provider.models || []).some(m => m.modelId.startsWith('doubao-'))) {
-            let apiKey = provider.apiKey;
-            if (!apiKey && PROVIDER_ENV_MAP['provider-doubao']) {
-                apiKey = process.env.DOUBAO_API_KEY || '';
-            }
+            const apiKey = resolveProviderApiKey(provider);
             return {
                 apiKey: apiKey,
                 baseURL: provider.baseURL,
@@ -83,10 +90,7 @@ export function findProviderConfigForModel(
             };
         }
         if (modelId.startsWith('gemini-') && (provider.models || []).some(m => m.modelId.startsWith('gemini-'))) {
-            let apiKey = provider.apiKey;
-            if (!apiKey && PROVIDER_ENV_MAP['provider-google']) {
-                apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
-            }
+            const apiKey = resolveProviderApiKey(provider);
             return {
                 apiKey: apiKey,
                 baseURL: provider.baseURL,
@@ -98,6 +102,11 @@ export function findProviderConfigForModel(
 }
 
 export function getGoogleApiKey(providersInput?: ProviderRuntimeConfig[]): string {
+    const envApiKey = getGoogleEnvApiKey();
+    if (envApiKey) {
+        return envApiKey;
+    }
+
     const providers = providersInput && providersInput.length > 0 ? providersInput : readProvidersConfig();
     const googleProvider = providers.find((provider) => provider.id === 'provider-google' && provider.isEnabled);
     if (googleProvider?.apiKey) {
@@ -105,7 +114,7 @@ export function getGoogleApiKey(providersInput?: ProviderRuntimeConfig[]): strin
     }
 
     const config = findProviderConfigForModel('gemini-3-pro-image-preview', providers);
-    return config?.apiKey || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
+    return config?.apiKey || '';
 }
 
 export function getProvider(

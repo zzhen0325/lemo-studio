@@ -23,6 +23,10 @@ type RunDirectComfyWorkflowArgs = {
   requestId?: string;
 };
 
+export type DirectComfyAvailability =
+  | { available: true }
+  | { available: false; reason: string };
+
 const CONNECT_TIMEOUT_MS = 15_000;
 const EXECUTION_TIMEOUT_MS = 300_000;
 
@@ -56,6 +60,36 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
     throw error;
   } finally {
     window.clearTimeout(timer);
+  }
+}
+
+export async function probeDirectComfyAvailability({
+  apiKey,
+  comfyUrl,
+}: {
+  apiKey?: string;
+  comfyUrl?: string | null;
+}): Promise<DirectComfyAvailability> {
+  if (typeof window === "undefined") {
+    return { available: false, reason: "Direct ComfyUI mode is only available in the browser." };
+  }
+
+  const endpoints = getDirectComfyEndpoints(comfyUrl);
+  if (!endpoints) {
+    return { available: false, reason: "Direct ComfyUI URL is not configured." };
+  }
+
+  try {
+    await fetchWithTimeout(`${endpoints.httpBase}/prompt`, {
+      method: "GET",
+      headers: buildHeaders(apiKey),
+    }, 5_000);
+    return { available: true };
+  } catch (error) {
+    return {
+      available: false,
+      reason: error instanceof Error && error.message ? error.message : "Failed to reach ComfyUI from the browser.",
+    };
   }
 }
 

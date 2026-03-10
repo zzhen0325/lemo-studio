@@ -141,7 +141,7 @@
     "id": "provider-google",
     "name": "Google Gemini",
     "providerType": "google-genai",
-    "apiKey": "AIzaSyBAtO6bs0mve4AXhLyy-hJB4X2HD_dJqP0",
+    "apiKey": "",
     "baseURL": "",
     "models": [
       {

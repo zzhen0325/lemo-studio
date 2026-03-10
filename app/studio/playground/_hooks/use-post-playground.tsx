@@ -1,5 +1,5 @@
 import { IViewComfy } from "@/types/comfy-input";
-import { runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
+import { probeDirectComfyAvailability, runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
 import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from "@/lib/comfyui/direct-config";
 import { ErrorTypes, ResponseError } from "@/lib/models/errors";
 import { useSearchParams } from "next/navigation";
@@ -28,6 +28,7 @@ export const usePostPlayground = () => {
             const apiBase = getApiBase();
             const url = `${apiBase}/comfy`;
             const directComfyUrl = getConfiguredDirectComfyUrl();
+            const wantsDirectComfy = shouldUseDirectComfyUi(directComfyUrl);
 
             let apiKeyFromLocalStorage: string | undefined;
             try {
@@ -40,15 +41,27 @@ export const usePostPlayground = () => {
                 console.error("Failed to load settings", e);
             }
 
-            if (workflow && shouldUseDirectComfyUi(directComfyUrl)) {
-                const blobs = await runDirectComfyWorkflow({
-                    workflow,
-                    viewComfy,
+            if (workflow && wantsDirectComfy) {
+                const directAvailability = await probeDirectComfyAvailability({
                     apiKey: apiKeyFromLocalStorage,
                     comfyUrl: directComfyUrl,
                 });
-                onSuccess(blobs);
-                return;
+
+                if (!directAvailability.available) {
+                    console.warn("[usePostPlayground] Direct ComfyUI unavailable, falling back to server proxy.", {
+                        comfyUrl: directComfyUrl,
+                        reason: directAvailability.reason,
+                    });
+                } else {
+                    const blobs = await runDirectComfyWorkflow({
+                        workflow,
+                        viewComfy,
+                        apiKey: apiKeyFromLocalStorage,
+                        comfyUrl: directComfyUrl,
+                    });
+                    onSuccess(blobs);
+                    return;
+                }
             }
 
             const formData = new FormData();

@@ -71,30 +71,6 @@ function extractDoubaoOutputText(data: DoubaoResponse): string {
   return "";
 }
 
-function normalizeFileType(value: string | undefined): string {
-  if (!value) return "png";
-
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) return "png";
-
-  if (normalized.includes("/")) {
-    const mimeType = normalized.split(";")[0];
-    const subType = mimeType.split("/")[1] || "";
-    if (!subType) return "png";
-    if (subType === "jpg") return "jpeg";
-    return subType.replace(/[^a-z0-9]/g, "") || "png";
-  }
-
-  if (normalized === "jpg") return "jpeg";
-  return normalized.replace(/[^a-z0-9]/g, "") || "png";
-}
-
-function inferFileTypeFromUrl(url: string): string | undefined {
-  const match = url.match(/\.([a-zA-Z0-9]+)(?:[?#][^#?]*)?$/);
-  if (!match?.[1]) return undefined;
-  return normalizeFileType(match[1]);
-}
-
 function isLikelyBase64(value: string): boolean {
   if (!value || value.length < 24) return false;
   const sanitized = value.replace(/\s+/g, "");
@@ -107,10 +83,9 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
   }
 
   if (imageInput.startsWith("data:")) {
-    const mimeMatch = imageInput.match(/^data:([^;,]+);base64,/i);
     return {
       url: imageInput,
-      file_type: normalizeFileType(mimeMatch?.[1]),
+      file_type: "image",
     };
   }
 
@@ -121,14 +96,14 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
     }
     return {
       url: `data:${localImage.mimeType};base64,${localImage.data}`,
-      file_type: normalizeFileType(localImage.mimeType),
+      file_type: "image",
     };
   }
 
   if (/^https?:\/\//i.test(imageInput)) {
     return {
       url: imageInput,
-      file_type: inferFileTypeFromUrl(imageInput) || "png",
+      file_type: "image",
     };
   }
 
@@ -136,7 +111,7 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
     const sanitized = imageInput.replace(/\s+/g, "");
     return {
       url: `data:image/png;base64,${sanitized}`,
-      file_type: "png",
+      file_type: "image",
     };
   }
 
@@ -241,18 +216,10 @@ function extractCozeWorkflowImageUrls(payload: unknown): string[] {
 function buildCozePromptTextPayload(params: {
   input: string;
   systemPrompt?: string;
-  mode: "optimize" | "describe";
-}): Record<string, unknown> {
+}): string {
   const input = params.input.trim();
   const systemPrompt = (params.systemPrompt || "").trim();
-  const mergedInput = systemPrompt ? `${systemPrompt}\n\n${input}` : input;
-
-  return {
-    mode: params.mode,
-    input: mergedInput,
-    prompt: input,
-    system_prompt: systemPrompt,
-  };
+  return systemPrompt ? `${systemPrompt}\n\n${input}` : input;
 }
 
 function extractCozePromptText(payload: unknown): string {
@@ -800,14 +767,9 @@ export class CozePromptProvider implements TextProvider, VisionProvider {
     }
 
     const body = {
-      image: {
-        url: "",
-        file_type: "",
-      },
       text: buildCozePromptTextPayload({
         input,
         systemPrompt: params.systemPrompt,
-        mode: "optimize",
       }),
     };
 
@@ -824,7 +786,6 @@ export class CozePromptProvider implements TextProvider, VisionProvider {
       text: buildCozePromptTextPayload({
         input: prompt,
         systemPrompt: params.systemPrompt,
-        mode: "describe",
       }),
     };
 
@@ -845,8 +806,8 @@ export class CozePromptProvider implements TextProvider, VisionProvider {
   }
 
   private async callRunApi(payload: {
-    image: CozePromptImagePayload;
-    text: Record<string, unknown>;
+    image?: CozePromptImagePayload;
+    text: string;
   }): Promise<string> {
     const resolvedApiKey = this.resolveApiKey();
     const headers: Record<string, string> = {

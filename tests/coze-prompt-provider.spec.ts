@@ -46,11 +46,8 @@ describe("CozePromptProvider", () => {
     expect(url).toBe("https://m5385m4ryw.coze.site/run");
 
     const body = JSON.parse(String(options?.body));
-    expect(body.image).toEqual({ url: "", file_type: "" });
-    expect(body.text.mode).toBe("optimize");
-    expect(body.text.prompt).toBe("a cat on the table");
-    expect(body.text.system_prompt).toBe("optimize this prompt");
-    expect(body.text.input).toContain("optimize this prompt");
+    expect(body.image).toBeUndefined();
+    expect(body.text).toBe("optimize this prompt\n\na cat on the table");
   });
 
   it("supports describe payload with image + prompt", async () => {
@@ -86,11 +83,9 @@ describe("CozePromptProvider", () => {
     expect(url).toBe("https://custom.coze.site/run");
 
     const body = JSON.parse(String(options?.body));
-    expect(body.image.file_type).toBe("jpeg");
+    expect(body.image.file_type).toBe("image");
     expect(body.image.url).toBe("data:image/jpeg;base64,AAAA");
-    expect(body.text.mode).toBe("describe");
-    expect(body.text.prompt).toBe("请描述图像内容");
-    expect(body.text.system_prompt).toBe("仅输出中文");
+    expect(body.text).toBe("仅输出中文\n\n请描述图像内容");
   });
 
   it("prefers COZE_PROMPT_API_TOKEN over provider apiKey", async () => {
