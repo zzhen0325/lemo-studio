@@ -88,6 +88,10 @@ const disableNextImageOptimization = parseBooleanEnv(
   true
 );
 
+if (process.env.NODE_ENV === 'production' && !disableNextImageOptimization) {
+  console.warn('[next.config] NEXT_DISABLE_IMAGE_OPTIMIZATION=false enables the Next image optimizer. This can cause 504s when the frontend runtime cannot reach remote CDN assets reliably.');
+}
+
 const legacyStudioRouteRedirects = [
   { source: '/playground', destination: '/studio/playground', permanent: false },
   { source: '/mapping-editor', destination: '/studio/mapping-editor', permanent: false },

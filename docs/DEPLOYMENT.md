@@ -73,6 +73,7 @@ This is the preferred mode because:
 - it avoids backend CORS requirements
 - the browser never needs to call the backend domain directly
 - it matches the local debug scripts `npm run dev` and `npm run dev:proxy:boe`
+- it keeps long-running image generation off the frontend BOE proxy path when `NEXT_PUBLIC_API_BASE` is correctly injected into the runtime
 
 ### Direct Browser Backend Calls
 
@@ -84,6 +85,13 @@ Requirements:
 - set backend `CORS_ALLOW_ORIGINS=https://<frontend-domain>`
 
 If the browser requests `https://<frontend-domain>/api/*`, that is expected and correct in proxy mode.
+
+### Production Image Generation Notes
+
+- Prefer `NEXT_DISABLE_IMAGE_OPTIMIZATION=true` so remote CDN images do not route through Next's `/_next/image` optimizer.
+- Set `NEXT_PUBLIC_BASE_URL=https://<frontend-domain>` on the backend when reference-image or image-edit flows can submit relative paths such as `/upload/*` or `/outputs/*`.
+- Do not set `NEXT_PUBLIC_COMFYUI_URL` on an HTTPS frontend unless ComfyUI is available behind HTTPS/WSS; otherwise browser direct mode will be disabled and Flux will fall back to the server path.
+- For `seed4_v2_0226lemo` and other AFR-backed models, explicitly configure `GATEWAY_BASE_URL`, `BYTEDANCE_AID`, `BYTEDANCE_APP_KEY`, and `BYTEDANCE_APP_SECRET`.
 
 ## Recommended Platform Configuration
 

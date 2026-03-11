@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertDirectComfyCompatibility,
+  getDirectComfyDecision,
   getDirectComfyEndpoints,
   resolveDirectComfyUrl,
 } from "@/lib/comfyui/direct-config";
@@ -21,5 +22,13 @@ describe("direct ComfyUI config", () => {
     const comfyUrl = resolveDirectComfyUrl("http://10.75.169.12:1000/");
     expect(comfyUrl).not.toBeNull();
     expect(() => assertDirectComfyCompatibility(comfyUrl as URL, "https:")).toThrow(/HTTPS pages/);
+  });
+
+  it("returns a clear disabled decision for HTTPS pages with HTTP ComfyUI", () => {
+    expect(getDirectComfyDecision("http://10.75.169.12:1000/", "https:")).toEqual({
+      enabled: false,
+      reason: expect.stringMatching(/HTTPS pages/),
+      comfyUrl: "http://10.75.169.12:1000/",
+    });
   });
 });

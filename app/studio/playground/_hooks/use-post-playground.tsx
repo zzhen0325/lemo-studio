@@ -1,6 +1,6 @@
 import { IViewComfy } from "@/types/comfy-input";
 import { probeDirectComfyAvailability, runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
-import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from "@/lib/comfyui/direct-config";
+import { getConfiguredDirectComfyUrl, getDirectComfyDecision } from "@/lib/comfyui/direct-config";
 import { ErrorTypes, ResponseError } from "@/lib/models/errors";
 import { useSearchParams } from "next/navigation";
 import { useState, useCallback } from "react"
@@ -28,7 +28,8 @@ export const usePostPlayground = () => {
             const apiBase = getApiBase();
             const url = `${apiBase}/comfy`;
             const directComfyUrl = getConfiguredDirectComfyUrl();
-            const wantsDirectComfy = shouldUseDirectComfyUi(directComfyUrl);
+            const directComfyDecision = getDirectComfyDecision(directComfyUrl);
+            const wantsDirectComfy = directComfyDecision.enabled;
 
             let apiKeyFromLocalStorage: string | undefined;
             try {
@@ -39,6 +40,15 @@ export const usePostPlayground = () => {
                 }
             } catch (e) {
                 console.error("Failed to load settings", e);
+            }
+
+            if (!wantsDirectComfy && directComfyUrl) {
+                console.warn("[usePostPlayground] Direct ComfyUI disabled for current runtime.", {
+                    apiBase,
+                    comfyUrl: directComfyDecision.comfyUrl || directComfyUrl,
+                    reason: directComfyDecision.reason,
+                    pageProtocol: typeof window !== "undefined" ? window.location.protocol : undefined,
+                });
             }
 
             if (workflow && wantsDirectComfy) {

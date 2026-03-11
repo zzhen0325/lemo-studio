@@ -5,8 +5,16 @@ import { ComfyErrorHandler } from "../comfy-error-handler";
 import { ComfyError, ComfyWorkflowError } from "../models/errors";
 import { ComfyUIAPIService, ComfyUIAPIServiceConfig } from "./comfyui-api-service";
 import mime from 'mime-types';
+import { buildAbsoluteSiteUrl } from "../ai/imageInput";
 import { missingViewComfyFileError, viewComfyFileName } from "../constants";
 import { readJsonAsset, resolvePublicAssetUrl } from "../runtime-assets";
+
+const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 15_000;
+const REMOTE_IMAGE_HEADERS: HeadersInit = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+};
 
 export class ComfyUIService {
     private comfyErrorHandler: ComfyErrorHandler;
@@ -227,7 +235,7 @@ export class ComfyUIService {
         });
     }
 
-    private async syncImagesFromInputs(inputs: Array<{ value: unknown }>) {
+    private async syncImagesFromInputs(inputs: Array<{ key?: string; value: unknown }>) {
         if (!inputs || !Array.isArray(inputs)) return;
         const uploadCandidates = inputs
             .map((input) => ({ input, value: input.value }))
@@ -241,22 +249,36 @@ export class ComfyUIService {
                     || value.startsWith('data:image'))
             );
 
-        const uploaded = await Promise.all(uploadCandidates.map(async ({ value }) => {
-            try {
-                const filename = await this.uploadImageToComfyUI(value as string);
-                return { filename };
-            } catch (error) {
-                console.error(`Failed to upload image ${value} to ComfyUI:`, error);
-                return { filename: undefined as string | undefined };
-            }
+        const uploaded = await Promise.allSettled(uploadCandidates.map(async ({ value }) => {
+            return await this.uploadImageToComfyUI(value as string);
         }));
 
-        uploadCandidates.forEach(({ input }, index) => {
-            const filename = uploaded[index]?.filename;
-            if (filename) {
-                input.value = filename;
+        const failures: string[] = [];
+
+        uploadCandidates.forEach(({ input, value }, index) => {
+            const result = uploaded[index];
+            if (result?.status === "fulfilled") {
+                input.value = result.value;
+                return;
             }
+
+            const inputLabel = typeof input.key === "string" ? input.key : "unknown-image-input";
+            const error = result?.reason;
+            const detail = error instanceof Error
+                ? error.message
+                : typeof error === "string"
+                    ? error
+                    : "Unknown upload error";
+            console.error(`Failed to upload image ${this.describeImageSource(value as string)} to ComfyUI:`, error);
+            failures.push(`${inputLabel}: ${detail}`);
         });
+
+        if (failures.length > 0) {
+            throw new ComfyWorkflowError({
+                message: "Failed to prepare image inputs for ComfyUI",
+                errors: failures,
+            });
+        }
     }
 
     private applyLoadImageDefaults(inputs: IComfyInput["viewComfy"]["inputs"], workflow: Record<string, unknown>) {
@@ -304,15 +326,12 @@ export class ComfyUIService {
                 blob = new Blob([Uint8Array.from(buffer)], { type });
                 filename = `upload_${Date.now()}.${mime.extension(type) || 'png'}`;
             } else if (imagePathOrUrl.startsWith('http')) {
-                const url = new URL(imagePathOrUrl);
-                filename = path.basename(url.pathname);
-                if (!filename || filename.length === 0) filename = `upload_${Date.now()}.png`;
-                const response = await fetch(imagePathOrUrl);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch image from URL: status=${response.status} ${response.statusText}`);
-                }
+                const response = await this.fetchImageResponse(imagePathOrUrl, {
+                    sourceLabel: "remote image URL",
+                    headers: REMOTE_IMAGE_HEADERS,
+                });
+                filename = this.getUploadFilename(imagePathOrUrl, response.headers.get("content-type"));
                 blob = await response.blob();
-
             } else {
                 const normalizedForCheck = imagePathOrUrl.replace(/^\/+/, '');
                 const looksLikePath = imagePathOrUrl.includes('/') || normalizedForCheck.includes('/');
@@ -322,16 +341,24 @@ export class ComfyUIService {
                 }
 
                 const resolvedUrl = await resolvePublicAssetUrl(imagePathOrUrl);
-                if (!resolvedUrl) {
-                    throw new Error(`CDN mapping not found for public asset: ${imagePathOrUrl}`);
+                const fallbackSiteUrl = buildAbsoluteSiteUrl(imagePathOrUrl);
+                const fetchableUrl = resolvedUrl || fallbackSiteUrl;
+                if (!fetchableUrl) {
+                    throw new Error(`CDN mapping not found for public asset: ${imagePathOrUrl}. Configure NEXT_PUBLIC_BASE_URL for split deployments.`);
                 }
 
-                const response = await fetch(resolvedUrl);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch CDN image: status=${response.status} ${response.statusText} url=${resolvedUrl}`);
+                if (!resolvedUrl && fallbackSiteUrl) {
+                    console.info("[ComfyUIService] Falling back to site URL for relative image input", {
+                        traceId: this.traceId,
+                        imagePathOrUrl,
+                        fetchableUrl,
+                    });
                 }
 
-                filename = path.basename(new URL(resolvedUrl).pathname) || `upload_${Date.now()}.png`;
+                const response = await this.fetchImageResponse(fetchableUrl, {
+                    sourceLabel: `public asset ${imagePathOrUrl}`,
+                });
+                filename = this.getUploadFilename(fetchableUrl, response.headers.get("content-type"));
                 blob = await response.blob();
             }
 
@@ -342,6 +369,66 @@ export class ComfyUIService {
 
         } catch (error) {
             throw error;
+        }
+    }
+
+    private describeImageSource(value: string): string {
+        if (value.startsWith("data:image")) {
+            return `${value.slice(0, 48)}...`;
+        }
+        if (value.length <= 160) {
+            return value;
+        }
+        return `${value.slice(0, 157)}...`;
+    }
+
+    private getUploadFilename(urlString: string, contentType: string | null): string {
+        const parsedUrl = new URL(urlString);
+        const fromPath = path.basename(parsedUrl.pathname);
+        if (fromPath && fromPath !== "/" && fromPath !== ".") {
+            return fromPath;
+        }
+
+        const normalizedType = contentType?.split(";")[0]?.trim();
+        const extension = normalizedType ? mime.extension(normalizedType) : false;
+        return `upload_${Date.now()}.${extension || "png"}`;
+    }
+
+    private async fetchImageResponse(
+        url: string,
+        {
+            sourceLabel,
+            headers,
+        }: {
+            sourceLabel: string;
+            headers?: HeadersInit;
+        },
+    ): Promise<Response> {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), REMOTE_IMAGE_FETCH_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(url, {
+                headers,
+                signal: controller.signal,
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${sourceLabel}: HTTP ${response.status} ${response.statusText}`);
+            }
+
+            const contentType = response.headers.get("content-type")?.split(";")[0]?.trim() || "";
+            if (contentType && !contentType.startsWith("image/") && contentType !== "application/octet-stream") {
+                throw new Error(`Failed to fetch ${sourceLabel}: expected image content but received ${contentType}`);
+            }
+
+            return response;
+        } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") {
+                throw new Error(`Timed out fetching ${sourceLabel} after ${REMOTE_IMAGE_FETCH_TIMEOUT_MS}ms`);
+            }
+            throw error;
+        } finally {
+            clearTimeout(timer);
         }
     }
 }

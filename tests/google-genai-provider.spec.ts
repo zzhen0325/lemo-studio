@@ -26,6 +26,7 @@ describe("GoogleGenAIProvider", () => {
 
   afterEach(async () => {
     await fs.rm(absoluteImagePath, { force: true });
+    delete window.__GULUX_RUNTIME_ENV__;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -73,5 +74,59 @@ describe("GoogleGenAIProvider", () => {
     expect(imagePart.mime_type).toBe("image/png");
     expect(imagePart.data).toBe(ONE_PIXEL_PNG_BASE64);
     expect(imagePart.data).not.toBe(relativeImagePath);
+  });
+
+  it("falls back to NEXT_PUBLIC_BASE_URL for relative image paths missing from local public", async () => {
+    window.__GULUX_RUNTIME_ENV__ = {
+      baseUrl: "https://pr62hkr9.fn-boe.bytedance.net",
+    };
+
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url === "https://pr62hkr9.fn-boe.bytedance.net/outputs/runtime-only.png") {
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "image/png" }),
+          arrayBuffer: async () => Buffer.from(ONE_PIXEL_PNG_BASE64, "base64"),
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    inline_data: {
+                      mime_type: "image/png",
+                      data: ONE_PIXEL_PNG_BASE64,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new GoogleGenAIProvider({
+      providerId: "google",
+      modelId: "gemini-2.5-flash-image",
+      apiKey: "test-key",
+    });
+
+    await provider.generateImage({
+      prompt: "Turn this into watercolor",
+      image: "/outputs/runtime-only.png",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://pr62hkr9.fn-boe.bytedance.net/outputs/runtime-only.png",
+      expect.objectContaining({ cache: "no-store" }),
+    );
   });
 });

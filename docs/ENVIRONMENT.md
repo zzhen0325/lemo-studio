@@ -13,8 +13,10 @@
   - Recommended local dev value: leave empty and use the Next proxy.
   - Recommended production value: `https://qzcnzen0.fn-boe.bytedance.net/api`.
   - The runtime now auto-appends `/api` when you only provide the backend origin, but the full `/api` form is still recommended.
+  - In production, this must be present at frontend build time or injected via the runtime HTML environment script.
 - `NEXT_PUBLIC_COMFYUI_URL`
   - Optional UI preset value for ComfyUI endpoint in Settings.
+  - Do not set this on HTTPS production pages unless ComfyUI is also exposed through HTTPS/WSS. An HTTPS page cannot directly call an HTTP ComfyUI origin from the browser.
 - `NEXT_PUBLIC_APP_PORT`
   - Optional SSR fallback port when runtime cannot read browser port.
 - `NEXT_PUBLIC_SIDEBAR_MODE`
@@ -28,12 +30,14 @@
   - Optional boolean toggle for the Next.js `/_next/image` optimizer.
   - Default: `true`, so remote CDN images load directly in the browser instead of being fetched server-side.
   - Set to `false` only in environments where the frontend server can reliably reach all remote image hosts without `504 Gateway Timeout` errors.
+  - Recommended production value for BOE/CDN split deployment: `true`.
 - `NEXT_PUBLIC_ENABLE_TWEAKCN_LIVE_PREVIEW`
   - Optional feature flag for the tweakcn live preview shell.
   - Set to `true` only when that preview flow is needed.
 - `NEXT_PUBLIC_BASE_URL`
   - Optional absolute site origin used by backend-side image fetching helpers in split deployments.
   - Example: `https://your-frontend.example.com`.
+  - Recommended production value whenever image edit/reference flows may submit relative paths such as `/upload/*` or `/outputs/*`.
 
 ## Backend Required (Gulux server)
 
@@ -84,10 +88,10 @@
   - Optional ByteDance AFR application ID.
 - `BYTEDANCE_APP_KEY`
   - Optional ByteDance AFR application key.
-  - Recommended to set explicitly even though the code still has a legacy fallback.
+  - Required in production for `seed4_v2_0226lemo` and related AFR-backed models.
 - `BYTEDANCE_APP_SECRET`
   - Optional ByteDance AFR application secret.
-  - Recommended to set explicitly even though the code still has a legacy fallback.
+  - Required in production for `seed4_v2_0226lemo` and related AFR-backed models.
 
 ## ComfyUI / ViewComfy
 

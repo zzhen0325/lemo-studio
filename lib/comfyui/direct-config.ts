@@ -12,6 +12,41 @@ export function shouldUseDirectComfyUi(explicitUrl?: string | null): boolean {
   return getConfiguredDirectComfyUrl(explicitUrl).length > 0;
 }
 
+export function getDirectComfyDecision(explicitUrl?: string | null, currentProtocol?: string) {
+  const raw = getConfiguredDirectComfyUrl(explicitUrl);
+  if (!raw) {
+    return {
+      enabled: false,
+      reason: "Direct ComfyUI URL is not configured.",
+      comfyUrl: "",
+    };
+  }
+
+  try {
+    const comfyUrl = resolveDirectComfyUrl(raw);
+    if (!comfyUrl) {
+      return {
+        enabled: false,
+        reason: "Direct ComfyUI URL is not configured.",
+        comfyUrl: raw,
+      };
+    }
+
+    assertDirectComfyCompatibility(comfyUrl, currentProtocol);
+    return {
+      enabled: true,
+      reason: "",
+      comfyUrl: comfyUrl.toString(),
+    };
+  } catch (error) {
+    return {
+      enabled: false,
+      reason: error instanceof Error ? error.message : String(error),
+      comfyUrl: raw,
+    };
+  }
+}
+
 export function resolveDirectComfyUrl(explicitUrl?: string | null): URL | null {
   const raw = getConfiguredDirectComfyUrl(explicitUrl);
   if (!raw) return null;

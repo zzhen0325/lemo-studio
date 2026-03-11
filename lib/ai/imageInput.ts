@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { getPublicApiBase, getPublicBaseUrl } from "@/lib/env/public";
 
 const bufferToArrayBuffer = (buf: Buffer): ArrayBuffer =>
   Uint8Array.from(buf).buffer;
@@ -17,6 +18,89 @@ function getMimeTypeFromPath(filePath: string): string {
   return "image/png";
 }
 
+function normalizeAbsoluteHttpUrl(value: string | undefined | null): string | null {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function deriveOriginFromApiBase(value: string | undefined | null): string | null {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) return null;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+export function getConfiguredSiteBaseUrl(): string | null {
+  const candidates = [
+    normalizeAbsoluteHttpUrl(getPublicBaseUrl()),
+    deriveOriginFromApiBase(getPublicApiBase()),
+    deriveOriginFromApiBase(process.env.GULUX_API_BASE),
+    deriveOriginFromApiBase(process.env.INTERNAL_API_BASE),
+  ];
+
+  return candidates.find((candidate) => Boolean(candidate)) || null;
+}
+
+export function buildAbsoluteSiteUrl(rawPath: string): string | null {
+  const normalized = rawPath.replace(/\\/g, "/").trim();
+  if (!normalized.startsWith("/") || normalized.includes("..")) {
+    return null;
+  }
+
+  const siteBaseUrl = getConfiguredSiteBaseUrl();
+  if (!siteBaseUrl) {
+    return null;
+  }
+
+  return new URL(normalized, `${siteBaseUrl}/`).toString();
+}
+
+function isFileMissingError(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === "object"
+    && "code" in error
+    && (error as { code?: string }).code === "ENOENT"
+  );
+}
+
+async function fetchRelativeImageFromSite(rawPath: string): Promise<{ data: string; mimeType: string } | null> {
+  const absoluteUrl = buildAbsoluteSiteUrl(rawPath);
+  if (!absoluteUrl) {
+    return null;
+  }
+
+  const response = await fetch(absoluteUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch relative image ${rawPath}: HTTP ${response.status} ${response.statusText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const mimeType = response.headers.get("content-type") || "image/png";
+  return {
+    data: Buffer.from(arrayBuffer).toString("base64"),
+    mimeType,
+  };
+}
+
 export async function readLocalPublicImage(
   rawPath: string
 ): Promise<{ data: string; mimeType: string } | null> {
@@ -26,11 +110,19 @@ export async function readLocalPublicImage(
   }
 
   const publicPath = path.join(getWorkspaceRoot(), "public", normalized);
-  const buffer = await fs.readFile(publicPath);
-  return {
-    data: buffer.toString("base64"),
-    mimeType: getMimeTypeFromPath(publicPath),
-  };
+  try {
+    const buffer = await fs.readFile(publicPath);
+    return {
+      data: buffer.toString("base64"),
+      mimeType: getMimeTypeFromPath(publicPath),
+    };
+  } catch (error) {
+    if (!isFileMissingError(error)) {
+      throw error;
+    }
+  }
+
+  return fetchRelativeImageFromSite(normalized);
 }
 
 function detectMimeTypeFromBuffer(buffer: Buffer): string {
@@ -66,10 +158,14 @@ async function toBlobFromLocalPath(imageUrl: string): Promise<Blob> {
     });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const response = await fetch(`${baseUrl}${imageUrl}`);
+  const absoluteUrl = buildAbsoluteSiteUrl(imageUrl);
+  if (!absoluteUrl) {
+    throw new Error(`Failed to resolve relative image path ${imageUrl}. Configure NEXT_PUBLIC_BASE_URL for split deployments.`);
+  }
+
+  const response = await fetch(absoluteUrl, { cache: "no-store" });
   if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.statusText}`);
+    throw new Error(`Failed to fetch relative image ${imageUrl}: ${response.status} ${response.statusText}`);
   }
   const arrayBuffer = await response.arrayBuffer();
   const contentType = response.headers.get("content-type") || "image/png";

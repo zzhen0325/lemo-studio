@@ -16,7 +16,7 @@ import {
   getProxyAgent,
   getUndiciDispatcher,
 } from "./utils";
-import { readLocalPublicImage } from "./imageInput";
+import { getConfiguredSiteBaseUrl, readLocalPublicImage } from "./imageInput";
 import { uploadToCoze } from "./cozeUploader";
 
 type DoubaoResponseContentItem = { type?: string; text?: string };
@@ -38,6 +38,63 @@ type CozePromptImagePayload = {
 };
 
 type CozeWorkflowReferenceImagesPayload = string[];
+
+const warnedBytedanceAfrFallback = new Set<string>();
+
+function getRequestHost(input: string): string {
+  try {
+    return new URL(input).host;
+  } catch {
+    return "";
+  }
+}
+
+function countRelativeImageInputs(inputs: string[]): number {
+  return inputs.filter((item) => typeof item === "string" && item.startsWith("/")).length;
+}
+
+function logProviderEvent(provider: string, event: string, payload: Record<string, unknown>) {
+  console.info(`[AIProvider][${provider}] ${event}`, payload);
+}
+
+function resolveBytedanceAfrConfig() {
+  const configured = {
+    baseUrl: process.env.GATEWAY_BASE_URL?.trim() || "",
+    aid: process.env.BYTEDANCE_AID?.trim() || "",
+    appKey: process.env.BYTEDANCE_APP_KEY?.trim() || "",
+    appSecret: process.env.BYTEDANCE_APP_SECRET?.trim() || "",
+  };
+  const missing = Object.entries({
+    GATEWAY_BASE_URL: configured.baseUrl,
+    BYTEDANCE_AID: configured.aid,
+    BYTEDANCE_APP_KEY: configured.appKey,
+    BYTEDANCE_APP_SECRET: configured.appSecret,
+  })
+    .filter(([, value]) => !value)
+    .map(([key]) => key);
+
+  if (missing.length > 0 && process.env.NODE_ENV === "production") {
+    throw new Error(`Missing ByteDance AFR environment variables: ${missing.join(", ")}`);
+  }
+
+  if (missing.length > 0) {
+    const warningKey = missing.join(",");
+    if (!warnedBytedanceAfrFallback.has(warningKey)) {
+      warnedBytedanceAfrFallback.add(warningKey);
+      console.warn("[AIProvider][bytedance-afr] Using development fallback config. Set explicit env vars before production deploy.", {
+        missing,
+      });
+    }
+  }
+
+  return {
+    BASE_URL: configured.baseUrl || "https://effect.bytedance.net",
+    AID: configured.aid || "6834",
+    APP_KEY: configured.appKey || "a89de09e9bca4723943e8830a642464d",
+    APP_SECRET: configured.appSecret || "8505d553a24c485fb7d9bb336a3651a8",
+    missing,
+  };
+}
 
 function extractDoubaoOutputText(data: DoubaoResponse): string {
   const outputs = Array.isArray(data.output) ? data.output : [];
@@ -626,7 +683,8 @@ export class GoogleGenAIProvider
       try {
         const localImage = await readLocalPublicImage(img);
         if (!localImage) {
-          throw new Error(`Invalid local image path: ${img}`);
+          const siteBaseUrl = getConfiguredSiteBaseUrl();
+          throw new Error(`Cannot resolve relative image path: ${img}${siteBaseUrl ? ` (site base: ${siteBaseUrl})` : " (configure NEXT_PUBLIC_BASE_URL on the backend for split deployments)"}`);
         }
         base64Data = localImage.data;
         mimeType = localImage.mimeType;
@@ -715,6 +773,16 @@ export class GoogleGenAIProvider
       fetchOptions.dispatcher = dispatcher;
     }
 
+    const startedAt = Date.now();
+    logProviderEvent("google-genai", "image_request_start", {
+      modelId: this.modelId,
+      host: getRequestHost(url),
+      imageCount: imageList.length,
+      relativeImageCount: countRelativeImageInputs(imageList),
+      imageSize: imageSize || null,
+      aspectRatio: aspectRatio || null,
+    });
+
     try {
       const response = await fetch(url, fetchOptions);
 
@@ -738,12 +806,26 @@ export class GoogleGenAIProvider
         if (inlineData && inlineData.data) {
           const dataUrl = `data:${inlineData.mime_type || inlineData.mimeType || "image/png"
             };base64,${inlineData.data}`;
+          logProviderEvent("google-genai", "image_request_success", {
+            modelId: this.modelId,
+            host: getRequestHost(url),
+            elapsedMs: Date.now() - startedAt,
+            imageCount: imageList.length,
+          });
           return { images: [dataUrl] };
         }
       }
       throw new Error("No image data found in response parts");
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
+      console.error("[AIProvider][google-genai] image_request_error", {
+        modelId: this.modelId,
+        host: getRequestHost(url),
+        elapsedMs: Date.now() - startedAt,
+        imageCount: imageList.length,
+        relativeImageCount: countRelativeImageInputs(imageList),
+        error: msg,
+      });
       throw new Error(`Google GenAI Image Gen Error: ${msg}`);
     }
   }
@@ -897,11 +979,30 @@ export class CozeWorkflowImageProvider implements ImageProvider {
       fetchOptions.agent = agent;
     }
 
-    const response = await fetch(this.resolveRunUrl(), fetchOptions);
+    const runUrl = this.resolveRunUrl();
+    const startedAt = Date.now();
+    logProviderEvent("coze-workflow", "image_request_start", {
+      modelId: this.config.modelId,
+      host: getRequestHost(runUrl),
+      imageCount: refInputs.length,
+      relativeImageCount: countRelativeImageInputs(refInputs),
+      size: body.size,
+    });
+
+    const response = await fetch(runUrl, fetchOptions);
     const raw = await response.text();
 
     if (!response.ok) {
       const truncatedError = raw.length > 500 ? `${raw.slice(0, 500)}...` : raw;
+      console.error("[AIProvider][coze-workflow] image_request_error", {
+        modelId: this.config.modelId,
+        host: getRequestHost(runUrl),
+        elapsedMs: Date.now() - startedAt,
+        imageCount: refInputs.length,
+        relativeImageCount: countRelativeImageInputs(refInputs),
+        status: response.status,
+        error: truncatedError,
+      });
       throw new Error(`Coze Seed workflow API Error: ${response.status} - ${truncatedError}`);
     }
 
@@ -919,6 +1020,14 @@ export class CozeWorkflowImageProvider implements ImageProvider {
       const truncatedPayload = raw.length > 500 ? `${raw.slice(0, 500)}...` : raw;
       throw new Error(`Coze Seed workflow returned no images: ${truncatedPayload}`);
     }
+
+    logProviderEvent("coze-workflow", "image_request_success", {
+      modelId: this.config.modelId,
+      host: getRequestHost(runUrl),
+      elapsedMs: Date.now() - startedAt,
+      imageCount: refInputs.length,
+      outputCount: resolvedImages.length,
+    });
 
     return {
       images: resolvedImages,
@@ -977,14 +1086,7 @@ export class BytedanceAfrProvider implements ImageProvider {
   async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
     const { prompt, width, height, batchSize, options } = params;
 
-    const API_CONFIG = {
-      BASE_URL: process.env.GATEWAY_BASE_URL || "https://effect.bytedance.net",
-      AID: process.env.BYTEDANCE_AID || "6834",
-      APP_KEY:
-        process.env.BYTEDANCE_APP_KEY || "a89de09e9bca4723943e8830a642464d",
-      APP_SECRET:
-        process.env.BYTEDANCE_APP_SECRET || "8505d553a24c485fb7d9bb336a3651a8",
-    };
+    const API_CONFIG = resolveBytedanceAfrConfig();
 
     const nonce = generateNonce();
     const timestamp = generateTimestamp();
@@ -1048,10 +1150,28 @@ export class BytedanceAfrProvider implements ImageProvider {
       fetchOptions.agent = agent;
     }
 
+    const startedAt = Date.now();
+    logProviderEvent("bytedance-afr", "image_request_start", {
+      modelId: this.config.modelId,
+      host: getRequestHost(url),
+      width: conf.width,
+      height: conf.height,
+      batchSize: batchSize || 1,
+      usingFallbackConfig: API_CONFIG.missing.length > 0,
+    });
+
     const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error("[AIProvider][bytedance-afr] image_request_error", {
+        modelId: this.config.modelId,
+        host: getRequestHost(url),
+        elapsedMs: Date.now() - startedAt,
+        status: response.status,
+        usingFallbackConfig: API_CONFIG.missing.length > 0,
+        error: errorText,
+      });
       throw new Error(
         `ByteArtist API Error: ${response.status} - ${errorText}`
       );
@@ -1078,6 +1198,14 @@ export class BytedanceAfrProvider implements ImageProvider {
       return item.pic.startsWith("http")
         ? item.pic
         : `data:image/png;base64,${item.pic}`;
+    });
+
+    logProviderEvent("bytedance-afr", "image_request_success", {
+      modelId: this.config.modelId,
+      host: getRequestHost(url),
+      elapsedMs: Date.now() - startedAt,
+      outputCount: images.length,
+      usingFallbackConfig: API_CONFIG.missing.length > 0,
     });
 
     return { images, metadata: data as Record<string, unknown> };

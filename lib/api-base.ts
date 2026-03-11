@@ -1,3 +1,5 @@
+import { getPublicApiBase } from "./env/public";
+
 function normalizeHttpApiBase(value: string): string {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -46,22 +48,49 @@ export function normalizeConfiguredApiBase(value: string | undefined | null): st
     return normalizeHttpApiBase(trimmed);
 }
 
+let loggedClientApiBase = false;
+let loggedServerApiBase = false;
+
+function logResolvedApiBase(scope: "client" | "server", apiBase: string, source: string) {
+    if (scope === "client") {
+        if (loggedClientApiBase || typeof window === "undefined") return;
+        loggedClientApiBase = true;
+        console.info("[API Base] client_resolved", {
+            apiBase,
+            source,
+            pageOrigin: window.location.origin,
+        });
+        return;
+    }
+
+    if (loggedServerApiBase) return;
+    loggedServerApiBase = true;
+    console.info("[API Base] server_resolved", {
+        apiBase,
+        source,
+    });
+}
+
 export function getApiBase(): string {
     // Client side: allow explicit override for LAN/direct mode, otherwise same-origin proxy route.
     if (typeof window !== 'undefined') {
-        const envBase = normalizeConfiguredApiBase(process.env.NEXT_PUBLIC_API_BASE);
+        const envBase = normalizeConfiguredApiBase(getPublicApiBase());
         if (envBase) {
+            logResolvedApiBase("client", envBase, "runtime-public-env");
             return envBase;
         }
+        logResolvedApiBase("client", "/api", "same-origin-proxy");
         return '/api';
     }
 
     const internalBase = normalizeConfiguredApiBase(process.env.GULUX_API_BASE)
         || normalizeConfiguredApiBase(process.env.INTERNAL_API_BASE);
     if (internalBase) {
+        logResolvedApiBase("server", internalBase, process.env.GULUX_API_BASE ? "GULUX_API_BASE" : "INTERNAL_API_BASE");
         return internalBase;
     }
 
+    logResolvedApiBase("server", "http://127.0.0.1:3000/api", "default-localhost");
     return 'http://127.0.0.1:3000/api';
 }
 

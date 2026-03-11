@@ -3,7 +3,7 @@ import { SETTINGS_STORAGE_KEY } from "@/lib/constants";
 import { getApiBase } from "@/lib/api-base";
 import { buildFluxKleinWorkflow } from "@/lib/api/fluxklein-workflow";
 import { probeDirectComfyAvailability, runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
-import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from "@/lib/comfyui/direct-config";
+import { getConfiguredDirectComfyUrl, getDirectComfyDecision } from "@/lib/comfyui/direct-config";
 
 export interface IUsePostFluxKlein {
   prompt: string;
@@ -43,7 +43,18 @@ export const usePostFluxKlein = () => {
 
       const apiBase = getApiBase();
       const directComfyUrl = getConfiguredDirectComfyUrl();
-      const wantsDirectComfy = shouldUseDirectComfyUi(directComfyUrl);
+      const directComfyDecision = getDirectComfyDecision(directComfyUrl);
+      const wantsDirectComfy = directComfyDecision.enabled;
+
+      if (!wantsDirectComfy && directComfyUrl) {
+        console.warn("[FluxKlein][Front] direct_config_disabled", {
+          requestId,
+          apiBase,
+          comfyUrl: directComfyDecision.comfyUrl || directComfyUrl,
+          reason: directComfyDecision.reason,
+          pageProtocol: typeof window !== "undefined" ? window.location.protocol : undefined,
+        });
+      }
 
       if (wantsDirectComfy) {
         const directAvailability = await probeDirectComfyAvailability({
@@ -100,7 +111,8 @@ export const usePostFluxKlein = () => {
         apiBase,
         comfyUrlSource: "server-env-COMFYUI_API_URL",
         mode: "server-proxy",
-        fallbackFromDirect: wantsDirectComfy,
+        fallbackFromDirect: Boolean(directComfyUrl),
+        directFallbackReason: wantsDirectComfy ? "probe-failed" : directComfyDecision.reason || "not-configured",
       });
       const response = await fetch(`${apiBase}/comfy-fluxklein`, {
         method: "POST",
