@@ -9,7 +9,7 @@ ROOT_OUTPUT_DIR="${REPO_ROOT}/output"
 copy_runtime_support_files() {
   local target_dir="$1"
 
-  echo "复制运行时 manifest 与工作流模板..."
+  echo "复制运行时 manifest、data 数据与工作流模板..."
 
   while IFS= read -r -d '' source_file; do
     local relative_path="${source_file#${REPO_ROOT}/}"
@@ -17,6 +17,11 @@ copy_runtime_support_files() {
     mkdir -p "$(dirname "${destination_file}")"
     cp "${source_file}" "${destination_file}"
   done < <(find "${REPO_ROOT}/config" -type f -name '*.json' -print0)
+
+  if [ -d "${REPO_ROOT}/data" ]; then
+    mkdir -p "${target_dir}/data"
+    cp -R "${REPO_ROOT}/data/." "${target_dir}/data/"
+  fi
 
   if [ -d "${REPO_ROOT}/workflows/templates" ]; then
     mkdir -p "${target_dir}/workflows"

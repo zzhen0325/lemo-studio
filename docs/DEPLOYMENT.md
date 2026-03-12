@@ -36,7 +36,7 @@ Responsibilities:
 
 - Run `npm ci`
 - Run `npm run build`
-- Copy `.next/standalone`, `.next/static`, and `public/` into `output/`
+- Copy `.next/standalone`, `.next/static`, `public/`, runtime `data/`, and root `workflows/` into `output/`
 - Generate `output/bootstrap.js` for packaged runtime startup
 
 Why the bootstrap file exists:
@@ -56,6 +56,7 @@ Responsibilities:
 - Enter `server/`
 - Run `npm install`
 - Run `npm run build`
+- Copy runtime `data/` into `server/output/`
 - Copy `server/output/` back to root `output/`
 
 ## Runtime Model
