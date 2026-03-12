@@ -2,6 +2,7 @@ import { getApiBase } from '@/lib/api-base';
 import { buildFluxKleinWorkflow } from '@/lib/api/fluxklein-workflow';
 import { runDirectComfyWorkflow } from '@/lib/comfyui/browser-client';
 import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from '@/lib/comfyui/direct-config';
+import { parseErrorPayload, toDisplayError } from '@/lib/error-message';
 import type {
   InfiniteCanvasProject,
   InfiniteCanvasProjectSummary,
@@ -51,17 +52,8 @@ async function requestJSON<T>(url: string, config: RequestConfig = {}): Promise<
   });
 
   if (!response.ok) {
-    let message = `HTTP ${response.status}`;
-    try {
-      const text = await response.text();
-      if (text) {
-        const parsed = JSON.parse(text) as { error?: string; message?: string };
-        message = parsed.error || parsed.message || text;
-      }
-    } catch {
-      // ignore parse errors
-    }
-    throw new Error(message);
+    const text = await response.text().catch(() => '');
+    throw toDisplayError(parseErrorPayload(text), `HTTP ${response.status}`);
   }
 
   if (response.status === 204) {
@@ -142,7 +134,7 @@ async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string
 
   if (!response.ok || !response.body) {
     const fallback = await response.text().catch(() => '');
-    throw new Error(fallback || `FluxKlein request failed with status ${response.status}`);
+    throw toDisplayError(parseErrorPayload(fallback), `FluxKlein request failed with status ${response.status}`);
   }
 
   const separator = new TextEncoder().encode('--BLOB_SEPARATOR--');

@@ -1,5 +1,6 @@
 import { ProviderOptions } from './types';
 import { getApiBase } from "../api-base";
+import { parseErrorPayload, toDisplayError } from "../error-message";
 
 export interface ClientGenerationParams {
     model: string; // e.g. doubao-pro-4k
@@ -54,12 +55,8 @@ export async function generateText(params: ClientGenerationParams): Promise<{ te
     });
 
     if (!response.ok) {
-        let errorMsg = response.statusText;
-        try {
-            const err = await response.json();
-            errorMsg = err.error || errorMsg;
-        } catch { }
-        throw new Error(errorMsg);
+        const raw = await response.text().catch(() => "");
+        throw toDisplayError(parseErrorPayload(raw), response.statusText || `HTTP ${response.status}`);
     }
 
     return await response.json();
@@ -82,19 +79,8 @@ export async function describeImage(params: ClientDescribeParams): Promise<{ tex
     });
 
     if (!response.ok) {
-        let errorMsg = response.statusText || `HTTP ${response.status}`;
-        try {
-            const raw = await response.text();
-            if (raw) {
-                try {
-                    const err = JSON.parse(raw) as { error?: string };
-                    errorMsg = err.error || raw;
-                } catch {
-                    errorMsg = raw;
-                }
-            }
-        } catch { }
-        throw new Error(errorMsg);
+        const raw = await response.text().catch(() => "");
+        throw toDisplayError(parseErrorPayload(raw), response.statusText || `HTTP ${response.status}`);
     }
 
     return await response.json();
@@ -114,19 +100,8 @@ export async function generateImage(
     });
 
     if (!response.ok) {
-        let errorMsg = response.statusText || `HTTP ${response.status}`;
-        try {
-            const raw = await response.text();
-            if (raw) {
-                try {
-                    const err = JSON.parse(raw) as { error?: string };
-                    errorMsg = err.error || raw;
-                } catch {
-                    errorMsg = raw;
-                }
-            }
-        } catch { }
-        throw new Error(errorMsg);
+        const raw = await response.text().catch(() => "");
+        throw toDisplayError(parseErrorPayload(raw), response.statusText || `HTTP ${response.status}`);
     }
 
     const contentType = response.headers.get('Content-Type');

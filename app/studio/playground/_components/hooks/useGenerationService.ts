@@ -18,6 +18,7 @@ import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { getContextModelOptions } from "@/lib/model-center-ui";
+import { extractErrorMessage, parseErrorPayload } from "@/lib/error-message";
 
 export interface UnifiedModelConfig {
     id: string;
@@ -240,11 +241,11 @@ export function useGenerationService() {
                 body: JSON.stringify({ imageBase64: dataUrl, subdir: 'outputs', metadata })
             });
             const text = await resp.text();
-            let json: Record<string, unknown> | null = null;
-            try { json = JSON.parse(text); } catch { /* non-JSON response */ }
+            const payload = text ? parseErrorPayload(text) : null;
+            const json = payload && typeof payload === "object" ? payload as Record<string, unknown> : null;
 
             if (!resp.ok || !json?.path) {
-                const errorMsg = json?.message || json?.error || (text.length < 200 ? text : `HTTP ${resp.status}`);
+                const errorMsg = extractErrorMessage(payload, text.length < 200 ? text : `HTTP ${resp.status}`);
                 console.error('[saveImageToOutputs] Failed:', { status: resp.status, body: text.slice(0, 300) });
                 throw new Error(String(errorMsg));
             }

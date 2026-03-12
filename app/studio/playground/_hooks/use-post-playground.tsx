@@ -2,6 +2,7 @@ import { IViewComfy } from "@/types/comfy-input";
 import { probeDirectComfyAvailability, runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
 import { getConfiguredDirectComfyUrl, getDirectComfyDecision } from "@/lib/comfyui/direct-config";
 import { ErrorTypes, ResponseError } from "@/lib/models/errors";
+import { parseErrorPayload, toDisplayError } from "@/lib/error-message";
 import { useSearchParams } from "next/navigation";
 import { useState, useCallback } from "react"
 import { SETTINGS_STORAGE_KEY } from "@/lib/constants";
@@ -112,8 +113,9 @@ export const usePostPlayground = () => {
                     });
                     throw error;
                 }
-                const responseError: ResponseError = await response.json();
-                throw responseError;
+                const rawText = await response.text().catch(() => "");
+                const responseError = parseErrorPayload(rawText);
+                throw toDisplayError(responseError, `HTTP ${response.status}`);
             }
 
             if (!response.body) {
