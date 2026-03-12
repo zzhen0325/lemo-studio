@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 const enableTweakcnLivePreview = process.env.NEXT_PUBLIC_ENABLE_TWEAKCN_LIVE_PREVIEW === "true";
 
 function resolveRuntimePublicApiBase() {
+  console.log('process.env.NEXT_PUBLIC_API_BASE====', process.env.NEXT_PUBLIC_API_BASE)
   const nextPublicApiBase = (process.env.NEXT_PUBLIC_API_BASE || "").trim();
   if (nextPublicApiBase) {
     return nextPublicApiBase;
@@ -47,7 +48,7 @@ function resolveRuntimePublicApiBase() {
 }
 
 const runtimePublicEnv = {
-  apiBase: resolveRuntimePublicApiBase(),
+  apiBase: resolveRuntimePublicApiBase() || 'https://qzcnzen0.fn-boe.bytedance.net/api',
   comfyUrl: (process.env.NEXT_PUBLIC_COMFYUI_URL || "").trim(),
   baseUrl: (process.env.NEXT_PUBLIC_BASE_URL || "").trim(),
   disableImageOptimization: (process.env.NEXT_DISABLE_IMAGE_OPTIMIZATION || "").trim(),
