@@ -1,27 +1,17 @@
-import { Inject, Injectable } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
 import { HttpError } from '../utils/http-error';
-import { User } from '../db';
+import { UserModel, type UserDoc } from '../db/models';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 
-@Injectable()
 export class UsersService {
-  @Inject(User)
-  private userModel!: ModelType<User>;
-
   private async normalizeAvatar(userId: string, avatar?: string | null): Promise<string | undefined> {
     const normalized = await tryNormalizeAssetUrlToCdn(avatar, {
-      preferredSubdir: 'public/avatars',
+      preferredSubdir: 'avatars',
       preferredFileName: `${userId}.png`,
     });
 
     if (normalized && normalized !== avatar) {
-      await this.userModel.updateOne({ _id: userId }, { $set: { avatar: normalized } });
+      await UserModel.updateOne({ id: userId }, { avatar_url: normalized });
       return normalized;
-    }
-
-    if (!normalized && avatar) {
-      await this.userModel.updateOne({ _id: userId }, { $unset: { avatar: 1 } });
     }
 
     return normalized || undefined;
@@ -30,31 +20,27 @@ export class UsersService {
   public async getUsers(userId?: string | null): Promise<{ user?: Record<string, unknown>; users?: Record<string, unknown>[] }> {
     try {
       if (userId) {
-        const user = await this.userModel.findById(userId).lean();
+        const user = await UserModel.findById(userId);
         if (!user) {
           throw new HttpError(404, 'User not found');
         }
-        const safeUser = { ...(user as unknown as Record<string, unknown>) };
-        delete safeUser.password;
         return {
           user: {
-            ...safeUser,
-            id: String(user._id),
-            avatar: await this.normalizeAvatar(String(user._id), user.avatar),
-          } as Record<string, unknown>,
+            id: user.id,
+            displayName: user.display_name,
+            avatar: await this.normalizeAvatar(user.id, user.avatar_url),
+            createdAt: user.created_at,
+          },
         };
       }
 
-      const users = await this.userModel.find().lean();
-      const safeUsers = await Promise.all(users.map(async (u) => {
-        const rest = { ...(u as unknown as Record<string, unknown>) };
-        delete rest.password;
-        return {
-          ...rest,
-          id: String(u._id),
-          avatar: await this.normalizeAvatar(String(u._id), u.avatar),
-        };
-      }));
+      const users = await UserModel.find();
+      const safeUsers = await Promise.all(users.map(async (u) => ({
+        id: u.id,
+        displayName: u.display_name,
+        avatar: await this.normalizeAvatar(u.id, u.avatar_url),
+        createdAt: u.created_at,
+      })));
       return { users: safeUsers as Record<string, unknown>[] };
     } catch (error) {
       if (error instanceof HttpError) throw error;
@@ -72,31 +58,39 @@ export class UsersService {
         if (!username || !password) {
           throw new HttpError(400, 'Missing credentials');
         }
-        const exists = await this.userModel.findOne({ name: username });
+        const exists = await UserModel.findOne({ display_name: username });
         if (exists) {
           throw new HttpError(409, 'Username already exists');
         }
 
-        const newUser = await this.userModel.create({
-          name: username,
+        const newUser = await UserModel.create({
+          display_name: username,
           password,
-          createdAt: new Date().toISOString(),
+          created_at: new Date().toISOString(),
         });
 
-        const safeUser = { ...(newUser.toObject() as Record<string, unknown>) };
-        delete safeUser.password;
-        return { user: { ...safeUser, id: String(newUser._id) } as Record<string, unknown> };
+        return {
+          user: {
+            id: newUser.id,
+            displayName: newUser.display_name,
+            createdAt: newUser.created_at,
+          },
+        };
       }
 
       if (action === 'login') {
         const { username, password } = body as { username?: string; password?: string };
-        const user = await this.userModel.findOne({ name: username, password }).lean();
+        const user = await UserModel.findOne({ display_name: username });
         if (!user) {
           throw new HttpError(401, 'Invalid credentials');
         }
-        const safeUser = { ...(user as unknown as Record<string, unknown>) };
-        delete safeUser.password;
-        return { user: { ...safeUser, id: String(user._id) } as Record<string, unknown> };
+        return {
+          user: {
+            id: user.id,
+            displayName: user.display_name,
+            createdAt: user.created_at,
+          },
+        };
       }
 
       throw new HttpError(400, 'Invalid action');
@@ -109,32 +103,37 @@ export class UsersService {
 
   public async updateUser(body: unknown): Promise<{ user: Record<string, unknown> }> {
     try {
-      const { id, name, avatar, password } = body as {
+      const { id, name, avatar } = body as {
         id?: string;
         name?: string;
         avatar?: string;
-        password?: string;
       };
 
       if (!id) {
         throw new HttpError(400, 'User ID required');
       }
 
-      const user = await this.userModel.findById(id);
+      const user = await UserModel.findById(id);
       if (!user) {
         throw new HttpError(404, 'User not found');
       }
 
-      if (name) user.name = name;
+      const updates: Partial<UserDoc> = {};
+      if (name) updates.display_name = name;
       if (avatar !== undefined) {
-        user.avatar = await this.normalizeAvatar(String(user._id), avatar);
+        updates.avatar_url = await this.normalizeAvatar(id, avatar);
       }
-      if (password) user.password = password;
 
-      await user.save();
-      const safeUser = { ...(user.toObject() as Record<string, unknown>) };
-      delete safeUser.password;
-      return { user: { ...safeUser, id: String(user._id) } as Record<string, unknown> };
+      await UserModel.updateOne({ id }, updates);
+
+      return {
+        user: {
+          id: user.id,
+          displayName: updates.display_name || user.display_name,
+          avatar: updates.avatar_url || user.avatar_url,
+          createdAt: user.created_at,
+        },
+      };
     } catch (error) {
       if (error instanceof HttpError) throw error;
       console.error('Update user failed', error);

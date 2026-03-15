@@ -1,7 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { DEFAULT_CDN_DIR, uploadBufferToCdn } from './cdn';
+import {
+  uploadImageToStorage,
+  getFileUrl,
+  uploadDataUrl,
+} from '@/src/storage/object-storage';
 
 type UploadImageToCdnOptions = {
   preferredSubdir?: string;
@@ -69,13 +73,6 @@ function sanitizeFileName(fileName: string): string {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, '_') || `asset_${randomUUID().slice(0, 8)}.png`;
 }
 
-function buildCdnDir(subdir?: string): string {
-  const normalized = normalizeSlashPath(subdir || '')
-    .replace(/^\/+/, '')
-    .replace(/\/+$/, '');
-  return normalized ? path.posix.join(DEFAULT_CDN_DIR, normalized) : DEFAULT_CDN_DIR;
-}
-
 function parseDataImageUrl(value: string): { buffer: Buffer; mimeType: string } | null {
   const match = value.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/i);
   if (!match) {
@@ -88,6 +85,9 @@ function parseDataImageUrl(value: string): { buffer: Buffer; mimeType: string } 
   };
 }
 
+/**
+ * Upload an image buffer to object storage
+ */
 export async function uploadImageBufferToCdn(
   buffer: Buffer,
   options: UploadImageToCdnOptions = {},
@@ -97,15 +97,21 @@ export async function uploadImageBufferToCdn(
       || `asset_${Date.now()}_${randomUUID().slice(0, 8)}.${extFromMimeType(options.mimeType)}`,
   );
   const mimeType = options.mimeType || mimeTypeFromFileName(preferredFileName);
-  const uploaded = await uploadBufferToCdn(buffer, {
-    fileName: preferredFileName,
-    dir: buildCdnDir(options.preferredSubdir),
-    region: 'SG',
-    mimeType,
-  });
-  return uploaded.url;
+  const subdir = options.preferredSubdir || 'upload';
+
+  const key = await uploadImageToStorage(buffer, preferredFileName, subdir, mimeType);
+  const url = await getFileUrl(key);
+
+  return url;
 }
 
+/**
+ * Try to normalize an asset URL to a CDN URL
+ * This function handles:
+ * - Remote URLs (returned as-is)
+ * - Data URLs (uploaded and converted to storage URLs)
+ * - Local asset paths (uploaded and converted to storage URLs)
+ */
 export async function tryNormalizeAssetUrlToCdn(
   value: string | undefined | null,
   options: UploadImageToCdnOptions = {},
@@ -115,6 +121,7 @@ export async function tryNormalizeAssetUrlToCdn(
     return undefined;
   }
 
+  // Remote URLs are returned as-is
   if (isRemoteUrl(trimmed)) {
     return trimmed;
   }
@@ -123,24 +130,24 @@ export async function tryNormalizeAssetUrlToCdn(
     return `https://${trimmed}`;
   }
 
+  // Blob URLs can't be processed server-side
   if (trimmed.startsWith('blob:')) {
     return undefined;
   }
 
+  // Handle data URLs
   const parsedDataUrl = parseDataImageUrl(trimmed);
   if (parsedDataUrl) {
     try {
-      return await uploadImageBufferToCdn(parsedDataUrl.buffer, {
-        preferredSubdir: options.preferredSubdir || 'upload',
-        preferredFileName: options.preferredFileName,
-        mimeType: parsedDataUrl.mimeType,
-      });
+      const { url } = await uploadDataUrl(trimmed, options.preferredSubdir || 'upload');
+      return url;
     } catch (error) {
-      console.warn(`[cdn-image-url] Failed to upload data URL asset to CDN: ${trimmed.slice(0, 48)}...`, error);
+      console.warn(`[cdn-image-url] Failed to upload data URL asset to storage: ${trimmed.slice(0, 48)}...`, error);
       return undefined;
     }
   }
 
+  // Handle local asset paths
   const publicAssetPath = normalizePublicAssetPath(trimmed);
   if (!publicAssetPath) {
     return undefined;
@@ -151,7 +158,7 @@ export async function tryNormalizeAssetUrlToCdn(
   try {
     buffer = await fs.readFile(absolutePath);
   } catch (error) {
-    console.warn(`[cdn-image-url] Missing local asset for CDN normalization: ${trimmed}`, error);
+    console.warn(`[cdn-image-url] Missing local asset for storage normalization: ${trimmed}`, error);
     return undefined;
   }
 
@@ -164,7 +171,7 @@ export async function tryNormalizeAssetUrlToCdn(
       mimeType: options.mimeType || mimeTypeFromFileName(preferredFileName),
     });
   } catch (error) {
-    console.warn(`[cdn-image-url] Failed to upload local asset to CDN: ${trimmed}`, error);
+    console.warn(`[cdn-image-url] Failed to upload local asset to storage: ${trimmed}`, error);
     return undefined;
   }
 }

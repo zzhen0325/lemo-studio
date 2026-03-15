@@ -1,19 +1,19 @@
 import { Logger } from './compat/gulux';
 import {
-  ApiProviderModel,
-  ApiSettingsModel,
-  DatasetCollectionModel,
-  DatasetEntryModel,
   GenerationModel,
   ImageAssetModel,
-  InfiniteCanvasProjectModel,
-  PresetCategoryModel,
   PresetModel,
+  PresetCategoryModel,
   StyleStackModel,
   ToolPresetModel,
+  DatasetEntryModel,
+  DatasetCollectionModel,
+  ApiProviderModel,
+  ApiSettingsModel,
   UserModel,
-  connectMongo,
-} from './db';
+  InfiniteCanvasProjectModel,
+} from './db/models';
+import { connectMongo } from './db/supabase';
 import { AiService } from './service/ai.service';
 import { ApiConfigService } from './service/api-config.service';
 import { CheckGoogleApiService } from './service/check-google-api.service';
@@ -67,7 +67,14 @@ let servicesPromise: Promise<{
 }> | null = null;
 
 async function createServerServices() {
-  await connectMongo();
+  // Initialize Supabase client
+  try {
+    await connectMongo();
+    console.log('[Container] Supabase client initialized successfully');
+  } catch (error) {
+    console.warn('[Container] Failed to initialize Supabase client:', error);
+    // Continue anyway - some features may not work
+  }
 
   const logger = new Logger();
 

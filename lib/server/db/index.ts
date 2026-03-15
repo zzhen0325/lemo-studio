@@ -1,3 +1,2 @@
-export * from './mongo';
+export * from './supabase';
 export * from './models';
-
