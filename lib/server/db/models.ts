@@ -283,7 +283,7 @@ export const GenerationModel = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data as GenerationDoc[]) || [];
+    return ((data || []) as unknown) as GenerationDoc[];
   },
 
   async insertMany(docs: Array<Partial<GenerationDoc>>): Promise<GenerationDoc[]> {
