@@ -1,0 +1,22 @@
+{
+  "file_name": "jptext",
+  "model_name": "jptext",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/jptext.safetensors",
+  "size": 306426864,
+  "modified": 1747382390.8049989,
+  "sha256": "6b361493d31383a23502edad06cf577b2ee44ddd3e88dd836494641e3791cc91",
+  "base_model": "Unknown",
+  "preview_url": "",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "jptext",
+  "modelname": "jptext"
+}

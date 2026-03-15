@@ -1,0 +1,22 @@
+{
+  "file_name": "手绘shouhui_style",
+  "model_name": "手绘shouhui_style",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/手绘shouhui_style.safetensors",
+  "size": 153274840,
+  "modified": 1747040771.0549698,
+  "sha256": "7cfe36f041c8a666585b77c66241fbe6bfe7d88b375f9f226df5066839c11b29",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/手绘shouhui_style.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "手绘shouhui_style",
+  "modelname": "手绘shouhui_style"
+}

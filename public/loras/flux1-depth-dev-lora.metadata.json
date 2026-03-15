@@ -1,0 +1,22 @@
+{
+  "file_name": "flux1-depth-dev-lora",
+  "model_name": "flux1-depth-dev-lora",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/flux1-depth-dev-lora.safetensors",
+  "size": 1244440512,
+  "modified": 1745475806.7831905,
+  "sha256": "1938b38ea0fdd98080fa3e48beb2bedfbc7ad102d8b65e6614de704a46d8b907",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/flux1-depth-dev-lora.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "flux1-depth-dev-lora",
+  "modelname": "flux1-depth-dev-lora"
+}

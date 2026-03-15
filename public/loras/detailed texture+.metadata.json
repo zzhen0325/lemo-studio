@@ -1,0 +1,22 @@
+{
+  "file_name": "detailed texture+",
+  "model_name": "detailed texture+",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/detailed texture+.safetensors",
+  "size": 52828256,
+  "modified": 1746784992.045102,
+  "sha256": "1f79610234a6f398b7464dd5af50abbe6eda414b03872ea7d823702146dbeeae",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/detailed texture+.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "detailed texture+",
+  "modelname": "detailed texture+"
+}

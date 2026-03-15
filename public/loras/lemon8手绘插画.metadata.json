@@ -1,0 +1,22 @@
+{
+  "file_name": "lemon8手绘插画",
+  "model_name": "lemon8手绘插画",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/lemon8手绘插画.safetensors",
+  "size": 306426864,
+  "modified": 1747209370.7798076,
+  "sha256": "3965d6582a4017458e97791a64db53280f877fd8e090701cd47b82af5f238b50",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/lemon8手绘插画.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "lemon8手绘插画",
+  "modelname": "lemon8手绘插画"
+}

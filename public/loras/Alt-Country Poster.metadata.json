@@ -1,0 +1,22 @@
+{
+  "file_name": "Alt-Country Poster",
+  "model_name": "Alt-Country Poster",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Alt-Country Poster.safetensors",
+  "size": 317110144,
+  "modified": 1747116235.4665534,
+  "sha256": "7615e0b7a9a7eb3111db2c62a72006dab503d533684348ab99bb2cbd5b295b72",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Alt-Country Poster.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Alt-Country Poster",
+  "modelname": "Alt-Country Poster"
+}

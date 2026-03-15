@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-02-12T06:42:40.233Z",
+  "cdnBase": "https://ife-cdn.tiktok-row.net",
+  "dir": "ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/repo_migration_assets",
+  "entries": [
+    {
+      "file": "data/history.json",
+      "size": 9926924,
+      "sha256": "3f7e30f65eb4f4b5430e7ce4a1758a699fc41962b87c22151eb8c2d6c846632a",
+      "cdnUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/history_3f7e30f65e.json",
+      "fileName": "history_3f7e30f65e.json",
+      "dir": "ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/repo_migration_assets",
+      "uploadedAt": "2026-02-12T06:42:12.684Z"
+    },
+    {
+      "file": "public/images/6.png",
+      "size": 7090187,
+      "sha256": "6844f7a79c465e4fffb91c94976ee5ca1c9ea758fc060222b21d77bd9cf54c88",
+      "cdnUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/6_6844f7a79c.png",
+      "fileName": "6_6844f7a79c.png",
+      "dir": "ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/repo_migration_assets",
+      "uploadedAt": "2026-02-12T06:42:20.090Z"
+    },
+    {
+      "file": "public/images/333.png",
+      "size": 6951140,
+      "sha256": "f95c69facd7bce890d8fb8cd43219b754179030a52dd4cc479efce97db9075e4",
+      "cdnUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/333_f95c69facd.png",
+      "fileName": "333_f95c69facd.png",
+      "dir": "ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/repo_migration_assets",
+      "uploadedAt": "2026-02-12T06:42:26.897Z"
+    },
+    {
+      "file": "public/images/8.webp",
+      "size": 6338382,
+      "sha256": "b9367269b0cf4af63f12090722acd06f08ec77fde510f62cc0886fcae4bc46a9",
+      "cdnUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/8_b9367269b0.webp",
+      "fileName": "8_b9367269b0.webp",
+      "dir": "ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/repo_migration_assets",
+      "uploadedAt": "2026-02-12T06:42:33.421Z"
+    },
+    {
+      "file": "public/images/5.png",
+      "size": 5343132,
+      "sha256": "ea460376ab32e042cf9d6d256025a1a66ae48fae8d7d26f7de9ee78797003a9e",
+      "cdnUrl": "https://sf16-sg.tiktokcdn.com/obj/eden-sg/fapcpajH_8uvtlS/ljhwZthlaukjlkulzlp/lemon8_design/repo_migration_assets/5_ea460376ab.png",
+      "fileName": "5_ea460376ab.png",
+      "dir": "ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/repo_migration_assets",
+      "uploadedAt": "2026-02-12T06:42:40.233Z"
+    }
+  ]
+}

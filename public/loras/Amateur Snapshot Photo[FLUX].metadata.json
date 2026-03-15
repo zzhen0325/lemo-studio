@@ -1,0 +1,22 @@
+{
+  "file_name": "Amateur Snapshot Photo[FLUX]",
+  "model_name": "Amateur Snapshot Photo[FLUX]",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Amateur Snapshot Photo[FLUX].safetensors",
+  "size": 772087240,
+  "modified": 1749790144.3224494,
+  "sha256": "59108d393e8ceb7a6a7a14ea0b91abeee6e6989ab8035fa47e1292cac0c859fe",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Amateur Snapshot Photo[FLUX].webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Amateur Snapshot Photo[FLUX]",
+  "modelname": "Amateur Snapshot Photo[FLUX]"
+}

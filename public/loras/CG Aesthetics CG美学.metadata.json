@@ -1,0 +1,22 @@
+{
+  "file_name": "CG Aesthetics CG美学",
+  "model_name": "CG Aesthetics CG美学",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CG Aesthetics CG美学.safetensors",
+  "size": 612742496,
+  "modified": 1746616121.3103297,
+  "sha256": "cc1a9a38cc426cafdf7ce8042a65b9a04376af05b2dfd24d2763a93e09489663",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CG Aesthetics CG美学.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "CG Aesthetics CG美学",
+  "modelname": "CG Aesthetics CG美学"
+}

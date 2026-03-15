@@ -1,0 +1,72 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6] [cursor=pointer]: LEMO STUDIO
+      - navigation [ref=e7]:
+        - button "Playground" [ref=e8] [cursor=pointer]:
+          - generic "Playground" [ref=e9]:
+            - generic [ref=e10]:
+              - generic [ref=e11]: P
+              - generic [ref=e12]: l
+              - generic [ref=e13]: a
+              - generic [ref=e14]: "y"
+              - generic [ref=e15]: g
+              - generic [ref=e16]: r
+              - generic [ref=e17]: o
+              - generic [ref=e18]: u
+              - generic [ref=e19]: "n"
+              - generic [ref=e20]: d
+        - button "Infinite Canvas" [ref=e22] [cursor=pointer]:
+          - generic "Infinite Canvas" [ref=e23]:
+            - generic [ref=e24]:
+              - generic [ref=e25]: I
+              - generic [ref=e26]: "n"
+              - generic [ref=e27]: f
+              - generic [ref=e28]: i
+              - generic [ref=e29]: "n"
+              - generic [ref=e30]: i
+              - generic [ref=e31]: t
+              - generic [ref=e32]: e
+            - generic [ref=e33]:
+              - generic [ref=e34]: C
+              - generic [ref=e35]: a
+              - generic [ref=e36]: "n"
+              - generic [ref=e37]: v
+              - generic [ref=e38]: a
+              - generic [ref=e39]: s
+        - button "Tools" [ref=e40] [cursor=pointer]:
+          - generic "Tools" [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e43]: T
+              - generic [ref=e44]: o
+              - generic [ref=e45]: o
+              - generic [ref=e46]: l
+              - generic [ref=e47]: s
+        - button "Dataset" [ref=e48] [cursor=pointer]:
+          - generic "Dataset" [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: D
+              - generic [ref=e52]: a
+              - generic [ref=e53]: t
+              - generic [ref=e54]: a
+              - generic [ref=e55]: s
+              - generic [ref=e56]: e
+              - generic [ref=e57]: t
+        - button "Settings" [ref=e58] [cursor=pointer]:
+          - generic "Settings" [ref=e59]:
+            - generic [ref=e60]:
+              - generic [ref=e61]: S
+              - generic [ref=e62]: e
+              - generic [ref=e63]: t
+              - generic [ref=e64]: t
+              - generic [ref=e65]: i
+              - generic [ref=e66]: "n"
+              - generic [ref=e67]: g
+              - generic [ref=e68]: s
+      - button "Sign In" [ref=e70] [cursor=pointer]
+    - main [ref=e71]:
+      - generic [ref=e73]: Loading Playground...
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e79] [cursor=pointer]:
+    - img [ref=e80]
+  - alert [ref=e83]

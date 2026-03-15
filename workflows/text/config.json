@@ -1,0 +1,209 @@
+{
+  "id": "wf_text",
+  "title": "text",
+  "description": "从 T2I.json 导入的工作流配置",
+  "inputs": [
+    {
+      "title": "Model",
+      "id": "group_model",
+      "key": "group_model",
+      "inputs": [
+        {
+          "title": "基础模型 (Base Model)",
+          "placeholder": "Mapped to 基础模型 (Base Model)",
+          "value": "revAnimated_v2RebirthVAE.safetensors",
+          "workflowPath": [
+            "1",
+            "inputs",
+            "ckpt_name"
+          ],
+          "helpText": "Base Model Checkpoint",
+          "valueType": "string",
+          "validations": {},
+          "key": "1-inputs-ckpt_name"
+        }
+      ]
+    },
+    {
+      "title": "Generation Settings",
+      "id": "group_generation",
+      "key": "group_generation",
+      "inputs": [
+        {
+          "title": "宽度 (Width)",
+          "placeholder": "Mapped to 宽度 (Width)",
+          "value": 512,
+          "workflowPath": [
+            "9",
+            "inputs",
+            "width"
+          ],
+          "helpText": "Image Width",
+          "valueType": "number",
+          "validations": {},
+          "key": "9-inputs-width"
+        },
+        {
+          "title": "高度 (Height)",
+          "placeholder": "Mapped to 高度 (Height)",
+          "value": 512,
+          "workflowPath": [
+            "9",
+            "inputs",
+            "height"
+          ],
+          "helpText": "Image Height",
+          "valueType": "number",
+          "validations": {},
+          "key": "9-inputs-height"
+        },
+        {
+          "title": "生成数量 (Batch Size)",
+          "placeholder": "Mapped to 生成数量 (Batch Size)",
+          "value": 1,
+          "workflowPath": [
+            "9",
+            "inputs",
+            "batch_size"
+          ],
+          "helpText": "Batch Size",
+          "valueType": "number",
+          "validations": {},
+          "key": "9-inputs-batch_size"
+        }
+      ]
+    },
+    {
+      "title": "Prompt",
+      "id": "group_prompt",
+      "key": "group_prompt",
+      "inputs": [
+        {
+          "title": "提示词 (Prompt)",
+          "placeholder": "Mapped to 提示词 (Prompt)",
+          "value": "ABCD",
+          "workflowPath": [
+            "7",
+            "inputs",
+            "text"
+          ],
+          "helpText": "Positive Prompt",
+          "valueType": "string",
+          "validations": {},
+          "key": "7-inputs-text"
+        }
+      ]
+    }
+  ],
+  "advancedInputs": [],
+  "previewImages": [],
+  "mappingConfig": {
+    "components": [
+      {
+        "id": "pg_map_1764604544824",
+        "type": "text",
+        "label": "基础模型 (Base Model)",
+        "properties": {
+          "defaultValue": "revAnimated_v2RebirthVAE.safetensors",
+          "paramName": "base_model",
+          "placeholder": "Mapped to 基础模型 (Base Model)"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "1",
+            "inputs",
+            "ckpt_name"
+          ],
+          "parameterKey": "ckpt_name",
+          "defaultValue": "revAnimated_v2RebirthVAE.safetensors"
+        },
+        "orderIndex": 0
+      },
+      {
+        "id": "pg_map_1764604556941",
+        "type": "number",
+        "label": "宽度 (Width)",
+        "properties": {
+          "defaultValue": 512,
+          "paramName": "width",
+          "placeholder": "Mapped to 宽度 (Width)"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "9",
+            "inputs",
+            "width"
+          ],
+          "parameterKey": "width",
+          "defaultValue": 512
+        },
+        "orderIndex": 1
+      },
+      {
+        "id": "pg_map_1764604558877",
+        "type": "number",
+        "label": "高度 (Height)",
+        "properties": {
+          "defaultValue": 512,
+          "paramName": "height",
+          "placeholder": "Mapped to 高度 (Height)"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "9",
+            "inputs",
+            "height"
+          ],
+          "parameterKey": "height",
+          "defaultValue": 512
+        },
+        "orderIndex": 2
+      },
+      {
+        "id": "pg_map_1764604562210",
+        "type": "number",
+        "label": "生成数量 (Batch Size)",
+        "properties": {
+          "defaultValue": 1,
+          "paramName": "batch_size",
+          "placeholder": "Mapped to 生成数量 (Batch Size)"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "9",
+            "inputs",
+            "batch_size"
+          ],
+          "parameterKey": "batch_size",
+          "defaultValue": 1
+        },
+        "orderIndex": 3
+      },
+      {
+        "id": "pg_map_1764604573138",
+        "type": "text",
+        "label": "提示词 (Prompt)",
+        "properties": {
+          "defaultValue": "ABCD",
+          "paramName": "prompt",
+          "placeholder": "Mapped to 提示词 (Prompt)"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "7",
+            "inputs",
+            "text"
+          ],
+          "parameterKey": "text",
+          "defaultValue": "ABCD"
+        },
+        "orderIndex": 4
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "绘梦flux毛绒玩偶设计",
+  "model_name": "绘梦flux毛绒玩偶设计",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/绘梦flux毛绒玩偶设计.safetensors",
+  "size": 612750144,
+  "modified": 1746616005.9294806,
+  "sha256": "cf7e6d13acb91d2647df3be7a9dbbb85d6a5148421673cc464f539c0d89ab20b",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/绘梦flux毛绒玩偶设计.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "绘梦flux毛绒玩偶设计",
+  "modelname": "绘梦flux毛绒玩偶设计"
+}

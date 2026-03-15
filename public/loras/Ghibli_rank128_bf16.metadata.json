@@ -1,0 +1,22 @@
+{
+  "file_name": "Ghibli_rank128_bf16",
+  "model_name": "Ghibli_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Ghibli_rank128_bf16.safetensors",
+  "size": 1225487336,
+  "modified": 1749532289.8760426,
+  "sha256": "8bbaa9e94201caa9d68d9e5cab4f7a2ce456c2d8cee7f22c0b55f3a8b301df9d",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Ghibli_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Ghibli_rank128_bf16",
+  "modelname": "Ghibli_rank128_bf16"
+}

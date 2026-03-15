@@ -1,0 +1,22 @@
+{
+  "file_name": "Chiaroscuro Lighting Style Flux",
+  "model_name": "Chiaroscuro Lighting Style Flux",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Chiaroscuro Lighting Style Flux.safetensors",
+  "size": 343805483,
+  "modified": 1749790396.4518387,
+  "sha256": "b633dea049e911a04ed9005a755982f087c5e8938449d174384a92067dec07c3",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Chiaroscuro Lighting Style Flux.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Chiaroscuro Lighting Style Flux",
+  "modelname": "Chiaroscuro Lighting Style Flux"
+}

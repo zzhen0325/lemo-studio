@@ -1,0 +1,22 @@
+{
+  "file_name": "筑梦工业 _ 乐高世界XL_v1.0",
+  "model_name": "筑梦工业 _ 乐高世界XL_v1.0",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/筑梦工业 _ 乐高世界XL_v1.0.safetensors",
+  "size": 456487508,
+  "modified": 1749475453.9971967,
+  "sha256": "6474bff8e5fe0e6ba8c3cdf54fd9da5b505f747a2c5e38702eb0ce98c55fd5ba",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/筑梦工业 _ 乐高世界XL_v1.0.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "筑梦工业 _ 乐高世界XL_v1.0",
+  "modelname": "筑梦工业 _ 乐高世界XL_v1.0"
+}

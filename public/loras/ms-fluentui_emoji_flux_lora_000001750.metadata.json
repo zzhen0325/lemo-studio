@@ -1,0 +1,22 @@
+{
+  "file_name": "ms-fluentui_emoji_flux_lora_000001750",
+  "model_name": "ms-fluentui_emoji_flux_lora_000001750",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/ms-fluentui_emoji_flux_lora_000001750.safetensors",
+  "size": 171969614,
+  "modified": 1750072420.53407,
+  "sha256": "4a66924f8432103cc0d0fa121b09b734e5de229a3bc1d7a5bbfd67f342822058",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/ms-fluentui_emoji_flux_lora_000001750.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "ms-fluentui_emoji_flux_lora_000001750",
+  "modelname": "ms-fluentui_emoji_flux_lora_000001750"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "Starter Pack V2.1",
+  "model_name": "Starter Pack V2.1",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Starter Pack V2.1.safetensors",
+  "size": 76699144,
+  "modified": 1746784970.3995895,
+  "sha256": "aacad09fe05fe6d22bf8155a5f9a8c734212ac8d911f9bd00efbfcd21500d66b",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Starter Pack V2.1.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Starter Pack V2.1",
+  "modelname": "Starter Pack V2.1"
+}

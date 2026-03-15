@@ -1,0 +1,22 @@
+{
+  "file_name": "极简风格人物插画_FLUX",
+  "model_name": "极简风格人物插画_FLUX",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/极简风格人物插画_FLUX.safetensors",
+  "size": 76703544,
+  "modified": 1746709227.6081388,
+  "sha256": "36745425087edac40e490ee7b24658b92055f7b075a0586bce8e6c4de54cffd0",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/极简风格人物插画_FLUX.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "极简风格人物插画_FLUX",
+  "modelname": "极简风格人物插画_FLUX"
+}

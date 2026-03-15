@@ -1,0 +1,22 @@
+{
+  "file_name": "American_Cartoon_rank128_bf16",
+  "model_name": "American_Cartoon_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/American_Cartoon_rank128_bf16.safetensors",
+  "size": 1225486440,
+  "modified": 1749532282.2358747,
+  "sha256": "0328aa64569e65659b9a795ac27e4f8751e5dd8ee1b0ad3688a168c7da58972a",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/American_Cartoon_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "American_Cartoon_rank128_bf16",
+  "modelname": "American_Cartoon_rank128_bf16"
+}

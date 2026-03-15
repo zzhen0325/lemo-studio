@@ -1,0 +1,22 @@
+{
+  "file_name": "3D渲染黄色奶酪制成食物渲染",
+  "model_name": "3D渲染黄色奶酪制成食物渲染",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/3D渲染黄色奶酪制成食物渲染.safetensors",
+  "size": 306426864,
+  "modified": 1746616011.9969265,
+  "sha256": "fd4c353696c62810a8ea2b9343893f92be7f0cedcc960a301e4894b0c03703c0",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/3D渲染黄色奶酪制成食物渲染.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "3D渲染黄色奶酪制成食物渲染",
+  "modelname": "3D渲染黄色奶酪制成食物渲染"
+}

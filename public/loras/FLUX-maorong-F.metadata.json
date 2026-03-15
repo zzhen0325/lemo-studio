@@ -1,0 +1,22 @@
+{
+  "file_name": "FLUX-maorong-F",
+  "model_name": "FLUX-maorong-F",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FLUX-maorong-F.safetensors",
+  "size": 153268392,
+  "modified": 1747035852.6390984,
+  "sha256": "684bcffb5013c1e6042e9619f5a9121679ddde33cbbfd6188040f2de4dd0e1a8",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FLUX-maorong-F.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "FLUX-maorong-F",
+  "modelname": "FLUX-maorong-F"
+}

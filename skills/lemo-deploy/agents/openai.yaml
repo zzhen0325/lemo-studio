@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lemo Deploy"
+  short_description: "Deploy and verify Lemon8 AI Studio services"
+  default_prompt: "Use $lemo-deploy to update, deploy, and verify the Lemon8 AI Studio frontend and backend."

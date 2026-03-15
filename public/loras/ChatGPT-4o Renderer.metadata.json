@@ -1,0 +1,22 @@
+{
+  "file_name": "ChatGPT-4o Renderer",
+  "model_name": "ChatGPT-4o Renderer",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/ChatGPT-4o Renderer.safetensors",
+  "size": 105617544,
+  "modified": 1747311253.4057095,
+  "sha256": "fed36d0a290f7993637710b9fc7012c57eb23e98c0a591426e297137edeba922",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/ChatGPT-4o Renderer.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "ChatGPT-4o Renderer",
+  "modelname": "ChatGPT-4o Renderer"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "Ismail_Inceoglu",
+  "model_name": "Ismail_Inceoglu",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Ismail_Inceoglu.safetensors",
+  "size": 19441528,
+  "modified": 1747310359.2831194,
+  "sha256": "6ff3178af2e107183034910134c59e58ec1a1b91a89c7d3ea66bfb467e51101d",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Ismail_Inceoglu.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Ismail_Inceoglu",
+  "modelname": "Ismail_Inceoglu"
+}

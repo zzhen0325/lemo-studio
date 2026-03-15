@@ -1,0 +1,291 @@
+{
+  "113": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "114": {
+    "inputs": {
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": [
+        "115",
+        2
+      ],
+      "height": [
+        "115",
+        1
+      ],
+      "model": [
+        "147",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingFlux",
+    "_meta": {
+      "title": "模型采样算法Flux"
+    }
+  },
+  "115": {
+    "inputs": {
+      "value": [
+        "142",
+        0
+      ]
+    },
+    "class_type": "ImpactLatentInfo",
+    "_meta": {
+      "title": "Latent信息"
+    }
+  },
+  "116": {
+    "inputs": {
+      "noise": [
+        "121",
+        0
+      ],
+      "guider": [
+        "117",
+        0
+      ],
+      "sampler": [
+        "113",
+        0
+      ],
+      "sigmas": [
+        "123",
+        0
+      ],
+      "latent_image": [
+        "142",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器(高级)"
+    }
+  },
+  "117": {
+    "inputs": {
+      "model": [
+        "114",
+        0
+      ],
+      "conditioning": [
+        "118",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "基础引导"
+    }
+  },
+  "118": {
+    "inputs": {
+      "clip_l": [
+        "151",
+        0
+      ],
+      "t5xxl": [
+        "151",
+        0
+      ],
+      "guidance": 3.5,
+      "clip": [
+        "147",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncodeFlux",
+    "_meta": {
+      "title": "CLIP文本编码Flux"
+    }
+  },
+  "119": {
+    "inputs": {
+      "unet_name": "flux1-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNET加载器"
+    }
+  },
+  "120": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "双CLIP加载器"
+    }
+  },
+  "121": {
+    "inputs": {
+      "noise_seed": 828056663099720
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "122": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE加载器"
+    }
+  },
+  "123": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 20,
+      "denoise": 1,
+      "model": [
+        "114",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "基础调度器"
+    }
+  },
+  "125": {
+    "inputs": {
+      "text": "A lively \"Cute Pet Gathering\" poster set against a blue sky with white clouds and a green grassy. At the center are three adorable pets: a smiling golden retriever with warm golden fur and a happily lolling tongue stands behind; on the left front is a ragdoll cat with sparkling blue eyes, pink blush on its cheeks, and soft, fluffy white fur; on the right is a tabby cat with neat gray stripes, playfully winking one eye and wearing a yellow star decoration on its head. Large black title \"Cute Pet Gathering\" sits at the top, accompanied by a yellow bubble text \"Little Cuties Often Meet\"; on the left, white text reads \"Lots of Pet Supplies Waiting for You\", and next to a pink paw print on the right, it says \"Make a Paw Friend\". "
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "文本"
+    }
+  },
+  "126": {
+    "inputs": {
+      "samples": [
+        "116",
+        0
+      ],
+      "vae": [
+        "122",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "127": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "126",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "142": {
+    "inputs": {
+      "width": 1200,
+      "height": 600,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent"
+    }
+  },
+  "147": {
+    "inputs": {
+      "lora_name": "Alt-Country Poster.safetensors",
+      "strength_model": 0.4000000000000001,
+      "strength_clip": 1,
+      "model": [
+        "149",
+        0
+      ],
+      "clip": [
+        "149",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA加载器"
+    }
+  },
+  "148": {
+    "inputs": {
+      "anything": [
+        "126",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "清理GPU占用"
+    }
+  },
+  "149": {
+    "inputs": {
+      "lora_name": "JPv3.safetensors",
+      "strength_model": 1.0000000000000002,
+      "strength_clip": 1,
+      "model": [
+        "119",
+        0
+      ],
+      "clip": [
+        "120",
+        0
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA加载器"
+    }
+  },
+  "150": {
+    "inputs": {
+      "text": "jpbanner"
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "预置触发词"
+    }
+  },
+  "151": {
+    "inputs": {
+      "delimiter": ", ",
+      "clean_whitespace": "true",
+      "text_a": [
+        "150",
+        0
+      ],
+      "text_b": [
+        "125",
+        0
+      ]
+    },
+    "class_type": "Text Concatenate",
+    "_meta": {
+      "title": "文本连锁"
+    }
+  }
+}

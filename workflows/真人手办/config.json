@@ -1,0 +1,561 @@
+{
+  "title": "真人手办",
+  "description": "\n上传你的头像和描述，生成相应的卡通版人物",
+  "viewcomfyEndpoint": "",
+  "previewImages": [],
+  "inputs": [
+    {
+      "title": "加载图像",
+      "inputs": [
+        {
+          "title": "加载图像",
+          "placeholder": "加载图像",
+          "value": null,
+          "workflowPath": [
+            "18",
+            "inputs",
+            "image"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "image",
+          "validations": {
+            "required": true
+          },
+          "key": "18-inputs-image"
+        }
+      ],
+      "key": "18-LoadImage"
+    },
+    {
+      "title": "空Latent",
+      "inputs": [
+        {
+          "title": "Width",
+          "placeholder": "Width",
+          "value": 768,
+          "workflowPath": [
+            "5",
+            "inputs",
+            "width"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "5-inputs-width"
+        },
+        {
+          "title": "Height",
+          "placeholder": "Height",
+          "value": 1024,
+          "workflowPath": [
+            "5",
+            "inputs",
+            "height"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "5-inputs-height"
+        }
+      ],
+      "key": "5-EmptyLatentImage",
+      "id": "66cd8c2a-f1df-4147-a9a5-daeeece27276"
+    },
+    {
+      "title": "文本",
+      "inputs": [
+        {
+          "title": "提示词",
+          "placeholder": "Text",
+          "value": "A cartoon character Sit on the chair.feet on the ground，open mouth  ,Wear simple, beautiful clothes, character concept design, clean background:2, bright environment:2,empty background:2, Clean floor,  white  background, ",
+          "workflowPath": [
+            "48",
+            "inputs",
+            "text"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "long-text",
+          "validations": {
+            "required": true
+          },
+          "key": "48-inputs-text"
+        }
+      ],
+      "key": "48-CR Text",
+      "id": "bfb0ed71-0751-4b7d-8da5-b5d2b29f2137"
+    }
+  ],
+  "advancedInputs": [
+    {
+      "title": "K采样器",
+      "inputs": [
+        {
+          "title": "Seed",
+          "placeholder": "Seed",
+          "value": 5e-324,
+          "workflowPath": [
+            "3",
+            "inputs",
+            "seed"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "seed",
+          "validations": {
+            "required": true
+          },
+          "key": "3-inputs-seed"
+        },
+        {
+          "title": "Steps",
+          "placeholder": "Steps",
+          "value": 40,
+          "workflowPath": [
+            "3",
+            "inputs",
+            "steps"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "3-inputs-steps"
+        },
+        {
+          "title": "Cfg",
+          "placeholder": "Cfg",
+          "value": 8,
+          "workflowPath": [
+            "3",
+            "inputs",
+            "cfg"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "3-inputs-cfg"
+        },
+        {
+          "title": "Sampler_name",
+          "placeholder": "Sampler_name",
+          "value": "dpmpp_2m",
+          "workflowPath": [
+            "3",
+            "inputs",
+            "sampler_name"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "3-inputs-sampler_name"
+        },
+        {
+          "title": "Scheduler",
+          "placeholder": "Scheduler",
+          "value": "karras",
+          "workflowPath": [
+            "3",
+            "inputs",
+            "scheduler"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "3-inputs-scheduler"
+        },
+        {
+          "title": "Denoise",
+          "placeholder": "Denoise",
+          "value": 1,
+          "workflowPath": [
+            "3",
+            "inputs",
+            "denoise"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "3-inputs-denoise"
+        }
+      ],
+      "key": "3-KSampler"
+    },
+    {
+      "title": "Checkpoint加载器(简易)",
+      "inputs": [
+        {
+          "title": "Ckpt_name",
+          "placeholder": "Ckpt_name",
+          "value": "samaritan3dCartoon_v40SDXL.safetensors",
+          "workflowPath": [
+            "4",
+            "inputs",
+            "ckpt_name"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "4-inputs-ckpt_name"
+        }
+      ],
+      "key": "4-CheckpointLoaderSimple"
+    },
+    {
+      "title": "保存图像",
+      "inputs": [
+        {
+          "title": "Filename_prefix",
+          "placeholder": "Filename_prefix",
+          "value": "ComfyUI",
+          "workflowPath": [
+            "9",
+            "inputs",
+            "filename_prefix"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "9-inputs-filename_prefix"
+        }
+      ],
+      "key": "9-SaveImage"
+    },
+    {
+      "title": "Load InstantID Ipa Model (EcomID)",
+      "inputs": [
+        {
+          "title": "Instantid_file",
+          "placeholder": "Instantid_file",
+          "value": "ip-adapter_instant_id_sdxl.bin",
+          "workflowPath": [
+            "12",
+            "inputs",
+            "instantid_file"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "12-inputs-instantid_file"
+        }
+      ],
+      "key": "12-InstantID_IPA_ModelLoader"
+    },
+    {
+      "title": "Load PuLID Model (EcomID)",
+      "inputs": [
+        {
+          "title": "Pulid_file",
+          "placeholder": "Pulid_file",
+          "value": "ip-adapter_pulid_sdxl_fp16.safetensors",
+          "workflowPath": [
+            "13",
+            "inputs",
+            "pulid_file"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "13-inputs-pulid_file"
+        }
+      ],
+      "key": "13-EcomID_PulidModelLoader"
+    },
+    {
+      "title": "PuLIDInsightFace加载器",
+      "inputs": [
+        {
+          "title": "Provider",
+          "placeholder": "Provider",
+          "value": "CUDA",
+          "workflowPath": [
+            "15",
+            "inputs",
+            "provider"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "15-inputs-provider"
+        }
+      ],
+      "key": "15-PulidInsightFaceLoader"
+    },
+    {
+      "title": "ControlNet加载器",
+      "inputs": [
+        {
+          "title": "Control_net_name",
+          "placeholder": "Control_net_name",
+          "value": "control_instant_id_sdxl.safetensors",
+          "workflowPath": [
+            "16",
+            "inputs",
+            "control_net_name"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "16-inputs-control_net_name"
+        }
+      ],
+      "key": "16-ControlNetLoader"
+    },
+    {
+      "title": "Apply EcomID Advanced",
+      "inputs": [
+        {
+          "title": "Method",
+          "placeholder": "Method",
+          "value": "neutral",
+          "workflowPath": [
+            "19",
+            "inputs",
+            "method"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "19-inputs-method"
+        },
+        {
+          "title": "Start_at",
+          "placeholder": "Start_at",
+          "value": 0.1,
+          "workflowPath": [
+            "19",
+            "inputs",
+            "start_at"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "float",
+          "validations": {
+            "required": true
+          },
+          "key": "19-inputs-start_at"
+        },
+        {
+          "title": "End_at",
+          "placeholder": "End_at",
+          "value": 1,
+          "workflowPath": [
+            "19",
+            "inputs",
+            "end_at"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "19-inputs-end_at"
+        },
+        {
+          "title": "Ip_weight",
+          "placeholder": "Ip_weight",
+          "value": 0.5,
+          "workflowPath": [
+            "19",
+            "inputs",
+            "ip_weight"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "float",
+          "validations": {
+            "required": true
+          },
+          "key": "19-inputs-ip_weight"
+        },
+        {
+          "title": "Cn_strength",
+          "placeholder": "Cn_strength",
+          "value": 0.3,
+          "workflowPath": [
+            "19",
+            "inputs",
+            "cn_strength"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "float",
+          "validations": {
+            "required": true
+          },
+          "key": "19-inputs-cn_strength"
+        },
+        {
+          "title": "Noise",
+          "placeholder": "Noise",
+          "value": 0,
+          "workflowPath": [
+            "19",
+            "inputs",
+            "noise"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "19-inputs-noise"
+        },
+        {
+          "title": "Combine_embeds",
+          "placeholder": "Combine_embeds",
+          "value": "average",
+          "workflowPath": [
+            "19",
+            "inputs",
+            "combine_embeds"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "19-inputs-combine_embeds"
+        }
+      ],
+      "key": "19-ApplyEcomIDAdvanced"
+    },
+    {
+      "title": "LoRA加载器",
+      "inputs": [
+        {
+          "title": "Lora_name",
+          "placeholder": "Lora_name",
+          "value": "APP卡通头像-GPT4o_v1.safetensors",
+          "workflowPath": [
+            "21",
+            "inputs",
+            "lora_name"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "21-inputs-lora_name"
+        },
+        {
+          "title": "Strength_model",
+          "placeholder": "Strength_model",
+          "value": 1.0000000000000002,
+          "workflowPath": [
+            "21",
+            "inputs",
+            "strength_model"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "float",
+          "validations": {
+            "required": true
+          },
+          "key": "21-inputs-strength_model"
+        },
+        {
+          "title": "Strength_clip",
+          "placeholder": "Strength_clip",
+          "value": 1,
+          "workflowPath": [
+            "21",
+            "inputs",
+            "strength_clip"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "number",
+          "validations": {
+            "required": true
+          },
+          "key": "21-inputs-strength_clip"
+        }
+      ],
+      "key": "21-LoraLoader"
+    },
+    {
+      "title": "文本连锁",
+      "inputs": [
+        {
+          "title": "Delimiter",
+          "placeholder": "Delimiter",
+          "value": ", ",
+          "workflowPath": [
+            "27",
+            "inputs",
+            "delimiter"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "27-inputs-delimiter"
+        },
+        {
+          "title": "Clean_whitespace",
+          "placeholder": "Clean_whitespace",
+          "value": "true",
+          "workflowPath": [
+            "27",
+            "inputs",
+            "clean_whitespace"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "27-inputs-clean_whitespace"
+        }
+      ],
+      "key": "27-Text Concatenate"
+    },
+    {
+      "title": "文本",
+      "inputs": [
+        {
+          "title": "Text",
+          "placeholder": "Text",
+          "value": "touxiang",
+          "workflowPath": [
+            "28",
+            "inputs",
+            "text"
+          ],
+          "helpText": "Helper Text",
+          "valueType": "string",
+          "validations": {
+            "required": true
+          },
+          "key": "28-inputs-text"
+        }
+      ],
+      "key": "28-CR Text"
+    }
+  ],
+  "id": "wf_真人手办"
+}

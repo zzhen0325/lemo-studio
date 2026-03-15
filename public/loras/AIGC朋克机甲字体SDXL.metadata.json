@@ -1,0 +1,22 @@
+{
+  "file_name": "AIGC朋克机甲字体SDXL",
+  "model_name": "AIGC朋克机甲字体SDXL",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/AIGC朋克机甲字体SDXL.safetensors",
+  "size": 456486764,
+  "modified": 1749475414.089141,
+  "sha256": "2e86f8bc41d179bf8197c2836bde5cffbe563ca3411768b60aec335b88e8d6b1",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/AIGC朋克机甲字体SDXL.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "AIGC朋克机甲字体SDXL",
+  "modelname": "AIGC朋克机甲字体SDXL"
+}

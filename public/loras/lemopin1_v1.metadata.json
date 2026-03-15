@@ -1,0 +1,22 @@
+{
+  "file_name": "lemopin1_v1",
+  "model_name": "lemopin1_v1",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/lemopin1_v1.safetensors",
+  "size": 306499352,
+  "modified": 1749060841.7419624,
+  "sha256": "d8d9dd03dbf185da9f4fdc648c2aed0bad6e9995cca28813690c5d0d6d242f2a",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/lemopin1_v1.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "lemopin1_v1",
+  "modelname": "lemopin1_v1"
+}

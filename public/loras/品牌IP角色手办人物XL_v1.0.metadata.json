@@ -1,0 +1,22 @@
+{
+  "file_name": "品牌IP角色手办人物XL_v1.0",
+  "model_name": "品牌IP角色手办人物XL_v1.0",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/品牌IP角色手办人物XL_v1.0.safetensors",
+  "size": 456492220,
+  "modified": 1749475515.039729,
+  "sha256": "af07bef523d7f2b2f298e623214693d036cd7f909b39fe5d0bc2f6f28c25dbcb",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/品牌IP角色手办人物XL_v1.0.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "品牌IP角色手办人物XL_v1.0",
+  "modelname": "品牌IP角色手办人物XL_v1.0"
+}

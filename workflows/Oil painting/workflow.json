@@ -1,0 +1,280 @@
+{
+  "49": {
+    "inputs": {
+      "pulid_file": "ip-adapter_pulid_sdxl_fp16.safetensors"
+    },
+    "class_type": "EcomID_PulidModelLoader",
+    "_meta": {
+      "title": "Load PuLID Model (EcomID)"
+    }
+  },
+  "50": {
+    "inputs": {
+      "samples": [
+        "56",
+        0
+      ],
+      "vae": [
+        "59",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "51": {
+    "inputs": {
+      "instantid_file": "ip-adapter_instant_id_sdxl.bin"
+    },
+    "class_type": "InstantID_IPA_ModelLoader",
+    "_meta": {
+      "title": "Load InstantID Ipa Model (EcomID)"
+    }
+  },
+  "52": {
+    "inputs": {
+      "text": [
+        "63",
+        0
+      ],
+      "clip": [
+        "66",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码器"
+    }
+  },
+  "53": {
+    "inputs": {
+      "control_net_name": "control_instant_id_sdxl.safetensors"
+    },
+    "class_type": "ControlNetLoader",
+    "_meta": {
+      "title": "ControlNet加载器"
+    }
+  },
+  "54": {
+    "inputs": {
+      "provider": "CPU"
+    },
+    "class_type": "PulidInsightFaceLoader",
+    "_meta": {
+      "title": "PuLIDInsightFace加载器"
+    }
+  },
+  "55": {
+    "inputs": {},
+    "class_type": "PulidEvaClipLoader",
+    "_meta": {
+      "title": "PuLIDEVAClip加载器"
+    }
+  },
+  "56": {
+    "inputs": {
+      "seed": 783440588967711,
+      "steps": 40,
+      "cfg": 8,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1,
+      "model": [
+        "58",
+        0
+      ],
+      "positive": [
+        "58",
+        1
+      ],
+      "negative": [
+        "58",
+        2
+      ],
+      "latent_image": [
+        "64",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "57": {
+    "inputs": {
+      "text": "nsfw, paintings, sketches, worst quality, low quality, normal quality, lowres, watermark, monochrome, grayscale, ugly, blurry, Tan skin, dark skin, black skin, skin spots, skin blemishes, age spot, glans, disabled, bad anatomy, amputation, bad proportions, twins, missing body, fused body, extra head, poorly drawn face, bad eyes, deformed eye, unclear eyes, cross-eyed, long neck, malformed limbs, extra limbs, extra arms, missing arms, bad tongue, strange fingers, mutated hands, missing hands, poorly drawn hands, extra hands, fused hands, connected hand, bad hands, missing fingers, extra fingers, 4 fingers, 3 fingers, deformed hands, extra legs, bad legs, many legs, more than two legs, bad feet, extra feets, badhandv4, easynegative, FastNegativeV2, negative_hand-neg,ng_deepnegative_v1_75t, verybadimagenegative_v1.3",
+      "clip": [
+        "66",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码器"
+    }
+  },
+  "58": {
+    "inputs": {
+      "method": "style",
+      "start_at": 0.1,
+      "end_at": 1,
+      "ip_weight": 0.8000000000000002,
+      "cn_strength": 0.3,
+      "noise": 0,
+      "combine_embeds": "average",
+      "instantid_ipa": [
+        "51",
+        0
+      ],
+      "pulid": [
+        "49",
+        0
+      ],
+      "eva_clip": [
+        "55",
+        0
+      ],
+      "insightface": [
+        "54",
+        0
+      ],
+      "control_net": [
+        "53",
+        0
+      ],
+      "image": [
+        "61",
+        0
+      ],
+      "model": [
+        "66",
+        0
+      ],
+      "positive": [
+        "52",
+        0
+      ],
+      "negative": [
+        "57",
+        0
+      ]
+    },
+    "class_type": "ApplyEcomIDAdvanced",
+    "_meta": {
+      "title": "Apply EcomID Advanced"
+    }
+  },
+  "59": {
+    "inputs": {
+      "ckpt_name": "samaritan3dCartoon_v40SDXL.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器(简易)"
+    }
+  },
+  "60": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "50",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "61": {
+    "inputs": {
+      "image": "pasted/image (64).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "62": {
+    "inputs": {
+      "text": "ArsMJStyle, Impressionism,"
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "文本"
+    }
+  },
+  "63": {
+    "inputs": {
+      "delimiter": ", ",
+      "clean_whitespace": "true",
+      "text_a": [
+        "62",
+        0
+      ],
+      "text_b": [
+        "65",
+        0
+      ]
+    },
+    "class_type": "Text Concatenate",
+    "_meta": {
+      "title": "文本连锁"
+    }
+  },
+  "64": {
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent"
+    }
+  },
+  "65": {
+    "inputs": {
+      "text": "a Impressionism oil painting of A man in the 18th century is dressed in gorgeous clothing. He wears a tricorn hat adorned with white feathers and ribbons; his face has carefully - groomed curly sideburns; he is wearing a silk double - breasted long coat embroidered with intricate golden patterns and colorful silk - thread designs, with a wide - open collar decorated with delicate lace edging and dotted with silver buttons; underneath is a white linen shirt with elaborate lace - trimmed cuffs; he wears well - tailored light - colored silk breeches on his lower body; he has a dark silk sash around his waist; he wears black leather shoes with silver buckle details on his feet; the background is a soft - toned classical indoor scene filled with warm - toned light: the lines of the carved furniture are faintly visible in a blurred way, the large crystal chandelier is like an assembly of shining light spots, and the classical oil paintings on the wall have loose brushstrokes leaving only color outlines; the overall picture presents a typical Impressionist painting style—loose and free brushstrokes, bright and gorgeous colors, and vivid and charming light - shadow effects.\n"
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "文本"
+    }
+  },
+  "66": {
+    "inputs": {
+      "lora_name": "XL\\EldritchImpressionismXL1.5.safetensors",
+      "strength_model": 1.0000000000000002,
+      "strength_clip": 1,
+      "model": [
+        "59",
+        0
+      ],
+      "clip": [
+        "59",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA加载器"
+    }
+  },
+  "67": {
+    "inputs": {
+      "anything": [
+        "50",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "清理GPU占用"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "niji插画v3 768",
+  "model_name": "niji插画v3 768",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/niji插画v3 768.safetensors",
+  "size": 153286536,
+  "modified": 1746785351.6326857,
+  "sha256": "7d86f50e8e00bff51be88ba17287d642259936029ef92ecb8fe97d7b783867de",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/niji插画v3 768.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "niji插画v3 768",
+  "modelname": "niji插画v3 768"
+}

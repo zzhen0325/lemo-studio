@@ -1,0 +1,22 @@
+{
+  "file_name": "CharacterSheet_Flux",
+  "model_name": "CharacterSheet_Flux",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CharacterSheet_Flux.safetensors",
+  "size": 612754416,
+  "modified": 1749790631.413567,
+  "sha256": "ad75732b7eed9d0cd41a22698364b290664e3528abe5793d2fa696f1066b3d5d",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CharacterSheet_Flux.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "CharacterSheet_Flux",
+  "modelname": "CharacterSheet_Flux"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "flux-artX-lineart-lora-000008",
+  "model_name": "flux-artX-lineart-lora-000008",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/flux-artX-lineart-lora-000008.safetensors",
+  "size": 306426864,
+  "modified": 1746785064.41925,
+  "sha256": "93aa43a75c74d02ec98fc713e0b56c5fd1e27109550d61a956954be58a3738a4",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/flux-artX-lineart-lora-000008.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "flux-artX-lineart-lora-000008",
+  "modelname": "flux-artX-lineart-lora-000008"
+}

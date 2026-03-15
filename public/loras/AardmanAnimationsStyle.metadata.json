@@ -1,0 +1,22 @@
+{
+  "file_name": "AardmanAnimationsStyle",
+  "model_name": "AardmanAnimationsStyle",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/AardmanAnimationsStyle.safetensors",
+  "size": 9439336,
+  "modified": 1749788981.102849,
+  "sha256": "5a65d14dcad628633e756ce3f374b53051034866c003c75e04dbcce5abcb577b",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/AardmanAnimationsStyle.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "AardmanAnimationsStyle",
+  "modelname": "AardmanAnimationsStyle"
+}

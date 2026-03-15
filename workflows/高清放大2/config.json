@@ -1,0 +1,33 @@
+{
+  "id": "wf_高清放大2",
+  "title": "高清放大2",
+  "description": "从 florence快速高清放大 (1).json 导入的工作流配置",
+  "inputs": [],
+  "advancedInputs": [],
+  "previewImages": [],
+  "mappingConfig": {
+    "components": [
+      {
+        "id": "pg_map_1767861187740",
+        "type": "image",
+        "label": "Reference Image",
+        "properties": {
+          "defaultValue": "ref_1767009223426_n497cb.jpg",
+          "paramName": "sourceImageUrl",
+          "placeholder": "Mapped to Reference Image"
+        },
+        "validation": {},
+        "mapping": {
+          "workflowPath": [
+            "21",
+            "inputs",
+            "image"
+          ],
+          "parameterKey": "image",
+          "defaultValue": "ref_1767009223426_n497cb.jpg"
+        },
+        "orderIndex": 0
+      }
+    ]
+  }
+}

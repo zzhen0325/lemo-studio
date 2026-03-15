@@ -1,0 +1,22 @@
+{
+  "file_name": "USTYPE",
+  "model_name": "USTYPE",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/USTYPE.safetensors",
+  "size": 306426864,
+  "modified": 1748413317.969126,
+  "sha256": "695a826472fd984330696f4c4751959e32ec9e6b0f0eb12418e72e4001b68ff9",
+  "base_model": "Unknown",
+  "preview_url": "",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "USTYPE",
+  "modelname": "USTYPE"
+}

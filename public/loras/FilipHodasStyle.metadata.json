@@ -1,0 +1,22 @@
+{
+  "file_name": "FilipHodasStyle",
+  "model_name": "FilipHodasStyle",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FilipHodasStyle.safetensors",
+  "size": 9439344,
+  "modified": 1749789082.1278796,
+  "sha256": "eb92958d15f2d0d0cdd1e0a957b7c7e0bfeb35e7647718018868c83b4ea8a9a8",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FilipHodasStyle.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "FilipHodasStyle",
+  "modelname": "FilipHodasStyle"
+}

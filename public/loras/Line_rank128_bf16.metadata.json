@@ -1,0 +1,22 @@
+{
+  "file_name": "Line_rank128_bf16",
+  "model_name": "Line_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Line_rank128_bf16.safetensors",
+  "size": 1225464608,
+  "modified": 1749532368.6365662,
+  "sha256": "72622b8688c038c047d20f5c6e2bb7deebe93a9fad2fdf003b7655482aa7e0b4",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Line_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Line_rank128_bf16",
+  "modelname": "Line_rank128_bf16"
+}

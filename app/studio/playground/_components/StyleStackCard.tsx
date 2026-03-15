@@ -1,0 +1,213 @@
+'use client';
+
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { StyleStack } from './types';
+import { Plus, Sparkles, Image as ImageIcon, Trash2, Edit3, Settings2 } from 'lucide-react';
+import NextImage from 'next/image';
+import { cn } from '@/lib/utils';
+import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/common/use-toast';
+import { formatImageUrl } from '@/lib/api-base';
+import { useImageSource } from '@/hooks/common/use-image-source';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface StyleStackCardProps {
+    style: StyleStack;
+    onClick?: () => void;
+    size?: 'sm' | 'md' | 'grid-lg';
+}
+
+const StyleCardImage = ({ path }: { path: string }) => {
+    const src = useImageSource(path);
+    return (
+        <NextImage
+            src={src || formatImageUrl(path)}
+            alt="Style image"
+            fill
+            className="object-cover group-hover:scale-110 transition-transform duration-700"
+            unoptimized={path.startsWith('local:')}
+        />
+    );
+};
+
+export const StyleStackCard: React.FC<StyleStackCardProps> = ({
+    style,
+    onClick,
+    size = 'md'
+}) => {
+    const { applyPrompt, applyImage, deleteStyle } = usePlaygroundStore();
+    const { toast } = useToast();
+    const isSmall = size === 'sm';
+    const isGridLg = size === 'grid-lg';
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    // Get up to 3 images for the stack
+    const displayImages = style.imagePaths.slice(-3).reverse();
+
+    // Fallback if no images
+    const hasImages = displayImages.length > 0;
+
+    return (
+        <div
+            className={cn(
+                "group relative flex flex-col gap-4 p-4 rounded-[2rem] transition-all cursor-pointer",
+                isGridLg && "hover:bg-white/5"
+            )}
+            onMouseEnter={() => setIsExpanded(true)}
+            onMouseLeave={() => setIsExpanded(false)}
+            onClick={onClick}
+        >
+            {/* Quick Actions Hover Buttons */}
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-2 z-[30] pointer-events-auto">
+                <Button
+                    size="sm"
+                    className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-purple-500/50 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        applyPrompt(style.prompt);
+                    }}
+                >
+                    <Sparkles size={14} className="text-purple-400 group-hover/btn:animate-pulse" />
+                    <span className="text-[11px] uppercase tracking-wider font-bold">Use Prompt</span>
+                </Button>
+                {(style.collageImageUrl || style.imagePaths.length > 0) && (
+                    <Button
+                        size="sm"
+                        className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-blue-500/50 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const pathToApply = style.collageImageUrl || style.imagePaths[0];
+                            if (pathToApply) {
+                                applyImage(pathToApply);
+                                toast({
+                                    title: style.collageImageUrl ? "Collage Added" : "Image Added",
+                                    description: style.collageImageUrl ? "风格拼合图已添加为参考图" : "风格图片已添加为参考图"
+                                });
+                            }
+                        }}
+                    >
+                        <ImageIcon size={14} className="text-blue-400 group-hover/btn:scale-110 transition-transform" />
+                        <span className="text-[11px] uppercase tracking-wider font-bold">Use Image</span>
+                    </Button>
+                )}
+            </div>
+
+            {/* Management Menu */}
+            <div className="absolute top-4 right-4 z-[40] opacity-0 group-hover:opacity-100 transition-opacity">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-full bg-neutral-900/50 backdrop-blur-md border border-white/10 text-white/40 hover:text-white hover:bg-neutral-800"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Settings2 size={16} />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-32 bg-neutral-900/90 border-white/10 backdrop-blur-xl rounded-xl">
+                        <DropdownMenuItem
+                            className="gap-2 text-white/70 focus:text-white focus:bg-white/10 rounded-lg cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onClick?.(); // Open detail which serves as edit
+                            }}
+                        >
+                            <Edit3 size={14} />
+                            编辑
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="gap-2 text-red-400 focus:text-red-300 focus:bg-red-400/10 rounded-lg cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm('确定要删除这个风格吗？')) {
+                                    deleteStyle(style.id);
+                                }
+                            }}
+                        >
+                            <Trash2 size={14} />
+                            删除
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+
+            {/* Image Stack Container */}
+            <div className={cn(
+                "relative w-full flex items-center justify-center perspective-1000",
+                isSmall ? "h-[140px] [@media(max-height:850px)]:h-[100px] [@media(max-height:750px)]:h-[80px]" : "h-[200px]",
+                isGridLg && "h-[220px]"
+            )}>
+                {hasImages ? (
+                    displayImages.map((path, index) => (
+                        <motion.div
+                            key={path}
+                            className={cn(
+                                "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900 shadow-xl",
+                                isSmall ? "w-28 h-[140px] [@media(max-height:850px)]:h-[100px] [@media(max-height:850px)]:w-20 [@media(max-height:750px)]:h-[80px] [@media(max-height:750px)]:w-16" : "w-40 h-[200px]",
+                                isGridLg && "w-[180px] h-[220px]"
+                            )}
+                            initial={false}
+                            animate={{
+                                x: isExpanded
+                                    ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : isGridLg ? 110 : 160)
+                                    : (index - (displayImages.length - 1) / 2) * (isSmall ? 30 : isGridLg ? 35 : 50),
+                                y: isExpanded ? (isSmall ? -10 : -20) : index * -4,
+                                rotate: isExpanded ? (index - (displayImages.length - 1) / 2) * 10 : (index - (displayImages.length - 1) / 2) * 5,
+                                zIndex: 10 - index,
+                            }}
+                            transition={{
+                                type: 'spring',
+                                stiffness: 400,
+                                damping: 25,
+                                mass: 1.2
+                            }}
+                        >
+                            <StyleCardImage path={path} />
+                        </motion.div>
+                    ))
+                ) : (
+                    <div className={cn(
+                        "rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 text-white/40 bg-white/5 transition-all duration-300",
+                        isSmall ? "w-28 h-28 [@media(max-height:850px)]:w-20 [@media(max-height:850px)]:h-20 [@media(max-height:750px)]:w-16 [@media(max-height:750px)]:h-16" : "w-40 h-40",
+                        isGridLg && "w-[180px] h-[220px]"
+                    )}>
+                        <Plus size={isSmall ? 18 : 24} />
+                        <span className="text-xs [@media(max-height:850px)]:hidden">暂无图片</span>
+                    </div>
+                )}
+
+
+            </div>
+
+            {/* Info & Actions */}
+            <div className="flex flex-col gap-1">
+                <div className="flex flex-col items-center justify-center">
+                    <h3 className={cn(
+                        "font-semibold text-white truncate w-full text-center transition-all duration-300",
+                        isSmall ? "text-base [@media(max-height:850px)]:text-sm" : "text-lg",
+                        isGridLg && "text-xl mt-2"
+                    )}>{style.name}</h3>
+                    <p className={cn(
+                        "text-white/50 line-clamp-2 w-full text-center transition-all duration-300",
+                        isSmall ? "text-[10px] min-h-[1.5rem] [@media(max-height:850px)]:hidden" : "text-sm min-h-[2.5rem]"
+                    )}>
+                        {style.prompt || "未设置提示词"}
+                    </p>
+                </div>
+
+            </div>
+
+
+            {/* Float Action Button */}
+
+        </div>
+    );
+};

@@ -1,0 +1,22 @@
+{
+  "file_name": "InkEdgeMono-Complex_flux",
+  "model_name": "InkEdgeMono-Complex_flux",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/InkEdgeMono-Complex_flux.safetensors",
+  "size": 76757872,
+  "modified": 1747045538.3105695,
+  "sha256": "17418aac4e80f28ba73c6a5bf50bcf7764c655e29e8a2d2f094b7f2ea1ab3a61",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/InkEdgeMono-Complex_flux.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "InkEdgeMono-Complex_flux",
+  "modelname": "InkEdgeMono-Complex_flux"
+}

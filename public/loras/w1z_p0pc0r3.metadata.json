@@ -1,0 +1,22 @@
+{
+  "file_name": "w1z_p0pc0r3",
+  "model_name": "w1z_p0pc0r3",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/w1z_p0pc0r3.safetensors",
+  "size": 76714656,
+  "modified": 1746784942.2187402,
+  "sha256": "cf332ddefcfbe093e7d6b76597208798aa93af7a23ff73ca2208c7752331372b",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/w1z_p0pc0r3.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "w1z_p0pc0r3",
+  "modelname": "w1z_p0pc0r3"
+}

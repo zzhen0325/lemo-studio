@@ -1,0 +1,22 @@
+{
+  "file_name": "Vintage_Polaroid",
+  "model_name": "Vintage_Polaroid",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Vintage_Polaroid.safetensors",
+  "size": 228517300,
+  "modified": 1750075701.8512905,
+  "sha256": "5d46cee1c81b3fcf6ef6b5beb07cc2595dfaf3ae6880b390b98078bbf1ca93f6",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Vintage_Polaroid.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Vintage_Polaroid",
+  "modelname": "Vintage_Polaroid"
+}

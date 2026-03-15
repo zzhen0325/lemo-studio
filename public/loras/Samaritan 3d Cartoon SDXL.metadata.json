@@ -1,0 +1,22 @@
+{
+  "file_name": "Samaritan 3d Cartoon SDXL",
+  "model_name": "Samaritan 3d Cartoon SDXL",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Samaritan 3d Cartoon SDXL.safetensors",
+  "size": 912562996,
+  "modified": 1750073453.155204,
+  "sha256": "3724f4f0074eb213bd0e3bdbc8d8f07f90e023099ab5e7d1bc8756f089be998a",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Samaritan 3d Cartoon SDXL.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Samaritan 3d Cartoon SDXL",
+  "modelname": "Samaritan 3d Cartoon SDXL"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "Shen-neocubism_flux.d",
+  "model_name": "Shen-neocubism_flux.d",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Shen-neocubism_flux.d.safetensors",
+  "size": 57554096,
+  "modified": 1747040863.2698593,
+  "sha256": "bb4999aad81228832d035aaa2ff1ecd229be1d1dde8099412c486d1ea0cc2dcc",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Shen-neocubism_flux.d.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Shen-neocubism_flux.d",
+  "modelname": "Shen-neocubism_flux.d"
+}

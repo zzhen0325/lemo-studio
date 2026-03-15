@@ -1,0 +1,22 @@
+{
+  "file_name": "Snoopy_rank128_bf16",
+  "model_name": "Snoopy_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Snoopy_rank128_bf16.safetensors",
+  "size": 1225462880,
+  "modified": 1749532372.4515462,
+  "sha256": "b1eebd22950275a4685c9cea7f5f7629f2cb3e72624e19d00bb22c275024733b",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Snoopy_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Snoopy_rank128_bf16",
+  "modelname": "Snoopy_rank128_bf16"
+}

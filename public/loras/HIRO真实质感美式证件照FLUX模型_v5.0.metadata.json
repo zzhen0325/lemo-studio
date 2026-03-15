@@ -1,0 +1,22 @@
+{
+  "file_name": "HIRO真实质感美式证件照FLUX模型_v5.0",
+  "model_name": "HIRO真实质感美式证件照FLUX模型_v5.0",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/HIRO真实质感美式证件照FLUX模型_v5.0.safetensors",
+  "size": 612748456,
+  "modified": 1749788757.1765516,
+  "sha256": "420ec465a1e7cf28aad7d6b3f2ada8e84e93bd146fe91d8c16703510eb2fa3d9",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/HIRO真实质感美式证件照FLUX模型_v5.0.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "HIRO真实质感美式证件照FLUX模型_v5.0",
+  "modelname": "HIRO真实质感美式证件照FLUX模型_v5.0"
+}

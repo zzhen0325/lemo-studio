@@ -1,0 +1,22 @@
+{
+  "file_name": "墨影F.1-Claytoon",
+  "model_name": "墨影F.1-Claytoon",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/墨影F.1-Claytoon.safetensors",
+  "size": 612742496,
+  "modified": 1746615932.696457,
+  "sha256": "4c16b83cb824885aade0ffa3312084176d6e30c2e4bd2d44d3abe902a969f228",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/墨影F.1-Claytoon.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "墨影F.1-Claytoon",
+  "modelname": "墨影F.1-Claytoon"
+}

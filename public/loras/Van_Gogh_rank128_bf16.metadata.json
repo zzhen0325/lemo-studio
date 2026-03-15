@@ -1,0 +1,22 @@
+{
+  "file_name": "Van_Gogh_rank128_bf16",
+  "model_name": "Van_Gogh_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Van_Gogh_rank128_bf16.safetensors",
+  "size": 1225457408,
+  "modified": 1749532447.481643,
+  "sha256": "c9f9a0629f646cf3c691cffd7ad2618b57826d1c13bf0d246b7d0a41ebdc1036",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Van_Gogh_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Van_Gogh_rank128_bf16",
+  "modelname": "Van_Gogh_rank128_bf16"
+}

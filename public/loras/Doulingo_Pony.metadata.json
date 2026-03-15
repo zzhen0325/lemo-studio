@@ -1,0 +1,22 @@
+{
+  "file_name": "Doulingo_Pony",
+  "model_name": "Doulingo_Pony",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Doulingo_Pony.safetensors",
+  "size": 228468716,
+  "modified": 1747036338.694093,
+  "sha256": "1ee1dea984f15138412aabbe76fea5e5541e8bcff59e4322d18a9b2e4c7ee342",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Doulingo_Pony.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Doulingo_Pony",
+  "modelname": "Doulingo_Pony"
+}

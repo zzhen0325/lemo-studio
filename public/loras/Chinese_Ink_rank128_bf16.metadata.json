@@ -1,0 +1,22 @@
+{
+  "file_name": "Chinese_Ink_rank128_bf16",
+  "model_name": "Chinese_Ink_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Chinese_Ink_rank128_bf16.safetensors",
+  "size": 1225468112,
+  "modified": 1749532371.6791582,
+  "sha256": "47c9a23e054e837cfff6d07c5f06955bf979a4dfacaec3d2a37c97af2f5dd58a",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Chinese_Ink_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Chinese_Ink_rank128_bf16",
+  "modelname": "Chinese_Ink_rank128_bf16"
+}

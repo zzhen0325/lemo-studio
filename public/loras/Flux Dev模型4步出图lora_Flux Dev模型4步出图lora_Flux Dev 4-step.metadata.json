@@ -1,0 +1,22 @@
+{
+  "file_name": "Flux Dev模型4步出图lora_Flux Dev模型4步出图lora_Flux Dev 4-step",
+  "model_name": "Flux Dev模型4步出图lora_Flux Dev模型4步出图lora_Flux Dev 4-step",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Flux Dev模型4步出图lora_Flux Dev模型4步出图lora_Flux Dev 4-step.safetensors",
+  "size": 153268824,
+  "modified": 1746611618.8479064,
+  "sha256": "c41f8106c9f02c94f89c0fbad50f143409b89d5007916e573cda39b78a3d8a37",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Flux Dev模型4步出图lora_Flux Dev模型4步出图lora_Flux Dev 4-step.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Flux Dev模型4步出图lora_Flux Dev模型4步出图lora_Flux Dev 4-step",
+  "modelname": "Flux Dev模型4步出图lora_Flux Dev模型4步出图lora_Flux Dev 4-step"
+}

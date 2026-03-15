@@ -1,0 +1,22 @@
+{
+  "file_name": "blindbox_flux_lora_v2",
+  "model_name": "blindbox_flux_lora_v2",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/blindbox_flux_lora_v2.safetensors",
+  "size": 153299440,
+  "modified": 1747311627.109333,
+  "sha256": "4f31f7f2fe533d4de5a521eb1333df6131474bfd64f3c1ddc286a94101de77cf",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/blindbox_flux_lora_v2.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "blindbox_flux_lora_v2",
+  "modelname": "blindbox_flux_lora_v2"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "SDXL-Emoji-Lora-r4",
+  "model_name": "SDXL-Emoji-Lora-r4",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/SDXL-Emoji-Lora-r4.safetensors",
+  "size": 29035100,
+  "modified": 1750074651.7752862,
+  "sha256": "cbc4b52b5e7fdc151f4db9d84d2a5717bf82bac9a6fdce98534f5a980f459c23",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/SDXL-Emoji-Lora-r4.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "SDXL-Emoji-Lora-r4",
+  "modelname": "SDXL-Emoji-Lora-r4"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "Scandinavian_graphic_illustration-000001",
+  "model_name": "Scandinavian_graphic_illustration-000001",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Scandinavian_graphic_illustration-000001.safetensors",
+  "size": 89745224,
+  "modified": 1746784922.434264,
+  "sha256": "57c294dc3f73ee3f43681426a6b0104b5798f1b7b406d50cd4d54cc847648afe",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Scandinavian_graphic_illustration-000001.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Scandinavian_graphic_illustration-000001",
+  "modelname": "Scandinavian_graphic_illustration-000001"
+}

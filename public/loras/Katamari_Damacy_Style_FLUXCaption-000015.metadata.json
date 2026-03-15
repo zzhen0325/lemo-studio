@@ -1,0 +1,22 @@
+{
+  "file_name": "Katamari_Damacy_Style_FLUXCaption-000015",
+  "model_name": "Katamari_Damacy_Style_FLUXCaption-000015",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Katamari_Damacy_Style_FLUXCaption-000015.safetensors",
+  "size": 38441192,
+  "modified": 1747041280.2252495,
+  "sha256": "20707ab2685cd72f14bd12287bcad4aff0268802a9ac1f810515188752d952be",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Katamari_Damacy_Style_FLUXCaption-000015.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Katamari_Damacy_Style_FLUXCaption-000015",
+  "modelname": "Katamari_Damacy_Style_FLUXCaption-000015"
+}

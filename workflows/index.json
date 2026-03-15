@@ -1,0 +1,76 @@
+{
+  "appTitle": "ViewComfy",
+  "appImg": "",
+  "workflows": [
+    {
+      "title": "标准文生图",
+      "folder": "标准文生图",
+      "id": "wf_标准文生图"
+    },
+    {
+      "title": "JP",
+      "folder": "JP",
+      "id": "wf_jp"
+    },
+    {
+      "title": "US",
+      "folder": "US",
+      "id": "wf_us"
+    },
+    {
+      "title": "3D lemo",
+      "folder": "3D lemo",
+      "id": "wf_3d lemo"
+    },
+    {
+      "title": "2D lemo",
+      "folder": "2D lemo",
+      "id": "wf_2d lemo"
+    },
+    {
+      "title": "高清放大",
+      "folder": "高清放大",
+      "id": "wf_高清放大"
+    },
+    {
+      "title": "图片反推",
+      "folder": "图片反推",
+      "id": "wf_图片反推"
+    },
+    {
+      "title": "真人手办",
+      "folder": "真人手办",
+      "id": "wf_真人手办"
+    },
+    {
+      "title": "Oil painting",
+      "folder": "Oil painting",
+      "id": "wf_oil painting"
+    },
+    {
+      "title": "撕拉片",
+      "folder": "撕拉片",
+      "id": "wf_撕拉片"
+    },
+    {
+      "title": "美式证件照",
+      "folder": "美式证件照",
+      "id": "wf_美式证件照"
+    },
+    {
+      "title": "flux 双图流",
+      "folder": "flux 双图流",
+      "id": "wf_flux 双图流"
+    },
+    {
+      "title": "text",
+      "folder": "text",
+      "id": "wf_text"
+    },
+    {
+      "title": "高清放大2",
+      "folder": "高清放大2",
+      "id": "wf_高清放大2"
+    }
+  ]
+}

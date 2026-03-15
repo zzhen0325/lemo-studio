@@ -1,0 +1,22 @@
+{
+  "file_name": "Fluxartis IIB",
+  "model_name": "Fluxartis IIB",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Fluxartis IIB.safetensors",
+  "size": 38398272,
+  "modified": 1749788906.938298,
+  "sha256": "e766830aa3b5d537d27493ff5ad4472d19dd846136e1a1db4afc2c35ecd9e889",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Fluxartis IIB.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Fluxartis IIB",
+  "modelname": "Fluxartis IIB"
+}

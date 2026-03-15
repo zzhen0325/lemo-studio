@@ -1,0 +1,22 @@
+{
+  "file_name": "sref662824xx60804_flux",
+  "model_name": "sref662824xx60804_flux",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/sref662824xx60804_flux.safetensors",
+  "size": 171969436,
+  "modified": 1747045590.9986446,
+  "sha256": "88b038338b647ed655884317c085fe4595c6112623c54b4df0f4c352bdd3725e",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/sref662824xx60804_flux.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "sref662824xx60804_flux",
+  "modelname": "sref662824xx60804_flux"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "GPT-4o陶瓷材质",
+  "model_name": "GPT-4o陶瓷材质",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/GPT-4o陶瓷材质.safetensors",
+  "size": 306426864,
+  "modified": 1746616061.284891,
+  "sha256": "3f19d9d00a300c60d546b8ff7a80ca2875a53735787c2d693862c05289ccfe1e",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/GPT-4o陶瓷材质.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "GPT-4o陶瓷材质",
+  "modelname": "GPT-4o陶瓷材质"
+}

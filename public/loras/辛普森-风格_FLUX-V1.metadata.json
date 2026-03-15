@@ -1,0 +1,22 @@
+{
+  "file_name": "辛普森-风格_FLUX-V1",
+  "model_name": "辛普森-风格_FLUX-V1",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/辛普森-风格_FLUX-V1.safetensors",
+  "size": 612765760,
+  "modified": 1746710628.6951778,
+  "sha256": "7378b9b50f5508b51ecc2a3b7e0f96cb520ec9139a2d00623963c5cec748ecce",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/辛普森-风格_FLUX-V1.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "辛普森-风格_FLUX-V1",
+  "modelname": "辛普森-风格_FLUX-V1"
+}

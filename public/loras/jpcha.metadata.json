@@ -1,0 +1,22 @@
+{
+  "file_name": "jpcha",
+  "model_name": "jpcha",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/jpcha.safetensors",
+  "size": 306426864,
+  "modified": 1747209327.8002617,
+  "sha256": "4baefa7a8a4a42c08afcb0296fabeb5bea7808c3952d1b674c65dc24b7f58194",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/jpcha.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "jpcha",
+  "modelname": "jpcha"
+}

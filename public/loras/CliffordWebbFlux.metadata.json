@@ -1,0 +1,22 @@
+{
+  "file_name": "CliffordWebbFlux",
+  "model_name": "CliffordWebbFlux",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CliffordWebbFlux.safetensors",
+  "size": 306426864,
+  "modified": 1747045772.34138,
+  "sha256": "86c1c9e4e29c8ba44f33d87c39fb334e3a6c5ff391025837c28a6dd9e69727fd",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CliffordWebbFlux.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "CliffordWebbFlux",
+  "modelname": "CliffordWebbFlux"
+}

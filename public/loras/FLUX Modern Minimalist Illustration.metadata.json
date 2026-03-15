@@ -1,0 +1,22 @@
+{
+  "file_name": "FLUX Modern Minimalist Illustration",
+  "model_name": "FLUX Modern Minimalist Illustration",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FLUX Modern Minimalist Illustration.safetensors",
+  "size": 18209820,
+  "modified": 1747036658.2186036,
+  "sha256": "26016ee31ac683c56a86cbbc8594e5938c9f957fb8f9d5fc6bc43ec3b8fb1f3c",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FLUX Modern Minimalist Illustration.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "FLUX Modern Minimalist Illustration",
+  "modelname": "FLUX Modern Minimalist Illustration"
+}

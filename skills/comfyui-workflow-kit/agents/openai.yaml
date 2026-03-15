@@ -1,0 +1,4 @@
+interface:
+  display_name: "ComfyUI Workflow Kit"
+  short_description: "Build, extend, and migrate ComfyUI workflow Prompt JSON"
+  default_prompt: "Help me build or modify a ComfyUI Prompt JSON workflow (e.g., FLUX.2 Klein, Z-image text-only), add a new workflow type, or migrate the workflow builder to another project."

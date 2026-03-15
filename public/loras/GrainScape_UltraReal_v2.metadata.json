@@ -1,0 +1,22 @@
+{
+  "file_name": "GrainScape_UltraReal_v2",
+  "model_name": "GrainScape_UltraReal_v2",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/GrainScape_UltraReal_v2.safetensors",
+  "size": 153268427,
+  "modified": 1749790076.5672243,
+  "sha256": "c124cb3b27d56d257910beb563958524f6b21aab104a7ba8e31e450ccec6aca1",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/GrainScape_UltraReal_v2.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "GrainScape_UltraReal_v2",
+  "modelname": "GrainScape_UltraReal_v2"
+}

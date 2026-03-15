@@ -1,0 +1,425 @@
+[
+  {
+    "id": "provider-doubao",
+    "name": "Doubao (豆包)",
+    "providerType": "openai-compatible",
+    "apiKey": "88e719ed-3b78-43ef-9da7-9f51f8721bd9",
+    "baseURL": "https://ark.cn-beijing.volces.com/api/v3",
+    "models": [
+      {
+        "modelId": "doubao-seed-1-6-251015",
+        "displayName": "Doubao Seed 1.6",
+        "task": [
+          "text"
+        ],
+        "category": "doubao-text",
+        "contexts": [
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 100,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": false,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
+      },
+      {
+        "modelId": "doubao-seed-1-8-251228",
+        "displayName": "Doubao Seed 1.8 (视觉)",
+        "task": [
+          "text",
+          "vision"
+        ],
+        "category": "doubao-vision",
+        "contexts": [
+          "service:describe",
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 80,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": true,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
+      },
+      {
+        "modelId": "doubao-seed-2-0-lite-260215",
+        "displayName": "Doubao Seed 2.0 Lite (视觉)",
+        "task": [
+          "text",
+          "vision"
+        ],
+        "category": "doubao-vision",
+        "contexts": [
+          "service:describe",
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 70,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": true,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-10T16:52:26.214Z"
+  },
+  {
+    "id": "provider-deepseek",
+    "name": "DeepSeek",
+    "providerType": "openai-compatible",
+    "apiKey": "sk-a7b8e6d890ca4a858d386991b2501136",
+    "baseURL": "https://api.deepseek.com",
+    "models": [
+      {
+        "modelId": "deepseek-chat",
+        "displayName": "DeepSeek Chat",
+        "task": [
+          "text"
+        ],
+        "category": "deepseek-text",
+        "contexts": [
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 100,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": false,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
+      },
+      {
+        "modelId": "deepseek-reasoner",
+        "displayName": "DeepSeek Reasoner",
+        "task": [
+          "text"
+        ],
+        "category": "deepseek-text",
+        "contexts": [
+          "service:optimize"
+        ],
+        "status": "active",
+        "priority": 120,
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": false,
+          "supportsImage": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        }
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-11T00:00:00.000Z"
+  },
+  {
+    "id": "provider-google",
+    "name": "Google Gemini",
+    "providerType": "google-genai",
+    "apiKey": "",
+    "baseURL": "",
+    "models": [
+      {
+        "modelId": "gemini-2.5-flash-image",
+        "displayName": "nano banana",
+        "task": [
+          "text",
+          "vision",
+          "image"
+        ],
+        "category": "gemini-image",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas",
+          "service:imageGeneration",
+          "service:describe",
+          "service:optimize"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 120
+      },
+      {
+        "modelId": "gemini-3-pro-image-preview",
+        "displayName": "nano banana pro",
+        "task": [
+          "text",
+          "vision",
+          "image"
+        ],
+        "category": "gemini-image",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas",
+          "service:imageGeneration",
+          "service:describe",
+          "service:optimize"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 90
+      },
+      {
+        "modelId": "gemini-3.1-flash-image-preview",
+        "displayName": "nano banana 2",
+        "task": [
+          "text",
+          "vision",
+          "image"
+        ],
+        "category": "gemini-image",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas",
+          "service:imageGeneration",
+          "service:describe",
+          "service:optimize"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 100
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-10T16:42:38.219Z"
+  },
+  {
+    "id": "provider-bytedance",
+    "name": "Bytedance AFR (内部)",
+    "providerType": "bytedance-afr",
+    "apiKey": "",
+    "baseURL": "",
+    "models": [
+      {
+        "modelId": "seed4_v2_0226lemo",
+        "displayName": "Seed4.2 Lemo",
+        "task": [
+          "image"
+        ],
+        "category": "seedream",
+        "contexts": [
+          "playground",
+          "infinite-canvas",
+          "service:imageGeneration"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1,
+          "minWidth": 1024,
+          "minHeight": 1024,
+          "supportsImageEdit": false
+        },
+        "status": "active",
+        "priority": 140
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-11T00:00:00.000Z",
+    "updatedAt": "2026-01-11T06:38:04.903Z"
+  },
+  {
+    "id": "provider-coze",
+    "name": "Coze (Seedream)",
+    "providerType": "coze-image",
+    "apiKey": "pat_X7OyWaaYkJwnaaxnTcTx2OZahUzi1Q2V3zxKGZ7mMYEbbFVewPZbzqKrdZPME2zL",
+    "baseURL": "https://bot-open-api.bytedance.net/v3/chat",
+    "models": [
+      {
+        "modelId": "coze-prompt",
+        "displayName": "Coze Prompt",
+        "task": [
+          "text",
+          "vision"
+        ],
+        "category": "coze",
+        "contexts": [
+          "service:optimize",
+          "service:describe"
+        ],
+        "capabilities": {
+          "supportsText": true,
+          "supportsVision": true,
+          "supportsImage": false,
+          "supportsImageEdit": false,
+          "supportsAspectRatio": false,
+          "supportsImageSize": false,
+          "supportsSeed": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": false,
+          "maxReferenceImages": 1
+        },
+        "status": "active",
+        "priority": 120
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-01-17T00:00:00.000Z",
+    "updatedAt": "2026-01-17T00:00:00.000Z"
+  },
+  {
+    "id": "provider-coze-seed",
+    "name": "Coze Workflow (Seedream 4.5)",
+    "providerType": "coze-image",
+    "apiKey": "",
+    "baseURL": "https://2q3rqt6rnh.coze.site/run",
+    "models": [
+      {
+        "modelId": "coze_seedream4_5",
+        "displayName": "Seedream 4.5",
+        "task": [
+          "image"
+        ],
+        "category": "coze",
+        "contexts": [
+          "playground",
+          "infinite-canvas",
+          "service:imageGeneration"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsSeed": false,
+          "supportsBatch": false,
+          "maxBatchSize": 1,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 125
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-03-06T00:00:00.000Z",
+    "updatedAt": "2026-03-06T00:00:00.000Z"
+  },
+  {
+    "id": "provider-workflow-local",
+    "name": "Workflow Local",
+    "providerType": "workflow-local",
+    "apiKey": "",
+    "baseURL": "",
+    "models": [
+      {
+        "modelId": "flux_klein",
+        "displayName": "FluxKlein",
+        "task": [
+          "image"
+        ],
+        "category": "workflow",
+        "contexts": [
+          "playground",
+          "banner",
+          "infinite-canvas"
+        ],
+        "capabilities": {
+          "supportsAspectRatio": true,
+          "supportsImageSize": true,
+          "supportsSeed": true,
+          "supportsBatch": true,
+          "maxBatchSize": 4,
+          "supportsMultiImage": true,
+          "maxReferenceImages": 4,
+          "supportsImage": true,
+          "allowedImageSizes": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "supportsImageEdit": true
+        },
+        "status": "active",
+        "priority": 50
+      }
+    ],
+    "isEnabled": true,
+    "createdAt": "2026-02-27T00:00:00.000Z",
+    "updatedAt": "2026-02-27T00:00:00.000Z"
+  }
+]

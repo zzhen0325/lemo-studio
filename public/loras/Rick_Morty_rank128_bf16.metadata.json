@@ -1,0 +1,22 @@
+{
+  "file_name": "Rick_Morty_rank128_bf16",
+  "model_name": "Rick_Morty_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Rick_Morty_rank128_bf16.safetensors",
+  "size": 1225457632,
+  "modified": 1749532446.1952705,
+  "sha256": "43287465c0276350d689e572b0b522ae0ed0cbd70f5e509d24dca2736292f046",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Rick_Morty_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Rick_Morty_rank128_bf16",
+  "modelname": "Rick_Morty_rank128_bf16"
+}

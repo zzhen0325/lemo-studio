@@ -1,0 +1,22 @@
+{
+  "file_name": "APP卡通头像-GPT4o_v1",
+  "model_name": "APP卡通头像-GPT4o_v1",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/APP卡通头像-GPT4o_v1.safetensors",
+  "size": 228462660,
+  "modified": 1749475315.6945186,
+  "sha256": "ceafc028a990e9f3e788aa5c2157889e77a59a60e9348c8b837b8f813f160fec",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/APP卡通头像-GPT4o_v1.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "APP卡通头像-GPT4o_v1",
+  "modelname": "APP卡通头像-GPT4o_v1"
+}

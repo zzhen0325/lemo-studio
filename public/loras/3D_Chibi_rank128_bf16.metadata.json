@@ -1,0 +1,22 @@
+{
+  "file_name": "3D_Chibi_rank128_bf16",
+  "model_name": "3D_Chibi_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/3D_Chibi_rank128_bf16.safetensors",
+  "size": 1225535160,
+  "modified": 1749531705.6488366,
+  "sha256": "d42ae12a68641321be4a0772f81821f13a20ca6f3d44353a0e1842588e710b3e",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/3D_Chibi_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "3D_Chibi_rank128_bf16",
+  "modelname": "3D_Chibi_rank128_bf16"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "JPv3",
+  "model_name": "JPv3",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/JPv3.safetensors",
+  "size": 306426864,
+  "modified": 1747297268.6163695,
+  "sha256": "95cfe1034068a7bee96f3e482a5e1f44cd3c52ec30d0b9bde57f3c8d8ca87a85",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/JPv3.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "JPv3",
+  "modelname": "JPv3"
+}

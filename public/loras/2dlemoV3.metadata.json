@@ -1,0 +1,22 @@
+{
+  "file_name": "2dlemoV3",
+  "model_name": "2dlemoV3",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/2dlemoV3.safetensors",
+  "size": 306426864,
+  "modified": 1747020029.1697469,
+  "sha256": "76e2a48d1efc515b1b0358777206574a45851a02b10c75ef4f0ff4f481fd38bd",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/2dlemoV3.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "2dlemoV3",
+  "modelname": "2dlemoV3"
+}

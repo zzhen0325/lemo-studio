@@ -1,0 +1,22 @@
+{
+  "file_name": "FLUX.1-Turbo-Alpha",
+  "model_name": "FLUX.1-Turbo-Alpha",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FLUX.1-Turbo-Alpha.safetensors",
+  "size": 694082424,
+  "modified": 1747303350.578083,
+  "sha256": "77f7523a5e9c3da6cfc730c6b07461129fa52997ea06168e9ed5312228aa0bff",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/FLUX.1-Turbo-Alpha.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "FLUX.1-Turbo-Alpha",
+  "modelname": "FLUX.1-Turbo-Alpha"
+}

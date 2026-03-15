@@ -1,0 +1,22 @@
+{
+  "file_name": "p33x_B",
+  "model_name": "p33x_B",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/p33x_B.safetensors",
+  "size": 1246635440,
+  "modified": 1747035955.639005,
+  "sha256": "08f62daae688e8284513e0fdb56e943ac22595616292c290b8cc9f5d5ba5fcd6",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/p33x_B.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "p33x_B",
+  "modelname": "p33x_B"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "Poly_rank128_bf16",
+  "model_name": "Poly_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Poly_rank128_bf16.safetensors",
+  "size": 1225603616,
+  "modified": 1749532283.5272894,
+  "sha256": "af00d20eb95dcbd2634b64ef4f01ef7c59a1d27c9a9afaa974dd21f462834439",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Poly_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Poly_rank128_bf16",
+  "modelname": "Poly_rank128_bf16"
+}

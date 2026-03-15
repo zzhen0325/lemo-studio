@@ -1,0 +1,22 @@
+{
+  "file_name": "weirdream_000003750",
+  "model_name": "weirdream_000003750",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/weirdream_000003750.safetensors",
+  "size": 343805384,
+  "modified": 1747045572.5625973,
+  "sha256": "389d90df5c718ce9fb7452aad0069151b4b1258c780aa7049873bb8f5639e154",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/weirdream_000003750.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "weirdream_000003750",
+  "modelname": "weirdream_000003750"
+}

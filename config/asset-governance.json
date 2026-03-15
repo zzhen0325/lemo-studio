@@ -1,0 +1,14 @@
+{
+  "maxFileSizeMB": 2,
+  "trackedScopes": [
+    "public/",
+    "data/",
+    "workflows/"
+  ],
+  "allowOversize": [
+    "public/Font/GoogleSansFlex-VariableFont_GRAD,ROND,opsz,slnt,wdth,wght.ttf",
+    "public/images/3335.png",
+    "public/tools/ethereal-mesh-gradient/0a0716b0-8a1e-4a78-a75a-b1fbe5451b96.png",
+    "public/tools/ethereal-mesh-gradient/b9aec640-7358-4689-b29c-e58b71d16f5b.png"
+  ]
+}

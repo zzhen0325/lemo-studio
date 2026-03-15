@@ -1,0 +1,22 @@
+{
+  "file_name": "Picasso_rank128_bf16",
+  "model_name": "Picasso_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Picasso_rank128_bf16.safetensors",
+  "size": 1225463984,
+  "modified": 1749532367.8385592,
+  "sha256": "5803bc12fbce90beb29133de9f9fa82fece050d133efb0ea06bbdb0e3ee427b3",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Picasso_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Picasso_rank128_bf16",
+  "modelname": "Picasso_rank128_bf16"
+}

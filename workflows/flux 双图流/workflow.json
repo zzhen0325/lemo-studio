@@ -1,0 +1,286 @@
+{
+  "4": {
+    "inputs": {
+      "pixels": [
+        "10",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE编码"
+    }
+  },
+  "5": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "3:2",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "6": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE加载器"
+    }
+  },
+  "10": {
+    "inputs": {
+      "image": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "FluxKontextImageScale",
+    "_meta": {
+      "title": "FluxKontextImageScale"
+    }
+  },
+  "11": {
+    "inputs": {
+      "direction": "right",
+      "match_image_size": true,
+      "spacing_width": 0,
+      "spacing_color": "white",
+      "image1": [
+        "20",
+        0
+      ],
+      "image2": [
+        "21",
+        0
+      ]
+    },
+    "class_type": "ImageStitch",
+    "_meta": {
+      "title": "Image Stitch"
+    }
+  },
+  "12": {
+    "inputs": {
+      "input_text": [
+        "17",
+        0
+      ],
+      "source_language": "auto",
+      "destination_language": "english"
+    },
+    "class_type": "googletrans",
+    "_meta": {
+      "title": "Google Moogle"
+    }
+  },
+  "14": {
+    "inputs": {
+      "text_0": "Car poster scene, a man in a black suit standing in front of a green car, keeping facial features fixed, background with gradient colors, mountains in the distance, eliminating white text, reasonable proportions",
+      "text": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "ShowText|pysssss",
+    "_meta": {
+      "title": "展示文本"
+    }
+  },
+  "15": {
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "预览图像"
+    }
+  },
+  "17": {
+    "inputs": {
+      "text": "汽车海报场景，一个穿黑色西装的男性站在一辆绿色汽车前面，保持面部特征固定，背景是渐变的颜色，远处有山，消除白色文字，合理的比例大小"
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "文本"
+    }
+  },
+  "20": {
+    "inputs": {
+      "image": "001.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "左"
+    }
+  },
+  "21": {
+    "inputs": {
+      "image": "001.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "右"
+    }
+  },
+  "3:1": {
+    "inputs": {
+      "conditioning": [
+        "3:6",
+        0
+      ],
+      "latent": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "ReferenceLatent"
+    }
+  },
+  "3:2": {
+    "inputs": {
+      "samples": [
+        "3:3",
+        0
+      ],
+      "vae": [
+        "3:10",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "3:3": {
+    "inputs": {
+      "seed": 883277455207248,
+      "steps": 30,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "3:8",
+        0
+      ],
+      "positive": [
+        "3:4",
+        0
+      ],
+      "negative": [
+        "3:7",
+        0
+      ],
+      "latent_image": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "3:4": {
+    "inputs": {
+      "guidance": 2.5,
+      "conditioning": [
+        "3:1",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "Flux引导"
+    }
+  },
+  "3:5": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "3:2",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "3:6": {
+    "inputs": {
+      "text": [
+        "12",
+        0
+      ],
+      "clip": [
+        "3:9",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "3:7": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "3:9",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "3:8": {
+    "inputs": {
+      "unet_name": "flux1-dev-kontext_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNET加载器"
+    }
+  },
+  "3:9": {
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn_scaled.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "双CLIP加载器"
+    }
+  },
+  "3:10": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE加载器"
+    }
+  }
+}

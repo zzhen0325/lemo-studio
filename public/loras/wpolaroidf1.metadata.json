@@ -1,0 +1,22 @@
+{
+  "file_name": "wpolaroidf1",
+  "model_name": "wpolaroidf1",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/wpolaroidf1.safetensors",
+  "size": 134546960,
+  "modified": 1750075759.3148212,
+  "sha256": "7646a2ec4b59e2c195b23406086f931eae80fa60c3ee4beda9c9b3548659b1e8",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/wpolaroidf1.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "wpolaroidf1",
+  "modelname": "wpolaroidf1"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "xlabs_realismlora",
+  "model_name": "xlabs_realismlora",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/xlabs_realismlora.safetensors",
+  "size": 22431400,
+  "modified": 1750245225.0013313,
+  "sha256": "0a83a924b822b70b5e458d27935ebfa7713edaee04ff9f194209525354031eca",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/xlabs_realismlora.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "xlabs_realismlora",
+  "modelname": "xlabs_realismlora"
+}

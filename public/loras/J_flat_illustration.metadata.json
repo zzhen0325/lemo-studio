@@ -1,0 +1,22 @@
+{
+  "file_name": "J_flat_illustration",
+  "model_name": "J_flat_illustration",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/J_flat_illustration.safetensors",
+  "size": 19293080,
+  "modified": 1747036364.4101934,
+  "sha256": "2376a8ad07033879918a161b08dc60913c14d52a18178c6a3470c3e1149ba384",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/J_flat_illustration.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "J_flat_illustration",
+  "modelname": "J_flat_illustration"
+}

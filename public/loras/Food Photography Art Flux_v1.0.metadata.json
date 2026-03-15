@@ -1,0 +1,22 @@
+{
+  "file_name": "Food Photography Art Flux_v1.0",
+  "model_name": "Food Photography Art Flux_v1.0",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Food Photography Art Flux_v1.0.safetensors",
+  "size": 38404528,
+  "modified": 1747312118.032329,
+  "sha256": "bbee64991bb85d4645b625950e48448e64e352535323e259506acf114099c020",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Food Photography Art Flux_v1.0.mp4",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Food Photography Art Flux_v1.0",
+  "modelname": "Food Photography Art Flux_v1.0"
+}

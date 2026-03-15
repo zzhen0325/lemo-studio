@@ -1,0 +1,22 @@
+{
+  "file_name": "35MM_Photography_FLUX",
+  "model_name": "35MM_Photography_FLUX",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/35MM_Photography_FLUX.safetensors",
+  "size": 19257416,
+  "modified": 1747311391.5026736,
+  "sha256": "d847b80997304ec10d24f90569e0fa0f24735ee74b7286fc51fb99a1d3c128dc",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/35MM_Photography_FLUX.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "35MM_Photography_FLUX",
+  "modelname": "35MM_Photography_FLUX"
+}

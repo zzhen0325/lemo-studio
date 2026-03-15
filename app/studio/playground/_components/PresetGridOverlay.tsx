@@ -1,0 +1,206 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { Button } from "@/components/ui/button";
+import { LayoutTemplate, Settings } from "lucide-react";
+import Image from "next/image";
+import { cn } from "@/lib/utils";
+import { PresetExtended } from './types';
+
+import { Badge } from "@/components/ui/badge";
+
+interface PresetGridOverlayProps {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    onOpenManager: () => void;
+    onSelectPreset: (preset: PresetExtended) => void;
+    externalPresets?: PresetExtended[];
+}
+
+const INITIAL_RENDER_COUNT = 48;
+const RENDER_BATCH_SIZE = 48;
+
+export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
+    open = false,
+    onOpenChange,
+    onOpenManager,
+    onSelectPreset,
+    externalPresets
+}) => {
+    const storePresets = usePlaygroundStore(s => s.presets);
+    const presetCategories = usePlaygroundStore(s => s.presetCategories);
+    const presets = useMemo(
+        () => (externalPresets || storePresets) as PresetExtended[],
+        [externalPresets, storePresets]
+    );
+    const CATEGORIES = useMemo(() => ["All", ...presetCategories], [presetCategories]);
+    const [activeCategory, setActiveCategory] = useState("All");
+    const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+    const filteredPresets = useMemo(
+        () => activeCategory === "All"
+            ? presets
+            : presets.filter(p => (p.category || 'General') === activeCategory),
+        [activeCategory, presets]
+    );
+
+    const visiblePresets = useMemo(
+        () => filteredPresets.slice(0, visibleCount),
+        [filteredPresets, visibleCount]
+    );
+
+    const canLoadMore = visibleCount < filteredPresets.length;
+
+    const handlePresetSelect = (preset: PresetExtended) => {
+        onSelectPreset(preset);
+        onOpenChange?.(false);
+    };
+
+    const handleOpenManager = () => {
+        onOpenManager();
+        onOpenChange?.(false);
+    };
+
+    const handleCategoryChange = (category: string) => {
+        setActiveCategory(category);
+        setVisibleCount(INITIAL_RENDER_COUNT);
+    };
+
+    useEffect(() => {
+        if (open) {
+            setVisibleCount(INITIAL_RENDER_COUNT);
+        }
+    }, [open]);
+
+    useEffect(() => {
+        if (!open || !canLoadMore || !loadMoreRef.current) return;
+
+        const target = loadMoreRef.current;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (!entry?.isIntersecting) return;
+
+                setVisibleCount((prev) => {
+                    if (prev >= filteredPresets.length) return prev;
+                    return Math.min(prev + RENDER_BATCH_SIZE, filteredPresets.length);
+                });
+            },
+            {
+                root: null,
+                rootMargin: "220px 0px",
+                threshold: 0.1
+            }
+        );
+
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [open, canLoadMore, filteredPresets.length]);
+
+    if (!open) return null;
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-6xl z-[10001] h-[70vh] p-0 bg-white border-white/10 rounded-3xl shadow-2xl shadow-black/10 overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between pt-6 px-6 shrink-0 ">
+                    <div className="flex items-center gap-3">
+                        {CATEGORIES.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => handleCategoryChange(cat)}
+                                className={cn(
+                                    "px-4 py-2 rounded-xl text-sm font-medium transition-all",
+                                    activeCategory === cat
+                                        ? "bg-[#0F0F15] text-white"
+                                        : "text-black/50 bg-black/0 border border-black/5 hover:text-black hover:bg-black/5"
+                                )}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleOpenManager}
+                        className="text-black/60 hover:text-black hover:bg-black/5 rounded-xl gap-4  bg-black/0 border border-black/5"
+                    >
+                        <Settings className="w-4 h-4 " />
+                        <span className="text-xs -ml-2">Manage</span>
+                    </Button>
+                </div>
+
+                <ScrollArea className="flex bg-[#f5f5f5] rounded-2xl pt-6 px-4 pb-0 mx-2 mb-2">
+                    <div className="">
+                        {filteredPresets.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-10 text-black/30 space-y-4">
+                                <LayoutTemplate className="w-16 h-16 opacity-30" />
+                                <span className="text-sm font-medium">No presets available</span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleOpenManager}
+                                    className="mt-2 border-white/10 bg-white/5 hover:bg-white/10 text-white/60"
+                                >
+                                    Create First Preset
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-6 gap-4 mx-2">
+                                {visiblePresets.map(preset => {
+                                    const cover = preset.coverUrl || preset.cover;
+                                    const name = preset.name || preset.title || "Untitled";
+
+                                    return (
+                                        <button
+                                            key={preset.id}
+                                            className="group relative flex flex-col items-start overflow-hidden bg-white hover:shadow-[#e7e7e7]  hover:shadow-2xl  border-gray-150 hover:border-gray-1 00 transition-all rounded-2xl border  p-2 w-full"
+                                            onClick={() => handlePresetSelect(preset)}
+                                        >
+                                            <div className="relative w-full aspect-[1/1] rounded-lg bg-black/15 overflow-hidden">
+                                                {cover ? (
+                                                    <Image
+                                                        src={cover}
+                                                        alt={name}
+                                                        fill
+                                                        sizes="(max-width: 768px) 33vw, (max-width: 1200px) 20vw, 12vw"
+                                                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center bg-black/5 justify-center text-white/20">
+                                                        <LayoutTemplate className="w-6 h-6" />
+                                                    </div>
+                                                )}
+                                                {preset.editConfig && (
+                                                    <div className="absolute top-1 right-2">
+                                                        <Badge className="bg-black/40 backdrop-blur-md text-white text-[9px] px-1.5 py-1.5 h-4 border-none ">
+                                                            Edit
+                                                        </Badge>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="w-full pt-2 pb-1 px-1">
+                                                <span className="text-xs text-black/90 text-center  font-normal">{name}</span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {canLoadMore && (
+                            <div
+                                ref={loadMoreRef}
+                                className="flex justify-center py-4 text-xs text-black/40"
+                            >
+                                Loading more... ({visiblePresets.length}/{filteredPresets.length})
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+};

@@ -1,0 +1,22 @@
+{
+  "file_name": "HiroshiNagaiStyle",
+  "model_name": "HiroshiNagaiStyle",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/HiroshiNagaiStyle.safetensors",
+  "size": 9439352,
+  "modified": 1749789045.8428988,
+  "sha256": "363b0a61671554a632060b95e53d61b71cde4c831ef3137c60078288beefb1e1",
+  "base_model": "SD 1.5",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/HiroshiNagaiStyle.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "HiroshiNagaiStyle",
+  "modelname": "HiroshiNagaiStyle"
+}

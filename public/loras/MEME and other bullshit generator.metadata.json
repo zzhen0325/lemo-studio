@@ -1,0 +1,22 @@
+{
+  "file_name": "MEME and other bullshit generator",
+  "model_name": "MEME and other bullshit generator",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/MEME and other bullshit generator.safetensors",
+  "size": 37866992,
+  "modified": 1750077490.0551333,
+  "sha256": "8323d69951ea1fed8a329f360912b797e29c2d0bdd79ab0b7b18cec40b438d66",
+  "base_model": "sd_v1",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/MEME and other bullshit generator.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "MEME and other bullshit generator",
+  "modelname": "MEME and other bullshit generator"
+}

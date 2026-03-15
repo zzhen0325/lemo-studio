@@ -1,0 +1,22 @@
+{
+  "file_name": "Macaron_rank128_bf16",
+  "model_name": "Macaron_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Macaron_rank128_bf16.safetensors",
+  "size": 1225462128,
+  "modified": 1749532451.1007113,
+  "sha256": "fe075eaee0ab1228f1507ffd9c1259d03c02bfb6e9379884820be09592dc3b40",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Macaron_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Macaron_rank128_bf16",
+  "modelname": "Macaron_rank128_bf16"
+}

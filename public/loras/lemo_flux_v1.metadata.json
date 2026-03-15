@@ -1,0 +1,22 @@
+{
+  "file_name": "lemo_flux_v1",
+  "model_name": "lemo_flux_v1",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/lemo_flux_v1.safetensors",
+  "size": 306426864,
+  "modified": 1746693564.447788,
+  "sha256": "2fe9effe8f774d94aa758e0d8a9e7d6ddddea80b2cab47d6c3e3b051a0860b15",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/lemo_flux_v1.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "lemo_flux_v1",
+  "modelname": "lemo_flux_v1"
+}

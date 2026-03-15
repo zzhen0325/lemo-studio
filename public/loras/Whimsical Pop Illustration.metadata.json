@@ -1,0 +1,22 @@
+{
+  "file_name": "Whimsical Pop Illustration",
+  "model_name": "Whimsical Pop Illustration",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Whimsical Pop Illustration.safetensors",
+  "size": 153278928,
+  "modified": 1747045742.5242794,
+  "sha256": "5392660c7881e22a33c65069b9e6effbf42ac064271bd89c06d0a5320b63163f",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Whimsical Pop Illustration.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Whimsical Pop Illustration",
+  "modelname": "Whimsical Pop Illustration"
+}

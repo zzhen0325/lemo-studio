@@ -1,0 +1,245 @@
+{
+  "113": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "114": {
+    "inputs": {
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": [
+        "115",
+        2
+      ],
+      "height": [
+        "115",
+        1
+      ],
+      "model": [
+        "147",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingFlux",
+    "_meta": {
+      "title": "模型采样算法Flux"
+    }
+  },
+  "115": {
+    "inputs": {
+      "value": [
+        "142",
+        0
+      ]
+    },
+    "class_type": "ImpactLatentInfo",
+    "_meta": {
+      "title": "Latent信息"
+    }
+  },
+  "116": {
+    "inputs": {
+      "noise": [
+        "121",
+        0
+      ],
+      "guider": [
+        "117",
+        0
+      ],
+      "sampler": [
+        "113",
+        0
+      ],
+      "sigmas": [
+        "123",
+        0
+      ],
+      "latent_image": [
+        "142",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器(高级)"
+    }
+  },
+  "117": {
+    "inputs": {
+      "model": [
+        "114",
+        0
+      ],
+      "conditioning": [
+        "118",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "基础引导"
+    }
+  },
+  "118": {
+    "inputs": {
+      "clip_l": [
+        "125",
+        0
+      ],
+      "t5xxl": [
+        "125",
+        0
+      ],
+      "guidance": 3.5,
+      "clip": [
+        "147",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncodeFlux",
+    "_meta": {
+      "title": "CLIP文本编码Flux"
+    }
+  },
+  "119": {
+    "inputs": {
+      "unet_name": "flux1-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNET加载器"
+    }
+  },
+  "120": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "双CLIP加载器"
+    }
+  },
+  "121": {
+    "inputs": {
+      "noise_seed": 1124635289783412
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "122": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAE加载器"
+    }
+  },
+  "123": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 20,
+      "denoise": 1,
+      "model": [
+        "114",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "基础调度器"
+    }
+  },
+  "125": {
+    "inputs": {
+      "text": "A banner image for an European - American hairstyle and hair - color generation event with a magazine - like feel and studio atmosphere. In the center of the picture is a model with exquisite makeup, confident demeanor, and elegant temperament, wearing simple and stylish clothing. The model has a fashionable and eye - catching European - American hairstyle and hair color (the specific style can be determined by yourself), with smooth and shiny hair strands. Around the model are neatly arranged icon images of different hairstyles with simple lines and exquisite designs, such as retro bob cut and lazy long straight hair icon images with delicate light and shadow effects and slight gradient colors. The background is a clean, pure, and textured solid - color backdrop; the main title \"Let Hair Lab Work Its Magic!\" at the top is presented in an elegant font with a slight metallic luster texture; the overall image is created in a high - end fashion photography style to achieve a clean and high - class feel, with delicate and natural use of light and shadow to highlight the three - dimensionality and exquisiteness of the model's hairstyle, hair color, and the overall picture."
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "文本"
+    }
+  },
+  "126": {
+    "inputs": {
+      "samples": [
+        "116",
+        0
+      ],
+      "vae": [
+        "122",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "127": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "126",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "142": {
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent"
+    }
+  },
+  "147": {
+    "inputs": {
+      "lora_name": "flux_realism_lora.safetensors",
+      "strength_model": 0.8000000000000002,
+      "strength_clip": 1,
+      "model": [
+        "119",
+        0
+      ],
+      "clip": [
+        "120",
+        0
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA加载器"
+    }
+  },
+  "148": {
+    "inputs": {
+      "anything": [
+        "126",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "清理GPU占用"
+    }
+  }
+}

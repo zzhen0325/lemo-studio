@@ -1,0 +1,22 @@
+{
+  "file_name": "citypop",
+  "model_name": "citypop",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/citypop.safetensors",
+  "size": 158637520,
+  "modified": 1747041990.8279145,
+  "sha256": "4c149ad7eba9aaba1207706084e0ac4f11753c9a0eddb231aed5f57313346cf6",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/citypop.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "citypop",
+  "modelname": "citypop"
+}

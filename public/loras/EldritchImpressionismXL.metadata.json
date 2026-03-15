@@ -1,0 +1,22 @@
+{
+  "file_name": "EldritchImpressionismXL",
+  "model_name": "EldritchImpressionismXL",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/EldritchImpressionismXL.safetensors",
+  "size": 69864312,
+  "modified": 1750078545.5525064,
+  "sha256": "77fa8458383f20b2c714a363152d6a6adbe03973106beb37d4288cc16aae8670",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/EldritchImpressionismXL.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "EldritchImpressionismXL",
+  "modelname": "EldritchImpressionismXL"
+}

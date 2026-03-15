@@ -1,0 +1,22 @@
+{
+  "file_name": "SDXL_Building_block_world 乐高世界_v2.0",
+  "model_name": "SDXL_Building_block_world 乐高世界_v2.0",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/SDXL_Building_block_world 乐高世界_v2.0.safetensors",
+  "size": 228456516,
+  "modified": 1749475488.7068632,
+  "sha256": "36e1b9090038c07f2907d42341b42c361f1f3c2e329557258c47f1db010757ed",
+  "base_model": "SDXL 1.0",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/SDXL_Building_block_world 乐高世界_v2.0.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "SDXL_Building_block_world 乐高世界_v2.0",
+  "modelname": "SDXL_Building_block_world 乐高世界_v2.0"
+}

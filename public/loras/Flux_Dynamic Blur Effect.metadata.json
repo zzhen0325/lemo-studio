@@ -1,0 +1,22 @@
+{
+  "file_name": "Flux_Dynamic Blur Effect",
+  "model_name": "Flux_Dynamic Blur Effect",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Flux_Dynamic Blur Effect.safetensors",
+  "size": 153274912,
+  "modified": 1749459604.8505168,
+  "sha256": "fc917eeb1f6ca3fe2fe48748bcbff6d67da1bc3fe78c7b59a31c04ff82442311",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Flux_Dynamic Blur Effect.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Flux_Dynamic Blur Effect",
+  "modelname": "Flux_Dynamic Blur Effect"
+}

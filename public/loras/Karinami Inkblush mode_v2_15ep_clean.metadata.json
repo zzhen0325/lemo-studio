@@ -1,0 +1,22 @@
+{
+  "file_name": "Karinami Inkblush mode_v2_15ep_clean",
+  "model_name": "Karinami Inkblush mode_v2_15ep_clean",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Karinami Inkblush mode_v2_15ep_clean.safetensors",
+  "size": 612741456,
+  "modified": 1747045676.6215892,
+  "sha256": "90d0275e3c1f5deb3b0da3063c4486a98ccab9e34b628dae98286a3f65a98e7f",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Karinami Inkblush mode_v2_15ep_clean.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Karinami Inkblush mode_v2_15ep_clean",
+  "modelname": "Karinami Inkblush mode_v2_15ep_clean"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "Clay_Toy_rank128_bf16",
+  "model_name": "Clay_Toy_rank128_bf16",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Clay_Toy_rank128_bf16.safetensors",
+  "size": 1225501064,
+  "modified": 1749532280.8215086,
+  "sha256": "d544404c97e79273aabfb3a0b17e6310ee2c78b749b5e90f213c1e0eedb7f21a",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/Clay_Toy_rank128_bf16.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "Clay_Toy_rank128_bf16",
+  "modelname": "Clay_Toy_rank128_bf16"
+}

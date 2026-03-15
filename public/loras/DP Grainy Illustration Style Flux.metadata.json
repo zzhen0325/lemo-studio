@@ -1,0 +1,22 @@
+{
+  "file_name": "DP Grainy Illustration Style Flux",
+  "model_name": "DP Grainy Illustration Style Flux",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/DP Grainy Illustration Style Flux.safetensors",
+  "size": 79374360,
+  "modified": 1747311703.48742,
+  "sha256": "0ec62802b8ba73173cf73adcaa9c9c4b3d2a11192377ccedbe90d1fed2777867",
+  "base_model": "Flux.1 D",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/DP Grainy Illustration Style Flux.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "DP Grainy Illustration Style Flux",
+  "modelname": "DP Grainy Illustration Style Flux"
+}

@@ -1,0 +1,22 @@
+{
+  "file_name": "CLUMSY 3D MIX",
+  "model_name": "CLUMSY 3D MIX",
+  "file_path": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CLUMSY 3D MIX.safetensors",
+  "size": 626041672,
+  "modified": 1749789361.757787,
+  "sha256": "d5a5272f8684ad1b2fde8506ce8d48964f80adf2cc9eec8fac14d7d3988b7674",
+  "base_model": "Unknown",
+  "preview_url": "C:/Users/Admin/Documents/ComfyUI_aki_v1_6/ComfyUI/models/loras/CLUMSY 3D MIX.webp",
+  "preview_nsfw_level": 0,
+  "notes": "",
+  "from_civitai": true,
+  "civitai": null,
+  "tags": [],
+  "modelDescription": "",
+  "civitai_deleted": false,
+  "favorite": false,
+  "exclude": false,
+  "usage_tips": "{}",
+  "filename": "CLUMSY 3D MIX",
+  "modelname": "CLUMSY 3D MIX"
+}
