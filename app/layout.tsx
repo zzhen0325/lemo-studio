@@ -22,38 +22,16 @@ export const metadata: Metadata = {
 const enableTweakcnLivePreview = process.env.NEXT_PUBLIC_ENABLE_TWEAKCN_LIVE_PREVIEW === "true";
 
 function resolveRuntimePublicApiBase() {
-  console.log('process.env.NEXT_PUBLIC_API_BASE====', process.env.NEXT_PUBLIC_API_BASE)
-  const nextPublicApiBase = (process.env.NEXT_PUBLIC_API_BASE || "").trim();
-  if (nextPublicApiBase) {
-    return nextPublicApiBase;
-  }
-
-  const guluxApiBase = (process.env.GULUX_API_BASE || "").trim();
-  if (!guluxApiBase || process.env.NODE_ENV !== "production") {
-    return "";
-  }
-
-  try {
-    const parsed = new URL(guluxApiBase);
-    if (!["http:", "https:"].includes(parsed.protocol)) {
-      return "";
-    }
-    if (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") {
-      return "";
-    }
-    return guluxApiBase;
-  } catch {
-    return "";
-  }
+  return (process.env.NEXT_PUBLIC_API_BASE || "").trim();
 }
 
 const runtimePublicEnv = {
-  apiBase: resolveRuntimePublicApiBase() || 'https://qzcnzen0.fn-boe.bytedance.net/api',
+  apiBase: resolveRuntimePublicApiBase(),
   comfyUrl: (process.env.NEXT_PUBLIC_COMFYUI_URL || "").trim(),
   baseUrl: (process.env.NEXT_PUBLIC_BASE_URL || "").trim(),
   disableImageOptimization: (process.env.NEXT_DISABLE_IMAGE_OPTIMIZATION || "").trim(),
 };
-const runtimePublicEnvScript = `window.__GULUX_RUNTIME_ENV__ = ${JSON.stringify(runtimePublicEnv).replace(/</g, "\\u003c")};`;
+const runtimePublicEnvScript = `window.__LEMO_RUNTIME_ENV__ = ${JSON.stringify(runtimePublicEnv).replace(/</g, "\\u003c")};`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -64,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" href="/assets/loading-icon.svg" as="image" />
       </head>
       <body className={cn("min-h-screen font-sans antialiased")} suppressHydrationWarning>
-        <Script id="gulux-runtime-public-env" strategy="beforeInteractive">
+        <Script id="lemo-runtime-public-env" strategy="beforeInteractive">
           {runtimePublicEnvScript}
         </Script>
 

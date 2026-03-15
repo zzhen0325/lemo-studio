@@ -6,13 +6,13 @@ const ONE_PIXEL_PNG_BASE64 =
 
 describe("imageInput relative path resolution", () => {
   afterEach(() => {
-    delete window.__GULUX_RUNTIME_ENV__;
+    delete window.__LEMO_RUNTIME_ENV__;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
   it("prefers NEXT_PUBLIC_BASE_URL when building absolute site URLs", () => {
-    window.__GULUX_RUNTIME_ENV__ = {
+    window.__LEMO_RUNTIME_ENV__ = {
       baseUrl: "https://pr62hkr9.fn-boe.bytedance.net",
       apiBase: "https://qzcnzen0.fn-boe.bytedance.net/api",
     };
@@ -22,7 +22,7 @@ describe("imageInput relative path resolution", () => {
   });
 
   it("falls back to fetching the relative path from the configured site base", async () => {
-    window.__GULUX_RUNTIME_ENV__ = {
+    window.__LEMO_RUNTIME_ENV__ = {
       baseUrl: "https://pr62hkr9.fn-boe.bytedance.net",
     };
 

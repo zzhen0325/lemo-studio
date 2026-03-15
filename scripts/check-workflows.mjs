@@ -10,7 +10,6 @@ const fix = args.has('--fix');
 
 const roots = [
   { name: 'app', dir: 'workflows' },
-  { name: 'server', dir: 'server/workflows' },
 ];
 
 function normalizeSpaces(value) {

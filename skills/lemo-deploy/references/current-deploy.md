@@ -2,56 +2,44 @@
 
 ## Use This Reference For
 
-- updating frontend or backend deployment commands
-- checking required environment variables
+- updating the single-service Next deployment
+- checking required env vars
 - verifying a live BOE deployment after changes
-- debugging common deployment/runtime failures
+- debugging runtime startup issues
 
-## Frontend
+## Deployment
 
 - Build script: `./build.sh`
-- Product output dir: `output`
+- Output dir: `output`
 - Start: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
 - Health: `/healthz`
-- Required env: `GULUX_API_BASE=https://qzcnzen0.fn-boe.bytedance.net/api`
-- Optional env: `NEXT_PUBLIC_API_BASE`
+
+Required env:
+
+- `MONGODB_URI`
+- `MONGODB_DB`
+- `API_CONFIG_ENCRYPTION_KEY`
 
 Default recommendation:
 
 - keep browser requests on same-origin `/api`
-- do not rely on `NEXT_PUBLIC_API_BASE` unless direct browser calls are required
-
-## Backend
-
-- Build script: `./scripts/build-server.sh`
-- Start: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
-- Required env:
-  - `MONGODB_URI`
-  - `MONGODB_DB`
-  - `API_CONFIG_ENCRYPTION_KEY`
+- leave `NEXT_PUBLIC_API_BASE` empty unless a public API origin override is required
+- keep `NEXT_DISABLE_IMAGE_OPTIMIZATION=true`
 
 ## Verification URLs
 
 - Frontend health: `/healthz`
-- Frontend proxy: `/api/history?page=1&limit=1&lightweight=1&minimal=1`
-- Backend direct:
-  - `/api/view-comfy?lightweight=true`
-  - `/api/history?page=1&limit=1&lightweight=1&minimal=1`
+- API history: `/api/history?page=1&limit=1&lightweight=1&minimal=1`
+- API workflows: `/api/view-comfy?lightweight=true`
 
 ## Common Failure Patterns
 
 ### `EADDRNOTAVAIL`
 
 - Cause: runtime injected an IPv6 `HOSTNAME` that was not bindable
-- Fix: start with `HOSTNAME=0.0.0.0` or rely on generated `bootstrap.js`
+- Fix: rely on generated `bootstrap.js` or set `HOSTNAME=0.0.0.0`
 
-### `ERR_CONTENT_DECODING_FAILED`
+### Relative Asset Fetch Failure
 
-- Cause: stale frontend proxy deployment forwarding mismatched compression headers
-- Fix: redeploy frontend after the proxy fix in `app/api/[...path]/route.ts`
-
-### CORS
-
-- Only needed when the browser directly calls the backend domain
-- Backend env format:
-  - `CORS_ALLOW_ORIGINS=https://<frontend-domain>`
+- Cause: route handlers cannot resolve relative public asset URLs from server-side flows
+- Fix: set `NEXT_PUBLIC_BASE_URL` to the deployed site origin

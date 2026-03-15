@@ -90,5 +90,5 @@ require('./server.js');
 EOF
 
 echo "前端构建完成。部署产物目录: ${FRONTEND_OUTPUT_DIR}"
-echo "源码启动命令: NODE_ENV=production next start -p \$PORT"
+echo "源码启动命令: ./scripts/start-next-standalone.sh"
 echo "产物启动命令: cd output && NODE_ENV=production node bootstrap.js"

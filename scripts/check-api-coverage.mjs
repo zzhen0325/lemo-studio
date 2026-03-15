@@ -4,7 +4,7 @@ import path from 'path';
 
 const ROOT = process.cwd();
 const CLIENT_DIRS = ['app', 'components', 'hooks', 'lib'];
-const CONTROLLER_DIR = path.join(ROOT, 'server', 'controller');
+const ROUTES_DIR = path.join(ROOT, 'app', 'api');
 const REPORT_DIR = path.join(ROOT, 'report');
 const REPORT_JSON = path.join(REPORT_DIR, 'api-coverage.json');
 const REPORT_MD = path.join(REPORT_DIR, 'api-coverage.md');
@@ -98,28 +98,33 @@ function combineRoute(base, sub = '') {
 }
 
 function collectServerRoutes() {
-  if (!fs.existsSync(CONTROLLER_DIR)) return [];
+  if (!fs.existsSync(ROUTES_DIR)) return [];
 
-  const files = fs.readdirSync(CONTROLLER_DIR)
-    .filter((name) => name.endsWith('.ts'))
-    .map((name) => path.join(CONTROLLER_DIR, name));
+  const files = walkFiles(ROUTES_DIR).filter((file) => file.endsWith(`${path.sep}route.ts`) || file.endsWith(`${path.sep}route.js`));
 
   const routeRecords = [];
-  const methodRegex = /@(Get|Post|Put|Delete|Patch)\((?:'([^']*)')?\)/g;
+  const methodRegex = /export\s+async\s+function\s+(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s*\(/g;
 
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf8');
-    const controllerMatch = content.match(/@Controller\('([^']+)'\)/);
-    if (!controllerMatch) continue;
+    const relativeFile = path.relative(ROUTES_DIR, file);
+    const routePath = relativeFile
+      .replace(new RegExp(`${escapeRegex(`${path.sep}route.ts`)}$`), '')
+      .replace(new RegExp(`${escapeRegex(`${path.sep}route.js`)}$`), '')
+      .split(path.sep)
+      .map((segment) => {
+        if (segment.startsWith('[') && segment.endsWith(']')) {
+          return ':param';
+        }
+        return segment;
+      })
+      .join('/');
 
-    const basePath = controllerMatch[1];
     let methodMatch;
     while ((methodMatch = methodRegex.exec(content)) !== null) {
-      const method = methodMatch[1].toUpperCase();
-      const subPath = methodMatch[2] || '';
       routeRecords.push({
-        method,
-        endpointPath: combineRoute(basePath, subPath),
+        method: methodMatch[1].toUpperCase(),
+        endpointPath: combineRoute(routePath),
         file: path.relative(ROOT, file),
       });
     }
@@ -212,7 +217,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log('[check-api-coverage] All frontend endpoints are mapped to server controllers.');
+  console.log('[check-api-coverage] All frontend endpoints are mapped to Next route handlers.');
   console.log(`[check-api-coverage] Report: ${path.relative(ROOT, REPORT_MD)}`);
 }
 

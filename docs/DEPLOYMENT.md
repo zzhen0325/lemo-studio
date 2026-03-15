@@ -1,174 +1,79 @@
 # Deployment Notes
 
-## Quick Reference
+## Runtime Model
 
-### Frontend (Next.js)
+- Deploy a single Next.js Node service.
+- UI pages and `/api/*` route handlers run inside the same process.
+- MongoDB, CDN, ComfyUI, ViewComfy, and AI providers remain external dependencies configured by env vars.
+
+## Build And Start
 
 - Build script: `./build.frontend.sh`
 - Compatibility alias: `./build.sh`
-- Packaging output dir: `output`
+- Output dir: `output`
 - Start command: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
-- Health check path: `/healthz`
-- Required env: `GULUX_API_BASE`
-- Optional env: `NEXT_PUBLIC_API_BASE`
+- Health check: `/healthz`
 
-### Backend (Gulux server)
+`build.frontend.sh` packages:
 
-- Build script: `./build.backend.sh`
-- Compatibility target: `./scripts/build-server.sh`
-- Start command: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
-- Required env:
-  - `MONGODB_URI`
-  - `MONGODB_DB`
-  - `API_CONFIG_ENCRYPTION_KEY`
+- `.next/standalone`
+- `.next/static`
+- `public/`
+- `config/`
+- `data/`
+- `workflows/`
+- `output/bootstrap.js`
 
-## Deployment Scripts
+## Required Env
 
-### Frontend Script
+- `MONGODB_URI`
+- `MONGODB_DB`
+- `API_CONFIG_ENCRYPTION_KEY`
+- `CONSUL_HTTP_HOST` when `MONGODB_URI` uses an internal Byted discovery scheme and the runtime does not inject consul routing automatically
 
-File: `build.sh`
+Optional but commonly used:
 
-Compatibility alias to `build.frontend.sh`.
-
-File: `build.frontend.sh`
-
-Responsibilities:
-
-- Run `npm ci`
-- Run `npm run build`
-- Copy `.next/standalone`, `.next/static`, `public/`, runtime `data/`, and root `workflows/` into `output/`
-- Generate `output/bootstrap.js` for packaged runtime startup
-
-Why the bootstrap file exists:
-
-- Product packaging still expects `output/`
-- Runtime startup still defaults to `node bootstrap.js`
-- Some Node/FaaS runtimes inject an IPv6 `HOSTNAME` that is not bindable, so the bootstrap normalizes that case to `0.0.0.0`
-
-### Backend Script
-
-File: `scripts/build-server.sh`
-
-Wrapped by root `build.backend.sh`.
-
-Responsibilities:
-
-- Enter `server/`
-- Run `npm install`
-- Run `npm run build`
-- Copy runtime `data/` into `server/output/`
-- Copy `server/output/` back to root `output/`
-
-## Runtime Model
-
-### Recommended Frontend API Mode
-
-Use same-origin `/api/*` on the frontend.
-
-- Browser requests: `https://<frontend-domain>/api/*`
-- Frontend proxy target: `GULUX_API_BASE=https://qzcnzen0.fn-boe.bytedance.net/api`
-
-This is the preferred mode because:
-
-- it does not depend on `NEXT_PUBLIC_API_BASE` being injected at build time
-- it avoids backend CORS requirements
-- the browser never needs to call the backend domain directly
-- it matches the local debug scripts `npm run dev` and `npm run dev:proxy:boe`
-- it keeps long-running image generation off the frontend BOE proxy path when `NEXT_PUBLIC_API_BASE` is correctly injected into the runtime
-
-### Direct Browser Backend Calls
-
-Only use direct browser calls when you explicitly need them.
-
-Requirements:
-
-- set `NEXT_PUBLIC_API_BASE=https://qzcnzen0.fn-boe.bytedance.net/api` at build time
-- set backend `CORS_ALLOW_ORIGINS=https://<frontend-domain>`
-
-If the browser requests `https://<frontend-domain>/api/*`, that is expected and correct in proxy mode.
-
-### Production Image Generation Notes
-
-- Prefer `NEXT_DISABLE_IMAGE_OPTIMIZATION=true` so remote CDN images do not route through Next's `/_next/image` optimizer.
-- Set `NEXT_PUBLIC_BASE_URL=https://<frontend-domain>` on the backend when reference-image or image-edit flows can submit relative paths such as `/upload/*` or `/outputs/*`.
-- Do not set `NEXT_PUBLIC_COMFYUI_URL` on an HTTPS frontend unless ComfyUI is available behind HTTPS/WSS; otherwise browser direct mode will be disabled and Flux will fall back to the server path.
-- For `seed4_v2_0226lemo` and other AFR-backed models, explicitly configure `GATEWAY_BASE_URL`, `BYTEDANCE_AID`, `BYTEDANCE_APP_KEY`, and `BYTEDANCE_APP_SECRET`.
-
-## Recommended Platform Configuration
-
-### Frontend
-
-- Build command: `./build.sh`
-- Preferred explicit build command: `./build.frontend.sh`
-- `PRODUCT_OUTPUT_DIR`: `output`
-- Start command: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
-- Health check path: `/healthz`
-- Auto-install npm dependencies: off
-
-### Backend
-
-- Build command: `./scripts/build-server.sh`
-- Preferred explicit build command: `./build.backend.sh`
-- Start command: `cd server && PORT=$PORT NODE_ENV=production gulux start --config server/config`
+- `NEXT_PUBLIC_BASE_URL`
+- `NEXT_PUBLIC_API_BASE`
+- `NEXT_DISABLE_IMAGE_OPTIMIZATION`
+- `COMFYUI_API_URL`
+- `CDN_BASE_URL`
+- `CDN_DIR`
+- `CDN_REGION`
+- `CDN_EMAIL`
 
 ## Verification
 
-### Frontend
+- `https://<frontend-domain>/healthz`
+- `https://<frontend-domain>/api/history?page=1&limit=1&lightweight=1&minimal=1`
+- `https://<frontend-domain>/api/view-comfy?lightweight=true`
 
-- Health:
-  - `https://<frontend-domain>/healthz`
-- Proxy path:
-  - `https://<frontend-domain>/api/history?page=1&limit=1&lightweight=1&minimal=1`
-
-### Backend
-
-- `https://qzcnzen0.fn-boe.bytedance.net/api/view-comfy?lightweight=true`
-- `https://qzcnzen0.fn-boe.bytedance.net/api/history?page=1&limit=1&lightweight=1&minimal=1`
-
-### Helper Script
-
-Run:
+Helper script:
 
 ```bash
 ./skills/lemo-deploy/scripts/verify_deploy.sh \
   --frontend https://<frontend-domain> \
-  --backend https://qzcnzen0.fn-boe.bytedance.net
+  --backend https://<frontend-domain>
 ```
 
-## Known Issues
+## Common Failures
 
 ### `EADDRNOTAVAIL`
 
-Symptom:
+- Cause: runtime injected a non-bindable `HOSTNAME`
+- Fix: start with `HOSTNAME=0.0.0.0` or use generated `bootstrap.js`
 
-- runtime startup fails while binding an IPv6 `HOSTNAME`
+### Remote CDN Image 504
 
-Fix:
+- Cause: Next image optimizer cannot reliably reach remote assets
+- Fix: keep `NEXT_DISABLE_IMAGE_OPTIMIZATION=true`
 
-- use `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
+### Relative Asset Fetch Fails
 
-### `ERR_CONTENT_DECODING_FAILED`
+- Cause: server-side helpers cannot resolve `/upload/*` or `/outputs/*`
+- Fix: set `NEXT_PUBLIC_BASE_URL=https://<frontend-domain>`
 
-Symptom:
+### Internal Mongo Discovery Fails
 
-- browser requests to frontend `/api/history` or similar return `200`, but decoding fails
-
-Cause:
-
-- the frontend proxy forwarded mismatched compression headers
-
-Fix:
-
-- redeploy frontend with the latest proxy fix in `app/api/[...path]/route.ts`
-
-### CORS Confusion
-
-Symptom:
-
-- the browser appears to call the frontend domain instead of the backend domain
-
-Interpretation:
-
-- this is normal in same-origin proxy mode
-
-Only configure backend `CORS_ALLOW_ORIGINS` when the browser directly calls the backend domain.
+- Cause: `MONGODB_URI` uses an internal Byted discovery scheme such as `mongodb+consul+token://...` but the runtime lacks consul routing
+- Fix: inject `CONSUL_HTTP_HOST` (and optionally `CONSUL_HTTP_PORT`) or provide `SERVICE_MESH_MONGO_ADDR`

@@ -9,7 +9,7 @@ async function loadCryptoModule(encryptionKey?: string) {
   } else {
     process.env.API_CONFIG_ENCRYPTION_KEY = encryptionKey;
   }
-  return import('../../server/utils/secret-crypto');
+  return import('../../lib/server/utils/secret-crypto');
 }
 
 afterAll(() => {

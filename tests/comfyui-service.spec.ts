@@ -121,7 +121,7 @@ describe("ComfyUIService image normalization", () => {
   });
 
   it("falls back to NEXT_PUBLIC_BASE_URL when runtime asset mapping is missing", async () => {
-    window.__GULUX_RUNTIME_ENV__ = {
+    window.__LEMO_RUNTIME_ENV__ = {
       baseUrl: "https://pr62hkr9.fn-boe.bytedance.net",
     };
 

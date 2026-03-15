@@ -11,7 +11,7 @@ const maxMbArg = process.argv.find((arg) => arg.startsWith('--max-mb='));
 const configPath = path.join(process.cwd(), 'config', 'asset-governance.json');
 let config = {
   maxFileSizeMB: 5,
-  trackedScopes: ['public/', 'data/', 'workflows/', 'server/workflows/'],
+  trackedScopes: ['public/', 'data/', 'workflows/'],
   allowOversize: [],
 };
 

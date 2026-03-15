@@ -72,26 +72,26 @@ function logResolvedApiBase(scope: "client" | "server", apiBase: string, source:
 }
 
 export function getApiBase(): string {
-    // Client side: allow explicit override for LAN/direct mode, otherwise same-origin proxy route.
     if (typeof window !== 'undefined') {
         const envBase = normalizeConfiguredApiBase(getPublicApiBase());
         if (envBase) {
             logResolvedApiBase("client", envBase, "runtime-public-env");
             return envBase;
         }
-        logResolvedApiBase("client", "/api", "same-origin-proxy");
+        logResolvedApiBase("client", "/api", "same-origin");
         return '/api';
     }
 
-    const internalBase = normalizeConfiguredApiBase(process.env.GULUX_API_BASE)
-        || normalizeConfiguredApiBase(process.env.INTERNAL_API_BASE);
-    if (internalBase) {
-        logResolvedApiBase("server", internalBase, process.env.GULUX_API_BASE ? "GULUX_API_BASE" : "INTERNAL_API_BASE");
-        return internalBase;
+    const envBase = normalizeConfiguredApiBase(getPublicApiBase());
+    if (envBase) {
+        logResolvedApiBase("server", envBase, "runtime-public-env");
+        return envBase;
     }
 
-    logResolvedApiBase("server", "http://127.0.0.1:3000/api", "default-localhost");
-    return 'http://127.0.0.1:3000/api';
+    const port = (process.env.PORT || process.env.NEXT_PUBLIC_APP_PORT || '3001').trim();
+    const internalBase = `http://127.0.0.1:${port}/api`;
+    logResolvedApiBase("server", internalBase, "local-next-server");
+    return internalBase;
 }
 
 export function formatImageUrl(url: string | undefined | null, useProxy = false): string {

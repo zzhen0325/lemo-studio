@@ -3,8 +3,7 @@
   "trackedScopes": [
     "public/",
     "data/",
-    "workflows/",
-    "server/workflows/"
+    "workflows/"
   ],
   "allowOversize": [
     "public/Font/GoogleSansFlex-VariableFont_GRAD,ROND,opsz,slnt,wdth,wght.ttf",

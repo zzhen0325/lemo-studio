@@ -52,8 +52,6 @@ export function getConfiguredSiteBaseUrl(): string | null {
   const candidates = [
     normalizeAbsoluteHttpUrl(getPublicBaseUrl()),
     deriveOriginFromApiBase(getPublicApiBase()),
-    deriveOriginFromApiBase(process.env.GULUX_API_BASE),
-    deriveOriginFromApiBase(process.env.INTERNAL_API_BASE),
   ];
 
   return candidates.find((candidate) => Boolean(candidate)) || null;

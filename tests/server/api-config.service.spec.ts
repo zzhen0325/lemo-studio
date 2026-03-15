@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../server/db', () => ({
+vi.mock('../../lib/server/db', () => ({
   ApiProvider: class ApiProviderMock {},
   ApiSettings: class ApiSettingsMock {},
 }));
 
-import { ApiConfigService } from '../../server/service/api-config.service';
+import { ApiConfigService } from '../../lib/server/service/api-config.service';
 
 interface ProviderDoc {
   _id: string;

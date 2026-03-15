@@ -101,6 +101,19 @@ const legacyStudioRouteRedirects = [
   { source: '/settings', destination: '/studio/settings', permanent: false },
 ];
 
+const serverExternalPackages = [
+  '@napi-rs/snappy-darwin-arm64',
+  'snappy',
+  'mongoose',
+  'mongodb',
+  '@byted/bytedmongodb',
+  '@byted/bytedmongoose',
+  '@byted/typegoose',
+  'node-unix-socket',
+  'node-unix-socket-darwin-arm64',
+  '@byted-nodex/metrics',
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // 禁用代理层 HTTP keep-alive，避免因 server keepAliveTimeout(5s) 导致的 ECONNRESET
@@ -129,20 +142,14 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'lucide'],
   },
+  // Turbopack does not use webpack externals, so server-only native/database
+  // packages must also be marked here to avoid resolving optional peers like
+  // `mongodb-client-encryption` during route bundling.
+  serverExternalPackages,
   transpilePackages: [],
   webpack: (config, { isServer }) => {
     if (isServer) {
-      config.externals.push(
-        '@napi-rs/snappy-darwin-arm64',
-        'snappy',
-        'mongoose',
-        'mongodb',
-        'node-unix-socket',
-        'node-unix-socket-darwin-arm64',
-        '@byted-nodex/metrics',
-        '@gulux/plugin-typegoose',
-        '@gulux/gulux'
-      );
+      config.externals.push(...serverExternalPackages);
     }
     return config;
   },

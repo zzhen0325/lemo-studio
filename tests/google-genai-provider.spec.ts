@@ -26,7 +26,7 @@ describe("GoogleGenAIProvider", () => {
 
   afterEach(async () => {
     await fs.rm(absoluteImagePath, { force: true });
-    delete window.__GULUX_RUNTIME_ENV__;
+    delete window.__LEMO_RUNTIME_ENV__;
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -77,7 +77,7 @@ describe("GoogleGenAIProvider", () => {
   });
 
   it("falls back to NEXT_PUBLIC_BASE_URL for relative image paths missing from local public", async () => {
-    window.__GULUX_RUNTIME_ENV__ = {
+    window.__LEMO_RUNTIME_ENV__ = {
       baseUrl: "https://pr62hkr9.fn-boe.bytedance.net",
     };
 
