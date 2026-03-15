@@ -1,265 +1,157 @@
-import { sql } from "drizzle-orm";
-import {
-  pgTable,
-  text,
-  varchar,
-  timestamp,
-  boolean,
-  integer,
-  jsonb,
-  index,
-  serial,
-} from "drizzle-orm/pg-core";
+import { pgTable, unique, varchar, text, jsonb, timestamp, serial, index, integer } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 
-// System health check table (DO NOT MODIFY OR DELETE)
+
+
+export const apiConfigs = pgTable("api_configs", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	provider: varchar({ length: 64 }).notNull(),
+	encryptedKey: text("encrypted_key"),
+	config: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("api_configs_provider_unique").on(table.provider),
+]);
+
 export const healthCheck = pgTable("health_check", {
-  id: serial().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	id: serial().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 });
 
-// Image Assets Table
-export const imageAssets = pgTable(
-  "image_assets",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    url: text("url").notNull(),
-    dir: varchar("dir", { length: 255 }).notNull(),
-    fileName: varchar("file_name", { length: 255 }).notNull(),
-    region: varchar("region", { length: 64 }).notNull(),
-    type: varchar("type", { length: 32 }).notNull(), // generation, reference, dataset, upload
-    projectId: varchar("project_id", { length: 36 }),
-    generationId: varchar("generation_id", { length: 36 }),
-    meta: jsonb("meta"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("image_assets_type_idx").on(table.type),
-    index("image_assets_project_id_idx").on(table.projectId),
-    index("image_assets_generation_id_idx").on(table.generationId),
-  ]
-);
+export const datasetEntries = pgTable("dataset_entries", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	collectionName: varchar("collection_name", { length: 255 }).notNull(),
+	fileName: varchar("file_name", { length: 255 }).notNull(),
+	url: text().notNull(),
+	prompt: text(),
+	width: integer(),
+	height: integer(),
+	format: varchar({ length: 32 }),
+	size: integer(),
+	metadata: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("dataset_entries_collection_name_idx").using("btree", table.collectionName.asc().nullsLast().op("text_ops")),
+]);
 
-// Generations Table
-export const generations = pgTable(
-  "generations",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    status: varchar("status", { length: 32 }).default("pending"), // pending, completed, failed
-    progress: integer("progress"),
-    progressStage: varchar("progress_stage", { length: 64 }),
-    userId: varchar("user_id", { length: 36 }),
-    projectId: varchar("project_id", { length: 36 }),
-    llmResponse: text("llm_response"),
-    outputImageId: varchar("output_image_id", { length: 36 }),
-    sourceImageId: varchar("source_image_id", { length: 36 }),
-    outputUrl: text("output_url"),
-    config: jsonb("config"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("generations_user_id_idx").on(table.userId),
-    index("generations_project_id_idx").on(table.projectId),
-    index("generations_created_at_idx").on(table.createdAt),
-    index("generations_status_idx").on(table.status),
-  ]
-);
+export const generations = pgTable("generations", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	status: varchar({ length: 32 }).default('pending'),
+	progress: integer(),
+	progressStage: varchar("progress_stage", { length: 64 }),
+	userId: varchar("user_id", { length: 36 }),
+	projectId: varchar("project_id", { length: 36 }),
+	llmResponse: text("llm_response"),
+	outputImageId: varchar("output_image_id", { length: 36 }),
+	sourceImageId: varchar("source_image_id", { length: 36 }),
+	outputUrl: text("output_url"),
+	config: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("generations_created_at_idx").using("btree", table.createdAt.asc().nullsLast().op("timestamptz_ops")),
+	index("generations_project_id_idx").using("btree", table.projectId.asc().nullsLast().op("text_ops")),
+	index("generations_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
+	index("generations_user_id_idx").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+]);
 
-// Presets Table
-export const presets = pgTable(
-  "presets",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    name: varchar("name", { length: 255 }).notNull(),
-    coverUrl: text("cover_url"),
-    coverData: text("cover_data"), // Base64 data for the cover image
-    config: jsonb("config"),
-    editConfig: jsonb("edit_config"),
-    category: varchar("category", { length: 64 }),
-    projectId: varchar("project_id", { length: 36 }),
-    type: varchar("type", { length: 32 }), // generation, edit
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("presets_category_idx").on(table.category),
-    index("presets_type_idx").on(table.type),
-  ]
-);
+export const imageAssets = pgTable("image_assets", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	url: text().notNull(),
+	dir: varchar({ length: 255 }).notNull(),
+	fileName: varchar("file_name", { length: 255 }).notNull(),
+	region: varchar({ length: 64 }).notNull(),
+	type: varchar({ length: 32 }).notNull(),
+	projectId: varchar("project_id", { length: 36 }),
+	generationId: varchar("generation_id", { length: 36 }),
+	meta: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("image_assets_generation_id_idx").using("btree", table.generationId.asc().nullsLast().op("text_ops")),
+	index("image_assets_project_id_idx").using("btree", table.projectId.asc().nullsLast().op("text_ops")),
+	index("image_assets_type_idx").using("btree", table.type.asc().nullsLast().op("text_ops")),
+]);
 
-// Preset Categories Table
-export const presetCategories = pgTable(
-  "preset_categories",
-  {
-    id: serial("id").primaryKey(),
-    key: varchar("key", { length: 64 }).notNull().unique(),
-    categories: jsonb("categories").default([]),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  }
-);
+export const presetCategories = pgTable("preset_categories", {
+	id: serial().primaryKey().notNull(),
+	key: varchar({ length: 64 }).notNull(),
+	categories: jsonb().default([]),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("preset_categories_key_unique").on(table.key),
+]);
 
-// Style Stacks Table
-export const styleStacks = pgTable(
-  "style_stacks",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    name: varchar("name", { length: 255 }).notNull(),
-    prompt: text("prompt").notNull(),
-    imagePaths: jsonb("image_paths").default([]),
-    previewUrls: jsonb("preview_urls").default([]),
-    collageImageUrl: text("collage_image_url"),
-    collageConfig: jsonb("collage_config"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  }
-);
+export const presets = pgTable("presets", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	coverUrl: text("cover_url"),
+	coverData: text("cover_data"),
+	config: jsonb(),
+	editConfig: jsonb("edit_config"),
+	category: varchar({ length: 64 }),
+	projectId: varchar("project_id", { length: 36 }),
+	type: varchar({ length: 32 }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("presets_category_idx").using("btree", table.category.asc().nullsLast().op("text_ops")),
+	index("presets_type_idx").using("btree", table.type.asc().nullsLast().op("text_ops")),
+]);
 
-// Tool Presets Table
-export const toolPresets = pgTable(
-  "tool_presets",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    toolId: varchar("tool_id", { length: 64 }).notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
-    values: jsonb("values"),
-    thumbnail: text("thumbnail"),
-    timestamp: integer("timestamp"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("tool_presets_tool_id_idx").on(table.toolId),
-  ]
-);
+export const styleStacks = pgTable("style_stacks", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	prompt: text().notNull(),
+	imagePaths: jsonb("image_paths").default([]),
+	previewUrls: jsonb("preview_urls").default([]),
+	collageImageUrl: text("collage_image_url"),
+	collageConfig: jsonb("collage_config"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+});
 
-// Dataset Entries Table
-export const datasetEntries = pgTable(
-  "dataset_entries",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    collectionName: varchar("collection_name", { length: 255 }).notNull(),
-    fileName: varchar("file_name", { length: 255 }).notNull(),
-    url: text("url").notNull(),
-    prompt: text("prompt"),
-    width: integer("width"),
-    height: integer("height"),
-    format: varchar("format", { length: 32 }),
-    size: integer("size"),
-    metadata: jsonb("metadata"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("dataset_entries_collection_name_idx").on(table.collectionName),
-  ]
-);
+export const toolPresets = pgTable("tool_presets", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	toolId: varchar("tool_id", { length: 64 }).notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	values: jsonb(),
+	thumbnail: text(),
+	timestamp: integer(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("tool_presets_tool_id_idx").using("btree", table.toolId.asc().nullsLast().op("text_ops")),
+]);
 
-// API Config Table (for storing encrypted API keys)
-export const apiConfigs = pgTable(
-  "api_configs",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    provider: varchar("provider", { length: 64 }).notNull().unique(),
-    encryptedKey: text("encrypted_key"),
-    config: jsonb("config"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  }
-);
+export const datasetCollections = pgTable("dataset_collections", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	count: integer().default(0),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("dataset_collections_name_idx").using("btree", table.name.asc().nullsLast().op("text_ops")),
+]);
 
-// Users Table
-export const users = pgTable(
-  "users",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    displayName: varchar("display_name", { length: 255 }),
-    avatarUrl: text("avatar_url"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  }
-);
+export const infiniteCanvasProjects = pgTable("infinite_canvas_projects", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	name: varchar({ length: 255 }),
+	userId: varchar("user_id", { length: 36 }),
+	data: jsonb(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("infinite_canvas_projects_user_id_idx").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+]);
 
-// Dataset Collections Table
-export const datasetCollections = pgTable(
-  "dataset_collections",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    name: varchar("name", { length: 255 }).notNull(),
-    count: integer("count").default(0),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("dataset_collections_name_idx").on(table.name),
-  ]
-);
-
-// Infinite Canvas Projects Table
-export const infiniteCanvasProjects = pgTable(
-  "infinite_canvas_projects",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    name: varchar("name", { length: 255 }),
-    userId: varchar("user_id", { length: 36 }),
-    data: jsonb("data"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("infinite_canvas_projects_user_id_idx").on(table.userId),
-  ]
-);
-
-// Type exports
-export type ImageAsset = typeof imageAssets.$inferSelect;
-export type Generation = typeof generations.$inferSelect;
-export type Preset = typeof presets.$inferSelect;
-export type PresetCategory = typeof presetCategories.$inferSelect;
-export type StyleStack = typeof styleStacks.$inferSelect;
-export type ToolPreset = typeof toolPresets.$inferSelect;
-export type DatasetEntry = typeof datasetEntries.$inferSelect;
-export type ApiConfig = typeof apiConfigs.$inferSelect;
+export const users = pgTable("users", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	displayName: varchar("display_name", { length: 255 }),
+	avatarUrl: text("avatar_url"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+});
