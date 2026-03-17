@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "./scripts/dev-frontend.sh",
     "dev:next": "next dev --turbo -H 0.0.0.0 -p 5000",
-    "build": "next build --no-lint",
+    "build": "next build --no-lint && cp -r .next/static .next/standalone/.next/static",
     "build:deploy": "next build --no-lint && node -e \"const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('.next/package.json'));pkg.scripts={start:'node server.js'};fs.writeFileSync('.next/package.json',JSON.stringify(pkg,null,2))\"",
     "start": "node .next/standalone/server.js",
     "start:output": "cd output && NODE_ENV=production node bootstrap.js",
