@@ -59,11 +59,11 @@ export type ModelType<T> = {
   create(doc: Partial<T>): Promise<T>;
   updateOne(filter: Record<string, unknown>, update: UpdateOp<T>, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }>;
   updateMany(filter: Record<string, unknown>, update: UpdateOp<T>): Promise<void>;
-  deleteOne(filter: Record<string, unknown>): Promise<void>;
+  deleteOne(filter: Record<string, unknown>): Promise<{ deletedCount: number }>;
   deleteMany(filter: Record<string, unknown>): Promise<void>;
   countDocuments(filter?: Record<string, unknown>): Promise<number>;
   estimatedDocumentCount(): Promise<number>;
-  bulkWrite(operations: BulkWriteOp<T>[]): Promise<{ modifiedCount?: number }>;
+  bulkWrite(operations: BulkWriteOp<T>[], options?: { ordered?: boolean }): Promise<{ modifiedCount?: number }>;
   insertMany(docs: Array<Partial<T>>): Promise<T[]>;
   findOneAndUpdate(filter: Record<string, unknown>, update: UpdateOp<T>, options?: { upsert?: boolean; new?: boolean }): Promise<T | null>;
   collection?: { name: string };

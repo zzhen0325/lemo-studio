@@ -16,16 +16,15 @@ import {
 } from '../../api-config/core';
 
 interface ApiProviderLeanDoc {
-  _id?: unknown;
   id?: string;
   name: string;
-  providerType?: string;
-  apiKey?: string;
-  baseURL?: string;
+  provider_type?: string;
+  api_key?: string;
+  base_url?: string;
   models?: Record<string, unknown>[];
-  isEnabled?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  is_enabled?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface FileProvidersReadResult {
@@ -35,10 +34,6 @@ interface FileProvidersReadResult {
 
 function shouldKeepExistingMaskedApiKey(value: string | undefined): boolean {
   return typeof value === 'string' && value.startsWith('[MASKED:');
-}
-
-function isObjectIdString(value: string): boolean {
-  return /^[a-fA-F0-9]{24}$/.test(value);
 }
 
 @Injectable()
@@ -51,32 +46,32 @@ export class ApiConfigService {
 
   private toMaskedProvider(doc: ApiProviderLeanDoc, fallbackDate: string): APIProviderConfig {
     return {
-      id: doc.id || String(doc._id),
+      id: doc.id || '',
       name: doc.name,
-      providerType: (doc.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
-      apiKey: maskStoredApiKey(doc.apiKey),
-      baseURL: doc.baseURL,
+      providerType: (doc.provider_type as APIProviderConfig['providerType']) || 'openai-compatible',
+      apiKey: maskStoredApiKey(doc.api_key),
+      baseURL: doc.base_url,
       models: migrateLooseModels(doc.models) as unknown as APIProviderConfig['models'],
-      isEnabled: doc.isEnabled ?? true,
-      createdAt: (doc.createdAt as string) || fallbackDate,
-      updatedAt: (doc.updatedAt as string) || fallbackDate,
+      isEnabled: doc.is_enabled ?? true,
+      createdAt: doc.created_at || fallbackDate,
+      updatedAt: doc.updated_at || fallbackDate,
     };
   }
 
   private toRuntimeProvider(doc: ApiProviderLeanDoc, fallbackDate: string): APIProviderConfig {
-    const storedApiKey = typeof doc.apiKey === 'string' ? doc.apiKey : '';
+    const storedApiKey = typeof doc.api_key === 'string' ? doc.api_key : '';
     const decryptedApiKey = decryptApiKey(storedApiKey);
 
     return {
-      id: doc.id || String(doc._id),
+      id: doc.id || '',
       name: doc.name,
-      providerType: (doc.providerType as APIProviderConfig['providerType']) || 'openai-compatible',
+      providerType: (doc.provider_type as APIProviderConfig['providerType']) || 'openai-compatible',
       apiKey: decryptedApiKey ?? '',
-      baseURL: doc.baseURL,
+      baseURL: doc.base_url,
       models: migrateLooseModels(doc.models) as unknown as APIProviderConfig['models'],
-      isEnabled: doc.isEnabled ?? true,
-      createdAt: (doc.createdAt as string) || fallbackDate,
-      updatedAt: (doc.updatedAt as string) || fallbackDate,
+      isEnabled: doc.is_enabled ?? true,
+      createdAt: doc.created_at || fallbackDate,
+      updatedAt: doc.updated_at || fallbackDate,
     };
   }
 
@@ -86,20 +81,21 @@ export class ApiConfigService {
     const now = new Date().toISOString();
     const operations: Array<{
       updateOne: {
-        filter: { _id?: unknown };
-        update: { apiKey: string; updatedAt: string };
+        filter: { id: string };
+        update: { api_key: string; updated_at: string };
       };
     }> = [];
 
     for (const doc of docs) {
-      const storedApiKey = doc.apiKey || '';
+      const storedApiKey = doc.api_key || '';
       if (!storedApiKey || isApiKeyEncrypted(storedApiKey)) continue;
-      if (!doc._id) continue;
+      const docId = doc.id || '';
+      if (!docId) continue;
 
       operations.push({
         updateOne: {
-          filter: { _id: doc._id },
-          update: { apiKey: encryptApiKey(storedApiKey), updatedAt: now },
+          filter: { id: docId },
+          update: { api_key: encryptApiKey(storedApiKey), updated_at: now },
         },
       });
     }
@@ -157,7 +153,7 @@ export class ApiConfigService {
   private buildFullUpsertOperations(parsedProviders: APIProviderConfig[], existingProviders: ApiProviderLeanDoc[]) {
     const existingById = new Map<string, ApiProviderLeanDoc>();
     for (const provider of existingProviders) {
-      const id = provider.id || (provider._id ? String(provider._id) : '');
+      const id = provider.id || '';
       if (id) existingById.set(id, provider);
     }
 
@@ -166,7 +162,7 @@ export class ApiConfigService {
       const id = provider.id || randomUUID();
       const existing = existingById.get(id);
       const incomingApiKey = typeof provider.apiKey === 'string' ? provider.apiKey : '';
-      const existingStoredApiKey = typeof existing?.apiKey === 'string' ? existing.apiKey : '';
+      const existingStoredApiKey = typeof existing?.api_key === 'string' ? existing.api_key : '';
       const finalApiKey = incomingApiKey
         ? encryptApiKey(incomingApiKey)
         : (existingStoredApiKey || '');
@@ -177,13 +173,13 @@ export class ApiConfigService {
           update: {
             id,
             name: provider.name || 'Unnamed Provider',
-            providerType: provider.providerType || 'openai-compatible',
-            apiKey: finalApiKey,
-            baseURL: provider.baseURL,
+            provider_type: provider.providerType || 'openai-compatible',
+            api_key: finalApiKey,
+            base_url: provider.baseURL,
             models: migrateLooseModels((provider.models || []) as unknown as Record<string, unknown>[]),
-            isEnabled: provider.isEnabled ?? true,
-            createdAt: provider.createdAt || existing?.createdAt || now,
-            updatedAt: now,
+            is_enabled: provider.isEnabled ?? true,
+            created_at: provider.createdAt || existing?.created_at || now,
+            updated_at: now,
           },
           upsert: true,
         }
@@ -203,7 +199,7 @@ export class ApiConfigService {
     const now = new Date().toISOString();
     const existingById = new Map<string, ApiProviderLeanDoc>();
     for (const provider of existingProviders) {
-      const id = provider.id || (provider._id ? String(provider._id) : '');
+      const id = provider.id || '';
       if (id) existingById.set(id, provider);
     }
 
@@ -227,13 +223,13 @@ export class ApiConfigService {
             update: {
               id,
               name: provider.name || 'Unnamed Provider',
-              providerType: provider.providerType || 'openai-compatible',
-              apiKey: incomingApiKey ? encryptApiKey(incomingApiKey) : '',
-              baseURL: provider.baseURL,
+              provider_type: provider.providerType || 'openai-compatible',
+              api_key: incomingApiKey ? encryptApiKey(incomingApiKey) : '',
+              base_url: provider.baseURL,
               models: migrateLooseModels((provider.models || []) as unknown as Record<string, unknown>[]),
-              isEnabled: provider.isEnabled ?? true,
-              createdAt: provider.createdAt || now,
-              updatedAt: now,
+              is_enabled: provider.isEnabled ?? true,
+              created_at: provider.createdAt || now,
+              updated_at: now,
             },
             upsert: true,
           }
@@ -255,7 +251,7 @@ export class ApiConfigService {
           filter: { id },
           update: {
             models: migrateLooseModels([...existingModels, ...missingModels] as unknown as Record<string, unknown>[]),
-            updatedAt: now,
+            updated_at: now,
           },
         }
       });
@@ -328,15 +324,12 @@ export class ApiConfigService {
 
       if (providerData.id) {
         const existingByBusinessId = await this.apiProviderModel.findOne({ id: providerData.id });
-        const existingByObjectId = !existingByBusinessId && isObjectIdString(providerData.id)
-          ? await this.apiProviderModel.findById(providerData.id)
-          : null;
-        const existing = existingByBusinessId || existingByObjectId;
+        const existing = existingByBusinessId;
         if (!existing) {
           throw new HttpError(404, 'Provider not found');
         }
 
-        const existingStoredApiKey = typeof existing.apiKey === 'string' ? existing.apiKey : '';
+        const existingStoredApiKey = typeof existing.api_key === 'string' ? existing.api_key : '';
         const incomingApiKey = typeof providerData.apiKey === 'string' ? providerData.apiKey : undefined;
 
         const finalApiKey =
@@ -347,16 +340,16 @@ export class ApiConfigService {
               : encryptApiKey(incomingApiKey);
 
         await this.apiProviderModel.updateOne(
-          existingByBusinessId ? { id: providerData.id } : { _id: providerData.id as string },
+          { id: providerData.id },
           {
             id: providerData.id || existing.id || randomUUID(),
             name: providerData.name,
-            providerType: providerData.providerType,
-            apiKey: finalApiKey ?? existing.apiKey,
-            baseURL: providerData.baseURL,
+            provider_type: providerData.providerType,
+            api_key: finalApiKey ?? existing.api_key,
+            base_url: providerData.baseURL,
             models: migrateLooseModels((providerData.models || []) as unknown as Record<string, unknown>[]),
-            isEnabled: providerData.isEnabled,
-            updatedAt: now,
+            is_enabled: providerData.isEnabled,
+            updated_at: now,
           },
         );
       } else {
@@ -366,13 +359,13 @@ export class ApiConfigService {
         await this.apiProviderModel.create({
           id: newId,
           name: providerData.name || 'Unnamed Provider',
-          providerType: providerData.providerType || 'openai-compatible',
-          apiKey: encryptApiKey(incomingApiKey),
-          baseURL: providerData.baseURL,
+          provider_type: providerData.providerType || 'openai-compatible',
+          api_key: encryptApiKey(incomingApiKey),
+          base_url: providerData.baseURL,
           models: migrateLooseModels((providerData.models || []) as unknown as Record<string, unknown>[]),
-          isEnabled: providerData.isEnabled ?? true,
-          createdAt: now,
-          updatedAt: now,
+          is_enabled: providerData.isEnabled ?? true,
+          created_at: now,
+          updated_at: now,
         });
       }
 
@@ -390,10 +383,7 @@ export class ApiConfigService {
 
   public async deleteProvider(id: string): Promise<void> {
     try {
-      const filter = isObjectIdString(id)
-        ? { $or: [{ id }, { _id: id }] }
-        : { id };
-      const res = await this.apiProviderModel.deleteOne(filter);
+      const res = await this.apiProviderModel.deleteOne({ id });
       if (res.deletedCount === 0) {
         throw new HttpError(404, 'Provider not found');
       }

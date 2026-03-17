@@ -153,11 +153,28 @@ CREATE TABLE IF NOT EXISTS dataset_collections (
 -- ==========================================
 -- 10. API 配置表
 -- ==========================================
+DROP TABLE IF EXISTS api_configs;
 CREATE TABLE IF NOT EXISTS api_configs (
   id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider VARCHAR(64) NOT NULL UNIQUE,
-  encrypted_key TEXT,
-  config JSONB,
+  name VARCHAR(255) NOT NULL,
+  provider_type VARCHAR(64),
+  api_key TEXT,
+  base_url TEXT,
+  models JSONB DEFAULT '[]',
+  is_enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS api_configs_name_idx ON api_configs(name);
+
+-- ==========================================
+-- 10.1 API 设置表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS api_settings (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  key VARCHAR(64) NOT NULL UNIQUE,
+  settings JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -192,6 +209,7 @@ ALTER TABLE tool_presets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dataset_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dataset_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE infinite_canvas_projects ENABLE ROW LEVEL SECURITY;
 
 -- 允许匿名访问（根据需要调整）
@@ -205,6 +223,7 @@ CREATE POLICY "Allow anonymous access" ON tool_presets FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON dataset_entries FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON dataset_collections FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON api_configs FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON api_settings FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON infinite_canvas_projects FOR ALL USING (true);
 
 -- ==========================================

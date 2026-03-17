@@ -1,17 +1,20 @@
-import { pgTable, unique, varchar, text, jsonb, timestamp, serial, index, integer } from "drizzle-orm/pg-core"
+import { pgTable, unique, varchar, text, jsonb, timestamp, serial, index, integer, boolean } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
 
 export const apiConfigs = pgTable("api_configs", {
 	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
-	provider: varchar({ length: 64 }).notNull(),
-	encryptedKey: text("encrypted_key"),
-	config: jsonb(),
+	name: varchar({ length: 255 }).notNull(),
+	providerType: varchar("provider_type", { length: 64 }),
+	apiKey: text("api_key"),
+	baseUrl: text("base_url"),
+	models: jsonb({ mode: 'json' }).default([]),
+	isEnabled: boolean("is_enabled").default(true),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-	unique("api_configs_provider_unique").on(table.provider),
+	index("api_configs_name_idx").on(table.name),
 ]);
 
 export const healthCheck = pgTable("health_check", {

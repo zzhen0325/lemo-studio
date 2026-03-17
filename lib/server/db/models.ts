@@ -924,11 +924,12 @@ export const DatasetCollectionModel = {
 // ==========================================
 export interface ApiConfigDoc {
   id: string;
-  provider: string;
-  name?: string;
-  apiKey?: string;
-  encrypted_key?: string;
-  config?: Record<string, unknown>;
+  name: string;
+  provider_type?: string;
+  api_key?: string;
+  base_url?: string;
+  models?: Record<string, unknown>[];
+  is_enabled?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -947,10 +948,30 @@ export const ApiProviderModel = {
     return createQueryable(qb);
   },
 
-  async create(doc: Partial<ApiConfigDoc>): Promise<ApiConfigDoc> {
+  async findById(id: string): Promise<ApiConfigDoc | null> {
     const { data, error } = await getClient()
       .from('api_configs')
-      .insert(doc as Record<string, unknown>)
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) return null;
+    return data as ApiConfigDoc;
+  },
+
+  async create(doc: Partial<ApiConfigDoc>): Promise<ApiConfigDoc> {
+    const insertData: Record<string, unknown> = {
+      id: doc.id || randomUUID(),
+      name: doc.name || 'Untitled Provider',
+      provider_type: doc.provider_type || 'openai-compatible',
+      api_key: doc.api_key || null,
+      base_url: doc.base_url || null,
+      models: doc.models || [],
+      is_enabled: doc.is_enabled ?? true,
+    };
+    
+    const { data, error } = await getClient()
+      .from('api_configs')
+      .insert(insertData)
       .select()
       .single();
     if (error) throw error;
@@ -960,31 +981,48 @@ export const ApiProviderModel = {
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
     const updateData = extractUpdateData(update);
     
+    // Map field names
+    const mappedData: Record<string, unknown> = {};
+    if (updateData.name !== undefined) mappedData.name = updateData.name;
+    if (updateData.providerType !== undefined) mappedData.provider_type = updateData.providerType;
+    if (updateData.apiKey !== undefined) mappedData.api_key = updateData.apiKey;
+    if (updateData.baseURL !== undefined) mappedData.base_url = updateData.baseURL;
+    if (updateData.models !== undefined) mappedData.models = updateData.models;
+    if (updateData.isEnabled !== undefined) mappedData.is_enabled = updateData.isEnabled;
+    if (updateData.updatedAt !== undefined) mappedData.updated_at = updateData.updatedAt;
+    
     if (options?.upsert) {
       const existing = await this.findOne(filter);
       if (!existing) {
-        await this.create(updateData as Partial<ApiConfigDoc>);
+        await this.create({ ...mappedData, id: filter.id as string });
         return { modifiedCount: 1 };
       }
     }
     
+    const filterKey = filter.id ? 'id' : 'name';
+    const filterValue = filter.id || filter.name;
+    
     const { error } = await getClient()
       .from('api_configs')
-      .update(updateData)
-      .eq('provider', filter.provider as string);
+      .update(mappedData)
+      .eq(filterKey, filterValue as string);
     if (error) throw error;
     return { modifiedCount: 1 };
   },
 
-  async deleteOne(filter: Record<string, unknown>): Promise<void> {
-    const { error } = await getClient()
+  async deleteOne(filter: Record<string, unknown>): Promise<{ deletedCount: number }> {
+    const filterKey = filter.id ? 'id' : 'name';
+    const filterValue = filter.id || filter.name;
+    
+    const { error, count } = await getClient()
       .from('api_configs')
       .delete()
-      .eq('provider', filter.provider as string);
+      .eq(filterKey, filterValue as string);
     if (error) throw error;
+    return { deletedCount: count || 0 };
   },
 
-  async bulkWrite(operations: any[]): Promise<{ modifiedCount?: number }> {
+  async bulkWrite(operations: any[], _options?: { ordered?: boolean }): Promise<{ modifiedCount?: number }> {
     for (const op of operations) {
       if (op.updateOne) {
         await this.updateOne(op.updateOne.filter, op.updateOne.update, { upsert: op.updateOne.upsert });
@@ -998,7 +1036,54 @@ export const ApiProviderModel = {
   collection: { name: 'api_configs' },
 };
 
-export const ApiSettingsModel = ApiProviderModel;
+// ==========================================
+// API Settings Model
+// ==========================================
+export interface ApiSettingsDoc {
+  id?: string;
+  key: string;
+  settings?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const ApiSettingsModel = {
+  find(filter: Record<string, unknown> = {}): any {
+    const qb = createQuery<ApiSettingsDoc>('api_settings', getClient());
+    qb._filter = { ...filter };
+    return createQueryable(qb);
+  },
+
+  findOne(filter: Record<string, unknown>): any {
+    const qb = createQuery<ApiSettingsDoc>('api_settings', getClient());
+    qb._filter = { ...filter };
+    qb._single = true;
+    return createQueryable(qb);
+  },
+
+  async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
+    const updateData = extractUpdateData(update);
+    const key = filter.key as string;
+    
+    if (options?.upsert) {
+      const { data, error } = await getClient()
+        .from('api_settings')
+        .upsert({ key, ...updateData }, { onConflict: 'key' })
+        .select();
+      if (error) throw error;
+      return { modifiedCount: data ? 1 : 0 };
+    }
+    
+    const { error } = await getClient()
+      .from('api_settings')
+      .update(updateData)
+      .eq('key', key);
+    if (error) throw error;
+    return { modifiedCount: 1 };
+  },
+
+  collection: { name: 'api_settings' },
+};
 
 // ==========================================
 // User Model
@@ -1139,7 +1224,7 @@ export const InfiniteCanvasProjectModel = {
     return count || 0;
   },
 
-  async bulkWrite(operations: any[]): Promise<{ modifiedCount?: number }> {
+  async bulkWrite(operations: any[], _options?: { ordered?: boolean }): Promise<{ modifiedCount?: number }> {
     for (const op of operations) {
       if (op.updateOne) {
         await this.updateOne(op.updateOne.filter, op.updateOne.update, { upsert: op.updateOne.upsert });
@@ -1167,7 +1252,7 @@ export type ToolPreset = ToolPresetDoc;
 export type DatasetEntry = DatasetEntryDoc;
 export type DatasetCollection = DatasetCollectionDoc;
 export type ApiProvider = ApiConfigDoc;
-export type ApiSettings = ApiConfigDoc;
+export type ApiSettings = ApiSettingsDoc;
 export type User = UserDoc;
 export type InfiniteCanvasProject = InfiniteCanvasProjectDoc;
 
