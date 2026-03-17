@@ -6,5 +6,5 @@ build = ["pnpm", "install"]
 run = ["pnpm", "run", "dev:next"]
 
 [deploy]
-build = ["pnpm", "run", "build"]
+build = ["sh", "-c", "pnpm install && pnpm run build"]
 run = ["node", ".next/standalone/server.js"]
