@@ -1006,6 +1006,7 @@ export const ApiSettingsModel = ApiProviderModel;
 export interface UserDoc {
   id: string;
   display_name?: string;
+  password?: string;
   avatar_url?: string;
   created_at?: string;
   updated_at?: string;

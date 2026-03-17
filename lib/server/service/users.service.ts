@@ -55,19 +55,29 @@ export class UsersService {
 
       if (action === 'register') {
         const { username, password } = body as { username?: string; password?: string };
+        console.log('[UsersService] Register attempt:', { username, hasPassword: !!password });
+        
         if (!username || !password) {
           throw new HttpError(400, 'Missing credentials');
         }
         const exists = await UserModel.findOne({ display_name: username });
+        console.log('[UsersService] Exists check:', { exists: !!exists });
+        
         if (exists) {
           throw new HttpError(409, 'Username already exists');
         }
 
+        const userId = crypto.randomUUID();
+        console.log('[UsersService] Creating user with ID:', userId);
+        
         const newUser = await UserModel.create({
+          id: userId,
           display_name: username,
-          password,
+          password: password,
           created_at: new Date().toISOString(),
         });
+        
+        console.log('[UsersService] User created:', { id: newUser.id, displayName: newUser.display_name });
 
         return {
           user: {
@@ -81,7 +91,7 @@ export class UsersService {
       if (action === 'login') {
         const { username, password } = body as { username?: string; password?: string };
         const user = await UserModel.findOne({ display_name: username });
-        if (!user) {
+        if (!user || user.password !== password) {
           throw new HttpError(401, 'Invalid credentials');
         }
         return {
