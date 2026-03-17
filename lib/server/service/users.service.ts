@@ -27,7 +27,7 @@ export class UsersService {
         return {
           user: {
             id: user.id,
-            displayName: user.display_name,
+            name: user.display_name,
             avatar: await this.normalizeAvatar(user.id, user.avatar_url),
             createdAt: user.created_at,
           },
@@ -37,7 +37,7 @@ export class UsersService {
       const users = await UserModel.find();
       const safeUsers = await Promise.all(users.map(async (u) => ({
         id: u.id,
-        displayName: u.display_name,
+        name: u.display_name,
         avatar: await this.normalizeAvatar(u.id, u.avatar_url),
         createdAt: u.created_at,
       })));
@@ -82,7 +82,7 @@ export class UsersService {
         return {
           user: {
             id: newUser.id,
-            displayName: newUser.display_name,
+            name: newUser.display_name,
             createdAt: newUser.created_at,
           },
         };
@@ -97,7 +97,7 @@ export class UsersService {
         return {
           user: {
             id: user.id,
-            displayName: user.display_name,
+            name: user.display_name,
             createdAt: user.created_at,
           },
         };
@@ -139,7 +139,7 @@ export class UsersService {
       return {
         user: {
           id: user.id,
-          displayName: updates.display_name || user.display_name,
+          name: updates.display_name || user.display_name,
           avatar: updates.avatar_url || user.avatar_url,
           createdAt: user.created_at,
         },

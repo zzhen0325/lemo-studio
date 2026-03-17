@@ -108,25 +108,25 @@ export const StudioSidebar = observer(function StudioSidebar() {
                   {currentUser.avatar ? (
                     <Image
                       src={currentUser.avatar}
-                      alt={currentUser.name}
+                      alt={currentUser.name || 'User'}
                       width={20}
                       height={20}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <span className="text-[10px] font-bold text-white">
-                      {currentUser.name.charAt(0)}
+                      {(currentUser.name || 'U').charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-white/80">{currentUser.name}</span>
+                <span className="text-xs text-white/80">{currentUser.name || 'User'}</span>
                 <ChevronDown className="w-3 h-3 text-white/50" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-black/90 border-white/10 backdrop-blur-xl text-white">
               <div className="px-2 py-1.5 text-xs text-white/50 font-medium">
                 Signed in as <br />
-                <span className="text-white font-bold truncate block">{currentUser.name}</span>
+                <span className="text-white font-bold truncate block">{currentUser.name || 'User'}</span>
               </div>
               <DropdownMenuSeparator className="bg-white/10" />
 
