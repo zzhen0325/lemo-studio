@@ -1,21 +1,7 @@
-import { pgTable, unique, varchar, text, jsonb, timestamp, serial, index, integer, boolean } from "drizzle-orm/pg-core"
+import { pgTable, serial, timestamp, index, varchar, text, integer, jsonb, unique, pgPolicy, boolean } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
-
-export const apiConfigs = pgTable("api_configs", {
-	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
-	name: varchar({ length: 255 }).notNull(),
-	providerType: varchar("provider_type", { length: 64 }),
-	apiKey: text("api_key"),
-	baseUrl: text("base_url"),
-	models: jsonb({ mode: 'json' }).default([]),
-	isEnabled: boolean("is_enabled").default(true),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
-}, (table) => [
-	index("api_configs_name_idx").on(table.name),
-]);
 
 export const healthCheck = pgTable("health_check", {
 	id: serial().notNull(),
@@ -159,3 +145,29 @@ export const users = pgTable("users", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	password: varchar({ length: 255 }),
 });
+
+export const apiConfigs = pgTable("api_configs", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	name: varchar({ length: 255 }).notNull(),
+	providerType: varchar("provider_type", { length: 64 }),
+	apiKey: text("api_key"),
+	baseUrl: text("base_url"),
+	models: jsonb().default([]),
+	isEnabled: boolean("is_enabled").default(true),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("api_configs_name_idx").using("btree", table.name.asc().nullsLast().op("text_ops")),
+	pgPolicy("Allow anonymous access", { as: "permissive", for: "all", to: ["public"], using: sql`true` }),
+]);
+
+export const apiSettings = pgTable("api_settings", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	key: varchar({ length: 64 }).notNull(),
+	settings: jsonb().default({}),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("api_settings_key_key").on(table.key),
+	pgPolicy("Allow anonymous access", { as: "permissive", for: "all", to: ["public"], using: sql`true` }),
+]);
