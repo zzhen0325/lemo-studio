@@ -6,29 +6,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# 加载 .env.local 环境变量（Next.js standalone 模式不会自动加载）
-if [ -f ".env.local" ]; then
-  echo "Loading .env.local..."
-  # 读取并导出环境变量（忽略注释和空行）
-  set -a
-  while IFS= read -r line || [ -n "$line" ]; do
-    # 跳过空行和注释
-    case "$line" in
-      ''|\#*) continue ;;
-    esac
-    # 解析 KEY=VALUE 格式
-    key="${line%%=*}"
-    value="${line#*=}"
-    # 移除可能的引号
-    value="${value#\"}"
-    value="${value%\"}"
-    value="${value#\'}"
-    value="${value%\'}"
-    export "$key=$value"
-  done < .env.local
-  set +a
-  echo ".env.local loaded."
-fi
+# 注意：环境变量由扣子平台注入，无需手动加载 .env.local
+# - NEXT_PUBLIC_ 变量已在构建时编译到代码中
+# - 非 PUBLIC 变量由平台在运行时注入
 
 # 设置端口（优先使用 FaaS 平台注入的环境变量）
 export PORT="${DEPLOY_RUN_PORT:-${PORT:-5000}}"
