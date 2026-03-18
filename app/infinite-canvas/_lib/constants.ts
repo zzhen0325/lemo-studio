@@ -1,4 +1,5 @@
 export const INFINITE_CANVAS_MODELS = [
+  { id: 'coze_seedream4_5', label: 'Seedream 4.5' },
   { id: 'gemini-3-pro-image-preview', label: 'Nano banana pro' },
   { id: 'gemini-3.1-flash-image-preview', label: 'Nano banana 2' },
   { id: 'flux_klein', label: 'FluxKlein' },

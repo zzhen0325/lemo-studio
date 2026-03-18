@@ -26,10 +26,10 @@ export interface UnifiedModelConfig {
 }
 
 export const FALLBACK_AVAILABLE_MODELS: UnifiedModelConfig[] = [
+    { id: 'coze_seedream4_5', displayName: 'Seedream 4.5' },
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
     { id: 'gemini-3.1-flash-image-preview', displayName: 'Nano banana 2' },
     { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
-    { id: 'coze_seedream4_5', displayName: 'Seedream 4.5' },
     { id: 'seed4_v2_0226lemo', displayName: 'Seed4 ' },
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
 ];
