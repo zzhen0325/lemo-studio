@@ -121,6 +121,11 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Allow cross-origin requests from coze.site domains
+  allowedDevOrigins: [
+    '.dev.coze.site',
+    '.coze.site',
+  ],
   // 禁用代理层 HTTP keep-alive，避免因 server keepAliveTimeout(5s) 导致的 ECONNRESET
   // 背景：Gemini 图片生成需要 ~30s，超过 server 默认 5s keep-alive timeout
   httpAgentOptions: {

@@ -122,12 +122,38 @@ export function getProvider(
     overrideConfig?: Partial<ModelConfig>,
     providersInput?: ProviderRuntimeConfig[]
 ): TextProvider | VisionProvider | ImageProvider {
+    console.info('[modelRegistry] getProvider_start', {
+        modelId,
+        hasOverrideConfig: !!overrideConfig,
+        providersInputCount: providersInput?.length || 0,
+    });
+    
     const providers = providersInput && providersInput.length > 0 ? providersInput : readProvidersConfig();
+    console.info('[modelRegistry] providers_loaded', {
+        modelId,
+        providerCount: providers.length,
+        enabledProviderCount: providers.filter(p => p.isEnabled).length,
+    });
+    
     // 优先从 providers 配置获取 key/baseURL
     const providerConfig = findProviderConfigForModel(modelId, providers);
+    console.info('[modelRegistry] provider_config_resolved', {
+        modelId,
+        hasProviderConfig: !!providerConfig,
+        providerType: providerConfig?.providerType || null,
+        hasApiKey: !!(providerConfig?.apiKey),
+        baseURL: providerConfig?.baseURL || null,
+    });
 
     // 1. Find registry entry
     let entry = REGISTRY.find(r => r.id === modelId);
+    
+    console.info('[modelRegistry] registry_lookup', {
+        modelId,
+        foundInRegistry: !!entry,
+        registryId: entry?.id || null,
+        providerType: entry?.providerType || null,
+    });
 
     if (!entry) {
         // Fallback: Check if it looks like a doubao model
@@ -178,14 +204,33 @@ export function getProvider(
         baseURL: providerConfig?.baseURL || entry.defaultConfig.baseURL,
         ...overrideConfig
     };
+    
+    console.info('[modelRegistry] config_merged', {
+        modelId,
+        entryId: entry.id,
+        providerType: entry.providerType,
+        hasApiKey: !!config.apiKey,
+        apiKeyPrefix: config.apiKey ? `${config.apiKey.substring(0, 10)}...` : null,
+        baseURL: config.baseURL || null,
+    });
 
     if (entry.id === 'coze-prompt') {
         config.apiKey = process.env.LEMO_COZE_PROMPT_API_TOKEN || config.apiKey || process.env.LEMO_COZE_API_TOKEN;
         config.baseURL = process.env.LEMO_COZE_PROMPT_RUN_URL || config.baseURL;
+        console.info('[modelRegistry] coze_prompt_config_resolved', {
+            modelId,
+            hasApiKey: !!config.apiKey,
+            baseURL: config.baseURL,
+        });
     }
     if (entry.id === COZE_SEEDREAM_WORKFLOW_MODEL_ID) {
         config.apiKey = process.env.LEMO_COZE_SEED_API_TOKEN || config.apiKey;
         config.baseURL = process.env.LEMO_COZE_SEED_RUN_URL || config.baseURL;
+        console.info('[modelRegistry] coze_seedream_config_resolved', {
+            modelId,
+            hasApiKey: !!config.apiKey,
+            baseURL: config.baseURL,
+        });
     }
 
     // Fallback: Try to load from environment variables if apiKey is missing
@@ -203,28 +248,49 @@ export function getProvider(
     }
 
     if (entry.providerType !== 'bytedance-afr' && !config.apiKey) {
+        console.error('[modelRegistry] missing_api_key', {
+            modelId,
+            providerType: entry.providerType,
+            entryId: entry.id,
+        });
         throw new Error(`Missing API Key for model ${modelId} (Provider: ${entry.providerType})`);
     }
 
+    console.info('[modelRegistry] creating_provider', {
+        modelId,
+        entryId: entry.id,
+        providerType: entry.providerType,
+        finalHasApiKey: !!config.apiKey,
+        finalBaseURL: config.baseURL || null,
+    });
+
     if (entry.id === 'coze-prompt') {
+        console.info('[modelRegistry] provider_created', { modelId, providerClass: 'CozePromptProvider' });
         return new CozePromptProvider(config);
     }
 
     if (entry.providerType === 'google-genai') {
+        console.info('[modelRegistry] provider_created', { modelId, providerClass: 'GoogleGenAIProvider' });
         return new GoogleGenAIProvider(config);
     } else if (entry.providerType === 'bytedance-afr') {
+        console.info('[modelRegistry] provider_created', { modelId, providerClass: 'BytedanceAfrProvider' });
         return new BytedanceAfrProvider(config);
     } else if (entry.id === COZE_SEEDREAM_WORKFLOW_MODEL_ID) {
+        console.info('[modelRegistry] provider_created', { modelId, providerClass: 'CozeWorkflowImageProvider' });
         return new CozeWorkflowImageProvider(config);
     } else if (entry.providerType === 'coze-image') {
+        console.info('[modelRegistry] provider_created', { modelId, providerClass: 'CozeImageProvider' });
         return new CozeImageProvider(config);
     } else if (entry.providerType === 'coze-vision') {
+        console.info('[modelRegistry] provider_created', { modelId, providerClass: 'CozeChatVisionProvider' });
         return new CozeChatVisionProvider(config);
     } else {
         // 检查是否是豆包视觉模型
         if (DOUBAO_VISION_MODELS.some(vm => modelId.includes(vm))) {
+            console.info('[modelRegistry] provider_created', { modelId, providerClass: 'DoubaoVisionProvider' });
             return new DoubaoVisionProvider(config);
         }
+        console.info('[modelRegistry] provider_created', { modelId, providerClass: 'OpenAICompatibleProvider' });
         return new OpenAICompatibleProvider(config);
     }
 }
