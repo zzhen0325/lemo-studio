@@ -85,7 +85,10 @@ export class ComfyUIAPIService {
         this.baseUrl = url;
         this.clientId = clientId;
         this.dispatcher = new UndiciAgent({
-            connect: { timeout: 15_000 }
+            connect: { 
+                timeout: 15_000,
+                rejectUnauthorized: false, // 忽略自签名证书错误
+            }
         });
         console.info("[ComfyUIAPIService] Using endpoint", { traceId: this.traceId, endpoint: this.getUrl("http") });
         try {

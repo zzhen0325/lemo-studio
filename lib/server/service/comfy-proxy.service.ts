@@ -1,9 +1,17 @@
 import { Injectable } from '../compat/gulux';
-import { File, FormData, Headers, fetch } from 'undici';
+import { File, FormData, Headers, fetch, Agent } from 'undici';
 import type { BodyInit } from 'undici';
 import type { ReadableStream } from 'stream/web';
 import { HttpError } from '../utils/http-error';
 import { toFileLike } from '../utils/formdata';
+
+// 忽略 TLS 证书错误（用于自签名证书的 ComfyUI）
+// 注意：仅在开发环境或内网环境使用
+const insecureAgent = new Agent({
+  connect: {
+    rejectUnauthorized: false,
+  },
+});
 
 export interface ComfyProxyRequest {
   method: string;
@@ -111,6 +119,7 @@ export class ComfyProxyService {
         method: request.method,
         headers,
         body: request.method === 'GET' || request.method === 'HEAD' ? undefined : body,
+        dispatcher: insecureAgent,
       });
       return {
         status: response.status,
