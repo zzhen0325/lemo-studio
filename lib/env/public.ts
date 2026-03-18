@@ -31,7 +31,8 @@ export function getPublicApiBase(): string {
 }
 
 export function getPublicComfyUrl(): string {
-  return trimEnv(getRuntimePublicEnv().comfyUrl);
+  // 前端直连 ComfyUI 地址（写死，不从环境变量读取）
+  return "https://10.75.169.12:1000/";
 }
 
 export function getPublicBaseUrl(): string {
