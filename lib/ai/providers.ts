@@ -1160,56 +1160,86 @@ export class BytedanceAfrProvider implements ImageProvider {
       usingFallbackConfig: API_CONFIG.missing.length > 0,
     });
 
-    const response = await fetch(url, fetchOptions);
+    // FaaS 保活机制：添加 30s 延时，防止同步调用被判定为超时失败
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let keepAliveResolved = false;
+    
+    const keepAlivePromise = new Promise<void>((resolve) => {
+      // 30秒后自动完成
+      timeoutId = setTimeout(() => {
+        keepAliveResolved = true;
+        logProviderEvent("bytedance-afr", "keepalive_timeout_reached", {
+          modelId: this.config.modelId,
+          elapsedMs: Date.now() - startedAt,
+        });
+        resolve();
+      }, 30000);
+    });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[AIProvider][bytedance-afr] image_request_error", {
+    const fetchPromise = fetch(url, fetchOptions).then(async (response) => {
+      // API 响应后，取消保活延时
+      if (timeoutId && !keepAliveResolved) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[AIProvider][bytedance-afr] image_request_error", {
+          modelId: this.config.modelId,
+          host: getRequestHost(url),
+          elapsedMs: Date.now() - startedAt,
+          status: response.status,
+          usingFallbackConfig: API_CONFIG.missing.length > 0,
+          error: errorText,
+        });
+        throw new Error(
+          `ByteArtist API Error: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      const success =
+        data.success ||
+        data.message === "success" ||
+        data.data?.algo_status_code === 0;
+
+      if (!success) {
+        throw new Error(
+          `ByteArtist Generation Failed: ${data.message || data.algo_status_message
+          } `
+        );
+      }
+
+      const afr_data = (data.data?.data?.afr_data ??
+        data.data?.afr_data ??
+        []) as { pic: string }[];
+      const images = afr_data.map((item) => {
+        return item.pic.startsWith("http")
+          ? item.pic
+          : `data:image/png;base64,${item.pic}`;
+      });
+
+      logProviderEvent("bytedance-afr", "image_request_success", {
         modelId: this.config.modelId,
         host: getRequestHost(url),
         elapsedMs: Date.now() - startedAt,
-        status: response.status,
+        outputCount: images.length,
         usingFallbackConfig: API_CONFIG.missing.length > 0,
-        error: errorText,
       });
-      throw new Error(
-        `ByteArtist API Error: ${response.status} - ${errorText}`
-      );
-    }
 
-    const data = await response.json();
-    const success =
-      data.success ||
-      data.message === "success" ||
-      data.data?.algo_status_code === 0;
-
-    if (!success) {
-      // console.error("==================", url, fetchOptions);
-      throw new Error(
-        `ByteArtist Generation Failed: ${data.message || data.algo_status_message
-        } `
-      );
-    }
-
-    const afr_data = (data.data?.data?.afr_data ??
-      data.data?.afr_data ??
-      []) as { pic: string }[];
-    const images = afr_data.map((item) => {
-      return item.pic.startsWith("http")
-        ? item.pic
-        : `data:image/png;base64,${item.pic}`;
+      return { images, metadata: data as Record<string, unknown> };
     });
 
-    logProviderEvent("bytedance-afr", "image_request_success", {
-      modelId: this.config.modelId,
-      host: getRequestHost(url),
-      elapsedMs: Date.now() - startedAt,
-      outputCount: images.length,
-      usingFallbackConfig: API_CONFIG.missing.length > 0,
-    });
+    // 竞态：API 调用 vs 30s 保活延时
+    // 如果 API 先返回，直接返回结果
+    // 如果 30s 先到，等待 API 完成（此时 FaaS 已判定请求有效）
+    const result = await Promise.race([
+      fetchPromise,
+      keepAlivePromise.then(() => fetchPromise),
+    ]);
 
-    return { images, metadata: data as Record<string, unknown> };
-  }
+    return result;
 }
 
 /**
