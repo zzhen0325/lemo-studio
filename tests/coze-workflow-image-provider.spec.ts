@@ -4,20 +4,20 @@ import { CozeWorkflowImageProvider } from "@/lib/ai/providers";
 import { getProvider } from "@/lib/ai/modelRegistry";
 
 describe("CozeWorkflowImageProvider", () => {
-  const originalSeedToken = process.env.COZE_SEED_API_TOKEN;
-  const originalSeedRunUrl = process.env.COZE_SEED_RUN_URL;
+  const originalSeedToken = process.env.LEMO_COZE_SEED_API_TOKEN;
+  const originalSeedRunUrl = process.env.LEMO_COZE_SEED_RUN_URL;
 
   afterEach(() => {
     if (originalSeedToken === undefined) {
-      delete process.env.COZE_SEED_API_TOKEN;
+      delete process.env.LEMO_COZE_SEED_API_TOKEN;
     } else {
-      process.env.COZE_SEED_API_TOKEN = originalSeedToken;
+      process.env.LEMO_COZE_SEED_API_TOKEN = originalSeedToken;
     }
 
     if (originalSeedRunUrl === undefined) {
-      delete process.env.COZE_SEED_RUN_URL;
+      delete process.env.LEMO_COZE_SEED_RUN_URL;
     } else {
-      process.env.COZE_SEED_RUN_URL = originalSeedRunUrl;
+      process.env.LEMO_COZE_SEED_RUN_URL = originalSeedRunUrl;
     }
 
     vi.restoreAllMocks();
@@ -25,7 +25,7 @@ describe("CozeWorkflowImageProvider", () => {
   });
 
   it("calls coze workflow run API with normalized payload", async () => {
-    process.env.COZE_SEED_API_TOKEN = "seed-token";
+    process.env.LEMO_COZE_SEED_API_TOKEN = "seed-token";
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -75,9 +75,9 @@ describe("CozeWorkflowImageProvider", () => {
     });
   });
 
-  it("falls back to COZE_SEED_RUN_URL and extracts coze short urls", async () => {
-    process.env.COZE_SEED_API_TOKEN = "seed-token";
-    process.env.COZE_SEED_RUN_URL = "https://seed-workflow.coze.site/run";
+  it("falls back to LEMO_COZE_SEED_RUN_URL and extracts coze short urls", async () => {
+    process.env.LEMO_COZE_SEED_API_TOKEN = "seed-token";
+    process.env.LEMO_COZE_SEED_RUN_URL = "https://seed-workflow.coze.site/run";
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -116,8 +116,8 @@ describe("CozeWorkflowImageProvider", () => {
     });
   });
 
-  it("getProvider resolves COZE_SEED_API_TOKEN for the workflow model", async () => {
-    process.env.COZE_SEED_API_TOKEN = "seed-env-token";
+  it("getProvider resolves LEMO_COZE_SEED_API_TOKEN for the workflow model", async () => {
+    process.env.LEMO_COZE_SEED_API_TOKEN = "seed-env-token";
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -160,7 +160,7 @@ describe("CozeWorkflowImageProvider", () => {
   });
 
   it("passes base64 reference images as string array and reads generated_image_urls", async () => {
-    process.env.COZE_SEED_API_TOKEN = "seed-token";
+    process.env.LEMO_COZE_SEED_API_TOKEN = "seed-token";
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

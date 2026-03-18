@@ -29,8 +29,8 @@ type DoubaoResponse = {
   output_text?: string | string[];
 };
 
-const DEFAULT_COZE_PROMPT_RUN_URL = "https://m5385m4ryw.coze.site/run";
-const DEFAULT_COZE_SEED_RUN_URL = "https://2q3rqt6rnh.coze.site/run";
+const DEFAULT_LEMO_COZE_PROMPT_RUN_URL = "https://m5385m4ryw.coze.site/run";
+const DEFAULT_LEMO_COZE_SEED_RUN_URL = "https://2q3rqt6rnh.coze.site/run";
 
 type CozePromptImagePayload = {
   url: string;
@@ -880,7 +880,7 @@ export class CozePromptProvider implements TextProvider, VisionProvider {
     if (configured && configured.includes("/run")) {
       return configured;
     }
-    return process.env.COZE_PROMPT_RUN_URL || DEFAULT_COZE_PROMPT_RUN_URL;
+    return process.env.LEMO_COZE_PROMPT_RUN_URL || DEFAULT_LEMO_COZE_PROMPT_RUN_URL;
   }
 
   private async buildImagePayload(imageInput: string): Promise<CozePromptImagePayload> {
@@ -937,7 +937,7 @@ export class CozePromptProvider implements TextProvider, VisionProvider {
   }
 
   private resolveApiKey(): string {
-    return process.env.COZE_PROMPT_API_TOKEN || this.config.apiKey || process.env.COZE_API_TOKEN || "";
+    return process.env.LEMO_COZE_PROMPT_API_TOKEN || this.config.apiKey || process.env.LEMO_COZE_API_TOKEN || "";
   }
 }
 
@@ -952,7 +952,7 @@ export class CozeWorkflowImageProvider implements ImageProvider {
     const { prompt, width, height, imageSize, image, images } = params;
     const resolvedApiKey = this.resolveApiKey();
     if (!resolvedApiKey) {
-      throw new Error("Missing COZE_SEED_API_TOKEN for Coze workflow image generation");
+      throw new Error("Missing LEMO_COZE_SEED_API_TOKEN for Coze workflow image generation");
     }
 
     const refInputs = (images && images.length > 0) ? images : (image ? [image] : []);
@@ -1042,11 +1042,11 @@ export class CozeWorkflowImageProvider implements ImageProvider {
     if (configured && configured.includes("/run")) {
       return configured;
     }
-    return process.env.COZE_SEED_RUN_URL || DEFAULT_COZE_SEED_RUN_URL;
+    return process.env.LEMO_COZE_SEED_RUN_URL || DEFAULT_LEMO_COZE_SEED_RUN_URL;
   }
 
   private resolveApiKey(): string {
-    return process.env.COZE_SEED_API_TOKEN || this.config.apiKey || "";
+    return process.env.LEMO_COZE_SEED_API_TOKEN || this.config.apiKey || "";
   }
 
   private async buildReferenceImagesPayload(inputs: string[]): Promise<CozeWorkflowReferenceImagesPayload> {

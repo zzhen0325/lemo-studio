@@ -107,7 +107,7 @@ export async function GET() {
     'doubao': !!(process.env.DOUBAO_API_KEY),
     'google': !!(process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY),
     'deepseek': !!(process.env.DEEPSEEK_API_KEY),
-    'coze': !!(process.env.COZE_API_TOKEN),
+    'coze': !!(process.env.LEMO_COZE_API_TOKEN),
     'bytedance': !!(process.env.BYTEDANCE_APP_KEY && process.env.BYTEDANCE_APP_SECRET),
     'comfyui': !!(process.env.COMFYUI_API_URL),
   };

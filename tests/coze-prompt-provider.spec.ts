@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CozePromptProvider } from "@/lib/ai/providers";
 
 describe("CozePromptProvider", () => {
-  const originalPromptToken = process.env.COZE_PROMPT_API_TOKEN;
+  const originalPromptToken = process.env.LEMO_COZE_PROMPT_API_TOKEN;
 
   afterEach(() => {
     if (originalPromptToken === undefined) {
-      delete process.env.COZE_PROMPT_API_TOKEN;
+      delete process.env.LEMO_COZE_PROMPT_API_TOKEN;
     } else {
-      process.env.COZE_PROMPT_API_TOKEN = originalPromptToken;
+      process.env.LEMO_COZE_PROMPT_API_TOKEN = originalPromptToken;
     }
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -88,8 +88,8 @@ describe("CozePromptProvider", () => {
     expect(body.text).toBe("仅输出中文\n\n请描述图像内容");
   });
 
-  it("prefers COZE_PROMPT_API_TOKEN over provider apiKey", async () => {
-    process.env.COZE_PROMPT_API_TOKEN = "prompt-token";
+  it("prefers LEMO_COZE_PROMPT_API_TOKEN over provider apiKey", async () => {
+    process.env.LEMO_COZE_PROMPT_API_TOKEN = "prompt-token";
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

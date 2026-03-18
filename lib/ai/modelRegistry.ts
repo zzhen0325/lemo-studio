@@ -41,8 +41,8 @@ const PROVIDER_ENV_MAP: Record<string, string> = {
     'provider-doubao': 'DOUBAO_API_KEY',
     'provider-deepseek': 'DEEPSEEK_API_KEY',
     'provider-google': 'GOOGLE_API_KEY',
-    'provider-coze': 'COZE_API_TOKEN',
-    'provider-coze-seed': 'COZE_SEED_API_TOKEN',
+    'provider-coze': 'LEMO_COZE_API_TOKEN',
+    'provider-coze-seed': 'LEMO_COZE_SEED_API_TOKEN',
     'provider-workflow-local': ''
 };
 
@@ -180,20 +180,20 @@ export function getProvider(
     };
 
     if (entry.id === 'coze-prompt') {
-        config.apiKey = process.env.COZE_PROMPT_API_TOKEN || config.apiKey || process.env.COZE_API_TOKEN;
-        config.baseURL = process.env.COZE_PROMPT_RUN_URL || config.baseURL;
+        config.apiKey = process.env.LEMO_COZE_PROMPT_API_TOKEN || config.apiKey || process.env.LEMO_COZE_API_TOKEN;
+        config.baseURL = process.env.LEMO_COZE_PROMPT_RUN_URL || config.baseURL;
     }
     if (entry.id === COZE_SEEDREAM_WORKFLOW_MODEL_ID) {
-        config.apiKey = process.env.COZE_SEED_API_TOKEN || config.apiKey;
-        config.baseURL = process.env.COZE_SEED_RUN_URL || config.baseURL;
+        config.apiKey = process.env.LEMO_COZE_SEED_API_TOKEN || config.apiKey;
+        config.baseURL = process.env.LEMO_COZE_SEED_RUN_URL || config.baseURL;
     }
 
     // Fallback: Try to load from environment variables if apiKey is missing
     if (!config.apiKey) {
         if (entry.id === COZE_SEEDREAM_WORKFLOW_MODEL_ID) {
-            config.apiKey = process.env.COZE_SEED_API_TOKEN;
+            config.apiKey = process.env.LEMO_COZE_SEED_API_TOKEN;
         } else if (entry.providerType === 'coze-image' || entry.providerType === 'coze-vision') {
-            config.apiKey = process.env.COZE_API_TOKEN;
+            config.apiKey = process.env.LEMO_COZE_API_TOKEN;
         } else if (entry.providerType === 'google-genai') {
             config.apiKey = process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
         } else if (entry.providerType === 'openai-compatible' || config.providerId === 'deepseek') {

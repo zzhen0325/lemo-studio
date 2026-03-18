@@ -106,7 +106,7 @@ export const REGISTRY: RegistryItem[] = [
         defaultConfig: {
             providerId: 'coze',
             modelId: '7594371442356256806',
-            apiKey: process.env.COZE_API_TOKEN,
+            apiKey: process.env.LEMO_COZE_API_TOKEN,
             baseURL: 'https://bot-open-api.bytedance.net/v3/chat'
         }
     },
@@ -117,8 +117,8 @@ export const REGISTRY: RegistryItem[] = [
         defaultConfig: {
             providerId: 'coze',
             modelId: 'coze_seedream4_5',
-            apiKey: process.env.COZE_SEED_API_TOKEN,
-            baseURL: process.env.COZE_SEED_RUN_URL || 'https://2q3rqt6rnh.coze.site/run'
+            apiKey: process.env.LEMO_COZE_SEED_API_TOKEN,
+            baseURL: process.env.LEMO_COZE_SEED_RUN_URL || 'https://2q3rqt6rnh.coze.site/run'
         }
     },
     {
@@ -128,8 +128,8 @@ export const REGISTRY: RegistryItem[] = [
         defaultConfig: {
             providerId: 'coze',
             modelId: 'coze-prompt',
-            apiKey: process.env.COZE_PROMPT_API_TOKEN || process.env.COZE_API_TOKEN,
-            baseURL: process.env.COZE_PROMPT_RUN_URL || 'https://m5385m4ryw.coze.site/run'
+            apiKey: process.env.LEMO_COZE_PROMPT_API_TOKEN || process.env.LEMO_COZE_API_TOKEN,
+            baseURL: process.env.LEMO_COZE_PROMPT_RUN_URL || 'https://m5385m4ryw.coze.site/run'
         }
     },
     {
@@ -139,7 +139,7 @@ export const REGISTRY: RegistryItem[] = [
         defaultConfig: {
             providerId: 'coze',
             modelId: '7597298278341804086',
-            apiKey: process.env.COZE_API_TOKEN,
+            apiKey: process.env.LEMO_COZE_API_TOKEN,
             baseURL: 'https://bot-open-api.bytedance.net/v3/chat'
         }
     }
