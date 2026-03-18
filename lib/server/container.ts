@@ -8,8 +8,6 @@ import {
   ToolPresetModel,
   DatasetEntryModel,
   DatasetCollectionModel,
-  ApiProviderModel,
-  ApiSettingsModel,
   UserModel,
   InfiniteCanvasProjectModel,
 } from './db/models';
@@ -78,10 +76,7 @@ async function createServerServices() {
 
   const logger = new Logger();
 
-  const apiConfigService = wire(new ApiConfigService(), {
-    apiProviderModel: ApiProviderModel,
-    apiSettingsModel: ApiSettingsModel,
-  });
+  const apiConfigService = new ApiConfigService();
 
   const aiService = wire(new AiService(), {
     apiConfigService,

@@ -3,7 +3,7 @@
     "id": "provider-doubao",
     "name": "Doubao (豆包)",
     "providerType": "openai-compatible",
-    "apiKey": "88e719ed-3b78-43ef-9da7-9f51f8721bd9",
+    "apiKey": "",
     "baseURL": "https://ark.cn-beijing.volces.com/api/v3",
     "models": [
       {
@@ -85,7 +85,7 @@
     "id": "provider-deepseek",
     "name": "DeepSeek",
     "providerType": "openai-compatible",
-    "apiKey": "sk-a7b8e6d890ca4a858d386991b2501136",
+    "apiKey": "",
     "baseURL": "https://api.deepseek.com",
     "models": [
       {
@@ -301,7 +301,7 @@
     "id": "provider-coze",
     "name": "Coze (Seedream)",
     "providerType": "coze-image",
-    "apiKey": "pat_X7OyWaaYkJwnaaxnTcTx2OZahUzi1Q2V3zxKGZ7mMYEbbFVewPZbzqKrdZPME2zL",
+    "apiKey": "",
     "baseURL": "https://bot-open-api.bytedance.net/v3/chat",
     "models": [
       {
