@@ -1211,8 +1211,9 @@ export class BytedanceAfrProvider implements ImageProvider {
       const data = await response.json() as {
         data?: {
           results?: Array<{
-            status?: number;
-            pic_urls?: Array<{ main_url?: string }>;
+            status?: number | string;
+            pic_urls?: Array<{ main_url?: string; backup_url?: string }>;
+            binary_data?: string[];
             message?: string;
           }>;
         };
@@ -1235,24 +1236,67 @@ export class BytedanceAfrProvider implements ImageProvider {
       const result = data.data?.results?.[0];
       
       if (result) {
-        // status: 0 = 处理中, 1 = 成功, 2 = 失败
-        if (result.status === 1 && result.pic_urls && result.pic_urls.length > 0) {
-          const images = result.pic_urls
-            .map((p) => p.main_url)
-            .filter((url): url is string => !!url);
+        // 判断任务是否完成
+        // status 可能是数字 (1) 或字符串 ("done")
+        const status = result.status;
+        const isDone = status === 'done' || status === 1 || status === 'DONE';
+        
+        if (isDone) {
+          // 优先取 pic_urls
+          const picUrls = result.pic_urls;
+          if (picUrls && picUrls.length > 0) {
+            const images: string[] = [];
+            for (const p of picUrls) {
+              // 优先 main_url，其次 backup_url
+              const url = p.main_url || p.backup_url;
+              if (url) {
+                images.push(url);
+              }
+            }
+            
+            if (images.length > 0) {
+              logProviderEvent("bytedance-afr", "poll_result_success", {
+                modelId: this.config.modelId,
+                taskId,
+                attempt,
+                imageCount: images.length,
+                status: String(status),
+              });
+              return images;
+            }
+          }
+          
+          // 如果有 binary_data，转换为 data URL
+          if (result.binary_data && result.binary_data.length > 0) {
+            const images = result.binary_data.map(b64 => `data:image/png;base64,${b64}`);
+            logProviderEvent("bytedance-afr", "poll_result_success", {
+              modelId: this.config.modelId,
+              taskId,
+              attempt,
+              imageCount: images.length,
+              status: String(status),
+              source: 'binary_data',
+            });
+            return images;
+          }
+          
+          // 完成但无图片
+          throw new Error(`Task completed but no image data: ${result.message || "No pic_urls or binary_data"}`);
+        }
 
-          logProviderEvent("bytedance-afr", "poll_result_success", {
+        // 任务失败状态
+        if (status === 'failed' || status === 2 || status === 'FAILED') {
+          throw new Error(`Task failed: ${result.message || "Unknown error"}`);
+        }
+        
+        // 处理中，记录日志
+        if (attempt % 5 === 0) {
+          logProviderEvent("bytedance-afr", "poll_result_pending", {
             modelId: this.config.modelId,
             taskId,
             attempt,
-            imageCount: images.length,
+            status: String(status),
           });
-
-          return images;
-        }
-
-        if (result.status === 2) {
-          throw new Error(`Task failed: ${result.message || "Unknown error"}`);
         }
       }
 
