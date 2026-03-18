@@ -88,7 +88,7 @@ function resolveBytedanceAfrConfig() {
   }
 
   return {
-    BASE_URL: configured.baseUrl || "https://effect.bytedance.net",
+    BASE_URL: configured.baseUrl || "https://lv-api-lf.ulikecam.com",
     AID: configured.aid || "6834",
     APP_KEY: configured.appKey || "a89de09e9bca4723943e8830a642464d",
     APP_SECRET: configured.appSecret || "8505d553a24c485fb7d9bb336a3651a8",
@@ -1083,55 +1083,47 @@ export class BytedanceAfrProvider implements ImageProvider {
     this.config = config;
   }
 
-  async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
-    const { prompt, width, height, batchSize, options } = params;
-
+  /**
+   * 提交图片生成任务
+   * 使用 submit_task_v2 接口
+   */
+  private async submitTask(params: {
+    prompt: string;
+    width: number;
+    height: number;
+    image?: string;
+  }): Promise<string> {
+    const { prompt, width, height, image } = params;
     const API_CONFIG = resolveBytedanceAfrConfig();
 
-    const nonce = generateNonce();
-    const timestamp = generateTimestamp();
-    const sign = generateSign(nonce, timestamp, API_CONFIG.APP_SECRET);
+    const submitUrl = `${API_CONFIG.BASE_URL}/media/api/pic/submit_task_v2`;
 
-    const queryParams = new URLSearchParams({
-      aid: API_CONFIG.AID,
-      app_key: API_CONFIG.APP_KEY,
-      timestamp,
-      nonce,
-      sign,
-    });
-
-    const url = `${API_CONFIG.BASE_URL
-      }/media/api/pic/afr?${queryParams.toString()}`;
-
-    const isSeed42 = this.config.modelId === "seed4_v2_0226lemo";
-    const conf: Record<string, unknown> = isSeed42
-      ? {
-        width: 2048,
-        height: 2048,
-        seed: -1,
-        string: prompt,
-      }
-      : {
-        width: width || 1024,
-        height: height || 1024,
-        seed: options?.seed ?? Math.floor(Math.random() * 2147483647),
-        prompt,
-        batch_size: batchSize || 1,
-      };
+    // 构建 req_json
+    const reqJson: Record<string, unknown> = {
+      width,
+      height,
+      seed: -1,
+      string: prompt,
+    };
 
     const formData = new URLSearchParams();
-    formData.append("conf", JSON.stringify(conf));
-    formData.append("algorithms", this.config.modelId); // Use modelId as the algorithm name
+    formData.append("req_key", this.config.modelId);
+    formData.append("req_json", JSON.stringify(reqJson));
+    formData.append("img_return_type", "url");
     formData.append("img_return_format", "png");
+    formData.append("expired_duration", "600");
 
-    if (params.image) {
-      if (params.image.startsWith("http")) {
-        formData.append("source", params.image);
+    // 处理参考图片
+    if (image) {
+      if (image.startsWith("http")) {
+        formData.append("image_url", image);
+      } else if (image.startsWith("data:")) {
+        // base64 data URL
+        const base64Data = image.split(",")[1];
+        formData.append("image_data", base64Data);
       } else {
-        const base64Data = params.image.includes(",")
-          ? params.image.split(",")[1]
-          : params.image;
-        formData.append("base64file", base64Data);
+        // 纯 base64
+        formData.append("image_data", image);
       }
     }
 
@@ -1139,9 +1131,7 @@ export class BytedanceAfrProvider implements ImageProvider {
     const fetchOptions: RequestInit & { agent?: unknown } = {
       method: "POST",
       headers: {
-        "get-svc": "1",
         "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "ByteArtist-Client/1.0",
       },
       body: formData.toString(),
     };
@@ -1150,158 +1140,222 @@ export class BytedanceAfrProvider implements ImageProvider {
       fetchOptions.agent = agent;
     }
 
-    const startedAt = Date.now();
-    logProviderEvent("bytedance-afr", "image_request_start", {
+    logProviderEvent("bytedance-afr", "submit_task_start", {
       modelId: this.config.modelId,
-      host: getRequestHost(url),
-      width: conf.width,
-      height: conf.height,
-      batchSize: batchSize || 1,
+      host: getRequestHost(submitUrl),
+      width,
+      height,
       usingFallbackConfig: API_CONFIG.missing.length > 0,
     });
 
-    // FaaS 保活机制：添加 30s 延时，防止同步调用被判定为超时失败
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let keepAliveResolved = false;
-    
-    const keepAlivePromise = new Promise<void>((resolve) => {
-      // 30秒后自动完成
-      timeoutId = setTimeout(() => {
-        keepAliveResolved = true;
-        logProviderEvent("bytedance-afr", "keepalive_timeout_reached", {
-          modelId: this.config.modelId,
-          elapsedMs: Date.now() - startedAt,
-        });
-        resolve();
-      }, 30000);
+    const response = await fetch(submitUrl, fetchOptions);
+    const data = await response.json() as { data?: { task_id?: string }; message?: string; status_code?: number };
+
+    if (!response.ok || data.status_code !== 0) {
+      console.error("[AIProvider][bytedance-afr] submit_task_error", {
+        modelId: this.config.modelId,
+        host: getRequestHost(submitUrl),
+        status: response.status,
+        statusCode: data.status_code,
+        message: data.message,
+      });
+      throw new Error(`Submit task failed: ${data.message || response.status}`);
+    }
+
+    const taskId = data.data?.task_id;
+    if (!taskId) {
+      throw new Error("No task_id returned from submit_task_v2");
+    }
+
+    logProviderEvent("bytedance-afr", "submit_task_success", {
+      modelId: this.config.modelId,
+      taskId,
     });
 
-    const fetchPromise = fetch(url, fetchOptions)
-      .then(async (response) => {
-        // API 响应后，取消保活延时
-        if (timeoutId && !keepAliveResolved) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("[AIProvider][bytedance-afr] image_request_error", {
-            modelId: this.config.modelId,
-            host: getRequestHost(url),
-            elapsedMs: Date.now() - startedAt,
-            status: response.status,
-            usingFallbackConfig: API_CONFIG.missing.length > 0,
-            error: errorText,
-          });
-          throw new Error(
-            `ByteArtist API Error: ${response.status} - ${errorText}`
-          );
-        }
+    return taskId;
+  }
 
-        const data = await response.json();
-        const success =
-          data.success ||
-          data.message === "success" ||
-          data.data?.algo_status_code === 0;
+  /**
+   * 轮询获取任务结果
+   * 使用 batch_get_result_v2 接口
+   */
+  private async pollForResult(taskId: string): Promise<string[]> {
+    const API_CONFIG = resolveBytedanceAfrConfig();
+    const pollUrl = `${API_CONFIG.BASE_URL}/media/api/pic/batch_get_result_v2`;
 
-        if (!success) {
-          throw new Error(
-            `ByteArtist Generation Failed: ${data.message || data.algo_status_message
-            } `
-          );
-        }
+    const formData = new URLSearchParams();
+    formData.append("req_key", this.config.modelId);
+    formData.append("task_ids", taskId);
+    formData.append("img_return_type", "url");
+    formData.append("img_return_format", "png");
 
-        const afr_data = (data.data?.data?.afr_data ??
-          data.data?.afr_data ??
-          []) as { pic: string }[];
-        const images = afr_data.map((item) => {
-          return item.pic.startsWith("http")
-            ? item.pic
-            : `data:image/png;base64,${item.pic}`;
-        });
+    const agent = getProxyAgent();
+    const fetchOptions: RequestInit & { agent?: unknown } = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    };
 
-        logProviderEvent("bytedance-afr", "image_request_success", {
-          modelId: this.config.modelId,
-          host: getRequestHost(url),
-          elapsedMs: Date.now() - startedAt,
-          outputCount: images.length,
-          usingFallbackConfig: API_CONFIG.missing.length > 0,
-        });
+    if (agent) {
+      fetchOptions.agent = agent;
+    }
 
-        return { images, metadata: data as Record<string, unknown> };
-      })
-      .catch((error) => {
-        // 取消保活延时
-        if (timeoutId && !keepAliveResolved) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
+    // 轮询配置
+    const maxAttempts = 120; // 最多轮询 120 次
+    const pollInterval = 1000; // 每秒轮询一次
 
-        // 增强错误信息
-        const elapsedMs = Date.now() - startedAt;
-        const errorInfo: Record<string, unknown> = {
-          modelId: this.config.modelId,
-          provider: 'bytedance-afr',
-          host: getRequestHost(url),
-          elapsedMs,
-          usingFallbackConfig: API_CONFIG.missing.length > 0,
-          missingEnvVars: API_CONFIG.missing.length > 0 ? API_CONFIG.missing : undefined,
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const response = await fetch(pollUrl, fetchOptions);
+      const data = await response.json() as {
+        data?: {
+          results?: Array<{
+            status?: number;
+            pic_urls?: Array<{ main_url?: string }>;
+            message?: string;
+          }>;
         };
+        status_code?: number;
+        message?: string;
+      };
 
-        // 根据错误类型提供详细说明
+      if (!response.ok || data.status_code !== 0) {
+        console.error("[AIProvider][bytedance-afr] poll_result_error", {
+          modelId: this.config.modelId,
+          taskId,
+          attempt,
+          status: response.status,
+          statusCode: data.status_code,
+          message: data.message,
+        });
+        throw new Error(`Poll result failed: ${data.message || response.status}`);
+      }
+
+      const result = data.data?.results?.[0];
+      
+      if (result) {
+        // status: 0 = 处理中, 1 = 成功, 2 = 失败
+        if (result.status === 1 && result.pic_urls && result.pic_urls.length > 0) {
+          const images = result.pic_urls
+            .map((p) => p.main_url)
+            .filter((url): url is string => !!url);
+
+          logProviderEvent("bytedance-afr", "poll_result_success", {
+            modelId: this.config.modelId,
+            taskId,
+            attempt,
+            imageCount: images.length,
+          });
+
+          return images;
+        }
+
+        if (result.status === 2) {
+          throw new Error(`Task failed: ${result.message || "Unknown error"}`);
+        }
+      }
+
+      // 还在处理中，等待后继续轮询
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      }
+    }
+
+    throw new Error(`Poll timeout: task ${taskId} did not complete within ${maxAttempts} seconds`);
+  }
+
+  async generateImage(params: ImageGenerationInput): Promise<ImageResult> {
+    const { prompt, width, height, imageSize, image, images } = params;
+    const API_CONFIG = resolveBytedanceAfrConfig();
+    const startedAt = Date.now();
+
+    // 计算实际尺寸
+    const actualWidth = width || this.getWidthFromImageSize(imageSize);
+    const actualHeight = height || this.getHeightFromImageSize(imageSize);
+
+    // 处理参考图片
+    const refImage = (images && images.length > 0) ? images[0] : image;
+
+    logProviderEvent("bytedance-afr", "image_request_start", {
+      modelId: this.config.modelId,
+      host: getRequestHost(API_CONFIG.BASE_URL),
+      width: actualWidth,
+      height: actualHeight,
+      hasImage: !!refImage,
+      usingFallbackConfig: API_CONFIG.missing.length > 0,
+    });
+
+    try {
+      // 1. 提交任务
+      const taskId = await this.submitTask({
+        prompt: prompt || "",
+        width: actualWidth,
+        height: actualHeight,
+        image: refImage,
+      });
+
+      // 2. 轮询获取结果
+      const imageUrls = await this.pollForResult(taskId);
+
+      logProviderEvent("bytedance-afr", "image_request_success", {
+        modelId: this.config.modelId,
+        host: getRequestHost(API_CONFIG.BASE_URL),
+        elapsedMs: Date.now() - startedAt,
+        imageCount: imageUrls.length,
+        taskId,
+      });
+
+      return {
+        images: imageUrls,
+        metadata: { taskId, width: actualWidth, height: actualHeight },
+      };
+    } catch (error) {
+      const elapsedMs = Date.now() - startedAt;
+      const errorInfo: Record<string, unknown> = {
+        modelId: this.config.modelId,
+        provider: "bytedance-afr",
+        host: getRequestHost(API_CONFIG.BASE_URL),
+        elapsedMs,
+        usingFallbackConfig: API_CONFIG.missing.length > 0,
+        missingEnvVars: API_CONFIG.missing.length > 0 ? API_CONFIG.missing : undefined,
+      };
+
+      if (error instanceof Error) {
+        errorInfo.error = error.message;
         if (error.cause) {
           errorInfo.cause = String(error.cause);
         }
-
-        // 展开 AggregateError 详细信息
         if (error instanceof AggregateError) {
-          const errorDetails = error.errors.map((e, i) => `[${i + 1}] ${e.message || e}`).join('; ');
-          errorInfo.errors = errorDetails;
-          errorInfo.errorCount = error.errors.length;
+          errorInfo.errors = error.errors.map((e, i) => `[${i + 1}] ${e.message || e}`).join("; ");
         }
+      }
 
-        // 判断错误类型并给出明确提示
-        let enhancedMessage = error.message || 'Unknown error';
-        
-        if (error.code === 'UND_ERR_CONNECT_TIMEOUT' || error.message?.includes('timeout')) {
-          enhancedMessage = `ByteArtist API 连接超时 (${getRequestHost(url)})。可能原因：网络不稳定、代理配置问题、或服务器响应过慢。`;
-          errorInfo.errorType = 'CONNECT_TIMEOUT';
-        } else if (error.code === 'ECONNREFUSED') {
-          enhancedMessage = `ByteArtist API 连接被拒绝 (${getRequestHost(url)})。可能原因：目标服务器不可达或端口未开放。`;
-          errorInfo.errorType = 'CONNECTION_REFUSED';
-        } else if (error.code === 'ENOTFOUND') {
-          enhancedMessage = `ByteArtist API 域名解析失败 (${getRequestHost(url)})。可能原因：DNS 配置错误或域名不存在。`;
-          errorInfo.errorType = 'DNS_ERROR';
-        } else if (error.code === 'ECONNRESET') {
-          enhancedMessage = `ByteArtist API 连接被重置。可能原因：服务器主动断开连接、网络波动或代理问题。`;
-          errorInfo.errorType = 'CONNECTION_RESET';
-        } else if (error.code === 'CERT_HAS_EXPIRED' || error.message?.includes('certificate')) {
-          enhancedMessage = `ByteArtist API SSL 证书错误。可能原因：证书过期或自签名证书未被信任。`;
-          errorInfo.errorType = 'SSL_ERROR';
-        } else if (error.message === 'fetch failed') {
-          // 通用 fetch failed，需要更多信息
-          const aggInfo = error instanceof AggregateError ? ` (包含 ${error.errors.length} 个错误: ${error.errors.map(e => e.message || e).join(', ')})` : '';
-          enhancedMessage = `ByteArtist API 请求失败 (${getRequestHost(url)})${aggInfo}。可能原因：网络不可达、代理配置问题、或环境变量未正确设置 (GATEWAY_BASE_URL, BYTEDANCE_AID, BYTEDANCE_APP_KEY, BYTEDANCE_APP_SECRET)。`;
-          errorInfo.errorType = 'FETCH_FAILED';
-        }
+      console.error("[AIProvider][bytedance-afr] image_request_failed", errorInfo);
+      throw error;
+    }
+  }
 
-        console.error("[AIProvider][bytedance-afr] image_request_failed", errorInfo);
-        
-        const enhancedError = new Error(enhancedMessage);
-        (enhancedError as unknown as Record<string, unknown>).details = errorInfo;
-        throw enhancedError;
-      });
+  private getWidthFromImageSize(imageSize?: string): number {
+    switch (imageSize) {
+      case "1K":
+        return 1024;
+      case "2K":
+        return 2048;
+      default:
+        return 1024;
+    }
+  }
 
-    // 竞态：API 调用 vs 30s 保活延时
-    // 如果 API 先返回，直接返回结果
-    // 如果 30s 先到，等待 API 完成（此时 FaaS 已判定请求有效）
-    const result = await Promise.race([
-      fetchPromise,
-      keepAlivePromise.then(() => fetchPromise),
-    ]);
-
-    return result;
+  private getHeightFromImageSize(imageSize?: string): number {
+    switch (imageSize) {
+      case "1K":
+        return 1024;
+      case "2K":
+        return 2048;
+      default:
+        return 1024;
+    }
   }
 }
 
