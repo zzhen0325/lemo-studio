@@ -1176,60 +1176,122 @@ export class BytedanceAfrProvider implements ImageProvider {
       }, 30000);
     });
 
-    const fetchPromise = fetch(url, fetchOptions).then(async (response) => {
-      // API 响应后，取消保活延时
-      if (timeoutId && !keepAliveResolved) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[AIProvider][bytedance-afr] image_request_error", {
+    const fetchPromise = fetch(url, fetchOptions)
+      .then(async (response) => {
+        // API 响应后，取消保活延时
+        if (timeoutId && !keepAliveResolved) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[AIProvider][bytedance-afr] image_request_error", {
+            modelId: this.config.modelId,
+            host: getRequestHost(url),
+            elapsedMs: Date.now() - startedAt,
+            status: response.status,
+            usingFallbackConfig: API_CONFIG.missing.length > 0,
+            error: errorText,
+          });
+          throw new Error(
+            `ByteArtist API Error: ${response.status} - ${errorText}`
+          );
+        }
+
+        const data = await response.json();
+        const success =
+          data.success ||
+          data.message === "success" ||
+          data.data?.algo_status_code === 0;
+
+        if (!success) {
+          throw new Error(
+            `ByteArtist Generation Failed: ${data.message || data.algo_status_message
+            } `
+          );
+        }
+
+        const afr_data = (data.data?.data?.afr_data ??
+          data.data?.afr_data ??
+          []) as { pic: string }[];
+        const images = afr_data.map((item) => {
+          return item.pic.startsWith("http")
+            ? item.pic
+            : `data:image/png;base64,${item.pic}`;
+        });
+
+        logProviderEvent("bytedance-afr", "image_request_success", {
           modelId: this.config.modelId,
           host: getRequestHost(url),
           elapsedMs: Date.now() - startedAt,
-          status: response.status,
+          outputCount: images.length,
           usingFallbackConfig: API_CONFIG.missing.length > 0,
-          error: errorText,
         });
-        throw new Error(
-          `ByteArtist API Error: ${response.status} - ${errorText}`
-        );
-      }
 
-      const data = await response.json();
-      const success =
-        data.success ||
-        data.message === "success" ||
-        data.data?.algo_status_code === 0;
+        return { images, metadata: data as Record<string, unknown> };
+      })
+      .catch((error) => {
+        // 取消保活延时
+        if (timeoutId && !keepAliveResolved) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
 
-      if (!success) {
-        throw new Error(
-          `ByteArtist Generation Failed: ${data.message || data.algo_status_message
-          } `
-        );
-      }
+        // 增强错误信息
+        const elapsedMs = Date.now() - startedAt;
+        const errorInfo: Record<string, unknown> = {
+          modelId: this.config.modelId,
+          provider: 'bytedance-afr',
+          host: getRequestHost(url),
+          elapsedMs,
+          usingFallbackConfig: API_CONFIG.missing.length > 0,
+          missingEnvVars: API_CONFIG.missing.length > 0 ? API_CONFIG.missing : undefined,
+        };
 
-      const afr_data = (data.data?.data?.afr_data ??
-        data.data?.afr_data ??
-        []) as { pic: string }[];
-      const images = afr_data.map((item) => {
-        return item.pic.startsWith("http")
-          ? item.pic
-          : `data:image/png;base64,${item.pic}`;
+        // 根据错误类型提供详细说明
+        if (error.cause) {
+          errorInfo.cause = String(error.cause);
+        }
+
+        // 展开 AggregateError 详细信息
+        if (error instanceof AggregateError) {
+          const errorDetails = error.errors.map((e, i) => `[${i + 1}] ${e.message || e}`).join('; ');
+          errorInfo.errors = errorDetails;
+          errorInfo.errorCount = error.errors.length;
+        }
+
+        // 判断错误类型并给出明确提示
+        let enhancedMessage = error.message || 'Unknown error';
+        
+        if (error.code === 'UND_ERR_CONNECT_TIMEOUT' || error.message?.includes('timeout')) {
+          enhancedMessage = `ByteArtist API 连接超时 (${getRequestHost(url)})。可能原因：网络不稳定、代理配置问题、或服务器响应过慢。`;
+          errorInfo.errorType = 'CONNECT_TIMEOUT';
+        } else if (error.code === 'ECONNREFUSED') {
+          enhancedMessage = `ByteArtist API 连接被拒绝 (${getRequestHost(url)})。可能原因：目标服务器不可达或端口未开放。`;
+          errorInfo.errorType = 'CONNECTION_REFUSED';
+        } else if (error.code === 'ENOTFOUND') {
+          enhancedMessage = `ByteArtist API 域名解析失败 (${getRequestHost(url)})。可能原因：DNS 配置错误或域名不存在。`;
+          errorInfo.errorType = 'DNS_ERROR';
+        } else if (error.code === 'ECONNRESET') {
+          enhancedMessage = `ByteArtist API 连接被重置。可能原因：服务器主动断开连接、网络波动或代理问题。`;
+          errorInfo.errorType = 'CONNECTION_RESET';
+        } else if (error.code === 'CERT_HAS_EXPIRED' || error.message?.includes('certificate')) {
+          enhancedMessage = `ByteArtist API SSL 证书错误。可能原因：证书过期或自签名证书未被信任。`;
+          errorInfo.errorType = 'SSL_ERROR';
+        } else if (error.message === 'fetch failed') {
+          // 通用 fetch failed，需要更多信息
+          const aggInfo = error instanceof AggregateError ? ` (包含 ${error.errors.length} 个错误: ${error.errors.map(e => e.message || e).join(', ')})` : '';
+          enhancedMessage = `ByteArtist API 请求失败 (${getRequestHost(url)})${aggInfo}。可能原因：网络不可达、代理配置问题、或环境变量未正确设置 (GATEWAY_BASE_URL, BYTEDANCE_AID, BYTEDANCE_APP_KEY, BYTEDANCE_APP_SECRET)。`;
+          errorInfo.errorType = 'FETCH_FAILED';
+        }
+
+        console.error("[AIProvider][bytedance-afr] image_request_failed", errorInfo);
+        
+        const enhancedError = new Error(enhancedMessage);
+        (enhancedError as unknown as Record<string, unknown>).details = errorInfo;
+        throw enhancedError;
       });
-
-      logProviderEvent("bytedance-afr", "image_request_success", {
-        modelId: this.config.modelId,
-        host: getRequestHost(url),
-        elapsedMs: Date.now() - startedAt,
-        outputCount: images.length,
-        usingFallbackConfig: API_CONFIG.missing.length > 0,
-      });
-
-      return { images, metadata: data as Record<string, unknown> };
-    });
 
     // 竞态：API 调用 vs 30s 保活延时
     // 如果 API 先返回，直接返回结果
