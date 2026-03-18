@@ -1240,6 +1240,7 @@ export class BytedanceAfrProvider implements ImageProvider {
     ]);
 
     return result;
+  }
 }
 
 /**
