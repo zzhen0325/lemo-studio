@@ -7,4 +7,5 @@ run = ["pnpm", "run", "dev:next"]
 
 [deploy]
 build = ["./scripts/deploy-build.sh"]
-run = ["node", ".next/standalone/server.js"]
+# PORT 从扣子平台的 DEPLOY_RUN_PORT 环境变量读取，默认 5000
+run = ["sh", "-c", "PORT=${DEPLOY_RUN_PORT:-5000} node .next/standalone/server.js"]

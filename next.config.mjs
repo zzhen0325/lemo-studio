@@ -165,7 +165,8 @@ const nextConfig = {
   },
   output: 'standalone',
   env: {
-    PORT: process.env.PORT || process.argv.find(arg => arg.startsWith('-p=') || arg.startsWith('--port='))?.split('=')[1] || '3001',
+    // 优先使用 DEPLOY_RUN_PORT（扣子平台注入），其次是 PORT，最后是 5000
+    PORT: process.env.DEPLOY_RUN_PORT || process.env.PORT || '5000',
   },
 };
 
