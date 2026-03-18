@@ -6,8 +6,11 @@ echo "Building project..."
 # build 脚本已经复制了 static 文件
 pnpm run build
 echo "Copying additional files to standalone..."
-# 复制 public 文件夹
-cp -r public .next/standalone/public 2>/dev/null || true
+# 复制 public 文件夹内容到 standalone/public（不是作为子目录）
+mkdir -p .next/standalone/public
+cp -r public/* .next/standalone/public/ 2>/dev/null || true
+echo "Public files copied:"
+ls -la .next/standalone/public/
 # 复制环境变量文件
 cp .env.local .next/standalone/.env.local 2>/dev/null || true
 # 复制并设置启动脚本
