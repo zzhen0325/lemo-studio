@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const storageKey = searchParams.get('storageKey');
     const expireTime = parseInt(searchParams.get('expireTime') || '86400', 10);
 
-    let actualStorageKey = storageKey;
+    let actualStorageKey: string | null | undefined = storageKey;
 
     // 如果提供了 ID，从数据库获取 storageKey
     if (id && !storageKey) {
