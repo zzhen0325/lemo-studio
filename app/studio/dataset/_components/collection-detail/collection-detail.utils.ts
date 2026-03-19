@@ -35,8 +35,8 @@ export const PROMPT_MODIFIERS: PromptModifier[] = [
 ];
 
 export const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'bmp']);
-export const UPLOAD_CONCURRENCY = 2; // 减少并发数，避免请求过大
-export const UPLOAD_BATCH_SIZE = 6; // 减少每批文件数，避免 413 Payload Too Large
+export const UPLOAD_CONCURRENCY = 1; // 单个上传，避免并发过大
+export const UPLOAD_BATCH_SIZE = 4; // 每批 4 个文件，单个请求约 3-4MB
 export const OPTIMIZE_CONCURRENCY = 4;
 export const OPTIMIZE_BATCH_SIZE = 8;
 export const OPTIMIZE_MAX_RETRIES = 2;
