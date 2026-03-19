@@ -30,8 +30,15 @@ export function sanitizeMongoKeys(obj: unknown): unknown {
 }
 
 /**
+ * Convert snake_case to camelCase
+ */
+function snakeToCamel(str: string): string {
+    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
  * Restore sanitized MongoDB keys.
- * Replaces '_DOT_' back with dots ('.').
+ * Replaces '_DOT_' back with dots ('.') and converts snake_case to camelCase.
  */
 export function restoreMongoKeys(obj: unknown): unknown {
     if (!obj || typeof obj !== 'object' || obj instanceof Date || obj instanceof RegExp) {
@@ -52,7 +59,8 @@ export function restoreMongoKeys(obj: unknown): unknown {
     const typedObj = obj as Record<string, unknown>;
     for (const key in typedObj) {
         if (Object.prototype.hasOwnProperty.call(typedObj, key)) {
-            const restoredKey = key.replace(/_DOT_/g, '.');
+            // Restore _DOT_ to dot, and convert snake_case to camelCase
+            const restoredKey = snakeToCamel(key.replace(/_DOT_/g, '.'));
             result[restoredKey] = restoreMongoKeys(typedObj[key]);
         }
     }
