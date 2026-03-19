@@ -16,6 +16,7 @@ import { GoogleApiStatus } from "@studio/playground/_components/GoogleApiStatus"
 import SimpleImagePreview from "@studio/playground/_components/SimpleImagePreview";
 import HistoryList from "@studio/playground/_components/HistoryList";
 import ImagePreviewModal from "@studio/playground/_components/Dialogs/ImagePreviewModal";
+import FluxKleinConnectionHelpDialog from "@studio/playground/_components/Dialogs/FluxKleinConnectionHelpDialog";
 import WorkflowSelectorDialog from "@studio/playground/_components/Dialogs/WorkflowSelectorDialog";
 import BaseModelSelectorDialog from "@studio/playground/_components/Dialogs/BaseModelSelectorDialog";
 import LoraSelectorDialog from "@studio/playground/_components/Dialogs/LoraSelectorDialog";
@@ -483,7 +484,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   // States for other dialogs
   const [isPresetGridOpen, setIsPresetGridOpen] = useState(false);
-  const { handleGenerate: singleGenerate, executeGeneration, syncHistoryConfig, isGenerating } = useGenerationService();
+  const {
+    handleGenerate: singleGenerate,
+    executeGeneration,
+    syncHistoryConfig,
+    fluxKleinConnectionHelp,
+    dismissFluxKleinConnectionHelp,
+    isGenerating,
+  } = useGenerationService();
   const {
     isImageModalOpen,
     selectedResult,
@@ -1619,6 +1627,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             }));
           }}
           onConfirm={handleImageEditConfirm}
+        />
+
+        <FluxKleinConnectionHelpDialog
+          open={Boolean(fluxKleinConnectionHelp)}
+          comfyUrl={fluxKleinConnectionHelp?.comfyUrl}
+          technicalReason={fluxKleinConnectionHelp?.technicalReason}
+          onOpenChange={(open) => {
+            if (!open) {
+              dismissFluxKleinConnectionHelp();
+            }
+          }}
         />
 
         <SimpleImagePreview

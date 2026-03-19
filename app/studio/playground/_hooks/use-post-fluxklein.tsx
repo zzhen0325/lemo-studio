@@ -3,6 +3,10 @@ import { SETTINGS_STORAGE_KEY } from "@/lib/constants";
 import { buildFluxKleinWorkflow } from "@/lib/api/fluxklein-workflow";
 import { probeDirectComfyAvailability, runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
 import { getConfiguredDirectComfyUrl, getDirectComfyDecision } from "@/lib/comfyui/direct-config";
+import {
+  createFluxKleinConnectionHelpError,
+  shouldShowFluxKleinConnectionHelp,
+} from "@/lib/comfyui/fluxklein-connection-help";
 import { extractErrorMessage } from "@/lib/error-message";
 
 export interface IUsePostFluxKlein {
@@ -79,14 +83,14 @@ export const usePostFluxKlein = () => {
         if (reason.includes("Timeout") || reason.includes("timeout")) {
           throw new Error(`ComfyUI 连接超时: ${directComfyUrl}。请检查 ComfyUI 是否已启动，地址是否正确。`);
         }
-        if (reason.includes("SSL") || reason.includes("certificate") || reason.includes("CERT")) {
-          throw new Error(`ComfyUI 证书错误: 请在浏览器中访问 ${directComfyUrl} 并信任证书后重试。`);
+        if (shouldShowFluxKleinConnectionHelp(reason)) {
+          throw createFluxKleinConnectionHelpError({
+            comfyUrl: directComfyUrl,
+            technicalReason: reason,
+          });
         }
         if (reason.includes("CORS") || reason.includes("cors") || reason.includes("cross-origin")) {
           throw new Error(`ComfyUI 跨域错误: 请在 ComfyUI 启动参数中添加 --enable-cors-header "*" 或指定允许的域名。`);
-        }
-        if (reason.includes("Failed to fetch") || reason.includes("NetworkError")) {
-          throw new Error(`ComfyUI 网络不可达: ${directComfyUrl}。请检查网络连接或 ComfyUI 是否已启动。`);
         }
         throw new Error(`ComfyUI 连接失败: ${reason}`);
       }
@@ -107,16 +111,29 @@ export const usePostFluxKlein = () => {
       });
 
       // 执行工作流
-      const blobs = await runDirectComfyWorkflow({
-        workflow,
-        viewComfy: {
-          inputs: viewComfyInputs,
-          textOutputEnabled: false,
-        },
-        apiKey,
-        comfyUrl: directComfyUrl,
-        requestId,
-      });
+      let blobs: Blob[];
+
+      try {
+        blobs = await runDirectComfyWorkflow({
+          workflow,
+          viewComfy: {
+            inputs: viewComfyInputs,
+            textOutputEnabled: false,
+          },
+          apiKey,
+          comfyUrl: directComfyUrl,
+          requestId,
+        });
+      } catch (error) {
+        const message = extractErrorMessage(error, "ComfyUI 连接失败");
+        if (shouldShowFluxKleinConnectionHelp(message)) {
+          throw createFluxKleinConnectionHelpError({
+            comfyUrl: directComfyUrl,
+            technicalReason: message,
+          });
+        }
+        throw error;
+      }
 
       console.info("[FluxKlein][Front] stream_done", {
         requestId,

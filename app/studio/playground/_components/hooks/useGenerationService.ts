@@ -13,6 +13,10 @@ import { usePostPlayground } from "@studio/playground/_hooks/use-post-playground
 import { usePostFluxKlein } from "@studio/playground/_hooks/use-post-fluxklein";
 import { toUnifiedConfigFromLegacy } from "@/lib/adapters/data-mapping";
 import { getApiBase } from "@/lib/api-base";
+import {
+    getFluxKleinConnectionHelp,
+    type FluxKleinConnectionHelp,
+} from "@/lib/comfyui/fluxklein-connection-help";
 import { getBannerTemplateById } from "@/config/banner-templates";
 import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
@@ -138,6 +142,7 @@ async function sanitizeDataUrlForGemini(dataUrl: string): Promise<string> {
 export function useGenerationService() {
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
+    const [fluxKleinConnectionHelp, setFluxKleinConnectionHelp] = useState<FluxKleinConnectionHelp | null>(null);
     const availableModels = usePlaygroundAvailableModels();
     const getModelEntryById = useAPIConfigStore(state => state.getModelEntryById);
     const settings = useAPIConfigStore(state => state.settings);
@@ -230,6 +235,17 @@ export function useGenerationService() {
         if (url.startsWith('blob:')) {
             URL.revokeObjectURL(url);
         }
+    }, []);
+
+    const dismissFluxKleinConnectionHelp = useCallback(() => {
+        setFluxKleinConnectionHelp(null);
+    }, []);
+
+    const maybeShowFluxKleinConnectionHelp = useCallback((error: unknown) => {
+        const help = getFluxKleinConnectionHelp(error);
+        if (!help) return false;
+        setFluxKleinConnectionHelp(help);
+        return true;
     }, []);
 
     // Helper: Save to outputs
@@ -801,10 +817,13 @@ export function useGenerationService() {
         } catch (err) {
             console.error("Generation failed:", err);
             setGenerationHistory(prev => prev.filter(item => item.id !== uniqueId));
-            toast({ title: "生成失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
+            const openedConnectionHelp = maybeShowFluxKleinConnectionHelp(err);
+            if (!openedConnectionHelp) {
+                toast({ title: "生成失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
+            }
             return undefined;
         }
-    }, [selectedModel, handleWorkflow, handleUnifiedImageGen, handleFluxKlein, setGenerationHistory, toast, selectedWorkflowConfig]);
+    }, [selectedModel, handleWorkflow, handleUnifiedImageGen, handleFluxKlein, setGenerationHistory, toast, selectedWorkflowConfig, maybeShowFluxKleinConnectionHelp]);
 
     const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
         const { configOverride, fixedCreatedAt, isBackground } = options;
@@ -931,5 +950,13 @@ export function useGenerationService() {
         });
     }, [setGenerationHistory]);
 
-    return { handleGenerate, executeGeneration, syncHistoryConfig, isGenerating: isGenerating || isAIProcessing || isWorkflowProcessing, isLoading: isAIProcessing || isWorkflowProcessing };
+    return {
+        handleGenerate,
+        executeGeneration,
+        syncHistoryConfig,
+        fluxKleinConnectionHelp,
+        dismissFluxKleinConnectionHelp,
+        isGenerating: isGenerating || isAIProcessing || isWorkflowProcessing,
+        isLoading: isAIProcessing || isWorkflowProcessing,
+    };
 }
