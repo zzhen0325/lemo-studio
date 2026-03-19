@@ -48,7 +48,10 @@ export const generations = pgTable("generations", {
 
 export const imageAssets = pgTable("image_assets", {
 	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
-	url: text().notNull(),
+	// storage_key: 对象存储中的唯一标识（URI），用于生成预签名 URL
+	storageKey: text("storage_key"),
+	// url: 预签名 URL（可选，可由 storageKey 动态生成）
+	url: text(),
 	dir: varchar({ length: 255 }).notNull(),
 	fileName: varchar("file_name", { length: 255 }).notNull(),
 	region: varchar({ length: 64 }).notNull(),
@@ -62,6 +65,7 @@ export const imageAssets = pgTable("image_assets", {
 	index("image_assets_generation_id_idx").using("btree", table.generationId.asc().nullsLast().op("text_ops")),
 	index("image_assets_project_id_idx").using("btree", table.projectId.asc().nullsLast().op("text_ops")),
 	index("image_assets_type_idx").using("btree", table.type.asc().nullsLast().op("text_ops")),
+	index("image_assets_storage_key_idx").using("btree", table.storageKey.asc().nullsLast().op("text_ops")),
 ]);
 
 export const presetCategories = pgTable("preset_categories", {

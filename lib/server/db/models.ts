@@ -341,7 +341,8 @@ export const GenerationModel = {
 // ==========================================
 export interface ImageAssetDoc {
   id: string;
-  url: string;
+  storage_key?: string; // 对象存储 URI，用于动态生成预签名 URL
+  url?: string; // 预签名 URL（可选，可由 storage_key 动态生成）
   dir: string;
   file_name: string;
   fileName?: string; // camelCase alias

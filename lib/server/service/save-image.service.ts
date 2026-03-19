@@ -94,7 +94,7 @@ export class SaveImageService {
   @Inject(ImageAsset)
   private imageAssetModel!: ModelType<ImageAsset>;
 
-  public async save(body: unknown): Promise<{ path: string }> {
+  public async save(body: unknown): Promise<{ path: string; storageKey: string }> {
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
       console.error('[SaveImageService] validation failed:', parsed.error.flatten());
@@ -134,15 +134,19 @@ export class SaveImageService {
 
     const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/${safeSubdir}`;
+    
+    // 上传到对象存储，获取 storageKey（不生成预签名 URL）
     const cdnRes = await uploadBufferToCdn(imageBuffer, {
       fileName: filename,
       dir,
       region: 'SG',
       mimeType: inferredMime,
+      generateSignedUrl: true, // 为了向后兼容，仍然生成预签名 URL 返回给前端
     });
 
     await this.imageAssetModel.create({
-      url: cdnRes.url,
+      storage_key: cdnRes.storageKey, // 存储 URI
+      url: cdnRes.url, // 可选，预签名 URL
       dir: cdnRes.dir,
       fileName: cdnRes.fileName,
       region: 'SG',
@@ -150,6 +154,9 @@ export class SaveImageService {
       meta: parsed.data.metadata ?? undefined,
     });
 
-    return { path: cdnRes.url };
+    return { 
+      path: cdnRes.url || '', // 返回预签名 URL 供前端使用
+      storageKey: cdnRes.storageKey, // 同时返回 storageKey
+    };
   }
 }
