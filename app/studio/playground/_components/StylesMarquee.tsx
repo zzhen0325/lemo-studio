@@ -1,67 +1,77 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { StyleStackCard } from './StyleStackCard';
-import { usePlaygroundStore } from '@/lib/store/playground-store';
+import React from 'react';
 import { cn } from '@/lib/utils';
+import {
+  PLAYGROUND_SHORTCUTS,
+  type PlaygroundShortcut,
+} from '@/config/playground-shortcuts';
+import { ShortcutStackCard } from './ShortcutStackCard';
+import { ShortcutDetailDialog } from './ShortcutDetailDialog';
 
 interface StylesMarqueeProps {
-    className?: string;
+  className?: string;
+  onQuickApply: (shortcut: PlaygroundShortcut) => void;
 }
 
-export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className }) => {
-    const styles = usePlaygroundStore(s => s.styles);
-    const initStyles = usePlaygroundStore(s => s.initStyles);
+export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuickApply }) => {
+  const [selectedShortcut, setSelectedShortcut] = React.useState<PlaygroundShortcut | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = React.useState(false);
+  const duplicatedShortcuts = [...PLAYGROUND_SHORTCUTS, ...PLAYGROUND_SHORTCUTS, ...PLAYGROUND_SHORTCUTS];
 
-    useEffect(() => {
-        if (styles.length === 0) {
-            initStyles();
-        }
-    }, [styles.length, initStyles]);
+  const handleViewDetail = React.useCallback((shortcut: PlaygroundShortcut) => {
+    setSelectedShortcut(shortcut);
+    setIsDetailOpen(true);
+  }, []);
 
-    if (styles.length === 0) return null;
+  const handleQuickApply = React.useCallback((shortcut: PlaygroundShortcut) => {
+    setIsDetailOpen(false);
+    onQuickApply(shortcut);
+  }, [onQuickApply]);
 
-    // To create an infinite loop, we duplicate the list
-    // We need enough items to fill the screen width twice
-    const duplicatedStyles = [...styles, ...styles, ...styles];
-
-    return (
+  return (
+    <>
+      <div
+        className={cn(
+          'group/marquee relative w-full select-none overflow-hidden pointer-events-auto',
+          'py-[4vw] [@media(max-height:900px)]:py-[2vw] [@media(max-height:750px)]:py-4 [@media(max-height:650px)]:hidden',
+          className
+        )}
+      >
+        <style>
+          {`
+            @keyframes marquee {
+              0% { transform: translateX(0%); }
+              100% { transform: translateX(-33.33%); }
+            }
+          `}
+        </style>
         <div
-            className={cn(
-                "relative w-full overflow-hidden select-none pointer-events-auto group/marquee [&_h3]:!text-black/80 [&_p]:!text-black/40",
-                "py-[4vw] [@media(max-height:900px)]:py-[2vw] [@media(max-height:750px)]:py-4 [@media(max-height:650px)]:hidden",
-                className
-            )}
+          className="flex w-max gap-10 group-hover/marquee:[animation-play-state:paused]"
+          style={{ animation: `marquee ${PLAYGROUND_SHORTCUTS.length * 9}s linear infinite` }}
         >
-            <style>
-                {`
-                @keyframes marquee {
-                    0% { transform: translateX(0%); }
-                    100% { transform: translateX(-33.33%); }
-                }
-                `}
-            </style>
+          {duplicatedShortcuts.map((shortcut, index) => (
             <div
-                className="flex gap-10 w-max  group-hover/marquee:[animation-play-state:paused]"
-                style={{
-                    animation: `marquee ${styles.length * 10}s linear infinite`
-                }}
+              key={`${shortcut.id}-${index}`}
+              className="w-[14vw] min-w-[140px] shrink-0 text-white transition-all duration-300 [@media(max-height:900px)]:w-[12vw] [@media(max-height:750px)]:w-[10vw]"
             >
-                {duplicatedStyles.map((style, idx) => (
-                    <div 
-                        key={`${style.id}-${idx}`} 
-                        className={cn(
-                            "w-[14vw] text-black shrink-0 transition-all duration-300",
-                            "[@media(max-height:900px)]:w-[12vw] [@media(max-height:750px)]:w-[10vw] min-w-[140px]"
-                        )}
-                    >
-                        <StyleStackCard
-                            style={style}
-                            size="sm"
-                        />
-                    </div>
-                ))}
+              <ShortcutStackCard
+                shortcut={shortcut}
+                size="sm"
+                onQuickApply={handleQuickApply}
+                onViewDetail={handleViewDetail}
+              />
             </div>
+          ))}
         </div>
-    );
+      </div>
+
+      <ShortcutDetailDialog
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+        shortcut={selectedShortcut}
+        onQuickApply={handleQuickApply}
+      />
+    </>
+  );
 };

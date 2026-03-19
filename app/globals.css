@@ -72,6 +72,14 @@
   --studio-subtle: 161 161 170;
   --studio-accent: 24 24 27;
   --studio-accent-foreground: 255 255 255;
+
+  /* Global overlay scale: page chrome < dialogs < floating menus < toast < tooltip */
+  --z-layer-floating: 1320;
+  --z-layer-dialog-overlay: 1300;
+  --z-layer-dialog: 1310;
+  --z-layer-lightbox: 1360;
+  --z-layer-toast: 1400;
+  --z-layer-tooltip: 1500;
 }
 
 .dark {
@@ -233,6 +241,32 @@
 
   .studio-action-button {
     @apply bg-studio-accent text-studio-accent-foreground transition-opacity hover:opacity-90;
+  }
+}
+
+@layer utilities {
+  .z-layer-floating {
+    z-index: var(--z-layer-floating);
+  }
+
+  .z-layer-dialog-overlay {
+    z-index: var(--z-layer-dialog-overlay);
+  }
+
+  .z-layer-dialog {
+    z-index: var(--z-layer-dialog);
+  }
+
+  .z-layer-lightbox {
+    z-index: var(--z-layer-lightbox);
+  }
+
+  .z-layer-toast {
+    z-index: var(--z-layer-toast);
+  }
+
+  .z-layer-tooltip {
+    z-index: var(--z-layer-tooltip);
   }
 }
 

@@ -233,7 +233,7 @@ export const StyleCollageEditor: React.FC<StyleCollageEditorProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-layer-lightbox flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
             <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}

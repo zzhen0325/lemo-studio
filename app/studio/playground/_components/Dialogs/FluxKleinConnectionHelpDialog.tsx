@@ -162,11 +162,7 @@ export default function FluxKleinConnectionHelpDialog({
             )}
           </div>
 
-          {!isSuccess && (verificationError || technicalReason) ? (
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-              {verificationError ? `还没有检测到连接成功：${verificationError}` : `技术提示：${technicalReason}`}
-            </div>
-          ) : null}
+
 
           <div className="flex w-full pb-4 flex-col mx-auto gap-3 sm:flex-row sm:justify-end">
             {isSuccess ? (

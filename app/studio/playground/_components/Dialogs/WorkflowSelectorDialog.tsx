@@ -51,7 +51,7 @@ export default function WorkflowSelectorDialog({ open, onOpenChange, onSelect, o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl z-[10001] max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>选择工作流</DialogTitle>
         </DialogHeader>

@@ -239,7 +239,7 @@ export default function ControlToolbar({
           <ChevronDown className="h-4 w-4 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[180px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+      <DropdownMenuContent className="w-[180px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
         {BASE_MODEL_LIST.map((model) => (
           <DropdownMenuItem
             key={model.name}
@@ -292,7 +292,7 @@ export default function ControlToolbar({
           <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[280px] z-[10001] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl p-1" align="start">
+      <DropdownMenuContent className="w-[280px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl p-1" align="start">
         {selectableModels.map((model) => {
           const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
           return (
@@ -430,7 +430,7 @@ export default function ControlToolbar({
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[320px] z-[10001] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+            <DropdownMenuContent className="w-[320px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
                 {selectedSupportsImageSize && (
                   <div className="space-y-4">
@@ -555,16 +555,16 @@ export default function ControlToolbar({
           <div className="relative rounded-xl">
             <Button
               onClick={onGenerate}
-              className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-[#daffac] justify-center   transition-all duration-300 hover:animate-border-rotate"
-            // style={{
-            //   backgroundImage: `
-            //     linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
-            //     linear-gradient(primary, black),
-            //    conic-gradient(from var(--angle), #229563ff 0deg, #b0eed6ff 17%, #89d8acff 35%, #569466ff 51%, #87d690ff 68%, #a7d8b4ff 84%) 
-            //   `,
-            //   backgroundClip: 'padding-box, padding-box, border-box',
-            //   backgroundOrigin: 'border-box',
-            // }}
+              className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-white justify-center   transition-all duration-300 hover:animate-border-rotate"
+              style={{
+                backgroundImage: `
+                linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
+                linear-gradient(primary, black),
+               conic-gradient(from var(--angle), #229563ff 0deg, #b0eed6ff 17%, #89d8acff 35%, #569466ff 51%, #87d690ff 68%, #a7d8b4ff 84%) 
+              `,
+                backgroundClip: 'padding-box, padding-box, border-box',
+                backgroundOrigin: 'border-box',
+              }}
             >
               {isGenerating ? (
                 <>

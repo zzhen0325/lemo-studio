@@ -72,7 +72,7 @@ export default function SimpleImagePreview({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="fixed inset-0 z-[10001] flex items-center justify-center cursor-zoom-out"
+                    className="fixed inset-0 z-layer-lightbox flex items-center justify-center cursor-zoom-out"
                     onClick={onClose}
                 >
                     {/* 背景遮罩 */}

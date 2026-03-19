@@ -52,6 +52,13 @@ import { PlaygroundDockSidebar } from "@studio/playground/_components/containers
 import { PlaygroundHomeActions } from "@studio/playground/_components/containers/components/PlaygroundHomeActions";
 import { PlaygroundDockPanels } from "@studio/playground/_components/containers/components/PlaygroundDockPanels";
 import { v4 as uuidv4 } from 'uuid';
+import {
+  buildShortcutPrompt,
+  createShortcutPromptValues,
+  getShortcutMissingFields,
+  type PlaygroundShortcut,
+  type ShortcutPromptValues,
+} from "@/config/playground-shortcuts";
 
 
 import gsap from "gsap";
@@ -80,6 +87,12 @@ interface BannerSessionHistoryItem {
   outputUrl: string;
   createdAt: string;
   templateId: string;
+}
+
+interface ActiveShortcutTemplate {
+  shortcut: PlaygroundShortcut;
+  values: ShortcutPromptValues;
+  appliedPrompt: string;
 }
 
 
@@ -175,6 +188,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [batchSize, setBatchSize] = useState(4); // Default batch size
   const [pendingPresetEditConfig, setPendingPresetEditConfig] = useState<EditPresetConfig | undefined>(undefined);
   const [bannerSessionHistory, setBannerSessionHistory] = useState<BannerSessionHistoryItem[]>([]);
+  const [activeShortcutTemplate, setActiveShortcutTemplate] = useState<ActiveShortcutTemplate | null>(null);
+  const activeShortcutTemplateRef = useRef<ActiveShortcutTemplate | null>(null);
 
 
   const {
@@ -192,6 +207,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     selectedHistoryIds
   } = usePlaygroundStore();
   const enterBannerMode = usePlaygroundStore(s => s.enterBannerMode);
+
+  useEffect(() => {
+    activeShortcutTemplateRef.current = activeShortcutTemplate;
+  }, [activeShortcutTemplate]);
 
   useEffect(() => {
     if (!isHistoryDebug) return;
@@ -498,6 +517,9 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     isHydratingSelectedResult,
     openImageModal,
     closeImageModal,
+    previewableHistory,
+    currentIndex,
+    jumpToResult,
     handleNextImage,
     handlePrevImage,
     hasPrev,
@@ -801,11 +823,101 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
 
 
+  const handleShortcutQuickApply = useCallback((shortcut: PlaygroundShortcut) => {
+    const values = createShortcutPromptValues(shortcut);
+    const prompt = buildShortcutPrompt(shortcut, values);
+    const dimensions = AR_MAP[shortcut.aspectRatio]?.[shortcut.imageSize] || {
+      w: config.width || 1024,
+      h: config.height || 1024,
+    };
+
+    setSelectedPresetName(undefined);
+    setSelectedWorkflowConfig(undefined);
+    setActiveShortcutTemplate({
+      shortcut,
+      values,
+      appliedPrompt: prompt,
+    });
+
+    applyModel(shortcut.model, {
+      prompt,
+      model: shortcut.model,
+      baseModel: shortcut.model,
+      width: dimensions.w,
+      height: dimensions.h,
+      imageSize: shortcut.imageSize,
+      aspectRatio: shortcut.aspectRatio,
+      loras: [],
+      presetName: undefined,
+      workflowName: undefined,
+      isPreset: false,
+      isEdit: false,
+      editConfig: undefined,
+      generationMode: 'playground',
+    });
+
+    if (promptWrapperRef.current) {
+      window.requestAnimationFrame(() => {
+        promptWrapperRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
+    }
+
+    toast({
+      title: `已应用 ${shortcut.name}`,
+      description: `模型已切换到 ${shortcut.modelLabel}，请补全高亮字段后再生成。`,
+    });
+  }, [applyModel, config.height, config.width, setSelectedPresetName, setSelectedWorkflowConfig, toast]);
+
+  const handleShortcutTemplateFieldChange = useCallback((fieldId: string, value: string) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current) {
+      return;
+    }
+
+    const nextValues = {
+      ...current.values,
+      [fieldId]: value,
+    };
+    const nextPrompt = buildShortcutPrompt(current.shortcut, nextValues);
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: nextValues,
+      appliedPrompt: nextPrompt,
+    });
+    updateConfig({ prompt: nextPrompt });
+  }, [updateConfig]);
+
+  const handleExitShortcutTemplate = useCallback(() => {
+    setActiveShortcutTemplate(null);
+  }, []);
+
+  const handlePromptGenerate = useCallback(() => {
+    const current = activeShortcutTemplateRef.current;
+    if (current) {
+      const missingFields = getShortcutMissingFields(current.shortcut, current.values);
+      if (missingFields.length > 0) {
+        toast({
+          title: "请先补全模板信息",
+          description: `还缺少：${missingFields.slice(0, 3).map((field) => field.label).join('、')}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    void handleGenerate({});
+  }, [handleGenerate, toast]);
+
   const handlePresetSelect = (p: PresetExtended) => {
     const preset = p as PresetExtended;
     const effectiveConfig = (preset.config as GenerationConfig) || (preset as unknown as GenerationConfig);
     const workflowId = (preset as PresetExtended & { workflow_id?: string }).workflow_id || effectiveConfig.presetName;
     const presetName = (preset as PresetExtended & { title?: string; name?: string }).title || (preset as PresetExtended & { title?: string; name?: string }).name || effectiveConfig.presetName || 'Preset';
+    setActiveShortcutTemplate(null);
 
     if (preset.editConfig) {
       const legacySnapshot = (preset.editConfig.tldrawSnapshot || effectiveConfig.tldrawSnapshot) as Record<string, unknown> | undefined;
@@ -886,6 +998,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsPresetGridOpen(false);
   };
   const handleOptimizePrompt = React.useCallback(async () => {
+    setActiveShortcutTemplate(null);
     const optimizedText = await optimizePrompt(config.prompt, selectedAIModel);
     if (optimizedText) setConfig(prev => ({ ...prev, prompt: optimizedText }));
   }, [config.prompt, optimizePrompt, selectedAIModel, setConfig]);
@@ -1292,10 +1405,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     removeImage,
     handleFilesUpload,
     handleOptimizePrompt,
-    handleGenerate: () => handleGenerate({}),
+    handleGenerate: handlePromptGenerate,
     handleDescribe,
     setSelectedAIModel,
-    setSelectedModel: (model: string) => applyModel(model),
+    setSelectedModel: (model: string) => {
+      setActiveShortcutTemplate(null);
+      applyModel(model);
+    },
     setIsAspectRatioLocked,
     setSelectedWorkflowConfig,
     applyWorkflowDefaults,
@@ -1323,6 +1439,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsDraggingOver,
     setIsDraggingOverPanel,
     onReorderImages: setUploadedImages,
+    shortcutTemplate: activeShortcutTemplate
+      ? {
+        shortcut: activeShortcutTemplate.shortcut,
+        values: activeShortcutTemplate.values,
+      }
+      : null,
+    onShortcutTemplateFieldChange: handleShortcutTemplateFieldChange,
+    onExitShortcutTemplate: handleExitShortcutTemplate,
   }), [
     viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused,
     isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver,
@@ -1331,12 +1455,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     selectedPresetName, selectedWorkflowConfig, workflows, fileInputRef,
     describePanelRef, setConfig, setIsStackHovered, setIsInputFocused,
     setPreviewImage, removeImage, handleFilesUpload, handleOptimizePrompt,
-    handleGenerate, handleDescribe, setSelectedAIModel,
+    handlePromptGenerate, handleDescribe, setSelectedAIModel,
     setIsAspectRatioLocked, setSelectedWorkflowConfig, applyWorkflowDefaults,
     setIsSelectorExpanded, setBatchSize, setIsLoraDialogOpen,
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
-    setUploadedImages
+    setUploadedImages, activeShortcutTemplate, handleShortcutTemplateFieldChange,
+    handleExitShortcutTemplate
   ]);
   return (
     <DndContext
@@ -1562,7 +1687,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && (
               <div className="absolute bottom-0 w-full overflow-visible z-50">
-                <StylesMarquee />
+                <StylesMarquee onQuickApply={handleShortcutQuickApply} />
               </div>
             )}
 
@@ -1605,7 +1730,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           isOpen={isImageModalOpen}
           onClose={closeImageModal}
           result={selectedResult}
+          results={previewableHistory}
+          currentIndex={currentIndex}
           isLoadingDetails={isHydratingSelectedResult}
+          onSelectResult={jumpToResult}
           onEdit={handleEditImage}
           onNext={handleNextImage}
           onPrev={handlePrevImage}

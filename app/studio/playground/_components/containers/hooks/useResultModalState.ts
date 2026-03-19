@@ -84,24 +84,42 @@ export function useResultModalState({ filteredHistory, viewMode, ensureDockMode 
     }
   }, [ensureDockMode, getResultCacheKey, viewMode]);
 
+  const previewableHistory = useMemo(() => (
+    filteredHistory.filter((result) => {
+      const outputUrl = result.outputUrl?.trim();
+      if (!outputUrl) return false;
+
+      const sourceUrls = result.config?.sourceImageUrls
+        || result.config?.editConfig?.referenceImages?.map((image) => image.dataUrl)
+        || [];
+      const firstSourceUrl = sourceUrls[0];
+      return !(firstSourceUrl && outputUrl === firstSourceUrl);
+    })
+  ), [filteredHistory]);
+
+  const selectedResultKey = useMemo(() => getResultCacheKey(selectedResult), [getResultCacheKey, selectedResult]);
   const currentIndex = useMemo(
-    () => (selectedResult ? filteredHistory.findIndex(h => h.id === selectedResult.id) : -1),
-    [filteredHistory, selectedResult]
+    () => (selectedResultKey ? previewableHistory.findIndex((result) => getResultCacheKey(result) === selectedResultKey) : -1),
+    [getResultCacheKey, previewableHistory, selectedResultKey]
   );
   const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < filteredHistory.length - 1 && currentIndex !== -1;
+  const hasNext = currentIndex < previewableHistory.length - 1 && currentIndex !== -1;
 
   const handleNextImage = useCallback(() => {
     if (hasNext) {
-      setSelectedResult(filteredHistory[currentIndex + 1]);
+      setSelectedResult(previewableHistory[currentIndex + 1]);
     }
-  }, [currentIndex, filteredHistory, hasNext]);
+  }, [currentIndex, hasNext, previewableHistory]);
 
   const handlePrevImage = useCallback(() => {
     if (hasPrev) {
-      setSelectedResult(filteredHistory[currentIndex - 1]);
+      setSelectedResult(previewableHistory[currentIndex - 1]);
     }
-  }, [currentIndex, filteredHistory, hasPrev]);
+  }, [currentIndex, hasPrev, previewableHistory]);
+
+  const jumpToResult = useCallback((result: Generation) => {
+    setSelectedResult(result);
+  }, []);
 
   const closeImageModal = useCallback(() => {
     setIsImageModalOpen(false);
@@ -153,6 +171,9 @@ export function useResultModalState({ filteredHistory, viewMode, ensureDockMode 
     isHydratingSelectedResult,
     openImageModal,
     closeImageModal,
+    previewableHistory,
+    currentIndex,
+    jumpToResult,
     handleNextImage,
     handlePrevImage,
     hasPrev,

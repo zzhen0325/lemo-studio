@@ -128,7 +128,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="z-[160] max-h-[92vh] w-[96vw] max-w-[1440px] overflow-hidden rounded-2xl border p-0"
+        className="max-h-[92vh] w-[96vw] max-w-[1440px] overflow-hidden rounded-2xl border p-0"
         style={{
           backgroundColor: IMAGE_EDITOR_THEME.background,
           borderColor: IMAGE_EDITOR_THEME.border,

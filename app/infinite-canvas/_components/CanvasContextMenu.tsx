@@ -35,7 +35,7 @@ export default function CanvasContextMenu({ x, y, onClose, onSelect }: CanvasCon
     <div
       ref={ref}
       className={cn(
-        "studio-panel fixed z-50 min-w-[8rem] overflow-hidden rounded-md p-1 text-studio-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+        "studio-panel fixed z-layer-floating min-w-[8rem] overflow-hidden rounded-md p-1 text-studio-foreground shadow-md animate-in fade-in-0 zoom-in-95"
       )}
       style={{
         left: x,

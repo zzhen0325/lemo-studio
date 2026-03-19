@@ -41,6 +41,10 @@ import type { SelectedLora } from "@/lib/playground/types";
 import { GenerationConfig, ImageSize } from '@/types/database';
 import { AIModel } from "@studio/playground/_components/hooks/usePromptOptimization";
 import { AR_MAP, getAspectRatioPresets, getAspectRatioByDimensions } from "./constants/aspect-ratio";
+import {
+    type PlaygroundShortcut,
+    type ShortcutPromptValues,
+} from "@/config/playground-shortcuts";
 
 export interface PlaygroundInputSectionProps {
     // 状态
@@ -102,6 +106,12 @@ export interface PlaygroundInputSectionProps {
     customAspectRatioLabel?: string;
     disableImageUpload?: boolean;
     disableModelSelection?: boolean;
+    shortcutTemplate?: {
+        shortcut: PlaygroundShortcut;
+        values: ShortcutPromptValues;
+    } | null;
+    onShortcutTemplateFieldChange?: (fieldId: string, value: string) => void;
+    onExitShortcutTemplate?: () => void;
 }
 
 export function PlaygroundInputSection({
@@ -159,6 +169,9 @@ export function PlaygroundInputSection({
     customAspectRatioLabel,
     disableImageUpload = false,
     disableModelSelection = false,
+    shortcutTemplate,
+    onShortcutTemplateFieldChange,
+    onExitShortcutTemplate,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -264,8 +277,8 @@ export function PlaygroundInputSection({
                 style={width ? { width: typeof width === 'number' ? `${width}px` : width } : {}}
             >
                 <div className={cn(
-                    "relative z-10 flex items-center bg-black/40 justify-center w-full text-black flex-col rounded-[30px] backdrop-blur-xl border border-white/20  p-2 transition-colors duration-100",
-                    showHistory ? "bg-[#2C2D2F] border-[#343434]" : "bg-black/40"
+                    "relative z-10 flex items-center bg-black/40 justify-center w-full text-white flex-col rounded-[30px] backdrop-blur-md border border-white/20  p-2 transition-colors duration-100",
+                    showHistory ? " bg-gradient-to-br from-[#0F0F15] via-[#0F0F15] to-[#1d2025]  border-[#343434]" : "bg-black/40"
                 )}>
                     <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
                         {variant !== 'edit' && (
@@ -374,6 +387,9 @@ export function PlaygroundInputSection({
                                     onFocusChange={setIsInputFocused}
                                     isDraggingOver={isDraggingOver}
                                     onDraggingOverChange={setIsDraggingOver}
+                                    shortcutTemplate={shortcutTemplate}
+                                    onShortcutTemplateFieldChange={onShortcutTemplateFieldChange}
+                                    onExitShortcutTemplate={onExitShortcutTemplate}
                                 />
                             </div>
                             {variant !== 'edit' && (

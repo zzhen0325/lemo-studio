@@ -17,7 +17,10 @@ interface ImagePreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   result?: Generation;
+  results?: Generation[];
+  currentIndex?: number;
   isLoadingDetails?: boolean;
+  onSelectResult?: (result: Generation) => void;
   onEdit?: (result: Generation) => void;
   onNext?: () => void;
   onPrev?: () => void;
@@ -26,11 +29,19 @@ interface ImagePreviewModalProps {
   onRegenerate?: (result: Generation) => void;
 }
 
+function getResultIdentity(result?: Generation) {
+  if (!result) return '';
+  return result.id?.trim() || result.outputUrl?.trim() || result.createdAt?.trim() || '';
+}
+
 export default function ImagePreviewModal({
   isOpen,
   onClose,
   result,
+  results = [],
+  currentIndex = -1,
   isLoadingDetails = false,
+  onSelectResult,
   onEdit,
   onNext,
   onPrev,
@@ -46,6 +57,8 @@ export default function ImagePreviewModal({
 
   // 数据已规范化，直接从 config.sourceImageUrls 读取
   const sourceUrls = result?.config?.sourceImageUrls || [];
+  const activeResultIdentity = getResultIdentity(result);
+  const previewResults = results.filter((item) => Boolean(item.outputUrl?.trim()));
 
 
   useEffect(() => {
@@ -142,7 +155,7 @@ export default function ImagePreviewModal({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[10000] flex overflow-hidden pointer-events-auto"
+          className="fixed inset-0 z-layer-lightbox flex overflow-hidden pointer-events-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -191,7 +204,7 @@ export default function ImagePreviewModal({
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="absolute left-10 top-1/2 -translate-y-1/2 z-[110]"
+                    className="absolute left-10 top-1/2 z-20 -translate-y-1/2"
                   >
                     <Button
                       variant="ghost"
@@ -212,7 +225,7 @@ export default function ImagePreviewModal({
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="absolute right-10 top-1/2 -translate-y-1/2 z-[110]"
+                    className="absolute right-10 top-1/2 z-20 -translate-y-1/2"
                   >
                     <Button
                       variant="ghost"
@@ -293,7 +306,7 @@ export default function ImagePreviewModal({
 
               {/* Reference Image Thumbnails - absolute to Viewport */}
               {sourceUrls.length > 0 && (
-                <div className="absolute top-10 left-6 z-[110] flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+                <div className="absolute left-6 top-10 z-20 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
                   {sourceUrls.filter(url => !!url).map((url, idx) => {
                     const localId = result.config?.localSourceIds?.[idx];
                     // 使用更加唯一的 ID 组合，结合 localId 或 idx 来保证唯一性
@@ -315,14 +328,44 @@ export default function ImagePreviewModal({
               <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="absolute top-4 right-4 z-[100] p-2.5 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                className="absolute right-4 top-4 z-20 p-2.5 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
                 onClick={() => setShowSidebar(!showSidebar)}
               >
                 <Info className="w-4 h-4" />
               </motion.button>
             </div>
 
-            {/* Sidebar */}
+            {previewResults.length > 1 && (
+              <motion.aside
+                initial={{ x: 24, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 24, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 h-full w-[112px] shrink-0 overflow-hidden border-l border-white/10 bg-black/40 backdrop-blur-2xl flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-3 py-4 border-b border-white/10 shrink-0">
+                  <div className="text-[10px] text-white/30 uppercase font-mono tracking-[0.24em]">Images</div>
+                  <div className="mt-2 text-sm text-white/80 tabular-nums">
+                    {currentIndex >= 0 ? `${currentIndex + 1} / ${previewResults.length}` : `${previewResults.length}`}
+                  </div>
+                </div>
+
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="p-3 space-y-3">
+                    {previewResults.map((item, index) => (
+                      <PreviewResultThumbnail
+                        key={`preview-result-${getResultIdentity(item)}-${index}`}
+                        result={item}
+                        index={index}
+                        isActive={getResultIdentity(item) === activeResultIdentity}
+                        onSelect={onSelectResult}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+              </motion.aside>
+            )}
 
             {/* Sidebar */}
             <AnimatePresence>
@@ -332,7 +375,7 @@ export default function ImagePreviewModal({
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: "100%", opacity: 0 }}
                   transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                  className="relative w-[20vw] shrink-0 h-full bg-black/60 backdrop-blur-2xl border-l border-white/10 flex flex-col z-50 overflow-hidden"
+                  className="relative z-10 h-full w-[20vw] shrink-0 overflow-hidden border-l border-white/10 bg-black/60 backdrop-blur-2xl flex flex-col"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
@@ -432,6 +475,52 @@ export default function ImagePreviewModal({
       )}
     </AnimatePresence>,
     document.body
+  );
+}
+
+function PreviewResultThumbnail({
+  result,
+  index,
+  isActive,
+  onSelect
+}: {
+  result: Generation;
+  index: number;
+  isActive: boolean;
+  onSelect?: (result: Generation) => void;
+}) {
+  const imageUrl = formatImageUrl(result.outputUrl || '');
+
+  return (
+    <button
+      type="button"
+      className={`group/result block w-full text-left transition-transform ${isActive ? 'scale-[1.01]' : 'hover:scale-[1.02]'}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect?.(result);
+      }}
+    >
+      <div
+        className={`relative aspect-square overflow-hidden rounded-2xl border shadow-2xl transition-all ${
+          isActive
+            ? 'border-white/70 ring-2 ring-white/30'
+            : 'border-white/10 hover:border-white/30'
+        }`}
+      >
+        <Image
+          src={imageUrl}
+          alt={`Result ${index + 1}`}
+          fill
+          sizes="96px"
+          className="object-cover"
+          unoptimized
+        />
+        <div className={`absolute inset-0 transition-colors ${isActive ? 'bg-transparent' : 'bg-black/15 group-hover/result:bg-black/0'}`} />
+        <div className="absolute left-2 top-2 rounded-full border border-white/10 bg-black/65 px-2 py-1 text-[10px] font-mono text-white/90 shadow-lg">
+          {index + 1}
+        </div>
+      </div>
+    </button>
   );
 }
 
