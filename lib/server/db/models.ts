@@ -609,12 +609,12 @@ export interface StyleStackDoc {
   id: string;
   name: string;
   prompt: string;
-  image_paths?: string[];
-  preview_urls?: string[];
-  collage_image_url?: string;
-  collage_config?: Record<string, unknown>;
-  created_at?: string;
-  updated_at?: string;
+  imagePaths?: string[];
+  previewUrls?: string[];
+  collageImageUrl?: string;
+  collageConfig?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const StyleStackModel = {
@@ -642,9 +642,10 @@ export const StyleStackModel = {
   },
 
   async create(doc: Partial<StyleStackDoc>): Promise<StyleStackDoc> {
+    const snakeDoc = toSnakeCase(doc as Record<string, unknown>);
     const { data, error } = await getClient()
       .from('style_stacks')
-      .insert(doc as Record<string, unknown>)
+      .insert(snakeDoc)
       .select()
       .single();
     if (error) throw error;
@@ -652,7 +653,7 @@ export const StyleStackModel = {
   },
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
-    const updateData = extractUpdateData(update);
+    const updateData = toSnakeCase(extractUpdateData(update));
     const id = filter.id || filter._id;
     
     if (options?.upsert) {

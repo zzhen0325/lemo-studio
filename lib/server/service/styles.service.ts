@@ -73,16 +73,16 @@ export class StylesService {
         styles = await this.styleStackModel.find().sort({ updatedAt: -1 }).lean();
       }
 
-      return Promise.all(styles.map((s) => this.normalizeStyleDocument({
-        _id: String(s._id),
+      return Promise.all(styles.map((s: any) => this.normalizeStyleDocument({
+        _id: String(s.id || s._id),
         name: s.name,
         prompt: s.prompt,
-        imagePaths: (s.imagePaths && s.imagePaths.length > 0 ? s.imagePaths : s.previewUrls || []) as string[],
-        previewUrls: s.previewUrls as string[] | undefined,
-        collageImageUrl: s.collageImageUrl,
-        collageConfig: s.collageConfig,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
+        imagePaths: (s.imagePaths && s.imagePaths.length > 0 ? s.imagePaths : s.image_paths || s.previewUrls || s.preview_urls || []) as string[],
+        previewUrls: (s.previewUrls || s.preview_urls) as string[] | undefined,
+        collageImageUrl: s.collageImageUrl || s.collage_image_url,
+        collageConfig: s.collageConfig || s.collage_config,
+        createdAt: s.createdAt || s.created_at,
+        updatedAt: s.updatedAt || s.updated_at,
       })));
     } catch (error) {
       console.error('Failed to fetch styles', error);
@@ -111,7 +111,7 @@ export class StylesService {
                 previewUrls: style.imagePaths || [],
                 collageImageUrl: style.collageImageUrl,
                 collageConfig: style.collageConfig,
-                updatedAt,
+                updatedAt: updatedAt.toISOString(),
               },
             },
             { upsert: true },
