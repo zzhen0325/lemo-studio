@@ -14,6 +14,9 @@ export const datasetEntries = pgTable("dataset_entries", {
 	fileName: varchar("file_name", { length: 255 }).notNull(),
 	url: text().notNull(),
 	prompt: text(),
+	promptZh: text("prompt_zh"),
+	promptEn: text("prompt_en"),
+	orderIdx: integer("order_idx").default(0),
 	width: integer(),
 	height: integer(),
 	format: varchar({ length: 32 }),
@@ -124,6 +127,8 @@ export const datasetCollections = pgTable("dataset_collections", {
 	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	count: integer().default(0),
+	order: jsonb("order_arr").default([]),
+	systemPrompt: text("system_prompt"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [

@@ -4,6 +4,7 @@ import { datasetEvents, DATASET_SYNC_EVENT } from '../dataset-events';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
+import { restoreMongoKeys } from '../utils/mongo';
 import {
   DatasetCollection,
   DatasetEntry,
@@ -99,7 +100,7 @@ export class DatasetService {
 
     if (normalized && normalized !== entry.url) {
       await this.datasetEntryModel.updateOne(
-        { collectionName: entry.collectionName, fileName: entry.fileName },
+        { collection_name: entry.collectionName, file_name: entry.fileName },
         { $set: { url: normalized } },
       );
       await this.imageAssetModel.updateOne(
@@ -127,14 +128,16 @@ export class DatasetService {
 
     try {
       if (collectionName) {
-        const collectionMeta = await this.datasetCollectionModel.findOne({ name: collectionName }).lean();
-        if (!collectionMeta) {
+        const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collectionName }).lean();
+        if (!rawCollectionMeta) {
           throw new HttpError(404, 'Collection not found');
         }
+        const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown>;
 
-        const entries = await this.datasetEntryModel.find({ collectionName: collectionName }).lean();
+        const rawEntries = await this.datasetEntryModel.find({ collection_name: collectionName }).lean();
+        const entries = restoreMongoKeys(rawEntries) as Array<Record<string, unknown>>;
         const orderMap = new Map(
-          (collectionMeta.order || []).map((filename, index) => [filename, index]),
+          ((collectionMeta.orderArr || collectionMeta.order || []) as string[]).map((filename, index) => [filename, index]),
         );
 
         const normalizedEntries = await Promise.all(
@@ -142,20 +145,20 @@ export class DatasetService {
             entry,
             url: await this.normalizeEntryUrl({
               collectionName,
-              fileName: entry.fileName,
-              url: entry.url,
+              fileName: (entry.fileName || entry.file_name) as string,
+              url: entry.url as string,
             }),
           })),
         );
 
         const images = normalizedEntries
           .map(({ entry, url }) => ({
-            id: entry.fileName,
-            filename: entry.fileName,
+            id: (entry.fileName || entry.file_name) as string,
+            filename: (entry.fileName || entry.file_name) as string,
             url,
-            promptZh: entry.promptZh || entry.prompt || '',
-            promptEn: entry.promptEn || '',
-            prompt: entry.promptZh || entry.prompt || entry.promptEn || '',
+            promptZh: (entry.promptZh || entry.prompt_zh || entry.prompt || '') as string,
+            promptEn: (entry.promptEn || entry.prompt_en || '') as string,
+            prompt: (entry.promptZh || entry.prompt_zh || entry.prompt || entry.promptEn || entry.prompt_en || '') as string,
           }))
           .sort((a, b) => {
             const ia = orderMap.get(a.filename);
@@ -168,30 +171,32 @@ export class DatasetService {
 
         return {
           images,
-          systemPrompt: collectionMeta.systemPrompt || '',
-          order: collectionMeta.order || [],
+          systemPrompt: (collectionMeta.systemPrompt || collectionMeta.system_prompt || '') as string,
+          order: (collectionMeta.orderArr || collectionMeta.order || []) as string[],
         };
       }
 
-      const collections = await this.datasetCollectionModel.find().lean();
+      const rawCollections = await this.datasetCollectionModel.find().lean();
+      const collections = restoreMongoKeys(rawCollections) as Array<Record<string, unknown>>;
       const result = await Promise.all(
         collections.map(async (c) => {
-          const previewEntries = await this.datasetEntryModel
-            .find({ collectionName: c.name })
-            .sort({ order: 1 })
+          const rawPreviewEntries = await this.datasetEntryModel
+            .find({ collection_name: c.name })
+            .sort({ order_idx: 1 })
             .limit(4)
             .lean();
+          const previewEntries = restoreMongoKeys(rawPreviewEntries) as Array<Record<string, unknown>>;
           const previews = await Promise.all(
             previewEntries.map((entry) => this.normalizeEntryUrl({
-              collectionName: c.name,
-              fileName: entry.fileName,
-              url: entry.url,
+              collectionName: c.name as string,
+              fileName: (entry.fileName || entry.file_name) as string,
+              url: entry.url as string,
             })),
           );
           return {
             id: c.name,
             name: c.name,
-            imageCount: await this.datasetEntryModel.countDocuments({ collectionName: c.name }),
+            imageCount: await this.datasetEntryModel.countDocuments({ collection_name: c.name }),
             previews,
           };
         }),
@@ -227,21 +232,25 @@ export class DatasetService {
           throw new HttpError(409, 'Collection already exists');
         }
 
-        const sourceEntries = await this.datasetEntryModel.find({ collectionName: collection }).lean();
+        const rawSourceEntries = await this.datasetEntryModel.find({ collection_name: collection }).lean();
+        const sourceEntries = restoreMongoKeys(rawSourceEntries) as Array<Record<string, unknown>>;
         const sessionData = sourceEntries.map((e) => ({
           collectionName: newName,
-          fileName: e.fileName,
-          url: e.url,
-          prompt: e.prompt,
-          promptZh: e.promptZh,
-          promptEn: e.promptEn,
-          order: e.order,
+          fileName: (e.fileName || e.file_name) as string,
+          url: e.url as string,
+          prompt: e.prompt as string,
+          promptZh: (e.promptZh || e.prompt_zh) as string,
+          promptEn: (e.promptEn || e.prompt_en) as string,
+          order: (e.orderIdx || e.order_idx || e.order) as number,
         }));
 
+        const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+        const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown> | null;
+        
         await this.datasetCollectionModel.create({
           name: newName,
-          systemPrompt: (await this.datasetCollectionModel.findOne({ name: collection }))?.systemPrompt,
-          order: sourceEntries.map((e) => e.fileName),
+          systemPrompt: (collectionMeta?.systemPrompt || collectionMeta?.system_prompt) as string | undefined,
+          order: sourceEntries.map((e) => (e.fileName || e.file_name) as string),
         });
         if (sessionData.length > 0) {
           await this.datasetEntryModel.insertMany(sessionData as unknown as DatasetEntry[]);
@@ -250,11 +259,14 @@ export class DatasetService {
         return { success: true, message: 'Collection duplicated' };
       }
 
-      await this.datasetCollectionModel.updateOne(
-        { name: collection },
-        { $setOnInsert: { name: collection, order: [] } },
-        { upsert: true },
-      );
+      // Check if collection exists, create if not
+      const existingCollection = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+      if (!existingCollection) {
+        await this.datasetCollectionModel.create({
+          name: collection,
+          order: [],
+        });
+      }
 
       if (mode === 'batchUpload' && files.length === 0) {
         throw new HttpError(400, 'At least one file is required for batchUpload');
@@ -266,9 +278,10 @@ export class DatasetService {
       }
 
       const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${collection}`;
-      let currentCount = await this.datasetEntryModel.countDocuments({ collectionName: collection });
-      const collectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
-      const existingOrder = new Set(collectionMeta?.order || []);
+      let currentCount = await this.datasetEntryModel.countDocuments({ collection_name: collection });
+      const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+      const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown> | null;
+      const existingOrder = new Set((collectionMeta?.orderArr || collectionMeta?.order || []) as string[]);
       const orderToAppend: string[] = [];
       const uploaded: Array<{ filename: string; url: string; prompt: string }> = [];
 
@@ -276,7 +289,7 @@ export class DatasetService {
         const currentFile = files[index];
         const buffer = Buffer.from(await currentFile.arrayBuffer());
         const safeName = sanitizeFileName(currentFile.name);
-        const cdn = await uploadBufferToCdn(buffer, { fileName: safeName, dir, region: 'SG' });
+        const cdn = await uploadBufferToCdn(buffer, { fileName: safeName, dir, region: 'SG', generateSignedUrl: true });
         const prompt = resolvePromptFromMap(promptMap, currentFile.name, cdn.fileName, index);
 
         await this.imageAssetModel.create({
@@ -288,16 +301,17 @@ export class DatasetService {
           meta: { collection },
         });
 
-        const existingEntry = await this.datasetEntryModel.findOne({
-          collectionName: collection,
-          fileName: cdn.fileName,
+        const rawExistingEntry = await this.datasetEntryModel.findOne({
+          collection_name: collection,
+          file_name: cdn.fileName,
         }).lean();
+        const existingEntry = rawExistingEntry ? restoreMongoKeys(rawExistingEntry) as Record<string, unknown> : null;
 
         if (existingEntry) {
-          const nextPromptZh = prompt || existingEntry.promptZh || existingEntry.prompt || '';
-          const nextPromptEn = existingEntry.promptEn || '';
+          const nextPromptZh = prompt || (existingEntry.promptZh || existingEntry.prompt_zh || existingEntry.prompt) as string || '';
+          const nextPromptEn = (existingEntry.promptEn || existingEntry.prompt_en) as string || '';
           await this.datasetEntryModel.updateOne(
-            { collectionName: collection, fileName: cdn.fileName },
+            { collection_name: collection, file_name: cdn.fileName },
             {
               url: cdn.url,
               prompt: nextPromptZh || nextPromptEn,
@@ -331,9 +345,11 @@ export class DatasetService {
       }
 
       if (orderToAppend.length > 0) {
+        // Get current order and update with new items
+        const currentOrder = [...((collectionMeta?.orderArr || collectionMeta?.order || []) as string[]), ...orderToAppend];
         await this.datasetCollectionModel.updateOne(
           { name: collection },
-          { $push: { order: { $each: orderToAppend } } },
+          { order: currentOrder },
         );
       }
 
@@ -371,17 +387,26 @@ export class DatasetService {
       }
 
       if (filenamesToDelete.length === 0 && !filename && !filenames) {
-        await this.datasetEntryModel.deleteMany({ collectionName: collection });
+        await this.datasetEntryModel.deleteMany({ collection_name: collection });
         await this.datasetCollectionModel.deleteOne({ name: collection });
         datasetEvents.emit(DATASET_SYNC_EVENT);
         return { success: true, message: 'Collection deleted' };
       }
 
       if (filenamesToDelete.length > 0) {
-        await this.datasetEntryModel.deleteMany({ collectionName: collection, fileName: { $in: filenamesToDelete } });
+        // Delete entries matching filenames
+        for (const fn of filenamesToDelete) {
+          await this.datasetEntryModel.deleteOne({ collection_name: collection, file_name: fn });
+        }
+        
+        // Update collection order - remove deleted filenames
+        const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+        const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown> | null;
+        const currentOrder = (collectionMeta?.orderArr || collectionMeta?.order || []) as string[];
+        const newOrder = currentOrder.filter(fn => !filenamesToDelete.includes(fn));
         await this.datasetCollectionModel.updateOne(
           { name: collection },
-          { $pull: { order: { $in: filenamesToDelete } } },
+          { order: newOrder },
         );
       }
 
@@ -416,7 +441,7 @@ export class DatasetService {
       if (filename) {
         const promptStr = typeof prompt === 'string' ? prompt : '';
         await this.datasetEntryModel.updateOne(
-          { collectionName: collection, fileName: filename },
+          { collection_name: collection, file_name: filename },
           writePromptLang === 'en'
             ? { prompt: promptStr, promptEn: promptStr }
             : { prompt: promptStr, promptZh: promptStr },
@@ -428,7 +453,7 @@ export class DatasetService {
         for (const [fileName, p] of updates) {
           const promptStr = typeof p === 'string' ? p : '';
           await this.datasetEntryModel.updateOne(
-            { collectionName: collection, fileName },
+            { collection_name: collection, file_name: fileName },
             writePromptLang === 'en'
               ? { prompt: promptStr, promptEn: promptStr }
               : { prompt: promptStr, promptZh: promptStr },
@@ -442,14 +467,13 @@ export class DatasetService {
 
       if (order !== undefined && Array.isArray(order)) {
         await this.datasetCollectionModel.updateOne({ name: collection }, { order }, { upsert: true });
-        const bulk = this.datasetEntryModel.collection.initializeUnorderedBulkOp();
-        let ops = 0;
-        order.forEach((fileName, idx) => {
-          bulk.find({ collectionName: collection, fileName }).updateOne({ $set: { order: idx } });
-          ops += 1;
-        });
-        if (ops > 0) {
-          await bulk.execute();
+        // Update order for each entry individually
+        for (let idx = 0; idx < order.length; idx += 1) {
+          const fileName = order[idx];
+          await this.datasetEntryModel.updateOne(
+            { collection_name: collection, file_name: fileName },
+            { order: idx },
+          );
         }
       }
 
@@ -463,7 +487,7 @@ export class DatasetService {
           { name: body.newCollectionName },
           { upsert: true },
         );
-        await this.datasetEntryModel.updateMany({ collectionName: collection }, { collectionName: body.newCollectionName });
+        await this.datasetEntryModel.updateMany({ collection_name: collection }, { collectionName: body.newCollectionName });
         datasetEvents.emit(DATASET_SYNC_EVENT);
         return {
           success: true,

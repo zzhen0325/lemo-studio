@@ -405,13 +405,46 @@ export const ImageAssetModel = {
     return data as ImageAssetDoc;
   },
 
-  async updateOne(filter: Record<string, unknown>, update: any): Promise<void> {
+  async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<void> {
     const updateData = extractUpdateData(update);
     const id = filter.id || filter._id;
-    const { error } = await getClient()
-      .from('image_assets')
-      .update(updateData)
-      .eq('id', id as string);
+    const url = filter.url;
+    
+    if (options?.upsert) {
+      // Check if exists
+      let existing = null;
+      if (id) {
+        const { data } = await getClient().from('image_assets').select('id').eq('id', id as string).maybeSingle();
+        existing = data;
+      } else if (url) {
+        const { data } = await getClient().from('image_assets').select('id').eq('url', url as string).maybeSingle();
+        existing = data;
+      }
+      
+      if (!existing) {
+        // Insert new record
+        const { error } = await getClient()
+          .from('image_assets')
+          .insert(updateData as Record<string, unknown>);
+        if (error) throw error;
+        return;
+      }
+    }
+    
+    let query = getClient().from('image_assets').update(updateData);
+    if (id) {
+      query = query.eq('id', id as string);
+    } else if (url) {
+      query = query.eq('url', url as string);
+    } else {
+      // Build query from all filter keys
+      for (const [key, value] of Object.entries(filter)) {
+        if (value !== undefined && value !== null) {
+          query = query.eq(key, value);
+        }
+      }
+    }
+    const { error } = await query;
     if (error) throw error;
   },
 
@@ -766,10 +799,15 @@ export interface DatasetEntryDoc {
   collection_name: string;
   collectionName?: string; // camelCase alias
   file_name: string;
+  fileName?: string; // camelCase alias
   url: string;
   prompt?: string;
   promptZh?: string;
+  prompt_zh?: string; // snake_case
   promptEn?: string;
+  prompt_en?: string; // snake_case
+  order?: number;
+  order_idx?: number; // snake_case
   width?: number;
   height?: number;
   format?: string;
@@ -796,9 +834,25 @@ export const DatasetEntryModel = {
   async create(doc: Partial<DatasetEntryDoc>): Promise<DatasetEntryDoc> {
     // Normalize camelCase to snake_case
     const normalizedDoc: Record<string, unknown> = { ...doc } as Record<string, unknown>;
-    if (normalizedDoc.collectionName) {
+    if ('collectionName' in normalizedDoc) {
       normalizedDoc.collection_name = normalizedDoc.collectionName;
       delete normalizedDoc.collectionName;
+    }
+    if ('fileName' in normalizedDoc) {
+      normalizedDoc.file_name = normalizedDoc.fileName;
+      delete normalizedDoc.fileName;
+    }
+    if ('promptZh' in normalizedDoc) {
+      normalizedDoc.prompt_zh = normalizedDoc.promptZh;
+      delete normalizedDoc.promptZh;
+    }
+    if ('promptEn' in normalizedDoc) {
+      normalizedDoc.prompt_en = normalizedDoc.promptEn;
+      delete normalizedDoc.promptEn;
+    }
+    if ('order' in normalizedDoc) {
+      normalizedDoc.order_idx = normalizedDoc.order;
+      delete normalizedDoc.order;
     }
     
     const { data, error } = await getClient()
@@ -812,7 +866,32 @@ export const DatasetEntryModel = {
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
     const updateData = extractUpdateData(update);
+    
+    // Normalize camelCase to snake_case
+    if ('collectionName' in updateData) {
+      updateData.collection_name = updateData.collectionName;
+      delete updateData.collectionName;
+    }
+    if ('fileName' in updateData) {
+      updateData.file_name = updateData.fileName;
+      delete updateData.fileName;
+    }
+    if ('promptZh' in updateData) {
+      updateData.prompt_zh = updateData.promptZh;
+      delete updateData.promptZh;
+    }
+    if ('promptEn' in updateData) {
+      updateData.prompt_en = updateData.promptEn;
+      delete updateData.promptEn;
+    }
+    if ('order' in updateData) {
+      updateData.order_idx = updateData.order;
+      delete updateData.order;
+    }
+    
     const id = filter.id || filter._id;
+    const collectionName = filter.collectionName || filter.collection_name;
+    const fileName = filter.fileName || filter.file_name;
     
     if (options?.upsert) {
       const existing = await this.findOne(filter);
@@ -822,17 +901,35 @@ export const DatasetEntryModel = {
       }
     }
     
-    const { error } = await getClient()
-      .from('dataset_entries')
-      .update(updateData)
-      .eq('id', id as string);
+    let query = getClient().from('dataset_entries').update(updateData);
+    if (id) {
+      query = query.eq('id', id as string);
+    } else if (collectionName && fileName) {
+      query = query.eq('collection_name', collectionName as string).eq('file_name', fileName as string);
+    } else {
+      throw new Error('DatasetEntry updateOne requires id or (collectionName and fileName) in filter');
+    }
+    
+    const { error } = await query;
     if (error) throw error;
     return { modifiedCount: 1 };
   },
 
   async deleteOne(filter: Record<string, unknown>): Promise<void> {
     const id = filter.id || filter._id;
-    const { error } = await getClient().from('dataset_entries').delete().eq('id', id as string);
+    const collectionName = filter.collectionName || filter.collection_name;
+    const fileName = filter.fileName || filter.file_name;
+    
+    let query = getClient().from('dataset_entries').delete();
+    if (id) {
+      query = query.eq('id', id as string);
+    } else if (collectionName && fileName) {
+      query = query.eq('collection_name', collectionName as string).eq('file_name', fileName as string);
+    } else {
+      throw new Error('DatasetEntry deleteOne requires id or (collectionName and fileName) in filter');
+    }
+    
+    const { error } = await query;
     if (error) throw error;
   },
 
@@ -840,7 +937,11 @@ export const DatasetEntryModel = {
     let query = getClient().from('dataset_entries').delete();
     for (const [key, value] of Object.entries(filter)) {
       if (value !== undefined && value !== null) {
-        query = query.eq(key, value);
+        // Normalize filter keys
+        let normalizedKey = key;
+        if (key === 'collectionName') normalizedKey = 'collection_name';
+        if (key === 'fileName') normalizedKey = 'file_name';
+        query = query.eq(normalizedKey, value);
       }
     }
     const { error } = await query;
@@ -849,10 +950,32 @@ export const DatasetEntryModel = {
 
   async updateMany(filter: Record<string, unknown>, update: any): Promise<void> {
     const updateData = extractUpdateData(update);
+    
+    // Normalize camelCase to snake_case
+    if (updateData.collectionName) {
+      updateData.collection_name = updateData.collectionName;
+      delete updateData.collectionName;
+    }
+    if (updateData.fileName) {
+      updateData.file_name = updateData.fileName;
+      delete updateData.fileName;
+    }
+    if (updateData.promptZh) {
+      updateData.prompt_zh = updateData.promptZh;
+      delete updateData.promptZh;
+    }
+    if (updateData.promptEn) {
+      updateData.prompt_en = updateData.promptEn;
+      delete updateData.promptEn;
+    }
+    
     let query = getClient().from('dataset_entries').update(updateData);
     for (const [key, value] of Object.entries(filter)) {
       if (value !== undefined && value !== null) {
-        query = query.eq(key, value);
+        let normalizedKey = key;
+        if (key === 'collectionName') normalizedKey = 'collection_name';
+        if (key === 'fileName') normalizedKey = 'file_name';
+        query = query.eq(normalizedKey, value);
       }
     }
     const { error } = await query;
@@ -860,12 +983,53 @@ export const DatasetEntryModel = {
   },
 
   async insertMany(docs: Array<Partial<DatasetEntryDoc>>): Promise<DatasetEntryDoc[]> {
+    // Normalize all docs
+    const normalizedDocs = docs.map(doc => {
+      const normalizedDoc: Record<string, unknown> = { ...doc } as Record<string, unknown>;
+      if (normalizedDoc.collectionName) {
+        normalizedDoc.collection_name = normalizedDoc.collectionName;
+        delete normalizedDoc.collectionName;
+      }
+      if (normalizedDoc.fileName) {
+        normalizedDoc.file_name = normalizedDoc.fileName;
+        delete normalizedDoc.fileName;
+      }
+      if (normalizedDoc.promptZh) {
+        normalizedDoc.prompt_zh = normalizedDoc.promptZh;
+        delete normalizedDoc.promptZh;
+      }
+      if (normalizedDoc.promptEn) {
+        normalizedDoc.prompt_en = normalizedDoc.promptEn;
+        delete normalizedDoc.promptEn;
+      }
+      if (normalizedDoc.order !== undefined) {
+        normalizedDoc.order_idx = normalizedDoc.order;
+        delete normalizedDoc.order;
+      }
+      return normalizedDoc;
+    });
+    
     const { data, error } = await getClient()
       .from('dataset_entries')
-      .insert(docs as Record<string, unknown>[])
+      .insert(normalizedDocs)
       .select();
     if (error) throw error;
     return (data as DatasetEntryDoc[]) || [];
+  },
+
+  async countDocuments(filter: Record<string, unknown> = {}): Promise<number> {
+    let query = getClient().from('dataset_entries').select('*', { count: 'exact', head: true });
+    for (const [key, value] of Object.entries(filter)) {
+      if (value !== undefined && value !== null) {
+        let normalizedKey = key;
+        if (key === 'collectionName') normalizedKey = 'collection_name';
+        if (key === 'fileName') normalizedKey = 'file_name';
+        query = query.eq(normalizedKey, value);
+      }
+    }
+    const { count, error } = await query;
+    if (error) throw error;
+    return count || 0;
   },
 
   collection: { name: 'dataset_entries' },
@@ -878,7 +1042,10 @@ export interface DatasetCollectionDoc {
   id: string;
   name: string;
   count?: number;
+  order?: string[];
+  order_arr?: string[]; // snake_case alias for DB column
   systemPrompt?: string;
+  system_prompt?: string; // snake_case alias
   created_at?: string;
   updated_at?: string;
 }
@@ -898,9 +1065,20 @@ export const DatasetCollectionModel = {
   },
 
   async create(doc: Partial<DatasetCollectionDoc>): Promise<DatasetCollectionDoc> {
+    // Normalize camelCase to snake_case
+    const normalizedDoc: Record<string, unknown> = { ...doc } as Record<string, unknown>;
+    if (normalizedDoc.order !== undefined) {
+      normalizedDoc.order_arr = normalizedDoc.order;
+      delete normalizedDoc.order;
+    }
+    if (normalizedDoc.systemPrompt !== undefined) {
+      normalizedDoc.system_prompt = normalizedDoc.systemPrompt;
+      delete normalizedDoc.systemPrompt;
+    }
+    
     const { data, error } = await getClient()
       .from('dataset_collections')
-      .insert(doc as Record<string, unknown>)
+      .insert(normalizedDoc)
       .select()
       .single();
     if (error) throw error;
@@ -909,7 +1087,19 @@ export const DatasetCollectionModel = {
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
     const updateData = extractUpdateData(update);
+    
+    // Normalize camelCase to snake_case
+    if (updateData.order !== undefined) {
+      updateData.order_arr = updateData.order;
+      delete updateData.order;
+    }
+    if (updateData.systemPrompt !== undefined) {
+      updateData.system_prompt = updateData.systemPrompt;
+      delete updateData.systemPrompt;
+    }
+    
     const id = filter.id || filter._id;
+    const name = filter.name;
     
     if (options?.upsert) {
       const existing = await this.findOne(filter);
@@ -919,10 +1109,16 @@ export const DatasetCollectionModel = {
       }
     }
     
-    const { error } = await getClient()
-      .from('dataset_collections')
-      .update(updateData)
-      .eq('id', id as string);
+    let query = getClient().from('dataset_collections').update(updateData);
+    if (id) {
+      query = query.eq('id', id as string);
+    } else if (name) {
+      query = query.eq('name', name as string);
+    } else {
+      throw new Error('DatasetCollection updateOne requires id or name in filter');
+    }
+    
+    const { error } = await query;
     if (error) throw error;
     return { modifiedCount: 1 };
   },
