@@ -12,6 +12,20 @@ export function generateId(): string {
   return randomUUID();
 }
 
+// Convert camelCase to snake_case
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+// Convert object keys from camelCase to snake_case
+function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    result[camelToSnake(key)] = value;
+  }
+  return result;
+}
+
 // ==========================================
 // Query Builder for Mongoose-like interface
 // ==========================================
@@ -40,20 +54,18 @@ function createQuery<T>(table: string, client: SupabaseClient): QueryBuilder<T> 
 async function executeQuery<T>(qb: QueryBuilder<T>): Promise<T[]> {
   let query = qb._client.from(qb._table).select(qb._select || '*');
   
-  // Apply filters
+  // Apply filters with camelCase to snake_case conversion
   for (const [key, value] of Object.entries(qb._filter)) {
     if (value !== undefined && value !== null) {
-      if (key === '_id') {
-        query = query.eq('id', value as string);
-      } else {
-        query = query.eq(key, value);
-      }
+      const dbKey = key === '_id' ? 'id' : camelToSnake(key);
+      query = query.eq(dbKey, value);
     }
   }
   
-  // Apply sort
+  // Apply sort with camelCase to snake_case conversion
   for (const [field, order] of Object.entries(qb._sort)) {
-    query = query.order(field, { ascending: order === 1 });
+    const dbField = camelToSnake(field);
+    query = query.order(dbField, { ascending: order === 1 });
   }
   
   // Apply pagination
@@ -73,11 +85,8 @@ async function executeSingle<T>(qb: QueryBuilder<T>): Promise<T | null> {
   
   for (const [key, value] of Object.entries(qb._filter)) {
     if (value !== undefined && value !== null) {
-      if (key === '_id') {
-        query = query.eq('id', value as string);
-      } else {
-        query = query.eq(key, value);
-      }
+      const dbKey = key === '_id' ? 'id' : camelToSnake(key);
+      query = query.eq(dbKey, value);
     }
   }
   
@@ -1016,9 +1025,10 @@ export const InfiniteCanvasProjectModel = {
   },
 
   async create(doc: Partial<InfiniteCanvasProjectDoc>): Promise<InfiniteCanvasProjectDoc> {
+    const snakeDoc = toSnakeCase(doc as Record<string, unknown>);
     const { data, error } = await getClient()
       .from('infinite_canvas_projects')
-      .insert(doc as Record<string, unknown>)
+      .insert(snakeDoc)
       .select()
       .single();
     if (error) throw error;
@@ -1026,7 +1036,7 @@ export const InfiniteCanvasProjectModel = {
   },
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
-    const updateData = extractUpdateData(update);
+    const updateData = toSnakeCase(extractUpdateData(update));
     const id = filter.id || filter._id || filter.projectId;
     
     if (options?.upsert) {
