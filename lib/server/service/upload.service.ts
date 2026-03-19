@@ -52,16 +52,18 @@ export class UploadService {
       dir: 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/upload',
       region: 'SG',
       mimeType: file.type,
+      generateSignedUrl: true, // 生成预签名 URL 用于访问
     });
 
     await this.imageAssetModel.create({
-      url: cdnRes.url,
+      storage_key: cdnRes.storageKey,
+      url: cdnRes.url || '',
       dir: cdnRes.dir,
       fileName: cdnRes.fileName,
       region: 'SG',
       type: 'upload',
     });
 
-    return { path: cdnRes.url };
+    return { path: cdnRes.url || '' };
   }
 }
