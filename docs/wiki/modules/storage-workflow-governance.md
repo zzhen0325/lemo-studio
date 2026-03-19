@@ -3,13 +3,12 @@
 ## 1) Storage and concurrency consistency
 
 ### History API
-- Primary storage: Mongo (`Generation` collection)
+- Primary storage: Supabase (`generations` table)
 - Fallback storage: `public/outputs/history.json` (with atomic tmp rename)
 - Concurrency guard: in-process write queue in `/app/api/history/route.ts`
-- Migration behavior: first successful Mongo read seeds data from legacy history file / outputs sidecar
 
 ### Projects API
-- Primary storage: Mongo (`project_snapshots` collection)
+- Primary storage: Supabase (`project_snapshots` table)
 - Fallback storage: `public/outputs/projects.json` (atomic write)
 - Concurrency guard: in-process write queue in `/app/api/projects/route.ts`
 

@@ -16,9 +16,8 @@
 
 Required env:
 
-- `MONGODB_URI`
-- `MONGODB_DB`
 - `API_CONFIG_ENCRYPTION_KEY`
+- Supabase database is auto-configured via COZE integration
 
 Default recommendation:
 

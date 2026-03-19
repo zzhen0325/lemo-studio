@@ -4,7 +4,7 @@
 
 - Deploy a single Next.js Node service.
 - UI pages and `/api/*` route handlers run inside the same process.
-- MongoDB, CDN, ComfyUI, ViewComfy, and AI providers remain external dependencies configured by env vars.
+- Supabase (via COZE integration), Object Storage (via COZE integration), ComfyUI, ViewComfy, and AI providers remain external dependencies configured by env vars.
 
 ## Build And Start
 
@@ -26,10 +26,8 @@
 
 ## Required Env
 
-- `MONGODB_URI`
-- `MONGODB_DB`
 - `API_CONFIG_ENCRYPTION_KEY`
-- `CONSUL_HTTP_HOST` when `MONGODB_URI` uses an internal Byted discovery scheme and the runtime does not inject consul routing automatically
+- Supabase database is auto-configured via COZE integration
 
 Optional but commonly used:
 
@@ -72,8 +70,3 @@ Helper script:
 
 - Cause: server-side helpers cannot resolve `/upload/*` or `/outputs/*`
 - Fix: set `NEXT_PUBLIC_BASE_URL=https://<frontend-domain>`
-
-### Internal Mongo Discovery Fails
-
-- Cause: `MONGODB_URI` uses an internal Byted discovery scheme such as `mongodb+consul+token://...` but the runtime lacks consul routing
-- Fix: inject `CONSUL_HTTP_HOST` (and optionally `CONSUL_HTTP_PORT`) or provide `SERVICE_MESH_MONGO_ADDR`

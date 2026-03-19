@@ -104,9 +104,6 @@ const legacyStudioRouteRedirects = [
 const serverExternalPackages = [
   '@napi-rs/snappy-darwin-arm64',
   'snappy',
-  'mongoose',
-  'mongodb',
-  '@typegoose/typegoose',
   'node-unix-socket',
   'node-unix-socket-darwin-arm64',
 ];

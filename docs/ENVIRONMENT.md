@@ -22,17 +22,9 @@
 
 ## Server Required
 
-- `MONGODB_URI`
-  - Required in production.
-  - Supports standard `mongodb://` / `mongodb+srv://` URIs and internal Byted schemes such as `mongodb+consul+token://...`.
-- `MONGODB_DB`
-  - Optional when the URI already includes a database name.
 - `API_CONFIG_ENCRYPTION_KEY`
   - Secret used to encrypt stored provider API keys.
-- `CONSUL_HTTP_HOST`
-  - Optional for local development when `MONGODB_URI` uses internal Byted service-discovery schemes and your machine cannot resolve consul automatically.
-- `CONSUL_HTTP_PORT`
-  - Optional override for the consul agent port. Defaults to `2280`.
+- Supabase database is auto-configured via COZE integration.
 
 ## AI Providers
 
@@ -80,4 +72,3 @@
 - Client code should default to same-origin `/api/*`.
 - Do not depend on `GULUX_API_BASE` or `INTERNAL_API_BASE`; those paths are retired.
 - For local development, prefer `npm run dev` over editing `.env.local`.
-- If `MONGODB_URI` uses an internal Byted discovery scheme and requests hang or fail with consul lookup errors, set `CONSUL_HTTP_HOST` before starting the Next server.
