@@ -1281,6 +1281,182 @@ export const InfiniteCanvasProjectModel = {
 };
 
 // ==========================================
+// Playground Shortcut Model - 首页快捷入口
+// ==========================================
+
+/**
+ * Prompt 字段定义
+ */
+export interface PromptFieldDefinition {
+  key: string; // 字段 key
+  label: string; // 显示名称
+  type: 'text' | 'textarea' | 'select' | 'number'; // 字段类型
+  required?: boolean; // 是否必填
+  placeholder?: string; // 占位提示
+  defaultValue?: string | number; // 默认值
+  options?: string[]; // select 类型的选项
+  order?: number; // 排序
+}
+
+/**
+ * Playground Shortcut 文档类型
+ */
+export interface PlaygroundShortcutDoc {
+  id: string;
+  // 基础信息
+  code: string; // 唯一标识
+  name: string; // 显示名称
+  sort_order?: number; // 排序权重
+  is_enabled?: boolean; // 启用状态
+  
+  // 封面信息
+  cover_title?: string; // 封面标题
+  cover_subtitle?: string; // 封面副标题
+  cover_storage_key?: string; // 封面图对象存储 key
+  cover_url?: string; // 封面图 URL
+  
+  // 模型配置
+  model_id?: string; // 绑定模型 ID
+  default_aspect_ratio?: string; // 默认比例
+  default_width?: number; // 默认宽度
+  default_height?: number; // 默认高度
+  allow_model_change?: boolean; // 是否允许改模型
+  
+  // Prompt 模板
+  prompt_template?: string; // 模板正文
+  prompt_fields?: PromptFieldDefinition[]; // 字段定义
+  prompt_config?: Record<string, unknown>; // 其他配置
+  
+  // 详情内容
+  moodboard_description?: string; // moodboard 说明
+  example_prompts?: string[]; // 示例 prompt 列表
+  gallery_order?: string[]; // 图集顺序（image asset IDs）
+  
+  // 运营信息
+  creator?: string; // 创建人
+  publish_status?: 'draft' | 'published' | 'archived'; // 发布状态
+  published_at?: string; // 发布时间
+  
+  // 时间戳
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const PlaygroundShortcutModel = {
+  find(filter: Record<string, unknown> = {}): any {
+    const qb = createQuery<PlaygroundShortcutDoc>('playground_shortcuts', getClient());
+    qb._filter = { ...filter };
+    return createQueryable(qb);
+  },
+
+  findOne(filter: Record<string, unknown>): any {
+    const qb = createQuery<PlaygroundShortcutDoc>('playground_shortcuts', getClient());
+    qb._filter = { ...filter };
+    qb._single = true;
+    return createQueryable(qb);
+  },
+
+  async findById(id: string): Promise<PlaygroundShortcutDoc | null> {
+    const { data, error } = await getClient()
+      .from('playground_shortcuts')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as PlaygroundShortcutDoc | null;
+  },
+
+  async findByCode(code: string): Promise<PlaygroundShortcutDoc | null> {
+    const { data, error } = await getClient()
+      .from('playground_shortcuts')
+      .select('*')
+      .eq('code', code)
+      .maybeSingle();
+    if (error) throw error;
+    return data as PlaygroundShortcutDoc | null;
+  },
+
+  async create(doc: Partial<PlaygroundShortcutDoc>): Promise<PlaygroundShortcutDoc> {
+    const { data, error } = await getClient()
+      .from('playground_shortcuts')
+      .insert(doc as Record<string, unknown>)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as PlaygroundShortcutDoc;
+  },
+
+  async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
+    const updateData = extractUpdateData(update);
+    const id = filter.id || filter._id;
+    const code = filter.code;
+    
+    if (options?.upsert) {
+      const existing = await this.findOne(filter);
+      if (!existing) {
+        await this.create({ ...updateData, id: id as string });
+        return { modifiedCount: 1 };
+      }
+    }
+    
+    let query = getClient().from('playground_shortcuts').update(updateData);
+    if (id) {
+      query = query.eq('id', id as string);
+    } else if (code) {
+      query = query.eq('code', code as string);
+    } else {
+      throw new Error('PlaygroundShortcut updateOne requires id or code in filter');
+    }
+    
+    const { error } = await query;
+    if (error) throw error;
+    return { modifiedCount: 1 };
+  },
+
+  async deleteOne(filter: Record<string, unknown>): Promise<void> {
+    const id = filter.id || filter._id;
+    const code = filter.code;
+    
+    let query = getClient().from('playground_shortcuts').delete();
+    if (id) {
+      query = query.eq('id', id as string);
+    } else if (code) {
+      query = query.eq('code', code as string);
+    } else {
+      throw new Error('PlaygroundShortcut deleteOne requires id or code in filter');
+    }
+    
+    const { error } = await query;
+    if (error) throw error;
+  },
+
+  async findEnabled(): Promise<PlaygroundShortcutDoc[]> {
+    const { data, error } = await getClient()
+      .from('playground_shortcuts')
+      .select('*')
+      .eq('is_enabled', true)
+      .eq('publish_status', 'published')
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return (data as PlaygroundShortcutDoc[]) || [];
+  },
+
+  async countDocuments(filter: Record<string, unknown> = {}): Promise<number> {
+    let query = getClient().from('playground_shortcuts').select('*', { count: 'exact', head: true });
+    for (const [key, value] of Object.entries(filter)) {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
+    }
+    const { count, error } = await query;
+    if (error) throw error;
+    return count || 0;
+  },
+
+  collection: { name: 'playground_shortcuts' },
+};
+
+// ==========================================
 // Legacy type aliases for backward compatibility
 // ==========================================
 
@@ -1295,6 +1471,7 @@ export type DatasetEntry = DatasetEntryDoc;
 export type DatasetCollection = DatasetCollectionDoc;
 export type User = UserDoc;
 export type InfiniteCanvasProject = InfiniteCanvasProjectDoc;
+export type PlaygroundShortcut = PlaygroundShortcutDoc;
 
 // Model aliases for DI token compatibility
 export const Generation = GenerationModel;
@@ -1307,3 +1484,4 @@ export const DatasetEntry = DatasetEntryModel;
 export const DatasetCollection = DatasetCollectionModel;
 export const User = UserModel;
 export const InfiniteCanvasProject = InfiniteCanvasProjectModel;
+export const PlaygroundShortcut = PlaygroundShortcutModel;

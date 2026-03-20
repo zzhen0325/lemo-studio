@@ -154,3 +154,53 @@ export const users = pgTable("users", {
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 	password: varchar({ length: 255 }),
 });
+
+// ==========================================
+// Playground Shortcuts - 首页快捷入口配置表
+// ==========================================
+export const playgroundShortcuts = pgTable("playground_shortcuts", {
+	// 基础信息
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	code: varchar({ length: 64 }).notNull(), // 唯一标识，如 "lemo", "us-kv", "sea-kv"
+	name: varchar({ length: 255 }).notNull(), // 显示名称
+	sortOrder: integer("sort_order").default(0), // 排序权重
+	isEnabled: boolean("is_enabled").default(true), // 启用状态
+
+	// 封面信息
+	coverTitle: varchar("cover_title", { length: 255 }), // 封面标题
+	coverSubtitle: varchar("cover_subtitle", { length: 500 }), // 封面副标题
+	coverStorageKey: text("cover_storage_key"), // 封面图对象存储 key
+	coverUrl: text("cover_url"), // 封面图 URL（可选，可动态生成）
+
+	// 模型配置
+	modelId: varchar("model_id", { length: 128 }), // 绑定模型 ID
+	defaultAspectRatio: varchar("default_aspect_ratio", { length: 32 }), // 默认比例 (如 "1:1", "16:9")
+	defaultWidth: integer("default_width"), // 默认宽度
+	defaultHeight: integer("default_height"), // 默认高度
+	allowModelChange: boolean("allow_model_change").default(true), // 是否允许改模型
+
+	// Prompt 模板
+	promptTemplate: text("prompt_template"), // 模板正文
+	promptFields: jsonb("prompt_fields"), // 字段定义 JSON
+	promptConfig: jsonb("prompt_config"), // 其他 prompt 配置 JSON
+
+	// 详情内容
+	moodboardDescription: text("moodboard_description"), // moodboard 说明
+	examplePrompts: jsonb("example_prompts"), // 示例 prompt 列表 JSON
+	galleryOrder: jsonb("gallery_order"), // 图集顺序（存储 image asset IDs）JSON
+
+	// 运营信息
+	creator: varchar({ length: 255 }), // 创建人
+	publishStatus: varchar("publish_status", { length: 32 }).default('draft'), // 发布状态: draft, published, archived
+	publishedAt: timestamp("published_at", { withTimezone: true, mode: 'string' }), // 发布时间
+
+	// 时间戳
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("playground_shortcuts_code_unique").on(table.code),
+	index("playground_shortcuts_code_idx").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	index("playground_shortcuts_sort_order_idx").using("btree", table.sortOrder.asc().nullsLast().op("int4_ops")),
+	index("playground_shortcuts_is_enabled_idx").using("btree", table.isEnabled.asc().nullsLast().op("bool_ops")),
+	index("playground_shortcuts_publish_status_idx").using("btree", table.publishStatus.asc().nullsLast().op("text_ops")),
+]);
