@@ -78,6 +78,7 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
                 size="sm"
                 onQuickApply={handleQuickApply}
                 onViewDetail={handleViewDetail}
+                onPreviewImage={onPreviewImage}
               />
             </div>
           ))}

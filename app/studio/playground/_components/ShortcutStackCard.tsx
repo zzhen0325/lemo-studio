@@ -14,6 +14,7 @@ interface ShortcutStackCardProps {
   moodboard?: StyleStack | null;
   onQuickApply: (shortcut: PlaygroundShortcut) => void;
   onViewDetail: (shortcut: PlaygroundShortcut) => void;
+  onPreviewImage?: (shortcut: PlaygroundShortcut, imageIndex: number) => void;
   size?: 'sm' | 'md';
 }
 
@@ -22,6 +23,7 @@ export function ShortcutStackCard({
   moodboard,
   onQuickApply,
   onViewDetail,
+  onPreviewImage,
   size = 'md',
 }: ShortcutStackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -94,6 +96,19 @@ export function ShortcutStackCard({
               damping: 25,
               mass: 1.2,
             }}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (onPreviewImage) {
+                // 计算原始图片索引
+                const originalIndex = galleryImages.indexOf(imagePath);
+                if (originalIndex !== -1) {
+                  onPreviewImage(shortcut, originalIndex);
+                  return;
+                }
+              }
+              onViewDetail(shortcut);
+            }}
+            style={{ cursor: onPreviewImage ? 'zoom-in' : 'pointer' }}
           >
             <NextImage
               src={imagePath}
