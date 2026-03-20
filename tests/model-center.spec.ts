@@ -93,7 +93,7 @@ describe('model-center', () => {
           },
           {
             modelId: 'seed4_v2_0226lemo',
-            displayName: 'Seed4.2 Lemo',
+            displayName: 'Lemo Seed',
             task: ['image'],
           },
           {

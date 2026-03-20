@@ -128,8 +128,8 @@ export function PlaygroundDockSidebar({
       />
       <SidebarItem
         icon={<Palette className="w-5 h-5" />}
-        label="Styles"
-        tooltipContent="Styles"
+        label="Moodboards"
+        tooltipContent="Moodboards"
         tooltipSide={tooltipSide}
         className={getButtonStyle(activeTab === "style")}
         onClick={onStyle}

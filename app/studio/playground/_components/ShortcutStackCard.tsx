@@ -7,9 +7,11 @@ import { Sparkles, PanelsTopLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { type PlaygroundShortcut } from '@/config/playground-shortcuts';
+import type { StyleStack } from './types';
 
 interface ShortcutStackCardProps {
   shortcut: PlaygroundShortcut;
+  moodboard?: StyleStack | null;
   onQuickApply: (shortcut: PlaygroundShortcut) => void;
   onViewDetail: (shortcut: PlaygroundShortcut) => void;
   size?: 'sm' | 'md';
@@ -17,17 +19,24 @@ interface ShortcutStackCardProps {
 
 export function ShortcutStackCard({
   shortcut,
+  moodboard,
   onQuickApply,
   onViewDetail,
   size = 'md',
 }: ShortcutStackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isSmall = size === 'sm';
-  const displayImages = shortcut.imagePaths.slice(-3).reverse();
+  const galleryImages = moodboard?.imagePaths?.length ? moodboard.imagePaths : shortcut.imagePaths;
+  const displayImages = galleryImages.slice(-3).reverse();
+  const collapsedOffset = isSmall ? 24 : 50;
+  const expandedOffset = isSmall ? 72 : 160;
 
   return (
     <div
-      className="group relative flex cursor-pointer flex-col gap-4 rounded-[2rem] p-4 transition-all"
+      className={cn(
+        'group relative flex cursor-pointer flex-col rounded-[2rem] transition-all',
+        isSmall ? 'gap-3 p-3' : 'gap-4 p-4'
+      )}
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
       onClick={() => onViewDetail(shortcut)}
@@ -35,18 +44,18 @@ export function ShortcutStackCard({
       <div className="absolute -top-12 left-1/2 z-[30] flex -translate-x-1/2 gap-2 opacity-0 transition-all duration-300 group-hover:-translate-y-2 group-hover:opacity-100">
         <Button
           size="sm"
-          className="h-9 rounded-full border border-[#E8FFB7]/30 bg-[#0D0F11]/92 px-4 text-white shadow-2xl transition-all hover:bg-[#15181C] hover:border-[#E8FFB7]/50"
+          className="h-9 rounded-full border border-white/10 bg-black/40 backdrop-blur-md px-4 text-white shadow-2xl transition-all hover:bg-[#15181C] hover:border-[#E8FFB7]/50"
           onClick={(event) => {
             event.stopPropagation();
             onQuickApply(shortcut);
           }}
         >
-          <Sparkles size={14} className="mr-1.5 text-[#E8FFB7]" />
-          快速生成
+          <Sparkles size={14} className="mr-1.5 text-white" />
+          快速应用
         </Button>
         <Button
           size="sm"
-          className="h-9 rounded-full border border-white/10 bg-neutral-900/90 px-4 text-white shadow-2xl transition-all hover:border-white/20 hover:bg-neutral-800"
+          className="h-9 rounded-full border border-white/10 bg-black/40  backdrop-blur-md px-4 text-white shadow-2xl transition-all hover:border-white/20 hover:bg-neutral-800"
           onClick={(event) => {
             event.stopPropagation();
             onViewDetail(shortcut);
@@ -60,21 +69,21 @@ export function ShortcutStackCard({
       <div
         className={cn(
           'relative flex w-full items-center justify-center perspective-1000',
-          isSmall ? 'h-[140px] min-w-[140px]' : 'h-[200px]'
+          isSmall ? 'h-[clamp(112px,14vw,140px)] min-w-0' : 'h-[200px]'
         )}
       >
         {displayImages.map((imagePath, index) => (
           <motion.div
             key={`${shortcut.id}-${imagePath}-${index}`}
             className={cn(
-              'absolute overflow-hidden rounded-2xl border border-white/20 bg-neutral-900 shadow-xl',
-              isSmall ? 'h-[140px] w-28' : 'h-[200px] w-40'
+              'absolute overflow-hidden rounded-2xl border border-white/20 bg-none shadow-xl',
+              isSmall ? 'h-[clamp(112px,14vw,140px)] w-[clamp(84px,11vw,112px)]' : 'h-[200px] w-40'
             )}
             initial={false}
             animate={{
               x: isExpanded
-                ? (index - (displayImages.length - 1) / 2) * (isSmall ? 100 : 160)
-                : (index - (displayImages.length - 1) / 2) * (isSmall ? 30 : 50),
+                ? (index - (displayImages.length - 1) / 2) * expandedOffset
+                : (index - (displayImages.length - 1) / 2) * collapsedOffset,
               y: isExpanded ? (isSmall ? -10 : -20) : index * -4,
               rotate: isExpanded ? (index - (displayImages.length - 1) / 2) * 10 : (index - (displayImages.length - 1) / 2) * 5,
               zIndex: 10 - index,
@@ -90,7 +99,7 @@ export function ShortcutStackCard({
               src={imagePath}
               alt={`${shortcut.name} cover ${index + 1}`}
               fill
-              sizes={isSmall ? '160px' : '220px'}
+              sizes={isSmall ? '(max-width: 1280px) 96px, 112px' : '220px'}
               className="object-cover transition-transform duration-700 group-hover:scale-110"
             />
           </motion.div>
@@ -102,20 +111,20 @@ export function ShortcutStackCard({
           <h3
             className={cn(
               'w-full truncate text-center font-semibold text-white transition-all duration-300',
-              isSmall ? 'text-base' : 'text-lg'
+              isSmall ? 'text-[clamp(0.875rem,1vw,1rem)]' : 'text-lg'
             )}
           >
-            {shortcut.name}
+            {moodboard?.name || shortcut.name}
           </h3>
           <p
             className={cn(
               'mt-1 w-full text-center text-white/48 transition-all duration-300',
-              isSmall ? 'line-clamp-2 text-[10px] min-h-[1.5rem]' : 'min-h-[2.5rem] text-sm'
+              isSmall ? 'line-clamp-2 min-h-[1.5rem] text-[clamp(9px,0.7vw,10px)]' : 'min-h-[2.5rem] text-sm'
             )}
           >
             {shortcut.description}
           </p>
-          <span className="mt-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55">
+          <span className="mt-2 max-w-full truncate rounded-full border border-white/10 bg-black/15 px-3 py-1 text-[clamp(9px,0.75vw,11px)] text-white/75">
             {shortcut.modelLabel}
           </span>
         </div>

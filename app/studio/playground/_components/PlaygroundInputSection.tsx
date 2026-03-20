@@ -106,6 +106,8 @@ export interface PlaygroundInputSectionProps {
     customAspectRatioLabel?: string;
     disableImageUpload?: boolean;
     disableModelSelection?: boolean;
+    activeShortcutName?: string;
+    onClearShortcutTemplate?: () => void;
     shortcutTemplate?: {
         shortcut: PlaygroundShortcut;
         values: ShortcutPromptValues;
@@ -169,6 +171,8 @@ export function PlaygroundInputSection({
     customAspectRatioLabel,
     disableImageUpload = false,
     disableModelSelection = false,
+    activeShortcutName,
+    onClearShortcutTemplate,
     shortcutTemplate,
     onShortcutTemplateFieldChange,
     onExitShortcutTemplate,
@@ -524,6 +528,8 @@ export function PlaygroundInputSection({
                         customAspectRatioLabel={customAspectRatioLabel}
                         uploadedImages={uploadedImages}
                         disableModelSelection={disableModelSelection}
+                        activeShortcutName={activeShortcutName}
+                        onClearShortcutTemplate={onClearShortcutTemplate}
                     />
                 </div>
             </div>

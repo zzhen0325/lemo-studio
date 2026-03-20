@@ -1,6 +1,5 @@
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import ColorBends from "@/components/visual-effects/ColorBends";
-import ColorBendsNoise from "@/components/visual-effects/ColorBendsNoise";
 
 const HOME_GRADIENT_STOPS = [
   { position: 0, color: "#0F0F15" },
@@ -12,6 +11,7 @@ const HOME_GRADIENT_STOPS = [
   { position: 0.8, color: "#1079BB" },
   { position: 1, color: "#0F0F15" },
 ];
+const HOME_BACKGROUND_SCENE_ASPECT = 16 / 9;
 
 export function PlaygroundBackground() {
   const showHistory = usePlaygroundStore(s => s.showHistory);
@@ -45,6 +45,7 @@ export function PlaygroundBackground() {
             backgroundGradientRotation={180}
             backgroundDistortion={18}
             backgroundBlend={0.12}
+            sceneAspectRatio={HOME_BACKGROUND_SCENE_ASPECT}
           />
 
 

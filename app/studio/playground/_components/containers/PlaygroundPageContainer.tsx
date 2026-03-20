@@ -42,6 +42,7 @@ import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
 import { Image as ImageIcon } from "lucide-react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
+import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { useMediaQuery } from "@/hooks/common/use-media-query";
 import { PresetGridOverlay } from "@studio/playground/_components/PresetGridOverlay";
 import { PlaygroundBackground } from "@studio/playground/_components/PlaygroundBackground";
@@ -56,6 +57,7 @@ import {
   buildShortcutPrompt,
   createShortcutPromptValues,
   getShortcutMissingFields,
+  getShortcutMoodboardId,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
 } from "@/config/playground-shortcuts";
@@ -120,6 +122,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const applyModel = usePlaygroundStore(s => s.applyModel);
   const addStyle = usePlaygroundStore(s => s.addStyle);
+  const styles = usePlaygroundStore(s => s.styles);
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
   const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
@@ -189,6 +192,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const [pendingPresetEditConfig, setPendingPresetEditConfig] = useState<EditPresetConfig | undefined>(undefined);
   const [bannerSessionHistory, setBannerSessionHistory] = useState<BannerSessionHistoryItem[]>([]);
   const [activeShortcutTemplate, setActiveShortcutTemplate] = useState<ActiveShortcutTemplate | null>(null);
+  const [shortcutPreviewResults, setShortcutPreviewResults] = useState<Generation[]>([]);
+  const [selectedShortcutPreviewResult, setSelectedShortcutPreviewResult] = useState<Generation | undefined>(undefined);
   const activeShortcutTemplateRef = useRef<ActiveShortcutTemplate | null>(null);
 
 
@@ -206,7 +211,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setPreviewImage,
     selectedHistoryIds
   } = usePlaygroundStore();
+  const apiConfigSettings = useAPIConfigStore(s => s.settings);
   const enterBannerMode = usePlaygroundStore(s => s.enterBannerMode);
+  const defaultImageModelId = apiConfigSettings.services?.imageGeneration?.binding?.modelId
+    || apiConfigSettings.defaults?.image?.textToImage?.binding?.modelId
+    || "gemini-3-pro-image-preview";
 
   useEffect(() => {
     activeShortcutTemplateRef.current = activeShortcutTemplate;
@@ -541,6 +550,22 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       'unknown';
     return `preview-${identity}`;
   }, [selectedResult]);
+  const selectedShortcutPreviewKey = useMemo(() => {
+    if (!selectedShortcutPreviewResult) return 'shortcut-preview-none';
+    const identity =
+      selectedShortcutPreviewResult.id?.trim()
+      || selectedShortcutPreviewResult.outputUrl?.trim()
+      || 'unknown';
+    return `shortcut-preview-${identity}`;
+  }, [selectedShortcutPreviewResult]);
+  const shortcutPreviewCurrentIndex = useMemo(() => (
+    selectedShortcutPreviewResult
+      ? shortcutPreviewResults.findIndex((result) => result.id === selectedShortcutPreviewResult.id)
+      : -1
+  ), [selectedShortcutPreviewResult, shortcutPreviewResults]);
+  const shortcutPreviewHasPrev = shortcutPreviewCurrentIndex > 0;
+  const shortcutPreviewHasNext =
+    shortcutPreviewCurrentIndex !== -1 && shortcutPreviewCurrentIndex < shortcutPreviewResults.length - 1;
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
@@ -786,7 +811,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (uploads.length === 0) return;
 
-    toast({ title: "正在上传图片", description: `正在为新风格处理 ${uploads.length} 张图片...` });
+    toast({ title: "正在上传图片", description: `正在为新情绪板处理 ${uploads.length} 张图片...` });
 
     try {
       const uploadPromises = uploads.map(async (file) => {
@@ -802,14 +827,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
       const newStyle = {
         id: uuidv4(),
-        name: `新风格 ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        name: `新情绪板 ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         prompt: '',
         imagePaths,
         updatedAt: new Date().toISOString()
       };
 
       await addStyle(newStyle);
-      toast({ title: "风格创建成功", description: `已成功创建新风格并包含 ${uploads.length} 张图片` });
+      toast({ title: "情绪板创建成功", description: `已成功创建新情绪板并包含 ${uploads.length} 张图片` });
     } catch (error) {
       console.error("Failed to upload images for new style", error);
       toast({
@@ -871,6 +896,66 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     });
   }, [applyModel, config.height, config.width, setSelectedPresetName, setSelectedWorkflowConfig, toast]);
 
+  const buildShortcutPreviewResults = useCallback((shortcut: PlaygroundShortcut): Generation[] => {
+    const shortcutMoodboard = styles.find((style) => style.id === getShortcutMoodboardId(shortcut.id));
+    const values = createShortcutPromptValues(shortcut);
+    const prompt = shortcutMoodboard?.prompt || buildShortcutPrompt(shortcut, values);
+    const previewImages = shortcutMoodboard?.imagePaths?.length ? shortcutMoodboard.imagePaths : shortcut.imagePaths;
+    const dimensions = AR_MAP[shortcut.aspectRatio]?.[shortcut.imageSize] || {
+      w: config.width || 1024,
+      h: config.height || 1024,
+    };
+
+    return previewImages.map((imagePath, index) => ({
+      id: `shortcut-preview-${shortcut.id}-${index}`,
+      userId: effectiveUserId,
+      projectId: 'shortcut-preview',
+      outputUrl: imagePath,
+      config: {
+        prompt,
+        model: shortcut.model,
+        baseModel: shortcut.model,
+        width: dimensions.w,
+        height: dimensions.h,
+        imageSize: shortcut.imageSize,
+        aspectRatio: shortcut.aspectRatio,
+        loras: [],
+        presetName: undefined,
+        workflowName: shortcutMoodboard?.name || shortcut.name,
+        isPreset: false,
+        isEdit: false,
+        editConfig: undefined,
+        generationMode: 'playground',
+      },
+      status: 'completed',
+      createdAt: shortcutMoodboard?.updatedAt || '',
+    }));
+  }, [config.height, config.width, effectiveUserId, styles]);
+
+  const handleShortcutPreviewOpen = useCallback((shortcut: PlaygroundShortcut, imageIndex: number) => {
+    const previewResults = buildShortcutPreviewResults(shortcut);
+    setShortcutPreviewResults(previewResults);
+    setSelectedShortcutPreviewResult(previewResults[imageIndex] || previewResults[0]);
+  }, [buildShortcutPreviewResults]);
+
+  const handleShortcutPreviewClose = useCallback(() => {
+    setSelectedShortcutPreviewResult(undefined);
+  }, []);
+
+  const handleShortcutPreviewNext = useCallback(() => {
+    if (!shortcutPreviewHasNext) return;
+    setSelectedShortcutPreviewResult(shortcutPreviewResults[shortcutPreviewCurrentIndex + 1]);
+  }, [shortcutPreviewCurrentIndex, shortcutPreviewHasNext, shortcutPreviewResults]);
+
+  const handleShortcutPreviewPrev = useCallback(() => {
+    if (!shortcutPreviewHasPrev) return;
+    setSelectedShortcutPreviewResult(shortcutPreviewResults[shortcutPreviewCurrentIndex - 1]);
+  }, [shortcutPreviewCurrentIndex, shortcutPreviewHasPrev, shortcutPreviewResults]);
+
+  const handleShortcutPreviewSelect = useCallback((result: Generation) => {
+    setSelectedShortcutPreviewResult(result);
+  }, []);
+
   const handleShortcutTemplateFieldChange = useCallback((fieldId: string, value: string) => {
     const current = activeShortcutTemplateRef.current;
     if (!current) {
@@ -894,6 +979,24 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const handleExitShortcutTemplate = useCallback(() => {
     setActiveShortcutTemplate(null);
   }, []);
+
+  const handleClearShortcutTemplate = useCallback(() => {
+    setActiveShortcutTemplate(null);
+    setSelectedPresetName(undefined);
+    setSelectedWorkflowConfig(undefined);
+    applyModel(defaultImageModelId, {
+      prompt: "",
+      model: defaultImageModelId,
+      baseModel: defaultImageModelId,
+      loras: [],
+      presetName: undefined,
+      workflowName: undefined,
+      isPreset: false,
+      isEdit: false,
+      editConfig: undefined,
+      generationMode: "playground",
+    });
+  }, [applyModel, defaultImageModelId, setSelectedPresetName, setSelectedWorkflowConfig]);
 
   const handlePromptGenerate = useCallback(() => {
     const current = activeShortcutTemplateRef.current;
@@ -1439,6 +1542,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsDraggingOver,
     setIsDraggingOverPanel,
     onReorderImages: setUploadedImages,
+    activeShortcutName: activeShortcutTemplate?.shortcut.name,
+    onClearShortcutTemplate: handleClearShortcutTemplate,
     shortcutTemplate: activeShortcutTemplate
       ? {
         shortcut: activeShortcutTemplate.shortcut,
@@ -1461,7 +1566,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
     setUploadedImages, activeShortcutTemplate, handleShortcutTemplateFieldChange,
-    handleExitShortcutTemplate
+    handleExitShortcutTemplate, handleClearShortcutTemplate
   ]);
   return (
     <DndContext
@@ -1687,7 +1792,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && (
               <div className="absolute bottom-0 w-full overflow-visible z-50">
-                <StylesMarquee onQuickApply={handleShortcutQuickApply} />
+                <StylesMarquee
+                  onQuickApply={handleShortcutQuickApply}
+                  onPreviewImage={handleShortcutPreviewOpen}
+                />
               </div>
             )}
 
@@ -1740,6 +1848,20 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           hasNext={hasNext}
           hasPrev={hasPrev}
           onRegenerate={handleRegenerate}
+        />
+
+        <ImagePreviewModal
+          key={selectedShortcutPreviewKey}
+          isOpen={Boolean(selectedShortcutPreviewResult)}
+          onClose={handleShortcutPreviewClose}
+          result={selectedShortcutPreviewResult}
+          results={shortcutPreviewResults}
+          currentIndex={shortcutPreviewCurrentIndex}
+          onSelectResult={handleShortcutPreviewSelect}
+          onNext={handleShortcutPreviewNext}
+          onPrev={handleShortcutPreviewPrev}
+          hasNext={shortcutPreviewHasNext}
+          hasPrev={shortcutPreviewHasPrev}
         />
 
         <ImageEditDialog

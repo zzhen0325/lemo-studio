@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { StyleStack } from './types';
-import { Plus, Sparkles, Image as ImageIcon, Trash2, Edit3, Settings2 } from 'lucide-react';
+import { Plus, Sparkles, Image as ImageIcon, Trash2, Edit3, Settings2, Wand2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { cn } from '@/lib/utils';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -11,6 +11,11 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/common/use-toast';
 import { formatImageUrl } from '@/lib/api-base';
 import { useImageSource } from '@/hooks/common/use-image-source';
+import {
+    buildShortcutPrompt,
+    createShortcutPromptValues,
+    getShortcutByMoodboardId,
+} from '@/config/playground-shortcuts';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -47,6 +52,10 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     const isSmall = size === 'sm';
     const isGridLg = size === 'grid-lg';
     const [isExpanded, setIsExpanded] = useState(false);
+    const linkedShortcut = getShortcutByMoodboardId(style.id);
+    const promptTemplate = linkedShortcut
+        ? buildShortcutPrompt(linkedShortcut, createShortcutPromptValues(linkedShortcut))
+        : '';
 
     // Get up to 3 images for the stack
     const displayImages = style.imagePaths.slice(-3).reverse();
@@ -66,11 +75,27 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
         >
             {/* Quick Actions Hover Buttons */}
             <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:-translate-y-2 z-[30] pointer-events-auto">
+                {linkedShortcut && (
+                    <Button
+                        size="sm"
+                        className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-[#E8FFB7]/40 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            applyPrompt(promptTemplate);
+                            toast({ title: "Template Applied", description: `${linkedShortcut.name} 的 prompt 模版已应用` });
+                        }}
+                    >
+                        <Wand2 size={14} className="text-[#E8FFB7] group-hover/btn:rotate-6 transition-transform" />
+                        <span className="text-[11px] uppercase tracking-wider font-bold">Apply Template</span>
+                    </Button>
+                )}
                 <Button
                     size="sm"
+                    disabled={!style.prompt}
                     className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-purple-500/50 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
                     onClick={(e) => {
                         e.stopPropagation();
+                        if (!style.prompt) return;
                         applyPrompt(style.prompt);
                     }}
                 >
@@ -83,12 +108,12 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                         className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-blue-500/50 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
                         onClick={(e) => {
                             e.stopPropagation();
-                            const pathToApply = style.collageImageUrl || style.imagePaths[0];
+                            const pathToApply = style.imagePaths[0] || style.collageImageUrl;
                             if (pathToApply) {
                                 applyImage(pathToApply);
                                 toast({
-                                    title: style.collageImageUrl ? "Collage Added" : "Image Added",
-                                    description: style.collageImageUrl ? "风格拼合图已添加为参考图" : "风格图片已添加为参考图"
+                                    title: "Image Added",
+                                    description: "情绪板图片已添加为参考图"
                                 });
                             }
                         }}
@@ -112,32 +137,34 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                             <Settings2 size={16} />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-32 bg-neutral-900/90 border-white/10 backdrop-blur-xl rounded-xl">
-                        <DropdownMenuItem
-                            className="gap-2 text-white/70 focus:text-white focus:bg-white/10 rounded-lg cursor-pointer"
+                        <DropdownMenuContent align="end" className="w-32 bg-neutral-900/90 border-white/10 backdrop-blur-xl rounded-xl">
+                            <DropdownMenuItem
+                                className="gap-2 text-white/70 focus:text-white focus:bg-white/10 rounded-lg cursor-pointer"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onClick?.(); // Open detail which serves as edit
                             }}
-                        >
-                            <Edit3 size={14} />
-                            编辑
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            className="gap-2 text-red-400 focus:text-red-300 focus:bg-red-400/10 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm('确定要删除这个风格吗？')) {
-                                    deleteStyle(style.id);
-                                }
-                            }}
-                        >
-                            <Trash2 size={14} />
-                            删除
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+                            >
+                                <Edit3 size={14} />
+                                管理
+                            </DropdownMenuItem>
+                            {!linkedShortcut && (
+                                <DropdownMenuItem
+                                    className="gap-2 text-red-400 focus:text-red-300 focus:bg-red-400/10 rounded-lg cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm('确定要删除这个情绪板吗？')) {
+                                            deleteStyle(style.id);
+                                        }
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                    删除
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
 
             {/* Image Stack Container */}
             <div className={cn(
@@ -190,16 +217,23 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
             {/* Info & Actions */}
             <div className="flex flex-col gap-1">
                 <div className="flex flex-col items-center justify-center">
-                    <h3 className={cn(
-                        "font-semibold text-white truncate w-full text-center transition-all duration-300",
-                        isSmall ? "text-base [@media(max-height:850px)]:text-sm" : "text-lg",
-                        isGridLg && "text-xl mt-2"
-                    )}>{style.name}</h3>
+                    <div className="flex items-center justify-center gap-2 w-full">
+                        <h3 className={cn(
+                            "font-semibold text-white truncate max-w-full text-center transition-all duration-300",
+                            isSmall ? "text-base [@media(max-height:850px)]:text-sm" : "text-lg",
+                            isGridLg && "text-xl mt-2"
+                        )}>{style.name}</h3>
+                        {linkedShortcut && (
+                            <span className="shrink-0 rounded-full border border-[#E8FFB7]/25 bg-[#E8FFB7]/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-[#F4FFCE]">
+                                Template
+                            </span>
+                        )}
+                    </div>
                     <p className={cn(
                         "text-white/50 line-clamp-2 w-full text-center transition-all duration-300",
                         isSmall ? "text-[10px] min-h-[1.5rem] [@media(max-height:850px)]:hidden" : "text-sm min-h-[2.5rem]"
                     )}>
-                        {style.prompt || "未设置提示词"}
+                        {style.prompt || (linkedShortcut ? "使用快捷入口模版或补充自定义 prompt" : "未设置提示词")}
                     </p>
                 </div>
 

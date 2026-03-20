@@ -26,6 +26,7 @@ type ColorBendsProps = {
   backgroundGradientRotation?: number;
   backgroundDistortion?: number;
   backgroundBlend?: number;
+  sceneAspectRatio?: number;
 };
 
 const MAX_COLORS = 8 as const;
@@ -35,6 +36,7 @@ const frag = `
 #define MAX_COLORS ${MAX_COLORS}
 #define MAX_GRADIENT_STOPS ${MAX_GRADIENT_STOPS}
 uniform vec2 uCanvas;
+uniform float uSceneAspectRatio;
 uniform float uTime;
 uniform float uSpeed;
 uniform vec2 uRot;
@@ -100,7 +102,10 @@ void main() {
   vec2 p = vUv * 2.0 - 1.0;
   p += uPointer * uParallax * 0.1;
   vec2 rp = vec2(p.x * uRot.x - p.y * uRot.y, p.x * uRot.y + p.y * uRot.x);
-  vec2 q = vec2(rp.x * (uCanvas.x / uCanvas.y), rp.y);
+  float aspectRatio = uSceneAspectRatio > 0.0
+    ? uSceneAspectRatio
+    : (uCanvas.x / max(uCanvas.y, 0.0001));
+  vec2 q = vec2(rp.x * aspectRatio, rp.y);
   q /= max(uScale, 0.0001);
   q /= 0.5 + 0.2 * dot(q, q);
   q += 0.2 * cos(t) - 7.56;
@@ -209,7 +214,8 @@ export default function ColorBends({
   backgroundGradientStops = [],
   backgroundGradientRotation = 180,
   backgroundDistortion = 0,
-  backgroundBlend = 0.18
+  backgroundBlend = 0.18,
+  sceneAspectRatio
 }: ColorBendsProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -236,6 +242,7 @@ export default function ColorBends({
       fragmentShader: frag,
       uniforms: {
         uCanvas: { value: new THREE.Vector2(1, 1) },
+        uSceneAspectRatio: { value: sceneAspectRatio ?? 0 },
         uTime: { value: 0 },
         uSpeed: { value: speed },
         uRot: { value: new THREE.Vector2(1, 0) },
@@ -331,7 +338,7 @@ export default function ColorBends({
         container.removeChild(renderer.domElement);
       }
     };
-  }, [speed, transparent, scale, frequency, warpStrength, mouseInfluence, parallax, noise, blur, backgroundDistortion, backgroundBlend]);
+  }, [speed, transparent, scale, frequency, warpStrength, mouseInfluence, parallax, noise, blur, backgroundDistortion, backgroundBlend, sceneAspectRatio]);
 
   useEffect(() => {
     const material = materialRef.current;
@@ -387,6 +394,10 @@ export default function ColorBends({
     (material.uniforms.uGradientDir.value as THREE.Vector2).set(Math.cos(gradientRad), Math.sin(gradientRad));
     material.uniforms.uBackgroundDistortion.value = backgroundDistortion;
     material.uniforms.uBackgroundBlend.value = backgroundBlend;
+    material.uniforms.uSceneAspectRatio.value =
+      typeof sceneAspectRatio === 'number' && Number.isFinite(sceneAspectRatio) && sceneAspectRatio > 0
+        ? sceneAspectRatio
+        : 0;
 
     material.uniforms.uTransparent.value = transparent ? 1 : 0;
     if (renderer) renderer.setClearColor(0x000000, transparent ? 0 : 1);
@@ -407,7 +418,8 @@ export default function ColorBends({
     backgroundGradientStops,
     backgroundGradientRotation,
     backgroundDistortion,
-    backgroundBlend
+    backgroundBlend,
+    sceneAspectRatio
   ]);
 
   useEffect(() => {

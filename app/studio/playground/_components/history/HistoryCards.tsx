@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Copy,
   GripVertical,
-  Bookmark,
   Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,14 +23,7 @@ import { isWorkflowModel } from '@/lib/utils/model-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useDraggable } from '@dnd-kit/core';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
+import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
 
 export function DescribeSourceImage({
   sourceImage,
@@ -189,7 +181,7 @@ export function HistoryCard({
 }) {
   const [isHover, setIsHover] = React.useState(false);
   const availableModels = usePlaygroundAvailableModels();
-  const { applyPrompt, applyModel, applyImage, applyImages, styles, addImageToStyle, setSelectedPresetName } = usePlaygroundStore();
+  const { applyPrompt, applyModel, applyImage, applyImages, setSelectedPresetName } = usePlaygroundStore();
   const { toast } = useToast();
 
   // 数据已规范化，直接从 config.sourceImageUrls 读取
@@ -428,43 +420,7 @@ export function HistoryCard({
                       </AnimatePresence>
                       {res.status !== 'pending' && img && !isSelectionMode && (
                         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-300 opacity-0 group-hover/img:opacity-100 group-hover/img:translate-y-0 translate-y-4" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <div>
-                                <TooltipButton
-                                  icon={<Bookmark className="w-4 h-4" />}
-                                  label="Add to Style"
-                                  tooltipContent="添加到情绪版"
-                                  tooltipSide="top"
-                                  className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                                />
-                              </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[160px]">
-                              <DropdownMenuLabel className="text-white/40 text-[10px] uppercase tracking-wider px-2 py-1">选择风格堆叠</DropdownMenuLabel>
-                              <DropdownMenuSeparator className="bg-white/5" />
-                              {styles.length > 0 ? (
-                                styles.map(style => (
-                                  <DropdownMenuItem
-                                    key={style.id}
-                                    className="text-white hover:bg-white/10 rounded-xl cursor-pointer"
-                                    onClick={() => {
-                                      if (img) {
-                                        addImageToStyle(style.id, img);
-                                        toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
-                                      }
-                                    }}
-                                  >
-                                    {style.name}
-                                  </DropdownMenuItem>
-                                ))
-                              ) : (
-                                <DropdownMenuItem disabled className="text-white/20 text-xs">
-                                  暂无可用风格
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <AddToMoodboardMenu imagePath={img} />
 
                           <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
 

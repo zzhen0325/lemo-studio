@@ -9,6 +9,7 @@ import {
   mergeUniqueGalleryItems,
   prependUniqueGalleryItems,
 } from './playground-store.helpers';
+import { mergeShortcutMoodboards } from '@/config/playground-shortcuts';
 
 type PlaygroundSet = StoreApi<PlaygroundState>['setState'];
 type PlaygroundGet = StoreApi<PlaygroundState>['getState'];
@@ -413,7 +414,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         const res = await fetch(`${getApiBase()}/styles`);
         if (res.ok) {
           const data = await res.json();
-          set({ styles: data });
+          set({ styles: mergeShortcutMoodboards(data) });
         }
       } catch (e) {
         console.error("Error fetching styles:", e);
@@ -429,7 +430,12 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         });
         if (res.ok) {
           const savedStyle = await res.json();
-          set((state) => ({ styles: [savedStyle, ...state.styles] }));
+          set((state) => {
+            const nextStyles = state.styles.some((item) => item.id === savedStyle.id)
+              ? state.styles.map((item) => item.id === savedStyle.id ? savedStyle : item)
+              : [savedStyle, ...state.styles];
+            return { styles: mergeShortcutMoodboards(nextStyles) };
+          });
         }
       } catch (e) {
         console.error("Failed to add style", e);
@@ -446,7 +452,9 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         if (res.ok) {
           const savedStyle = await res.json();
           set((state) => ({
-            styles: state.styles.map(s => s.id === savedStyle.id ? savedStyle : s)
+            styles: mergeShortcutMoodboards(
+              state.styles.map(s => s.id === savedStyle.id ? savedStyle : s)
+            )
           }));
         }
       } catch (e) {
@@ -458,7 +466,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       try {
         const res = await fetch(`${getApiBase()}/styles?id=${id}`, { method: 'DELETE' });
         if (res.ok) {
-          set((state) => ({ styles: state.styles.filter(s => s.id !== id) }));
+          set((state) => ({ styles: mergeShortcutMoodboards(state.styles.filter(s => s.id !== id)) }));
         }
       } catch (e) {
         console.error("Failed to delete style", e);
@@ -484,7 +492,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         });
         if (res.ok) {
           set((state) => ({
-            styles: state.styles.map(s => s.id === styleId ? updatedStyle : s)
+            styles: mergeShortcutMoodboards(state.styles.map(s => s.id === styleId ? updatedStyle : s))
           }));
         }
       } catch (e) {
@@ -508,7 +516,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedStyle)
         }).catch(e => console.error("Failed to sync style image addition", e));
-        return { styles: newStyles };
+        return { styles: mergeShortcutMoodboards(newStyles) };
       });
     },
   };

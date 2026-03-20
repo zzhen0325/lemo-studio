@@ -34,7 +34,7 @@ export const FALLBACK_AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
     { id: 'gemini-3.1-flash-image-preview', displayName: 'Nano banana 2' },
     { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
-    { id: 'seed4_v2_0226lemo', displayName: 'Seed4 ' },
+    { id: 'seed4_v2_0226lemo', displayName: 'Lemo Seed' },
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
 ];
 

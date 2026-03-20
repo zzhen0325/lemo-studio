@@ -1,5 +1,5 @@
 import { MODEL_ID_FLUX_KLEIN } from "@/lib/constants/models";
-import type { AspectRatio, ImageSize } from "@/types/database";
+import type { AspectRatio, ImageSize, StyleStack } from "@/types/database";
 
 export interface ShortcutPromptField {
   id: string;
@@ -29,18 +29,19 @@ export interface PlaygroundShortcut {
 }
 
 export type ShortcutPromptValues = Record<string, string>;
+export const SHORTCUT_MOODBOARD_PREFIX = "shortcut-";
 
 const buildFields = (...fields: ShortcutPromptField[]) => fields;
 
 export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
   {
     id: "lemo",
-    name: "lemo",
-    description: "Seed4.2 专属角色入口",
+    name: "Lemo",
+    description: "Lemo 角色生成",
     detailDescription:
-      "主打 Lemo 角色 KV。这个入口会锁定到 Seed4.2 Lemo，并给出适合角色场景图的模板化 prompt。",
+      "Lemo 角色生成。快速应用会锁定到 Lemo Seed模型，并给出适合角色场景图的模板化 prompt。",
     model: "seed4_v2_0226lemo",
-    modelLabel: "Seed4.2 Lemo",
+    modelLabel: "Lemo Seed",
     aspectRatio: "1:1",
     imageSize: "2K",
     imagePaths: [
@@ -228,4 +229,58 @@ export function buildShortcutPrompt(
 
 export function getShortcutMissingFields(shortcut: PlaygroundShortcut, values: ShortcutPromptValues) {
   return shortcut.fields.filter((field) => field.required && !values[field.id]?.trim());
+}
+
+export function getShortcutMoodboardId(shortcutId: PlaygroundShortcut["id"]) {
+  return `${SHORTCUT_MOODBOARD_PREFIX}${shortcutId}`;
+}
+
+export function getShortcutByMoodboardId(moodboardId: string) {
+  if (!moodboardId.startsWith(SHORTCUT_MOODBOARD_PREFIX)) {
+    return null;
+  }
+  const shortcutId = moodboardId.slice(SHORTCUT_MOODBOARD_PREFIX.length) as PlaygroundShortcut["id"];
+  return getShortcutById(shortcutId) || null;
+}
+
+export function buildShortcutMoodboard(shortcut: PlaygroundShortcut): StyleStack {
+  const values = createShortcutPromptValues(shortcut);
+  const promptTemplate = buildShortcutPrompt(shortcut, values);
+
+  return {
+    id: getShortcutMoodboardId(shortcut.id),
+    name: shortcut.name,
+    prompt: promptTemplate,
+    imagePaths: shortcut.imagePaths,
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
+export function mergeShortcutMoodboards(styles: StyleStack[]): StyleStack[] {
+  const shortcutsById = new Map(
+    PLAYGROUND_SHORTCUTS.map((shortcut) => [getShortcutMoodboardId(shortcut.id), buildShortcutMoodboard(shortcut)])
+  );
+
+  const mergedShortcutMoodboards = PLAYGROUND_SHORTCUTS.map((shortcut) => {
+    const shortcutMoodboardId = getShortcutMoodboardId(shortcut.id);
+    const baseMoodboard = shortcutsById.get(shortcutMoodboardId)!;
+    const savedMoodboard = styles.find((style) => style.id === shortcutMoodboardId);
+
+    if (!savedMoodboard) {
+      return baseMoodboard;
+    }
+
+    return {
+      ...baseMoodboard,
+      ...savedMoodboard,
+      imagePaths:
+        Array.isArray(savedMoodboard.imagePaths) && savedMoodboard.imagePaths.length > 0
+          ? savedMoodboard.imagePaths
+          : baseMoodboard.imagePaths,
+      updatedAt: savedMoodboard.updatedAt || baseMoodboard.updatedAt,
+    };
+  });
+
+  const customMoodboards = styles.filter((style) => !getShortcutByMoodboardId(style.id));
+  return [...mergedShortcutMoodboards, ...customMoodboards];
 }

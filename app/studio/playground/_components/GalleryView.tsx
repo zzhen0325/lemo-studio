@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { formatImageUrl } from "@/lib/api-base";
-import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, Layers } from "lucide-react";
+import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon } from "lucide-react";
 import GradualBlur from "@/components/visual-effects/GradualBlur";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -12,14 +12,7 @@ import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
 import { useGenerationService } from "@studio/playground/_components/hooks/useGenerationService";
 import { Generation, GenerationConfig } from '@/types/database';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-    DropdownMenuSeparator,
-    DropdownMenuLabel
-} from "@/components/ui/dropdown-menu";
+import { AddToMoodboardMenu } from "@studio/playground/_components/AddToMoodboardMenu";
 
 const GALLERY_THUMB_QUALITY = 25;
 
@@ -39,7 +32,6 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
     const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
     const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
     const activeTab = usePlaygroundStore(s => s.activeTab);
-    const styles = usePlaygroundStore(s => s.styles);
     const { handleGenerate } = useGenerationService();
 
     // Responsive column count
@@ -278,7 +270,6 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                             item={item}
                                             onSelectItem={handleSelectItem}
                                             onDownload={handleDownload}
-                                            styles={styles}
                                             onGenerate={handleGenerate}
                                         />
                                     )}
@@ -564,14 +555,12 @@ interface GalleryCardProps {
     item: Generation;
     onSelectItem?: (item: Generation) => void;
     onDownload: (e: React.MouseEvent, url: string, filename: string) => void;
-    styles: Array<{ id: string; name: string }>;
     onGenerate: HandleGenerateFn;
 }
 
-function GalleryCard({ item, onSelectItem, onDownload, styles, onGenerate }: GalleryCardProps) {
+function GalleryCard({ item, onSelectItem, onDownload, onGenerate }: GalleryCardProps) {
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
-    const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
     const { ref, isInView } = useInView('200px');
     const { toast } = useToast();
 
@@ -672,45 +661,7 @@ function GalleryCard({ item, onSelectItem, onDownload, styles, onGenerate }: Gal
 
                 {/* Floating Actions - consistent with HistoryList */}
                 <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1  bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu onOpenChange={setIsStyleMenuOpen}>
-                        <DropdownMenuTrigger asChild>
-                            <div>
-                                <TooltipButton
-                                    icon={<Layers className="w-4 h-4" />}
-                                    label="Add to Style"
-                                    tooltipContent="添加到风格"
-                                    tooltipSide="top"
-                                    className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                                />
-                            </div>
-                        </DropdownMenuTrigger>
-                        {isStyleMenuOpen && (
-                            <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[160px]">
-                                <DropdownMenuLabel className="text-white/40 text-[10px] uppercase tracking-wider px-2 py-1">选择风格堆叠</DropdownMenuLabel>
-                                <DropdownMenuSeparator className="bg-white/5" />
-                                {styles.length > 0 ? (
-                                    styles.map(style => (
-                                        <DropdownMenuItem
-                                            key={style.id}
-                                            className="text-white hover:bg-white/10 rounded-xl cursor-pointer"
-                                            onClick={() => {
-                                                if (item.outputUrl) {
-                                                    usePlaygroundStore.getState().addImageToStyle(style.id, item.outputUrl);
-                                                    toast({ title: "已添加", description: `已将图片加入风格: ${style.name}` });
-                                                }
-                                            }}
-                                        >
-                                            {style.name}
-                                        </DropdownMenuItem>
-                                    ))
-                                ) : (
-                                    <DropdownMenuItem disabled className="text-white/20 text-xs">
-                                        暂无可用风格
-                                    </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
-                        )}
-                    </DropdownMenu>
+                    <AddToMoodboardMenu imagePath={item.outputUrl} />
 
                     <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
                     <TooltipButton

@@ -1,9 +1,10 @@
 import React, { useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { AnimatedButton } from "@/components/ui/animated-gradient-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ChevronDown, Link, Unlink, Plus, Minus, X } from "lucide-react";
+import { ChevronDown, Link, Unlink, Plus, Minus, X } from "lucide-react";
 import Image from "next/image";
 
 
@@ -63,6 +64,8 @@ interface ControlToolbarProps {
   uploadedImages?: UploadedImage[];
   disableModelSelection?: boolean;
   selectedWorkflowName?: string;
+  activeShortcutName?: string;
+  onClearShortcutTemplate?: () => void;
 }
 
 
@@ -100,6 +103,8 @@ export default function ControlToolbar({
   customAspectRatioLabel,
   uploadedImages = [],
   disableModelSelection = false,
+  activeShortcutName,
+  onClearShortcutTemplate,
 }: ControlToolbarProps) {
 
 
@@ -359,9 +364,28 @@ export default function ControlToolbar({
       <div className="w-full h-12 flex justify-between items-center px-2 py-2 mt-1">
         <div className="flex justify-start items-center gap-2">
           <div className="flex items-center gap-2">
+            {activeShortcutName ? (
+              <div className="flex items-center gap-2 rounded-xl border border-[#E8FFB7]/30 bg-[#E8FFB7]/15 px-3  h-8">
+                <span className="text-[11px] font-medium uppercase text-[#F4FFCE]">
+                  {activeShortcutName}
+                </span>
+                <button
+                  type="button"
+                  className="rounded-full p-0.5 text-[#F4FFCE]/70 transition-colors hover:bg-[#E8FFB7]/12 hover:text-[#F4FFCE]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClearShortcutTemplate?.();
+                  }}
+                  aria-label="清空快捷模板"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : null}
             {variant !== 'edit' && (
               <Button
                 className={cn(
+                  "hidden",
                   Inputbutton2,
                   isPresetGridOpen && "bg-white/10",
                   selectedPresetName && "bg-primary/20 text-primary border-primary/20"
@@ -553,31 +577,15 @@ export default function ControlToolbar({
           )}
 
           <div className="relative rounded-xl">
-            <Button
+            <AnimatedButton
               onClick={onGenerate}
-              className="relative z-10 w-auto h-10 px-6 rounded-2xl text-sm font-medium text-[#000000] flex items-center bg-white justify-center   transition-all duration-300 hover:animate-border-rotate"
-              style={{
-                backgroundImage: `
-                linear-gradient(83deg, rgba(58, 94, 251, 0) 8.11%, rgba(27, 32, 54, 0.5) 100%),
-                linear-gradient(primary, black),
-               conic-gradient(from var(--angle), #229563ff 0deg, #b0eed6ff 17%, #89d8acff 35%, #569466ff 51%, #87d690ff 68%, #a7d8b4ff 84%) 
-              `,
-                backgroundClip: 'padding-box, padding-box, border-box',
-                backgroundOrigin: 'border-box',
-              }}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-4 h-4    animate-spin" />
-                  {loadingText}
-                </>
-              ) : (
-                <>
-
-                  Generate
-                </>
-              )}
-            </Button>
+              disabled={isGenerating}
+              loading={isGenerating}
+              label={isGenerating ? loadingText : "Generate"}
+              size="md"
+              variant="default"
+              className="relative z-10 rounded-2xl px-6 font-semibold text-black"
+            />
           </div>
         </div>
       </div>

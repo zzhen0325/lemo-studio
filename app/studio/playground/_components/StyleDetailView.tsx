@@ -3,7 +3,7 @@
 import React from 'react';
 import { StyleStack } from './types';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Copy, Trash2, Edit2, Check, X, Upload, Settings2, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, Copy, Trash2, Edit2, Check, X, Upload, Settings2, Image as ImageIcon, Wand2, Sparkles } from 'lucide-react';
 import NextImage from 'next/image';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/common/use-toast';
@@ -15,6 +15,11 @@ import SimpleImagePreview from './SimpleImagePreview';
 import { cn } from '@/lib/utils';
 import { TooltipButton } from '@/components/ui/tooltip-button';
 import { StyleCollageEditor } from './StyleCollageEditor';
+import {
+    buildShortcutPrompt,
+    createShortcutPromptValues,
+    getShortcutByMoodboardId,
+} from '@/config/playground-shortcuts';
 
 interface StyleDetailViewProps {
     style: StyleStack;
@@ -26,7 +31,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
     onBack
 }) => {
     const { toast } = useToast();
-    const { updateStyle, removeImageFromStyle, setUploadedImages } = usePlaygroundStore();
+    const { updateStyle, removeImageFromStyle, applyPrompt, applyImage } = usePlaygroundStore();
 
     const [isEditingName, setIsEditingName] = React.useState(false);
     const [isEditingPrompt, setIsEditingPrompt] = React.useState(false);
@@ -38,7 +43,18 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
     const [previewImage, setPreviewImage] = React.useState<string | null>(null);
     const [previewLayoutId, setPreviewLayoutId] = React.useState<string | null>(null);
     const [isCollageEditorOpen, setIsCollageEditorOpen] = React.useState(false);
+    const [showCollageTools, setShowCollageTools] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const linkedShortcut = getShortcutByMoodboardId(style.id);
+    const promptTemplate = linkedShortcut
+        ? buildShortcutPrompt(linkedShortcut, createShortcutPromptValues(linkedShortcut))
+        : '';
+    const primaryImagePath = style.imagePaths[0];
+
+    React.useEffect(() => {
+        setTempName(style.name);
+        setTempPrompt(style.prompt);
+    }, [style.id, style.name, style.prompt]);
 
     const handleCopyPrompt = async () => {
         if (!style.prompt) return;
@@ -76,7 +92,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         if (!tempName.trim()) return;
         await updateStyle({ ...style, name: tempName });
         setIsEditingName(false);
-        toast({ title: "修改成功", description: "风格名称已更新" });
+        toast({ title: "修改成功", description: "情绪板名称已更新" });
     };
 
     const handleSavePrompt = async () => {
@@ -113,22 +129,8 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
 
     const handleUseImage = async (e: React.MouseEvent, path: string) => {
         e.stopPropagation();
-        const imageUrl = formatImageUrl(path);
         try {
-            const resp = await fetch(imageUrl);
-            const blob = await resp.blob();
-            const file = new File([blob], `reference-${Date.now()}.png`, { type: 'image/png' });
-            const reader = new FileReader();
-            const dataUrl = await new Promise<string>((resolve) => {
-                reader.onload = (e) => resolve(String(e.target?.result));
-                reader.readAsDataURL(blob);
-            });
-            const base64Data = dataUrl.split(',')[1];
-
-            setUploadedImages(prev => [
-                ...prev,
-                { file, base64: base64Data, previewUrl: dataUrl, path }
-            ]);
+            await applyImage(formatImageUrl(path));
             toast({ title: "已添加", description: "图片已作为参考图添加到输入框" });
         } catch (error) {
             console.error("Failed to use image", error);
@@ -140,26 +142,24 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         if (!style.collageImageUrl) return;
 
         try {
-            const imageUrl = formatImageUrl(style.collageImageUrl);
-            const resp = await fetch(imageUrl);
-            const blob = await resp.blob();
-            const file = new File([blob], `style-collage-${style.id}.png`, { type: 'image/png' });
-            const reader = new FileReader();
-            const dataUrl = await new Promise<string>((resolve) => {
-                reader.onload = (e) => resolve(String(e.target?.result));
-                reader.readAsDataURL(blob);
-            });
-            const base64Data = dataUrl.split(',')[1];
-
-            setUploadedImages(prev => [
-                ...prev,
-                { file, base64: base64Data, previewUrl: dataUrl, path: style.collageImageUrl }
-            ]);
-            toast({ title: "已添加", description: "该风格的拼合图已作为参考图添加到输入框" });
+            await applyImage(formatImageUrl(style.collageImageUrl));
+            toast({ title: "已添加", description: "该情绪板的拼图已作为参考图添加到输入框" });
         } catch (error) {
             console.error("Failed to use collage", error);
             toast({ title: "添加失败", description: "无法将拼合图添加到输入框", variant: "destructive" });
         }
+    };
+
+    const handleUsePrompt = () => {
+        if (!style.prompt) return;
+        applyPrompt(style.prompt);
+        toast({ title: "Prompt Applied", description: "当前情绪板 prompt 已应用到输入框" });
+    };
+
+    const handleApplyTemplatePrompt = () => {
+        if (!promptTemplate) return;
+        applyPrompt(promptTemplate);
+        toast({ title: "Template Applied", description: `${linkedShortcut?.name || '快捷入口'} 的 prompt 模版已应用` });
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -167,7 +167,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         if (!files || files.length === 0) return;
 
         setIsUploading(true);
-        toast({ title: "正在上传", description: `正在上传 ${files.length} 张图片到该风格...` });
+        toast({ title: "正在上传", description: `正在上传 ${files.length} 张图片到该情绪板...` });
 
         try {
             const uploadPromises = Array.from(files).map(async (file) => {
@@ -257,6 +257,44 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
             </div>
 
             <div className='w-full flex-1 overflow-y-auto flex flex-col gap-10 px-8 pb-8 custom-scrollbar'>
+                <div className="flex flex-wrap items-center gap-3">
+                    {linkedShortcut && (
+                        <Button
+                            onClick={handleApplyTemplatePrompt}
+                            className="rounded-xl border border-[#E8FFB7]/20 bg-[#E8FFB7]/10 px-4 text-[#F4FFCE] hover:bg-[#E8FFB7]/15"
+                        >
+                            <Wand2 size={14} className="mr-2" />
+                            应用 Prompt 模版
+                        </Button>
+                    )}
+                    <Button
+                        variant="outline"
+                        onClick={handleUsePrompt}
+                        disabled={!style.prompt}
+                        className="rounded-xl border-white/10 bg-white/5 px-4 text-white/70 hover:text-white hover:bg-white/10"
+                    >
+                        <Sparkles size={14} className="mr-2" />
+                        使用当前 Prompt
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={(e) => primaryImagePath && handleUseImage(e, primaryImagePath)}
+                        disabled={!primaryImagePath}
+                        className="rounded-xl border-white/10 bg-white/5 px-4 text-white/70 hover:text-white hover:bg-white/10"
+                    >
+                        <ImageIcon size={14} className="mr-2" />
+                        使用主图
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        onClick={() => setShowCollageTools((prev) => !prev)}
+                        className="rounded-xl px-4 text-white/45 hover:text-white hover:bg-white/5"
+                    >
+                        <Settings2 size={14} className="mr-2" />
+                        {showCollageTools ? '收起拼图工具' : '显示拼图工具'}
+                    </Button>
+                </div>
+
                 {/* 提示词区域 */}
 
 
@@ -264,7 +302,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                     <div className="flex items-center gap-3">
                         <div className="flex items-center justify-between w-full">
                             <span className="text-xl text-white/60 font-normal">
-                                Prompt
+                                {linkedShortcut ? 'Current Prompt' : 'Prompt'}
                             </span>
 
                         </div>
@@ -305,7 +343,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                                 onChange={(e) => setTempPrompt(e.target.value)}
                                 className="text-sm bg-white/5 h-40 border-white/20 rounded-2xl p-6 leading-relaxed min-h-[160px] focus:border-primary/50 transition-colors resize-none"
                                 autoFocus
-                                placeholder="输入风格的核心提示词..."
+                                placeholder="输入这个情绪板当前要复用的 prompt..."
                             />
                             <div className="flex gap-2 justify-end">
                                 <Button
@@ -326,60 +364,82 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                     ) : (
                         <div className="relative p-6 rounded-2xl  h-40  min-h-[120px] bg-white/5 border border-white/10 hover:border-primary/30 transition-all group/prompt">
                             <p className="text-sm text-white/80 leading-relaxed pr-12 whitespace-pre-wrap">
-                                {style.prompt || "点击按钮添加该风格的核心提示词..."}
+                                {style.prompt || "点击按钮补充这个情绪板当前要复用的 prompt..."}
                             </p>
 
                         </div>
                     )}
                 </div>
 
-                {/* Content Layout: Collage & Gallery (Left-Right) */}
-                <div className="flex flex-col lg:flex-row gap-10 items-start">
-                    {/* Left side: Collage Section */}
-                    <div className="w-full lg:w-[450px] space-y-4 shrink-0">
+                {linkedShortcut && (
+                    <div className="group relative w-full space-y-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-xl text-white/60 font-normal">Collage</span>
+                            <span className="text-xl text-white/60 font-normal">Prompt Template</span>
                             <Button
-                                variant="outline"
-                                onClick={() => setIsCollageEditorOpen(true)}
-                                className="rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-9 px-4 text-xs transition-all"
+                                variant="light"
+                                onClick={handleApplyTemplatePrompt}
+                                className="p-2.5 h-8 rounded-xl bg-[#E8FFB7]/10 hover:bg-[#E8FFB7]/15 text-[#F4FFCE] transition-colors border border-[#E8FFB7]/15"
                             >
-                                <Edit2 size={12} />
-                                {style.collageImageUrl ? '编辑拼图' : '生成拼图'}
+                                <Wand2 size={8} />
+                                Apply
                             </Button>
                         </div>
+                        <div className="relative p-6 rounded-2xl min-h-[120px] bg-white/5 border border-white/10">
+                            <p className="text-sm text-white/70 leading-relaxed whitespace-pre-wrap">
+                                {promptTemplate}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
-                        {style.collageImageUrl ? (
-                            <div
-                                className="relative aspect-square w-full rounded-2xl overflow-hidden border border-white/10 bg-white/5 group cursor-pointer"
-                                onClick={handleUseCollage}
-                            >
-                                <NextImage
-                                    src={formatImageUrl(style.collageImageUrl)}
-                                    alt="Style Collage"
-                                    fill
-                                    className="object-cover transition-transform group-hover:scale-[1.02] duration-500"
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                                            <ImageIcon size={20} />
+                {/* Content Layout: Collage & Gallery (Left-Right) */}
+                <div className="flex flex-col lg:flex-row gap-10 items-start">
+                    {showCollageTools && (
+                        <div className="w-full lg:w-[450px] space-y-4 shrink-0">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xl text-white/60 font-normal">Collage Tools</span>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsCollageEditorOpen(true)}
+                                    className="rounded-xl border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 gap-2 h-9 px-4 text-xs transition-all"
+                                >
+                                    <Edit2 size={12} />
+                                    {style.collageImageUrl ? '编辑拼图' : '生成拼图'}
+                                </Button>
+                            </div>
+
+                            {style.collageImageUrl ? (
+                                <div
+                                    className="relative aspect-square w-full rounded-2xl overflow-hidden border border-white/10 bg-white/5 group cursor-pointer"
+                                    onClick={handleUseCollage}
+                                >
+                                    <NextImage
+                                        src={formatImageUrl(style.collageImageUrl)}
+                                        alt="Moodboard Collage"
+                                        fill
+                                        className="object-cover transition-transform group-hover:scale-[1.02] duration-500"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                                                <ImageIcon size={20} />
+                                            </div>
+                                            <p className="text-xs text-white font-medium">点击使用拼图作为参考图</p>
                                         </div>
-                                        <p className="text-xs text-white font-medium">点击使用拼图作为参考图</p>
                                     </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div
-                                className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.01] hover:bg-white/5 transition-colors cursor-pointer group"
-                                onClick={() => setIsCollageEditorOpen(true)}
-                            >
-                                <ImageIcon size={28} className="text-white/10 group-hover:text-primary transition-colors mb-3" />
-                                <p className="text-white/20 text-sm italic">点击生成风格拼合图</p>
-                                <p className="text-white/10 text-[10px] mt-1">2048 x 2048, 高保真参考图</p>
-                            </div>
-                        )}
-                    </div>
+                            ) : (
+                                <div
+                                    className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.01] hover:bg-white/5 transition-colors cursor-pointer group"
+                                    onClick={() => setIsCollageEditorOpen(true)}
+                                >
+                                    <ImageIcon size={28} className="text-white/10 group-hover:text-primary transition-colors mb-3" />
+                                    <p className="text-white/20 text-sm italic">点击生成情绪板拼图</p>
+                                    <p className="text-white/10 text-[10px] mt-1">2048 x 2048, 高保真参考图</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Right side: Image Grid (Gallery) */}
                     <div className="flex-1 w-full space-y-4">
@@ -513,7 +573,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                         ) : (
                             <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl bg-white/[0.01]">
                                 <p className="text-white/20 italic text-lg">暂无关联图片</p>
-                                <p className="text-white/10 text-sm mt-2">从 Gallery 中添加图片来丰富此风格</p>
+                                <p className="text-white/10 text-sm mt-2">从 Gallery 中添加图片来丰富这个情绪板</p>
                             </div>
                         )}
                     </div>

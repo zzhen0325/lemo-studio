@@ -34,24 +34,8 @@ export function ShortcutPromptComposer({
   }, [initialFieldId, shortcut.id]);
 
   return (
-    <div className="flex w-full flex-col gap-3 p-2 pl-4 pr-10">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full border border-[#E8FFB7]/30 bg-[#E8FFB7]/12 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-[#F4FFCE]">
-            {shortcut.name}
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55">
-            {shortcut.modelLabel}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onExitTemplateMode}
-          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          纯文本编辑
-        </button>
-      </div>
+    <div className="flex w-full flex-col gap-3 p-2 pb-4 pl-4 pr-10">
+
 
       <div className="flex min-h-[86px] flex-wrap items-center gap-x-1.5 gap-y-2 py-1 text-sm leading-7 text-white/88">
         {shortcut.promptParts.map((part, index) => {
@@ -72,7 +56,7 @@ export function ShortcutPromptComposer({
             <label
               key={`field-${shortcut.id}-${field.id}-${index}`}
               className={cn(
-                'inline-flex h-8 items-center rounded-sm gap-2 p-1 border border-[#E8FFB7]/30 bg-[#E8FFB7]/12 px-3 text-white  transition-colors focus-within:border-[#E8FFB7]/60 focus-within:bg-[#E8FFB7]/18',
+                'inline-flex h-8 items-center rounded-md gap-2 px-2 border border-[#E8FFB7]/30 bg-[#e8ffb71a]  text-white  transition-colors focus-within:border-[#E8FFB7]/60 focus-within:bg-[#E8FFB7]/18',
                 field.widthClassName
               )}
             >
@@ -92,10 +76,21 @@ export function ShortcutPromptComposer({
           );
         })}
       </div>
+      <div className="flex items-center justify-start">
+        {/* <div className="flex items-center gap-2">
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55">
+            {shortcut.modelLabel}
+          </span>
+        </div> */}
+        <button
+          type="button"
+          onClick={onExitTemplateMode}
+          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          应用为纯文本
+        </button>
+      </div>
 
-      <p className="text-xs text-white/40">
-        填写高亮字段后会自动同步到当前 prompt，生成前会校验必填项。
-      </p>
     </div>
   );
 }

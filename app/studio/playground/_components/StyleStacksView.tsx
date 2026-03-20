@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, X, Upload, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
+import { mergeShortcutMoodboards } from '@/config/playground-shortcuts';
 
 
 interface StyleStacksViewProps {
@@ -24,7 +25,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
-        initStyles();
+        void initStyles();
     }, [initStyles]);
 
     const handleCreate = () => {
@@ -43,13 +44,15 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
         setIsCreating(false);
     };
 
-    const filteredStyles = styles.filter(s =>
+    const moodboards = React.useMemo(() => mergeShortcutMoodboards(styles), [styles]);
+
+    const filteredStyles = moodboards.filter(s =>
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (s.prompt || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (selectedStyleId) {
-        const selectedStyle = styles.find(s => s.id === selectedStyleId);
+        const selectedStyle = moodboards.find(s => s.id === selectedStyleId);
         if (selectedStyle) {
             return (
                 <StyleDetailView
@@ -75,7 +78,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                 <Upload size={40} className="text-white" />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-2xl font-bold text-white">松开以创建新风格</h3>
+                                <h3 className="text-2xl font-bold text-white">松开以创建新情绪板</h3>
                                 <p className="text-white/60">支持多张图片同时上传</p>
                             </div>
                         </div>
@@ -97,7 +100,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                             <div className="flex items-center gap-4">
                                 <div className="relative group">
                                     <Input
-                                        placeholder="搜索风格或提示词..."
+                                        placeholder="搜索情绪板或提示词..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="w-64 bg-white/5 border-white/10 rounded-2xl pl-4 pr-10 focus:bg-white/10 focus:border-purple-500/50 transition-all text-sm h-10"
@@ -111,7 +114,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                     className="rounded-2xl px-4 bg-primary hover:bg-white text-black gap-2 h-10  border border-white/10"
                                 >
                                     <Plus size={18} />
-                                    Add New
+                                    New Moodboard
                                 </Button>
                             </div>
                         </div>
@@ -127,8 +130,8 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
-                                            <h3 className="text-2xl font-bold text-white">定义新风格</h3>
-                                            <p className="text-white/40 text-sm">为你的风格堆叠设置一个响亮的名称和核心提示词</p>
+                                            <h3 className="text-2xl font-bold text-white">创建情绪板</h3>
+                                            <p className="text-white/40 text-sm">手动上传图片或整理 prompt，做成一个可复用的 moodboard group</p>
                                         </div>
                                         <Button
                                             variant="ghost"
@@ -141,18 +144,18 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="flex flex-col gap-3">
-                                            <label className="text-xs font-bold text-white/40 ml-1 uppercase tracking-widest">风格名称</label>
+                                            <label className="text-xs font-bold text-white/40 ml-1 uppercase tracking-widest">情绪板名称</label>
                                             <Input
-                                                placeholder="例如：赛博朋克深红"
+                                                placeholder="例如：春季 campaign、Lemo 角色组"
                                                 value={newName}
                                                 onChange={(e) => setNewName(e.target.value)}
                                                 className="bg-white/5 border-white/10 rounded-2xl h-14 px-6  "
                                             />
                                         </div>
                                         <div className="flex flex-col gap-3">
-                                            <label className="text-xs font-bold text-white/40 ml-1 uppercase tracking-widest">关联提示词 (Prompt)</label>
+                                            <label className="text-xs font-bold text-white/40 ml-1 uppercase tracking-widest">当前 Prompt</label>
                                             <Input
-                                                placeholder="输入该风格的核心 prompt..."
+                                                placeholder="输入这个 moodboard 当前要复用的 prompt..."
                                                 value={newPrompt}
                                                 onChange={(e) => setNewPrompt(e.target.value)}
                                                 className="bg-white/5 border-white/10 rounded-2xl h-14 px-6 "
@@ -178,7 +181,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                             )}
                         </AnimatePresence>
 
-                        {/* Grid of Styles */}
+                        {/* Grid of Moodboards */}
                         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-x-4 gap-y-16 px-4">
                             {filteredStyles.map((style) => (
                                 <StyleStackCard
@@ -195,7 +198,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({ isDragging: is
                                         <Palette className="text-white/20" size={40} />
                                     </div>
                                     <p className="text-white/40 text-lg font-medium">
-                                        {searchQuery ? `未找到匹配 "${searchQuery}" 的风格` : "点击上方按钮，开始构建您的第一个风格堆叠"}
+                                        {searchQuery ? `未找到匹配 "${searchQuery}" 的情绪板` : "点击上方按钮，开始创建你的第一个 moodboard"}
                                     </p>
                                     {searchQuery && (
                                         <Button

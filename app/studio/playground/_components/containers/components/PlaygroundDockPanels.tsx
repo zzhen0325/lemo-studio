@@ -49,7 +49,7 @@ export function PlaygroundDockPanels({
       {viewMode === 'dock' && activeTab === 'style' && (
         <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-32">
           <div className="h-full w-full  overflow-hidden relative">
-            <Suspense fallback={<div className="flex  w-[90%] items-center justify-center h-full text-white">Loading Styles...</div>}>
+            <Suspense fallback={<div className="flex  w-[90%] items-center justify-center h-full text-white">Loading Moodboards...</div>}>
               <StyleStacksView isDragging={isDraggingOver} />
             </Suspense>
           </div>

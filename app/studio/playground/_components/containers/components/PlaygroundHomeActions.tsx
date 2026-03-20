@@ -23,7 +23,7 @@ export function PlaygroundHomeActions({
       <button
         onClick={onOpenDescribe}
         className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-black/10",
+          "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-black/20",
           "border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
         )}
       >

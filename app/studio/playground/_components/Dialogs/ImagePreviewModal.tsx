@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ZoomIn, ZoomOut, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight, Maximize, Layers } from 'lucide-react';
+import { X, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight, Layers, Type, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TooltipButton } from "@/components/ui/tooltip-button";
 import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Generation } from '@/types/database';
@@ -12,6 +13,8 @@ import { formatImageUrl } from '@/lib/api-base';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useImageSource } from '@/hooks/common/use-image-source';
 import { downloadImage } from '@/lib/utils/download';
+import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
+import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
@@ -52,8 +55,12 @@ export default function ImagePreviewModal({
   const [scale, setScale] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
   const { toast } = useToast();
-  const { applyModel, applyImages } = usePlaygroundStore();
+  const applyModel = usePlaygroundStore((state) => state.applyModel);
+  const applyImages = usePlaygroundStore((state) => state.applyImages);
+  const applyPrompt = usePlaygroundStore((state) => state.applyPrompt);
+  const applyImage = usePlaygroundStore((state) => state.applyImage);
   const [mounted, setMounted] = useState(false);
+  const availableModels = usePlaygroundAvailableModels();
 
   // 数据已规范化，直接从 config.sourceImageUrls 读取
   const sourceUrls = result?.config?.sourceImageUrls || [];
@@ -88,10 +95,10 @@ export default function ImagePreviewModal({
   const fullResImageUrl = formatImageUrl(result.outputUrl || "");
   const config = result.config;
   const prompt = config?.prompt || "";
+  const modelDisplayName = availableModels.find((model) => model.id === config?.model)?.displayName || config?.model || "Standard";
 
-  const handleZoomIn = (e?: React.MouseEvent) => { e?.stopPropagation(); setScale(prev => Math.min(prev * 1.2, 5)); };
-  const handleZoomOut = (e?: React.MouseEvent) => { e?.stopPropagation(); setScale(prev => Math.max(prev / 1.2, 0.1)); };
-  const handleReset = (e?: React.MouseEvent) => { e?.stopPropagation(); setScale(1); };
+  const handleZoomIn = () => { setScale(prev => Math.min(prev * 1.2, 5)); };
+  const handleZoomOut = () => { setScale(prev => Math.max(prev / 1.2, 0.1)); };
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.deltaY < 0) {
@@ -147,6 +154,20 @@ export default function ImagePreviewModal({
     if (fullResImageUrl) {
       downloadImage(fullResImageUrl, `image-${result.id || Date.now()}.png`);
     }
+  };
+
+  const handleApplyPrompt = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!prompt) return;
+    applyPrompt(prompt);
+    toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
+  };
+
+  const handleApplyImage = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!result.outputUrl) return;
+    await applyImage(result.outputUrl);
+    toast({ title: "Image Added", description: "图片已添加为参考图" });
   };
 
   if (!mounted) return null;
@@ -249,58 +270,85 @@ export default function ImagePreviewModal({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
                   transition={{ delay: 0.2 }}
-                  className="flex w-fit items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl"
+                  className="flex w-fit items-center gap-1 p-1.5 rounded-2xl bg-black/50 backdrop-blur-xl border border-white/10 shadow-2xl"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleZoomOut}>
-                    <ZoomOut className="w-4 h-4" />
-                  </Button>
-                  <span className="text-xs text-white/40 font-mono min-w-[3rem] text-center">{Math.round(scale * 100)}%</span>
-                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleZoomIn}>
-                    <ZoomIn className="w-4 h-4" />
-                  </Button>
-                  <div className="w-px h-4 bg-white/10 mx-1" />
-                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleReset}>
-                    <Maximize className="w-4 h-4" />
-                  </Button>
-                  <div className="w-px h-4 bg-white/10 mx-1" />
-                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-white/60 hover:text-white hover:bg-white/10" onClick={handleDownload}>
-                    <Download className="w-4 h-4" />
-                  </Button>
+                  {result.outputUrl && (
+                    <AddToMoodboardMenu
+                      imagePath={result.outputUrl}
+                      className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                    />
+                  )}
 
-                  <div className="w-px h-4 bg-white/10 mx-1" />
+                  <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+
+                  <TooltipButton
+                    icon={<Type className="w-4 h-4" />}
+                    label="Use Prompt"
+                    tooltipContent="Use Prompt"
+                    tooltipSide="top"
+                    className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                    onClick={handleApplyPrompt}
+                  />
+
+                  <TooltipButton
+                    icon={<ImageIcon className="w-4 h-4" />}
+                    label="Use Image"
+                    tooltipContent="Use Image"
+                    tooltipSide="top"
+                    className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                    onClick={handleApplyImage}
+                  />
+
+                  <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+
+                  {onRegenerate && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
+                      onClick={handleRerun}
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Rerun</span>
+                    </Button>
+                  )}
+
+                  <TooltipButton
+                    icon={<Download className="w-4 h-4" />}
+                    label="Download"
+                    tooltipContent="Download"
+                    tooltipSide="top"
+                    className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload();
+                    }}
+                  />
 
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-9 px-3 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
-                    onClick={handleRerun}
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Rerun</span>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 px-3 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
+                    className="h-8 px-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
                     onClick={handleUseAll}
                   >
                     <Layers className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Use All</span>
                   </Button>
-                  <Button
-                    variant="act"
-                    size="sm"
-                    className="h-9 px-4 rounded-full transition-all font-medium gap-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit?.(result);
-                    }}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    Edit
-                  </Button>
+                  {onEdit && (
+                    <Button
+                      variant="act"
+                      size="sm"
+                      className="h-8 px-4 rounded-xl transition-all font-medium gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(result);
+                      }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
+                    </Button>
+                  )}
                 </motion.div>
               </div>
 
@@ -335,46 +383,14 @@ export default function ImagePreviewModal({
               </motion.button>
             </div>
 
-            {previewResults.length > 1 && (
-              <motion.aside
-                initial={{ x: 24, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: 24, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="relative z-10 h-full w-[112px] shrink-0 overflow-hidden border-l border-white/10 bg-black/40 backdrop-blur-2xl flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="px-3 py-4 border-b border-white/10 shrink-0">
-                  <div className="text-[10px] text-white/30 uppercase font-mono tracking-[0.24em]">Images</div>
-                  <div className="mt-2 text-sm text-white/80 tabular-nums">
-                    {currentIndex >= 0 ? `${currentIndex + 1} / ${previewResults.length}` : `${previewResults.length}`}
-                  </div>
-                </div>
-
-                <ScrollArea className="flex-1 min-h-0">
-                  <div className="p-3 space-y-3">
-                    {previewResults.map((item, index) => (
-                      <PreviewResultThumbnail
-                        key={`preview-result-${getResultIdentity(item)}-${index}`}
-                        result={item}
-                        index={index}
-                        isActive={getResultIdentity(item) === activeResultIdentity}
-                        onSelect={onSelectResult}
-                      />
-                    ))}
-                  </div>
-                </ScrollArea>
-              </motion.aside>
-            )}
-
             {/* Sidebar */}
             <AnimatePresence>
               {showSidebar && (
                 <motion.div
-                  initial={{ x: "100%", opacity: 0 }}
+                  initial={{ x: 24, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: "100%", opacity: 0 }}
-                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                  exit={{ x: 24, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
                   className="relative z-10 h-full w-[20vw] shrink-0 overflow-hidden border-l border-white/10 bg-black/60 backdrop-blur-2xl flex flex-col"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -421,7 +437,7 @@ export default function ImagePreviewModal({
                         <span className="text-[10px] text-white/30 uppercase font-mono tracking-wider">Model</span>
                         <div className="flex flex-wrap gap-2">
                           <span className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-full border border-primary/20">
-                            {config?.model || "Standard"}
+                            {modelDisplayName}
                           </span>
                           {config?.loras?.map((l, idx) => {
                             const loraKey = `lora-${result.id}-${l.model_name}-${idx}`;
@@ -470,6 +486,38 @@ export default function ImagePreviewModal({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {previewResults.length > 1 && (
+              <motion.aside
+                initial={{ x: 24, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 24, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="relative z-10 h-full w-[112px] shrink-0 overflow-hidden border-l border-white/10 bg-black/40 backdrop-blur-2xl flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-3 py-4 border-b border-white/10 shrink-0">
+                  <div className="text-[10px] text-white/30 uppercase font-mono tracking-[0.24em]">Images</div>
+                  <div className="mt-2 text-sm text-white/80 tabular-nums">
+                    {currentIndex >= 0 ? `${currentIndex + 1} / ${previewResults.length}` : `${previewResults.length}`}
+                  </div>
+                </div>
+
+                <ScrollArea className="flex-1 min-h-0">
+                  <div className="p-3 space-y-3">
+                    {previewResults.map((item, index) => (
+                      <PreviewResultThumbnail
+                        key={`preview-result-${getResultIdentity(item)}-${index}`}
+                        result={item}
+                        index={index}
+                        isActive={getResultIdentity(item) === activeResultIdentity}
+                        onSelect={onSelectResult}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+              </motion.aside>
+            )}
           </div>
         </motion.div>
       )}
