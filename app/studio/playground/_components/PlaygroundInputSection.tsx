@@ -611,9 +611,9 @@ function StackImage({
     isActive?: boolean;
     isDraggingAnything: boolean;
 }) {
-    // Use previewUrl directly as primary source to avoid flashing during reorder
-    // previewUrl is always available as base64 data URL
-    const finalSrc = image.path || image.previewUrl;
+    // Use previewUrl (signed URL) as primary source for display
+    // path contains storageKey which is not directly accessible
+    const finalSrc = image.previewUrl || image.path;
     const rotations = [-6, 4, -2, 3];
 
     return (

@@ -785,13 +785,18 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
           const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: form });
           const json = await resp.ok ? await resp.json() : null;
           const path = json?.path ? String(json.path) : undefined;
+          const url = json?.url ? String(json.url) : undefined; // 预签名 URL
 
-          // Update the specific image with its CDN path
-          updateImage(tempId, { path, isUploading: false });
+          // Update the specific image with its CDN path (storageKey) and preview URL (signed URL)
+          updateImage(tempId, { 
+            path, // storageKey 用于持久化标识
+            previewUrl: url || path, // 优先使用预签名 URL 显示，如果没有则使用 path
+            isUploading: false 
+          });
 
           // Also update history records that were using this local URL or localId
           if (path) {
-            updateHistorySourceUrl(originalUrl, path);
+            updateHistorySourceUrl(originalUrl, url || path);
             await syncLocalImageToHistory(tempId, path);
           }
         } catch (err) {
