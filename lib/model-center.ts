@@ -143,7 +143,7 @@ function normalizeCapabilities(task: ModelTask[], capabilities?: ModelCapabiliti
             : undefined,
         supportsSeed: capabilities?.supportsSeed ?? hasImage,
         supportsBatch,
-        maxBatchSize: supportsBatch ? (capabilities?.maxBatchSize ?? 4) : 1,
+        maxBatchSize: supportsBatch ? (capabilities?.maxBatchSize ?? 10) : 1,
         supportsMultiImage,
         maxReferenceImages: supportsMultiImage ? (capabilities?.maxReferenceImages ?? 4) : 1,
         minWidth: capabilities?.minWidth,

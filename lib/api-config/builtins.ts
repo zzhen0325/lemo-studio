@@ -54,7 +54,7 @@ const BUILTIN_PROVIDER_PATCHES: APIProviderConfig[] = [
                     allowedImageSizes: ['1K', '2K', '4K'],
                     supportsSeed: false,
                     supportsBatch: true,
-                    maxBatchSize: 4,
+                    maxBatchSize: 10,
                     supportsMultiImage: true,
                     maxReferenceImages: 4,
                     supportsImageEdit: true,
