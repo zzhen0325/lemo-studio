@@ -171,7 +171,7 @@
           ],
           "supportsSeed": true,
           "supportsBatch": true,
-          "maxBatchSize": 4,
+          "maxBatchSize": 10,
           "supportsMultiImage": true,
           "maxReferenceImages": 4,
           "supportsImageEdit": true
@@ -206,7 +206,7 @@
           ],
           "supportsSeed": true,
           "supportsBatch": true,
-          "maxBatchSize": 4,
+          "maxBatchSize": 10,
           "supportsMultiImage": true,
           "maxReferenceImages": 4,
           "supportsImageEdit": true
@@ -241,7 +241,7 @@
           ],
           "supportsSeed": true,
           "supportsBatch": true,
-          "maxBatchSize": 4,
+          "maxBatchSize": 10,
           "supportsMultiImage": true,
           "maxReferenceImages": 4,
           "supportsImageEdit": true
@@ -282,7 +282,7 @@
           ],
           "supportsSeed": true,
           "supportsBatch": true,
-          "maxBatchSize": 4,
+          "maxBatchSize": 10,
           "supportsMultiImage": false,
           "maxReferenceImages": 1,
           "minWidth": 1024,
@@ -365,8 +365,8 @@
             "4K"
           ],
           "supportsSeed": false,
-          "supportsBatch": false,
-          "maxBatchSize": 1,
+          "supportsBatch": true,
+          "maxBatchSize": 10,
           "supportsMultiImage": true,
           "maxReferenceImages": 4,
           "supportsImageEdit": true
@@ -403,7 +403,7 @@
           "supportsImageSize": true,
           "supportsSeed": true,
           "supportsBatch": true,
-          "maxBatchSize": 4,
+          "maxBatchSize": 10,
           "supportsMultiImage": true,
           "maxReferenceImages": 4,
           "supportsImage": true,
