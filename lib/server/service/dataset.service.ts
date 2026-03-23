@@ -5,6 +5,7 @@ import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 import { restoreMongoKeys } from '../utils/mongo';
+import { getFileUrl } from '@/src/storage/object-storage';
 import {
   DatasetCollection,
   DatasetEntry,
@@ -59,6 +60,74 @@ function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+/**
+ * Check if a string is a storage key (not a full URL)
+ */
+function isStorageKey(value: string): boolean {
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:')) {
+    return false;
+  }
+  return value.includes('/');
+}
+
+/**
+ * Extract storage key from a presigned URL (TOS/S3 URLs)
+ */
+function extractStorageKeyFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    
+    // Check if it's a TOS/S3 URL pattern
+    if (!parsed.hostname.includes('tos.coze.site') && !parsed.hostname.includes('tiktokcdn.com')) {
+      return null;
+    }
+    
+    const pathParts = parsed.pathname.split('/').filter(Boolean);
+    
+    // Skip the bucket name (first part like coze_storage_xxx)
+    if (pathParts.length < 2) {
+      return null;
+    }
+    
+    let keyStartIndex = 0;
+    if (pathParts[0].startsWith('coze_storage_')) {
+      keyStartIndex = 1;
+    }
+    
+    if (keyStartIndex >= pathParts.length) {
+      return null;
+    }
+    
+    return pathParts.slice(keyStartIndex).join('/') || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get display URL from storage key or presigned URL
+ * - If it's a storage key, generate presigned URL
+ * - If it's a presigned URL, extract storage key and regenerate presigned URL
+ */
+async function getDisplayUrl(value: string | undefined): Promise<string | undefined> {
+  if (!value) return undefined;
+  
+  if (isStorageKey(value)) {
+    // It's a storage key, generate presigned URL
+    return getFileUrl(value);
+  }
+  
+  // It's a URL - try to extract storage key and regenerate presigned URL
+  const storageKey = extractStorageKeyFromUrl(value);
+  if (storageKey) {
+    // Generate fresh presigned URL from storage key
+    return getFileUrl(storageKey);
+  }
+  
+  // Not a storage URL, return as-is
+  return value;
+}
+
 function resolvePromptFromMap(
   promptMap: Record<string, string>,
   originalName: string,
@@ -93,27 +162,69 @@ export class DatasetService {
   private async normalizeEntryUrl(
     entry: { collectionName: string; fileName: string; url: string },
   ): Promise<string> {
+    // First, try to extract storage key from the URL (handles expired presigned URLs)
+    let storageKey: string | null = null;
+    
+    if (isStorageKey(entry.url)) {
+      // Already a storage key
+      storageKey = entry.url;
+    } else {
+      // Try to extract storage key from presigned URL
+      storageKey = extractStorageKeyFromUrl(entry.url);
+    }
+    
+    // If we have a storage key, update database and return presigned URL
+    if (storageKey) {
+      // Update database with storage key if needed
+      if (storageKey !== entry.url) {
+        await this.datasetEntryModel.updateOne(
+          { collection_name: entry.collectionName, file_name: entry.fileName },
+          { $set: { url: storageKey } },
+        );
+        await this.imageAssetModel.updateOne(
+          { url: entry.url },
+          {
+            $set: {
+              url: storageKey,
+              dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
+              fileName: entry.fileName,
+              region: 'SG',
+              type: 'dataset',
+              meta: { collection: entry.collectionName },
+            },
+          },
+          { upsert: true },
+        );
+      }
+      
+      // Return fresh presigned URL for display
+      return (await getDisplayUrl(storageKey)) || entry.url;
+    }
+    
+    // Fallback: try to normalize and upload to CDN
     const normalized = await tryNormalizeAssetUrlToCdn(entry.url, {
       preferredSubdir: `dataset/${entry.collectionName}`,
       preferredFileName: entry.fileName,
     });
 
-    const storageKey = normalized.storageKey || normalized.url;
+    const newStorageKey = normalized.storageKey || normalized.url;
     
-    if (!storageKey) {
+    if (!newStorageKey) {
+      // Return original URL if normalization failed
       return entry.url;
     }
 
-    if (storageKey !== entry.url) {
+    // Update database with new storage key
+    if (newStorageKey !== entry.url) {
       await this.datasetEntryModel.updateOne(
         { collection_name: entry.collectionName, file_name: entry.fileName },
-        { $set: { url: storageKey } },
+        { $set: { url: newStorageKey } },
       );
       await this.imageAssetModel.updateOne(
         { url: entry.url },
         {
           $set: {
-            url: storageKey,
+            url: newStorageKey,
             dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
             fileName: entry.fileName,
             region: 'SG',
@@ -123,10 +234,10 @@ export class DatasetService {
         },
         { upsert: true },
       );
-      return storageKey;
     }
-
-    return storageKey || entry.url;
+    
+    // Return presigned URL for display
+    return (await getDisplayUrl(newStorageKey)) || entry.url;
   }
 
   public async getDataset(query: DatasetQuery): Promise<unknown> {
