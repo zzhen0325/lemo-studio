@@ -18,6 +18,40 @@ function isStorageKey(value: string): boolean {
 }
 
 /**
+ * Extract storage key from a presigned URL (TOS/S3 URLs)
+ */
+function extractStorageKeyFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    
+    // Check if it's a TOS/S3 URL pattern
+    if (!parsed.hostname.includes('tos.coze.site') && !parsed.hostname.includes('tiktokcdn.com')) {
+      return null;
+    }
+    
+    const pathParts = parsed.pathname.split('/').filter(Boolean);
+    
+    // Skip the bucket name (first part like coze_storage_xxx)
+    if (pathParts.length < 2) {
+      return null;
+    }
+    
+    let keyStartIndex = 0;
+    if (pathParts[0].startsWith('coze_storage_')) {
+      keyStartIndex = 1;
+    }
+    
+    if (keyStartIndex >= pathParts.length) {
+      return null;
+    }
+    
+    return pathParts.slice(keyStartIndex).join('/') || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get presigned URL for a value that might be a storage key or URL
  */
 async function getDisplayUrl(value: string | undefined): Promise<string | undefined> {
@@ -28,7 +62,14 @@ async function getDisplayUrl(value: string | undefined): Promise<string | undefi
     return getFileUrl(value);
   }
   
-  // It's already a URL, return as-is
+  // It's a URL - try to extract storage key and regenerate presigned URL
+  const storageKey = extractStorageKeyFromUrl(value);
+  if (storageKey) {
+    // Generate fresh presigned URL from storage key
+    return getFileUrl(storageKey);
+  }
+  
+  // Not a storage URL, return as-is
   return value;
 }
 
