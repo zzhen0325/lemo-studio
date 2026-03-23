@@ -2,6 +2,35 @@ import { HttpError } from '../utils/http-error';
 import { GenerationModel, type GenerationDoc } from '../db/models';
 import type { Generation, GenerationConfig } from '../../../types/database';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
+import { getFileUrl } from '@/src/storage/object-storage';
+
+/**
+ * Check if a string is a storage key (not a full URL)
+ * Storage keys look like: ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/outputs/img.png
+ */
+function isStorageKey(value: string): boolean {
+  // Storage keys don't have protocol prefix
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:')) {
+    return false;
+  }
+  // Storage keys have path separators
+  return value.includes('/');
+}
+
+/**
+ * Get presigned URL for a value that might be a storage key or URL
+ */
+async function getDisplayUrl(value: string | undefined): Promise<string | undefined> {
+  if (!value) return undefined;
+  
+  if (isStorageKey(value)) {
+    // It's a storage key, generate presigned URL
+    return getFileUrl(value);
+  }
+  
+  // It's already a URL, return as-is
+  return value;
+}
 
 export interface HistoryQuery {
   page: number;
@@ -16,38 +45,78 @@ function isValidId(id: string): boolean {
 }
 
 export class HistoryService {
+  /**
+   * Normalize URLs for storage and display
+   * - Converts local paths and data URLs to storage keys
+   * - Extracts storage keys from presigned URLs
+   * - Stores storage keys in database (permanent)
+   * - Returns presigned URLs for display (temporary)
+   */
   private async normalizeGenerationUrls(itemId: string, outputUrl?: string, sourceImageUrls: string[] = []) {
-    const normalizedOutputUrl = outputUrl
-      ? (await tryNormalizeAssetUrlToCdn(outputUrl, { preferredSubdir: 'outputs' })) || outputUrl
-      : undefined;
-    const normalizedSourceImageUrls = await Promise.all(
+    // Process output URL
+    let outputStorageKey: string | undefined;
+    let outputDisplayUrl: string | undefined;
+    
+    if (outputUrl) {
+      const normalized = await tryNormalizeAssetUrlToCdn(outputUrl, { preferredSubdir: 'outputs' });
+      if (normalized.storageKey) {
+        outputStorageKey = normalized.storageKey;
+        outputDisplayUrl = await getDisplayUrl(normalized.storageKey);
+      } else if (normalized.url) {
+        // Fallback to URL if no storage key
+        outputDisplayUrl = normalized.url;
+        outputStorageKey = normalized.url;
+      } else {
+        // Keep original if normalization failed
+        outputStorageKey = outputUrl;
+        outputDisplayUrl = await getDisplayUrl(outputUrl);
+      }
+    }
+    
+    // Process source image URLs
+    const sourceResults = await Promise.all(
       sourceImageUrls.map(async (sourceImageUrl) => {
         const normalized = await tryNormalizeAssetUrlToCdn(sourceImageUrl, { preferredSubdir: 'upload' });
-        return normalized || sourceImageUrl;
+        if (normalized.storageKey) {
+          return {
+            storageKey: normalized.storageKey,
+            displayUrl: await getDisplayUrl(normalized.storageKey),
+          };
+        }
+        if (normalized.url) {
+          return { storageKey: normalized.url, displayUrl: normalized.url };
+        }
+        const displayUrl = await getDisplayUrl(sourceImageUrl);
+        return { storageKey: sourceImageUrl, displayUrl };
       }),
     );
+    
+    const sourceStorageKeys = sourceResults.map(r => r.storageKey);
+    const sourceDisplayUrls = sourceResults.map(r => r.displayUrl);
 
-    const changedOutput = normalizedOutputUrl !== outputUrl;
-    const changedSources = normalizedSourceImageUrls.some((value, index) => value !== sourceImageUrls[index]);
+    // Check if we need to update the database with storage keys
+    const needsUpdate = 
+      (outputStorageKey && outputStorageKey !== outputUrl) ||
+      sourceStorageKeys.some((key, index) => key !== sourceImageUrls[index]);
 
-    if (itemId && (changedOutput || changedSources)) {
+    if (itemId && needsUpdate) {
       const updatePayload: Partial<GenerationDoc> = {};
-      if (changedOutput) {
-        updatePayload.output_url = normalizedOutputUrl;
+      if (outputStorageKey && outputStorageKey !== outputUrl) {
+        updatePayload.output_url = outputStorageKey;
       }
-      if (changedSources) {
+      if (sourceStorageKeys.some((key, index) => key !== sourceImageUrls[index])) {
         updatePayload.config = {
-          ...(updatePayload.config || {}),
-          sourceImageUrls: normalizedSourceImageUrls,
-          sourceImageUrl: normalizedSourceImageUrls[0],
+          sourceImageUrls: sourceStorageKeys,
         };
       }
-      await GenerationModel.updateOne({ id: itemId }, updatePayload);
+      if (Object.keys(updatePayload).length > 0) {
+        await GenerationModel.updateOne({ id: itemId }, updatePayload);
+      }
     }
 
     return {
-      outputUrl: normalizedOutputUrl,
-      sourceImageUrls: normalizedSourceImageUrls,
+      outputUrl: outputDisplayUrl,
+      sourceImageUrls: sourceDisplayUrls,
     };
   }
 

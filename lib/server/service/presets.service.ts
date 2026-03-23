@@ -19,21 +19,26 @@ export class PresetsService {
   @Inject(ImageAsset)
   private imageAssetModel!: ModelType<ImageAsset>;
 
-  private async normalizeStoredPresetCover(id: string, coverUrl?: string, coverData?: string) {
+  private async normalizeStoredPresetCover(id: string, coverUrl?: string, coverData?: string): Promise<string> {
     const normalized = await tryNormalizeAssetUrlToCdn(coverUrl || coverData, {
       preferredSubdir: 'public/preset',
       preferredFileName: `${id}.png`,
     });
 
-    if (normalized && normalized !== coverUrl) {
-      await this.presetModel.updateOne(
-        { _id: id },
-        { $set: { coverUrl: normalized, coverData: undefined } },
-      );
-      return normalized;
+    const storageKey = normalized.storageKey || normalized.url;
+    
+    if (!storageKey) {
+      return coverUrl || '';
     }
 
-    return normalized || coverUrl || '';
+    if (storageKey !== coverUrl) {
+      await this.presetModel.updateOne(
+        { _id: id },
+        { $set: { coverUrl: storageKey, coverData: undefined } },
+      );
+    }
+
+    return storageKey;
   }
 
   public async listPresets(): Promise<Preset[]> {

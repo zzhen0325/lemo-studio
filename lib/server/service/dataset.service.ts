@@ -98,16 +98,22 @@ export class DatasetService {
       preferredFileName: entry.fileName,
     });
 
-    if (normalized && normalized !== entry.url) {
+    const storageKey = normalized.storageKey || normalized.url;
+    
+    if (!storageKey) {
+      return entry.url;
+    }
+
+    if (storageKey !== entry.url) {
       await this.datasetEntryModel.updateOne(
         { collection_name: entry.collectionName, file_name: entry.fileName },
-        { $set: { url: normalized } },
+        { $set: { url: storageKey } },
       );
       await this.imageAssetModel.updateOne(
         { url: entry.url },
         {
           $set: {
-            url: normalized,
+            url: storageKey,
             dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
             fileName: entry.fileName,
             region: 'SG',
@@ -117,10 +123,10 @@ export class DatasetService {
         },
         { upsert: true },
       );
-      return normalized;
+      return storageKey;
     }
 
-    return normalized || entry.url;
+    return storageKey || entry.url;
   }
 
   public async getDataset(query: DatasetQuery): Promise<unknown> {

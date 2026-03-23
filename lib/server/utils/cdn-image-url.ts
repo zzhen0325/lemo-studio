@@ -87,11 +87,12 @@ function parseDataImageUrl(value: string): { buffer: Buffer; mimeType: string } 
 
 /**
  * Upload an image buffer to object storage
+ * Returns storage key instead of presigned URL for long-term storage
  */
 export async function uploadImageBufferToCdn(
   buffer: Buffer,
   options: UploadImageToCdnOptions = {},
-): Promise<string> {
+): Promise<{ storageKey: string; url: string }> {
   const preferredFileName = sanitizeFileName(
     options.preferredFileName
       || `asset_${Date.now()}_${randomUUID().slice(0, 8)}.${extFromMimeType(options.mimeType)}`,
@@ -99,10 +100,10 @@ export async function uploadImageBufferToCdn(
   const mimeType = options.mimeType || mimeTypeFromFileName(preferredFileName);
   const subdir = options.preferredSubdir || 'upload';
 
-  const key = await uploadImageToStorage(buffer, preferredFileName, subdir, mimeType);
-  const url = await getFileUrl(key);
+  const storageKey = await uploadImageToStorage(buffer, preferredFileName, subdir, mimeType);
+  const url = await getFileUrl(storageKey);
 
-  return url;
+  return { storageKey, url };
 }
 
 /**
@@ -111,46 +112,55 @@ export async function uploadImageBufferToCdn(
  * - Remote URLs (returned as-is)
  * - Data URLs (uploaded and converted to storage URLs)
  * - Local asset paths (uploaded and converted to storage URLs)
+ * 
+ * Returns both storageKey (for database) and url (for display)
  */
 export async function tryNormalizeAssetUrlToCdn(
   value: string | undefined | null,
   options: UploadImageToCdnOptions = {},
-): Promise<string | undefined> {
+): Promise<{ storageKey?: string; url?: string }> {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   if (!trimmed) {
-    return undefined;
+    return {};
   }
 
-  // Remote URLs are returned as-is
+  // Remote URLs are returned as-is (assume they are storage keys or permanent URLs)
   if (isRemoteUrl(trimmed)) {
-    return trimmed;
+    // Check if it's already a storage key (path without protocol)
+    // If it's a presigned URL, extract the storage key
+    const storageKey = extractStorageKeyFromPresignedUrl(trimmed);
+    if (storageKey) {
+      return { storageKey, url: trimmed };
+    }
+    // Otherwise return as-is
+    return { storageKey: trimmed, url: trimmed };
   }
 
   if (isBareRemoteUrl(trimmed)) {
-    return `https://${trimmed}`;
+    return { storageKey: `https://${trimmed}`, url: `https://${trimmed}` };
   }
 
   // Blob URLs can't be processed server-side
   if (trimmed.startsWith('blob:')) {
-    return undefined;
+    return {};
   }
 
   // Handle data URLs
   const parsedDataUrl = parseDataImageUrl(trimmed);
   if (parsedDataUrl) {
     try {
-      const { url } = await uploadDataUrl(trimmed, options.preferredSubdir || 'upload');
-      return url;
+      const result = await uploadDataUrl(trimmed, options.preferredSubdir || 'upload');
+      return { storageKey: result.key, url: result.url };
     } catch (error) {
       console.warn(`[cdn-image-url] Failed to upload data URL asset to storage: ${trimmed.slice(0, 48)}...`, error);
-      return undefined;
+      return {};
     }
   }
 
   // Handle local asset paths
   const publicAssetPath = normalizePublicAssetPath(trimmed);
   if (!publicAssetPath) {
-    return undefined;
+    return {};
   }
 
   const absolutePath = path.join(getWorkspaceRoot(), 'public', publicAssetPath);
@@ -159,19 +169,54 @@ export async function tryNormalizeAssetUrlToCdn(
     buffer = await fs.readFile(absolutePath);
   } catch (error) {
     console.warn(`[cdn-image-url] Missing local asset for storage normalization: ${trimmed}`, error);
-    return undefined;
+    return {};
   }
 
   const preferredSubdir = options.preferredSubdir || path.posix.dirname(publicAssetPath);
   const preferredFileName = options.preferredFileName || path.posix.basename(publicAssetPath);
   try {
-    return await uploadImageBufferToCdn(buffer, {
+    const result = await uploadImageBufferToCdn(buffer, {
       preferredSubdir,
       preferredFileName,
       mimeType: options.mimeType || mimeTypeFromFileName(preferredFileName),
     });
+    return { storageKey: result.storageKey, url: result.url };
   } catch (error) {
     console.warn(`[cdn-image-url] Failed to upload local asset to storage: ${trimmed}`, error);
-    return undefined;
+    return {};
+  }
+}
+
+/**
+ * Extract storage key from a presigned URL
+ */
+function extractStorageKeyFromPresignedUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    
+    // Check if it's a TOS/S3 URL pattern
+    if (!parsed.hostname.includes('tos.coze.site') && !parsed.hostname.includes('tiktokcdn.com')) {
+      return null;
+    }
+    
+    const pathParts = parsed.pathname.split('/').filter(Boolean);
+    
+    // Skip the bucket name (first part like coze_storage_xxx)
+    if (pathParts.length < 2) {
+      return null;
+    }
+    
+    let keyStartIndex = 0;
+    if (pathParts[0].startsWith('coze_storage_')) {
+      keyStartIndex = 1;
+    }
+    
+    if (keyStartIndex >= pathParts.length) {
+      return null;
+    }
+    
+    return pathParts.slice(keyStartIndex).join('/') || null;
+  } catch {
+    return null;
   }
 }

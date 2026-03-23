@@ -31,7 +31,7 @@ export class UploadService {
   @Inject(ImageAsset)
   private imageAssetModel!: ModelType<ImageAsset>;
 
-  public async upload(file: UploadedFileLike): Promise<{ path: string }> {
+  public async upload(file: UploadedFileLike): Promise<{ path: string; storageKey: string }> {
     const infoParse = FileInfoSchema.safeParse({ name: file.name, type: file.type });
     if (!infoParse.success) {
       throw new HttpError(400, 'Invalid file', infoParse.error.flatten());
@@ -47,23 +47,29 @@ export class UploadService {
     // Generate unique filename to prevent overwrite
     const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "") || 'image';
     const fileName = `${nameWithoutExt}_${randomUUID()}.${ext}`;
+    
+    // Upload to storage - only get storage key, not presigned URL
     const cdnRes = await uploadBufferToCdn(buffer, {
       fileName,
       dir: 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/upload',
       region: 'SG',
       mimeType: file.type,
-      generateSignedUrl: true, // 生成预签名 URL 用于访问
+      generateSignedUrl: false, // 不生成预签名 URL，只返回 storageKey
     });
 
     await this.imageAssetModel.create({
       storage_key: cdnRes.storageKey,
-      url: cdnRes.url || '',
+      url: '', // 不再存储预签名 URL
       dir: cdnRes.dir,
       fileName: cdnRes.fileName,
       region: 'SG',
       type: 'upload',
     });
 
-    return { path: cdnRes.url || '' };
+    // 返回 storageKey 作为 path，前端需要适配
+    return { 
+      path: cdnRes.storageKey, // 存储的是 storageKey
+      storageKey: cdnRes.storageKey,
+    };
   }
 }

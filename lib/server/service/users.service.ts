@@ -1,20 +1,60 @@
 import { HttpError } from '../utils/http-error';
 import { UserModel, type UserDoc } from '../db/models';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
+import { getFileUrl } from '@/src/storage/object-storage';
+
+/**
+ * Check if a string is a storage key (not a full URL)
+ */
+function isStorageKey(value: string): boolean {
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:')) {
+    return false;
+  }
+  return value.includes('/');
+}
+
+/**
+ * Get display URL from storage key or URL
+ */
+async function getDisplayUrl(value: string | undefined): Promise<string | undefined> {
+  if (!value) return undefined;
+  if (isStorageKey(value)) {
+    return getFileUrl(value);
+  }
+  return value;
+}
 
 export class UsersService {
-  private async normalizeAvatar(userId: string, avatar?: string | null): Promise<string | undefined> {
+  /**
+   * Normalize avatar URL for storage and display
+   * - Stores storage key (permanent)
+   * - Returns display URL (temporary presigned URL)
+   */
+  private async normalizeAvatar(userId: string, avatar?: string | null): Promise<{ storageKey?: string; displayUrl?: string }> {
+    if (!avatar) {
+      return {};
+    }
+
+    // Try to normalize (upload local assets, extract storage key from presigned URL)
     const normalized = await tryNormalizeAssetUrlToCdn(avatar, {
       preferredSubdir: 'avatars',
       preferredFileName: `${userId}.png`,
     });
 
-    if (normalized && normalized !== avatar) {
-      await UserModel.updateOne({ id: userId }, { avatar_url: normalized });
-      return normalized;
+    const storageKey = normalized.storageKey || normalized.url;
+    if (!storageKey) {
+      return {};
     }
 
-    return normalized || undefined;
+    // Get display URL from storage key
+    const displayUrl = await getDisplayUrl(storageKey);
+
+    // Update database if storage key changed
+    if (storageKey !== avatar) {
+      await UserModel.updateOne({ id: userId }, { avatar_url: storageKey });
+    }
+
+    return { storageKey, displayUrl };
   }
 
   public async getUsers(userId?: string | null): Promise<{ user?: Record<string, unknown>; users?: Record<string, unknown>[] }> {
@@ -24,23 +64,27 @@ export class UsersService {
         if (!user) {
           throw new HttpError(404, 'User not found');
         }
+        const avatarResult = await this.normalizeAvatar(user.id, user.avatar_url);
         return {
           user: {
             id: user.id,
             name: user.display_name,
-            avatar: await this.normalizeAvatar(user.id, user.avatar_url),
+            avatar: avatarResult.displayUrl,
             createdAt: user.created_at,
           },
         };
       }
 
       const users = await UserModel.find();
-      const safeUsers = await Promise.all(users.map(async (u) => ({
-        id: u.id,
-        name: u.display_name,
-        avatar: await this.normalizeAvatar(u.id, u.avatar_url),
-        createdAt: u.created_at,
-      })));
+      const safeUsers = await Promise.all(users.map(async (u: UserDoc) => {
+        const avatarResult = await this.normalizeAvatar(u.id, u.avatar_url);
+        return {
+          id: u.id,
+          name: u.display_name,
+          avatar: avatarResult.displayUrl,
+          createdAt: u.created_at,
+        };
+      }));
       return { users: safeUsers as Record<string, unknown>[] };
     } catch (error) {
       if (error instanceof HttpError) throw error;
@@ -129,9 +173,13 @@ export class UsersService {
       }
 
       const updates: Partial<UserDoc> = {};
+      let avatarDisplayUrl: string | undefined;
+      
       if (name) updates.display_name = name;
       if (avatar !== undefined) {
-        updates.avatar_url = await this.normalizeAvatar(id, avatar);
+        const avatarResult = await this.normalizeAvatar(id, avatar);
+        updates.avatar_url = avatarResult.storageKey;
+        avatarDisplayUrl = avatarResult.displayUrl;
       }
 
       await UserModel.updateOne({ id }, updates);
@@ -140,7 +188,7 @@ export class UsersService {
         user: {
           id: user.id,
           name: updates.display_name || user.display_name,
-          avatar: updates.avatar_url || user.avatar_url,
+          avatar: avatarDisplayUrl || await getDisplayUrl(user.avatar_url),
           createdAt: user.created_at,
         },
       };
