@@ -96,7 +96,7 @@ export default function ControlToolbar({
   isSelectorExpanded = false,
   isPresetGridOpen = false,
   onTogglePresetGrid,
-  batchSize = 1,
+  batchSize = 4,
   onBatchSizeChange,
   onClearPreset,
   variant = 'default',
