@@ -8,6 +8,10 @@ import mime from 'mime-types';
 import { buildAbsoluteSiteUrl } from "../ai/imageInput";
 import { missingViewComfyFileError, viewComfyFileName } from "../constants";
 import { readJsonAsset, resolvePublicAssetUrl } from "../runtime-assets";
+import { getFileUrl } from "@/src/storage/object-storage";
+
+// Storage key 前缀，用于识别对象存储中的文件
+const STORAGE_KEY_PREFIX = 'ljhwZthlaukjlkulzlp/';
 
 const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 15_000;
 const REMOTE_IMAGE_HEADERS: HeadersInit = {
@@ -329,6 +333,17 @@ export class ComfyUIService {
                 const response = await this.fetchImageResponse(imagePathOrUrl, {
                     sourceLabel: "remote image URL",
                     headers: REMOTE_IMAGE_HEADERS,
+                });
+                filename = this.getUploadFilename(imagePathOrUrl, response.headers.get("content-type"));
+                blob = await response.blob();
+            } else if (imagePathOrUrl.startsWith(STORAGE_KEY_PREFIX)) {
+                // Storage key 格式 - 从对象存储获取预签名 URL
+                console.info(`[ComfyUIService] Detected storage key, generating presigned URL: ${imagePathOrUrl}`);
+                const presignedUrl = await getFileUrl(imagePathOrUrl);
+                
+                const response = await this.fetchImageResponse(presignedUrl, {
+                    sourceLabel: "object storage",
+                    headers: {},
                 });
                 filename = this.getUploadFilename(imagePathOrUrl, response.headers.get("content-type"));
                 blob = await response.blob();

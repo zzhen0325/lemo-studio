@@ -9,6 +9,9 @@ import {
   type WorkflowLike,
 } from "@/lib/comfyui/workflow-helpers";
 
+// Storage key 前缀，用于识别对象存储中的文件
+const STORAGE_KEY_PREFIX = 'ljhwZthlaukjlkulzlp/';
+
 type ComfyOutputFile = {
   filename: string;
   subfolder: string;
@@ -204,16 +207,34 @@ async function resolveUploadableValue(key: string, value: unknown): Promise<{ bl
 
   const isImageInputKey = key.endsWith("-inputs-image");
   const startsLikeUrl = /^(https?:|blob:|data:image|\/|\.\/|\.\.\/)/i.test(value);
+  const isStorageKey = value.startsWith(STORAGE_KEY_PREFIX);
   const maybeRelativeImagePath = isImageInputKey && value.includes("/");
 
-  if (!startsLikeUrl && !maybeRelativeImagePath) {
+  if (!startsLikeUrl && !maybeRelativeImagePath && !isStorageKey) {
     return null;
   }
 
-  const sourceUrl = startsLikeUrl ? value : makeRelativeImageUrl(value);
+  let sourceUrl: string;
+
+  // 处理 storage key - 需要先获取预签名 URL
+  if (isStorageKey) {
+    const presignedResponse = await fetch('/api/storage/presigned-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: value }),
+    });
+    if (!presignedResponse.ok) {
+      throw new Error(`Failed to get presigned URL for storage key: ${value}`);
+    }
+    const { url } = await presignedResponse.json();
+    sourceUrl = url;
+  } else {
+    sourceUrl = startsLikeUrl ? value : makeRelativeImageUrl(value);
+  }
+
   const response = await fetch(sourceUrl);
   if (!response.ok) {
-    if (maybeRelativeImagePath && !startsLikeUrl) {
+    if (maybeRelativeImagePath && !startsLikeUrl && !isStorageKey) {
       return null;
     }
     throw new Error(`Failed to read image input from ${value}: HTTP ${response.status}`);
