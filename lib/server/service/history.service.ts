@@ -198,9 +198,23 @@ export class HistoryService {
         });
       }
 
-      // Determine sort order
-      const sortOption: Record<string, 1 | -1> = sortBy === 'interactionPriority'
-        ? { 
+      // Determine sort order based on sortBy parameter
+      let sortOption: Record<string, 1 | -1>;
+      switch (sortBy) {
+        case 'likes':
+          sortOption = { like_count: -1, last_liked_at: -1, created_at: -1 };
+          break;
+        case 'favorites':
+          sortOption = { moodboard_add_count: -1, last_moodboard_added_at: -1, created_at: -1 };
+          break;
+        case 'downloads':
+          sortOption = { download_count: -1, last_downloaded_at: -1, created_at: -1 };
+          break;
+        case 'edits':
+          sortOption = { edit_count: -1, last_edited_at: -1, created_at: -1 };
+          break;
+        case 'interactionPriority':
+          sortOption = { 
             like_count: -1, 
             last_liked_at: -1,
             moodboard_add_count: -1, 
@@ -210,8 +224,13 @@ export class HistoryService {
             edit_count: -1, 
             last_edited_at: -1,
             created_at: -1 
-          }
-        : { created_at: -1 };
+          };
+          break;
+        case 'recent':
+        default:
+          sortOption = { created_at: -1 };
+          break;
+      }
 
       // Get total count
       const total = Object.keys(filter).length === 0

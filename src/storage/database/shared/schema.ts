@@ -40,6 +40,15 @@ export const generations = pgTable("generations", {
 	sourceImageId: varchar("source_image_id", { length: 36 }),
 	outputUrl: text("output_url"),
 	config: jsonb(),
+	// 交互统计字段
+	likeCount: integer("like_count").default(0),
+	moodboardAddCount: integer("moodboard_add_count").default(0),
+	downloadCount: integer("download_count").default(0),
+	editCount: integer("edit_count").default(0),
+	lastLikedAt: timestamp("last_liked_at", { withTimezone: true, mode: 'string' }),
+	lastMoodboardAddedAt: timestamp("last_moodboard_added_at", { withTimezone: true, mode: 'string' }),
+	lastDownloadedAt: timestamp("last_downloaded_at", { withTimezone: true, mode: 'string' }),
+	lastEditedAt: timestamp("last_edited_at", { withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
@@ -47,6 +56,22 @@ export const generations = pgTable("generations", {
 	index("generations_project_id_idx").using("btree", table.projectId.asc().nullsLast().op("text_ops")),
 	index("generations_status_idx").using("btree", table.status.asc().nullsLast().op("text_ops")),
 	index("generations_user_id_idx").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+	index("generations_like_count_idx").using("btree", table.likeCount.desc().nullsLast().op("int4_ops")),
+	index("generations_moodboard_add_count_idx").using("btree", table.moodboardAddCount.desc().nullsLast().op("int4_ops")),
+	index("generations_download_count_idx").using("btree", table.downloadCount.desc().nullsLast().op("int4_ops")),
+	index("generations_edit_count_idx").using("btree", table.editCount.desc().nullsLast().op("int4_ops")),
+]);
+
+// 点赞去重表
+export const generationLikes = pgTable("generation_likes", {
+	id: varchar({ length: 36 }).default(gen_random_uuid()).primaryKey().notNull(),
+	generationId: varchar("generation_id", { length: 36 }).notNull(),
+	userId: varchar("user_id", { length: 36 }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("generation_likes_generation_id_idx").using("btree", table.generationId.asc().nullsLast().op("text_ops")),
+	index("generation_likes_user_id_idx").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+	unique("generation_likes_unique").on(table.generationId, table.userId),
 ]);
 
 export const imageAssets = pgTable("image_assets", {

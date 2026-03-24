@@ -20,8 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-
-type GallerySortBy = 'recent' | 'likes' | 'favorites' | 'downloads' | 'edits';
+import type { SortBy } from '@/lib/server/service/history.service';
 
 const GALLERY_THUMB_QUALITY = 25;
 
@@ -45,8 +44,8 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
     const setGallerySortBy = usePlaygroundStore(s => s.setGallerySortBy);
     const { handleGenerate } = useGenerationService();
 
-    // Sort options configuration
-    const sortOptions: { value: GallerySortBy; label: string; icon: LucideIcon }[] = [
+    // Sort options configuration (excluding interactionPriority which is internal)
+    const sortOptions: { value: Exclude<SortBy, 'interactionPriority'>; label: string; icon: LucideIcon }[] = [
         { value: 'recent', label: '最新', icon: RefreshCw },
         { value: 'likes', label: '点赞最多', icon: Heart },
         { value: 'favorites', label: '收藏最多', icon: Star },
