@@ -107,6 +107,13 @@ export function formatImageUrl(url: string | undefined | null, useProxy = false)
         return url;
     }
 
+    // Handle storage key format (e.g. ljhwZthlaukjlkulzlp/...)
+    // Return API path that will generate presigned URL and redirect
+    if (url.startsWith('ljhwZthlaukjlkulzlp/')) {
+        const apiBase = getApiBase();
+        return `${apiBase}/storage/image?key=${encodeURIComponent(url)}`;
+    }
+
     let resultUrl = url;
     const apiBase = getApiBase();
     const siteBase = apiBase.replace('/api', '');
