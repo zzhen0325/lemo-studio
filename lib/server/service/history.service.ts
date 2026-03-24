@@ -5,7 +5,7 @@ import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 import { getFileUrl } from '@/src/storage/object-storage';
 import { getBatchInteractionData } from './interaction.service';
 
-export type SortBy = 'recent' | 'interactionPriority';
+export type SortBy = 'recent' | 'likes' | 'favorites' | 'downloads' | 'edits' | 'interactionPriority';
 
 /**
  * Check if a string is a storage key (not a full URL)

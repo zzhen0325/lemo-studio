@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { formatImageUrl } from "@/lib/api-base";
-import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon } from "lucide-react";
+import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, ArrowUpDown, Heart, Star, DownloadIcon, Edit3 } from "lucide-react";
 import GradualBlur from "@/components/visual-effects/GradualBlur";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -13,6 +13,15 @@ import { useMediaQuery } from '@/hooks/common/use-media-query';
 import { useGenerationService } from "@studio/playground/_components/hooks/useGenerationService";
 import { Generation, GenerationConfig } from '@/types/database';
 import { AddToMoodboardMenu } from "@studio/playground/_components/AddToMoodboardMenu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+
+type GallerySortBy = 'recent' | 'likes' | 'favorites' | 'downloads' | 'edits';
 
 const GALLERY_THUMB_QUALITY = 25;
 
@@ -32,7 +41,20 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
     const hasMoreGallery = usePlaygroundStore(s => s.hasMoreGallery);
     const isFetchingGallery = usePlaygroundStore(s => s.isFetchingGallery);
     const activeTab = usePlaygroundStore(s => s.activeTab);
+    const gallerySortBy = usePlaygroundStore(s => s.gallerySortBy);
+    const setGallerySortBy = usePlaygroundStore(s => s.setGallerySortBy);
     const { handleGenerate } = useGenerationService();
+
+    // Sort options configuration
+    const sortOptions: { value: GallerySortBy; label: string; icon: LucideIcon }[] = [
+        { value: 'recent', label: '最新', icon: RefreshCw },
+        { value: 'likes', label: '点赞最多', icon: Heart },
+        { value: 'favorites', label: '收藏最多', icon: Star },
+        { value: 'downloads', label: '下载最多', icon: DownloadIcon },
+        { value: 'edits', label: '编辑最多', icon: Edit3 },
+    ];
+
+    const currentSortOption = sortOptions.find(opt => opt.value === gallerySortBy) || sortOptions[0];
 
     // Responsive column count
     const isSm = useMediaQuery("(min-width: 640px)");
@@ -224,7 +246,7 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 
                     <div className="flex flex-col space-y-4  overflow-hidden">
 
-                        <div className="flex flex-row items-center h-14 mt-4 justify-between ">
+                        <div className="flex flex-row items-center h-14 mt-4 justify-between gap-4">
                             <div className="flex mb-0">
                                 <span className="text-3xl font-instrument-sans text-white flex items-center "
                                     style={{ fontFamily: "'InstrumentSerif', serif" }}>
@@ -232,25 +254,55 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                 </span>
                             </div>
 
+                            <div className="flex items-center gap-3">
+                                {/* Sort Dropdown */}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button 
+                                            variant="outline" 
+                                            className="h-10 bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white gap-2"
+                                        >
+                                            <currentSortOption.icon className="w-4 h-4" />
+                                            <span className="text-sm">{currentSortOption.label}</span>
+                                            <ArrowUpDown className="w-3 h-3 opacity-50" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-40 bg-black/90 border-white/10">
+                                        {sortOptions.map((option) => (
+                                            <DropdownMenuItem
+                                                key={option.value}
+                                                onClick={() => setGallerySortBy(option.value)}
+                                                className={cn(
+                                                    "flex items-center gap-2 cursor-pointer text-white/70 hover:text-white hover:bg-white/10",
+                                                    gallerySortBy === option.value && "bg-white/10 text-white"
+                                                )}
+                                            >
+                                                <option.icon className="w-4 h-4" />
+                                                <span>{option.label}</span>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
 
-                            <div className="relative flex items-center group w-64  ">
-                                <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 " />
-                                <input
-                                    type="text"
-                                    placeholder="Search prompts..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 "
-                                />
-                                {searchQuery && (
-                                    <button
-                                        onClick={() => setSearchQuery("")}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
-                                    >
-                                        <X className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
-
+                                {/* Search Input */}
+                                <div className="relative flex items-center group w-64  ">
+                                    <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 " />
+                                    <input
+                                        type="text"
+                                        placeholder="Search prompts..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 "
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery("")}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 

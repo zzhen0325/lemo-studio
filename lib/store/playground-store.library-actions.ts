@@ -10,6 +10,7 @@ import {
   prependUniqueGalleryItems,
 } from './playground-store.helpers';
 import { mergeShortcutMoodboards } from '@/config/playground-shortcuts';
+import type { SortBy } from '@/lib/server/service/history.service';
 
 type PlaygroundSet = StoreApi<PlaygroundState>['setState'];
 type PlaygroundGet = StoreApi<PlaygroundState>['getState'];
@@ -24,6 +25,8 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
   | 'galleryLastSyncAt'
   | 'isPrefetchingGallery'
   | 'galleryPrefetch'
+  | 'gallerySortBy'
+  | 'setGallerySortBy'
   | 'fetchGallery'
   | 'syncGalleryLatest'
   | 'prefetchGalleryNext'
@@ -55,6 +58,17 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
     galleryLastSyncAt: null,
     isPrefetchingGallery: false,
     galleryPrefetch: null,
+    gallerySortBy: 'recent' as SortBy,
+    setGallerySortBy: (sortBy: SortBy) => {
+      set({
+        gallerySortBy: sortBy,
+        galleryItems: [],
+        galleryPage: 1,
+        hasMoreGallery: true,
+        _galleryLoaded: false,
+      });
+      get().fetchGallery(1);
+    },
     fetchGallery: async (page = 1) => {
       const state = get();
       if (page > 1 && page <= state.galleryPage) return;
@@ -85,7 +99,9 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       let hasMoreAfterLoad = false;
       try {
         const limit = page === 1 ? 24 : 30;
-        const data = await fetchGalleryPageFromApi(page, limit);
+        const sortBy = state.gallerySortBy;
+        const viewerUserId = state.visitorId;
+        const data = await fetchGalleryPageFromApi(page, limit, { sortBy, viewerUserId });
         if (!data) return;
 
         loadedSuccessfully = true;
@@ -123,7 +139,9 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
 
       set({ isSyncingGalleryLatest: true });
       try {
-        const data = await fetchGalleryPageFromApi(1, 24);
+        const sortBy = state.gallerySortBy;
+        const viewerUserId = state.visitorId;
+        const data = await fetchGalleryPageFromApi(1, 24, { sortBy, viewerUserId });
         if (!data) return;
 
         set((current) => {
@@ -154,7 +172,9 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
 
       set({ isPrefetchingGallery: true });
       try {
-        const data = await fetchGalleryPageFromApi(nextPage, 30);
+        const sortBy = state.gallerySortBy;
+        const viewerUserId = state.visitorId;
+        const data = await fetchGalleryPageFromApi(nextPage, 30, { sortBy, viewerUserId });
         if (!data) return;
 
         set((current) => {

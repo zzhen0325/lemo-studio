@@ -494,6 +494,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     galleryLastSyncAt: null,
                     isPrefetchingGallery: false,
                     galleryPrefetch: null,
+                    gallerySortBy: 'recent',
                     _galleryLoaded: false,
                 });
             },

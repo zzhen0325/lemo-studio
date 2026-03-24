@@ -14,10 +14,16 @@ import {
   pickBannerTextPositionsForHistory,
 } from '@/lib/prompt/banner-prompt';
 
+import type { SortBy } from '@/lib/server/service/history.service';
+
 const galleryInFlightRequests = new Map<string, Promise<{ history: Generation[]; hasMore: boolean } | null>>();
 
-export const fetchGalleryPageFromApi = async (page: number, limit: number) => {
-  const cacheKey = `${page}-${limit}`;
+export const fetchGalleryPageFromApi = async (
+  page: number, 
+  limit: number, 
+  options?: { sortBy?: SortBy; viewerUserId?: string }
+) => {
+  const cacheKey = `${page}-${limit}-${options?.sortBy || 'recent'}-${options?.viewerUserId || ''}`;
   const pending = galleryInFlightRequests.get(cacheKey);
   if (pending) return pending;
 
@@ -27,6 +33,13 @@ export const fetchGalleryPageFromApi = async (page: number, limit: number) => {
     url.searchParams.set('limit', limit.toString());
     url.searchParams.set('lightweight', '1');
     url.searchParams.set('minimal', '1');
+    
+    if (options?.sortBy) {
+      url.searchParams.set('sortBy', options.sortBy);
+    }
+    if (options?.viewerUserId) {
+      url.searchParams.set('viewerUserId', options.viewerUserId);
+    }
 
     const res = await fetch(url.toString());
     if (!res.ok) return null;
