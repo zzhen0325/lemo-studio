@@ -74,6 +74,12 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       if (page > 1 && page <= state.galleryPage) return;
       if (state.isFetchingGallery || (page === 1 && state._galleryLoaded)) return;
 
+      // 确保 visitorId 存在
+      if (!state.visitorId) {
+        const { v4: uuidv4 } = await import('uuid');
+        set({ visitorId: uuidv4() });
+      }
+
       if (page > 1 && state.galleryPrefetch?.page === page) {
         const cachedPage = state.galleryPrefetch;
         set((current) => ({
@@ -99,8 +105,9 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       let hasMoreAfterLoad = false;
       try {
         const limit = page === 1 ? 24 : 30;
-        const sortBy = state.gallerySortBy;
-        const viewerUserId = state.visitorId;
+        const currentState = get();
+        const sortBy = currentState.gallerySortBy;
+        const viewerUserId = currentState.visitorId;
         const data = await fetchGalleryPageFromApi(page, limit, { sortBy, viewerUserId });
         if (!data) return;
 

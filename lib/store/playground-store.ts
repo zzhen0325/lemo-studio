@@ -551,5 +551,11 @@ export const usePlaygroundStore = create<PlaygroundState>()(
         }), {
         name: 'playground-storage',
         partialize: partializePlaygroundState,
+        onRehydrateStorage: () => (state) => {
+            // 确保 visitorId 在页面刷新后仍然存在
+            if (state && !state.visitorId) {
+                state.visitorId = uuidv4();
+            }
+        },
     }
     ));

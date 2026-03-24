@@ -61,8 +61,14 @@ export default function ImagePreviewModal({
   const applyImages = usePlaygroundStore((state) => state.applyImages);
   const applyPrompt = usePlaygroundStore((state) => state.applyPrompt);
   const applyImage = usePlaygroundStore((state) => state.applyImage);
+  const visitorId = usePlaygroundStore((state) => state.visitorId);
+  const initVisitorId = usePlaygroundStore((state) => state.initVisitorId);
   const [mounted, setMounted] = useState(false);
   const availableModels = usePlaygroundAvailableModels();
+
+  // 本地状态用于即时更新交互数据
+  const [localInteractionStats, setLocalInteractionStats] = useState(result?.interactionStats);
+  const [localViewerState, setLocalViewerState] = useState(result?.viewerState);
 
   // 数据已规范化，直接从 config.sourceImageUrls 读取
   const sourceUrls = result?.config?.sourceImageUrls || [];
@@ -72,7 +78,15 @@ export default function ImagePreviewModal({
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // 确保初始化 visitorId
+    initVisitorId();
+  }, [initVisitorId]);
+
+  // 当 result 变化时，重置本地交互数据状态
+  useEffect(() => {
+    setLocalInteractionStats(result?.interactionStats);
+    setLocalViewerState(result?.viewerState);
+  }, [result?.id, result?.interactionStats, result?.viewerState]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -170,6 +184,12 @@ export default function ImagePreviewModal({
     if (!result.outputUrl) return;
     await applyImage(result.outputUrl);
     toast({ title: "Image Added", description: "图片已添加为参考图" });
+  };
+
+  // 处理点赞后更新交互数据
+  const handleInteractionUpdate = (stats: typeof localInteractionStats, state: typeof localViewerState) => {
+    setLocalInteractionStats(stats);
+    setLocalViewerState(state);
   };
 
   if (!mounted) return null;
@@ -278,9 +298,10 @@ export default function ImagePreviewModal({
                   {/* Like Button */}
                   <InteractionButtons
                     generationId={result.id}
-                    interactionStats={result.interactionStats}
-                    viewerState={result.viewerState}
-                    userId={result.userId}
+                    interactionStats={localInteractionStats}
+                    viewerState={localViewerState}
+                    userId={visitorId}
+                    onInteractionUpdate={handleInteractionUpdate}
                   />
 
                   <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
@@ -495,7 +516,7 @@ export default function ImagePreviewModal({
                       )}
 
                       {/* Interactions Stats */}
-                      <InteractionStatsDisplay interactionStats={result.interactionStats} />
+                      <InteractionStatsDisplay interactionStats={localInteractionStats} />
                     </div>
                   </ScrollArea>
                 </motion.div>
