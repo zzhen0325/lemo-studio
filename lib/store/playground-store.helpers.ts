@@ -58,9 +58,10 @@ export const prependUniqueGalleryItems = (existing: Generation[], incoming: Gene
   return [...uniqueIncoming, ...existing];
 };
 
-export const sanitizeUrlsForPersist = (urls?: string[]) =>
+export const sanitizeUrlsForPersist = (urls?: (string | undefined | null)[]) =>
   urls
-    ?.map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url)
+    ?.filter((url): url is string => typeof url === 'string' && url.length > 0)
+    .map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url)
     .filter(Boolean) as string[] | undefined;
 
 export const sanitizeGalleryItemsForPersist = (items: Generation[]) =>
