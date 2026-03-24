@@ -7,12 +7,13 @@ let storageInstance: S3Storage | null = null;
  * Uses environment variables for configuration:
  * - COZE_BUCKET_ENDPOINT_URL: S3 endpoint URL
  * - COZE_BUCKET_NAME: Bucket name
+ * - STORAGE_ACCESS_KEY: Access key for storage (optional, provided by platform)
  */
 export function getObjectStorage(): S3Storage {
   if (!storageInstance) {
     storageInstance = new S3Storage({
       endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,
-      accessKey: '',
+      accessKey: process.env.STORAGE_ACCESS_KEY || '',
       secretKey: '',
       bucketName: process.env.COZE_BUCKET_NAME,
       region: 'cn-beijing',

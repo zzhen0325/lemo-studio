@@ -71,13 +71,14 @@ function getSupabaseCredentials(): SupabaseCredentials {
   loadEnv();
 
   const url = process.env.COZE_SUPABASE_URL;
-  const anonKey = process.env.COZE_SUPABASE_ANON_KEY;
+  // 优先使用 DB_PASSWORD，否则回退到 COZE_SUPABASE_ANON_KEY
+  const anonKey = process.env.DB_PASSWORD || process.env.COZE_SUPABASE_ANON_KEY;
 
   if (!url) {
     throw new Error('COZE_SUPABASE_URL is not set');
   }
   if (!anonKey) {
-    throw new Error('COZE_SUPABASE_ANON_KEY is not set');
+    throw new Error('DB_PASSWORD or COZE_SUPABASE_ANON_KEY is not set');
   }
 
   return { url, anonKey };
