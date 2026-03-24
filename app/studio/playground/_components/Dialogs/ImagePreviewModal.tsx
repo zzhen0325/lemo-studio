@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight, Layers, Type, Image as ImageIcon, ZoomIn } from 'lucide-react';
+import { X, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight, Layers, Type, Image as ImageIcon, ZoomIn, Heart } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -15,6 +15,8 @@ import { useImageSource } from '@/hooks/common/use-image-source';
 import { downloadImage } from '@/lib/utils/download';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
+import { InteractionButtons, InteractionStatsDisplay } from '@studio/playground/_components/InteractionButtons';
+import { likeGeneration, downloadGeneration, editGeneration } from '@/lib/interaction-tracking';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
@@ -273,6 +275,16 @@ export default function ImagePreviewModal({
                   className="flex w-fit items-center gap-1 p-1.5 rounded-2xl bg-black/50 backdrop-blur-xl border border-white/10 shadow-2xl"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {/* Like Button */}
+                  <InteractionButtons
+                    generationId={result.id}
+                    interactionStats={result.interactionStats}
+                    viewerState={result.viewerState}
+                    userId={result.userId}
+                  />
+
+                  <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+
                   {result.outputUrl && (
                     <AddToMoodboardMenu
                       imagePath={result.outputUrl}
@@ -481,6 +493,9 @@ export default function ImagePreviewModal({
                           </div>
                         </div>
                       )}
+
+                      {/* Interactions Stats */}
+                      <InteractionStatsDisplay interactionStats={result.interactionStats} />
                     </div>
                   </ScrollArea>
                 </motion.div>

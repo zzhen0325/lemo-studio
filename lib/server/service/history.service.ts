@@ -3,6 +3,9 @@ import { GenerationModel, type GenerationDoc } from '../db/models';
 import type { Generation, GenerationConfig } from '../../../types/database';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 import { getFileUrl } from '@/src/storage/object-storage';
+import { getBatchInteractionData } from './interaction.service';
+
+export type SortBy = 'recent' | 'interactionPriority';
 
 /**
  * Check if a string is a storage key (not a full URL)
@@ -78,6 +81,8 @@ export interface HistoryQuery {
   limit: number;
   projectId?: string | null;
   userId?: string | null;
+  sortBy?: SortBy | null;
+  viewerUserId?: string | null;
 }
 
 // Simple UUID validation
@@ -162,7 +167,7 @@ export class HistoryService {
   }
 
   public async getHistory(query: HistoryQuery): Promise<{ history: Generation[]; total: number; hasMore: boolean }> {
-    const { page, limit, projectId, userId } = query;
+    const { page, limit, projectId, userId, sortBy, viewerUserId } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
     const debugHistory = process.env.DEBUG_HISTORY === 'true' || process.env.HISTORY_DEBUG === '1';
@@ -187,9 +192,26 @@ export class HistoryService {
           limit: limitNum,
           projectId: projectId || null,
           userId: userId || null,
+          sortBy: sortBy || 'recent',
+          viewerUserId: viewerUserId || null,
           filter,
         });
       }
+
+      // Determine sort order
+      const sortOption: Record<string, 1 | -1> = sortBy === 'interactionPriority'
+        ? { 
+            like_count: -1, 
+            last_liked_at: -1,
+            moodboard_add_count: -1, 
+            last_moodboard_added_at: -1,
+            download_count: -1, 
+            last_downloaded_at: -1,
+            edit_count: -1, 
+            last_edited_at: -1,
+            created_at: -1 
+          }
+        : { created_at: -1 };
 
       // Get total count
       const total = Object.keys(filter).length === 0
@@ -198,10 +220,10 @@ export class HistoryService {
 
       // Get items with pagination
       const items = await GenerationModel.findWithPagination(filter, {
-        sort: { created_at: -1 },
+        sort: sortOption,
         skip: (pageNum - 1) * limitNum,
         limit: limitNum,
-        select: 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage',
+        select: 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage,like_count,moodboard_add_count,download_count,edit_count,last_liked_at,last_moodboard_added_at,last_downloaded_at,last_edited_at',
       });
 
       if (debugHistory) {
@@ -213,6 +235,12 @@ export class HistoryService {
           sampleUserIds,
         });
       }
+
+      // Batch get interaction data if viewerUserId is provided
+      const itemIds = items.map(item => item.id);
+      const interactionDataMap = viewerUserId 
+        ? await getBatchInteractionData(itemIds, viewerUserId)
+        : new Map();
 
       const history = await Promise.all(items.map(async (item) => {
         const config = (item.config || {}) as Record<string, unknown>;
@@ -231,6 +259,9 @@ export class HistoryService {
           sourceImageUrls,
         );
 
+        // Get interaction data
+        const interactionData = interactionDataMap.get(item.id);
+
         return {
           id: item.id,
           userId: item.user_id || 'anonymous',
@@ -245,6 +276,17 @@ export class HistoryService {
           createdAt: item.created_at || new Date().toISOString(),
           progress: item.progress,
           progressStage: item.progress_stage,
+          interactionStats: interactionData?.interactionStats || {
+            likeCount: item.like_count || 0,
+            moodboardAddCount: item.moodboard_add_count || 0,
+            downloadCount: item.download_count || 0,
+            editCount: item.edit_count || 0,
+            lastLikedAt: item.last_liked_at || undefined,
+            lastMoodboardAddedAt: item.last_moodboard_added_at || undefined,
+            lastDownloadedAt: item.last_downloaded_at || undefined,
+            lastEditedAt: item.last_edited_at || undefined,
+          },
+          viewerState: interactionData?.viewerState,
         } as Generation;
       }));
 

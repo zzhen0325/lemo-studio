@@ -147,6 +147,15 @@ export interface GenerationDoc {
   config?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
+  // 交互统计字段
+  like_count?: number;
+  moodboard_add_count?: number;
+  download_count?: number;
+  edit_count?: number;
+  last_liked_at?: string;
+  last_moodboard_added_at?: string;
+  last_downloaded_at?: string;
+  last_edited_at?: string;
 }
 
 export const GenerationModel = {

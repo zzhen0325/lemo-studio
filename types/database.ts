@@ -74,6 +74,21 @@ export interface GenerationConfig {
   [key: string]: unknown;
 }
 
+export interface InteractionStats {
+  likeCount: number;
+  moodboardAddCount: number;
+  downloadCount: number;
+  editCount: number;
+  lastLikedAt?: string;
+  lastMoodboardAddedAt?: string;
+  lastDownloadedAt?: string;
+  lastEditedAt?: string;
+}
+
+export interface ViewerState {
+  hasLiked: boolean;
+}
+
 export interface Generation {
   id: string;
   userId: string;
@@ -86,6 +101,10 @@ export interface Generation {
   progress?: number;
   progressStage?: string;
   createdAt: string;
+  
+  // 交互统计
+  interactionStats?: InteractionStats;
+  viewerState?: ViewerState;
 }
 
 
