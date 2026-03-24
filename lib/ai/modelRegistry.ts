@@ -7,8 +7,19 @@ import dotenv from 'dotenv';
 import type { APIProviderConfig } from '@/lib/api-config/types';
 import { normalizeProviderConfigs } from '@/lib/model-center';
 
-// Load .env.local from project root
-dotenv.config({ path: path.join(__dirname, '../../.env.local') });
+// Load .env.local from project root (try multiple paths for different runtime contexts)
+const envPaths = [
+    path.join(process.cwd(), '.env.local'),           // Runtime CWD
+    path.join(__dirname, '../../.env.local'),         // Relative to this file
+    path.join(__dirname, '../../../.env.local'),      // One more level up for standalone
+];
+for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath });
+        console.info('[modelRegistry] loaded_env_file', { path: envPath });
+        break;
+    }
+}
 
 // 豆包视觉模型列表（使用 /api/v3/responses 端点）
 const DOUBAO_VISION_MODELS = [
