@@ -25,20 +25,21 @@ export class PresetsService {
       preferredFileName: `${id}.png`,
     });
 
-    const storageKey = normalized.storageKey || normalized.url;
+    // 优先使用 url，如果没有则使用 storageKey
+    const displayUrl = normalized.url || normalized.storageKey;
     
-    if (!storageKey) {
+    if (!displayUrl) {
       return coverUrl || '';
     }
 
-    if (storageKey !== coverUrl) {
+    if (displayUrl !== coverUrl) {
       await this.presetModel.updateOne(
         { _id: id },
-        { $set: { coverUrl: storageKey, coverData: undefined } },
+        { $set: { coverUrl: normalized.storageKey || displayUrl, coverData: undefined } },
       );
     }
 
-    return storageKey;
+    return displayUrl;
   }
 
   public async listPresets(): Promise<Preset[]> {
@@ -131,18 +132,20 @@ export class PresetsService {
   }
 
   private async upsertPreset(id: string, presetData: Preset, coverUrl?: string) {
-    const normalizedCoverUrl = coverUrl
+    const normalizedResult = coverUrl
       ? await tryNormalizeAssetUrlToCdn(coverUrl, {
         preferredSubdir: 'public/preset',
         preferredFileName: `${id}.png`,
       })
       : undefined;
 
+    const displayUrl = normalizedResult?.url || coverUrl;
+
     await this.presetModel.updateOne(
       { _id: id },
       {
         name: presetData.name,
-        coverUrl: normalizedCoverUrl || coverUrl,
+        coverUrl: normalizedResult?.storageKey || displayUrl,
         coverData: undefined,
         config: presetData.config,
         editConfig: presetData.editConfig,
@@ -173,11 +176,12 @@ export class PresetsService {
       if (coverFile && coverFile.size && coverFile.size > 0) {
         const arrayBuffer = await coverFile.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        presetData.coverUrl = await uploadImageBufferToCdn(buffer, {
+        const result = await uploadImageBufferToCdn(buffer, {
           preferredSubdir: 'public/preset',
           preferredFileName: `${presetData.id}.${(coverFile.type || 'image/png').includes('jpeg') ? 'jpg' : 'png'}`,
           mimeType: coverFile.type || 'image/png',
         });
+        presetData.coverUrl = result.url;
       }
 
       // 如果客户端直接传了 URL (比如已经是 CDN 地址)，但不是 DataURL，也不是 local:
@@ -187,21 +191,21 @@ export class PresetsService {
         presetData.coverUrl = formDataCoverUrl;
       }
 
-      const normalizedCoverUrl = presetData.coverUrl
+      const normalizedResult = presetData.coverUrl
         ? await tryNormalizeAssetUrlToCdn(presetData.coverUrl, {
           preferredSubdir: 'public/preset',
           preferredFileName: `${presetData.id}.png`,
         })
         : undefined;
-      if (normalizedCoverUrl) {
-        presetData.coverUrl = normalizedCoverUrl;
+      if (normalizedResult?.url) {
+        presetData.coverUrl = normalizedResult.url;
       }
 
       await this.presetModel.findOneAndUpdate(
         { _id: presetData.id },
         {
           name: presetData.name,
-          coverUrl: presetData.coverUrl,
+          coverUrl: normalizedResult?.storageKey || presetData.coverUrl,
           coverData: undefined,
           config: presetData.config,
           editConfig: presetData.editConfig,

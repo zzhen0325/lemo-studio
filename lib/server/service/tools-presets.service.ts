@@ -27,12 +27,13 @@ export class ToolsPresetsService {
       preferredFileName: `${id}.png`,
     });
 
-    if (normalized && normalized !== thumbnail) {
-      await this.toolPresetModel.updateOne({ _id: id }, { $set: { thumbnail: normalized } });
-      return normalized;
+    const displayUrl = normalized.url || thumbnail || '';
+    
+    if (normalized.storageKey && normalized.storageKey !== thumbnail) {
+      await this.toolPresetModel.updateOne({ _id: id }, { $set: { thumbnail: normalized.storageKey } });
     }
 
-    return normalized || thumbnail || '';
+    return displayUrl;
   }
 
   public async listPresets(toolId: string): Promise<ToolPreset[]> {
@@ -68,18 +69,24 @@ export class ToolsPresetsService {
       const values = JSON.parse(valuesStr);
 
       let thumbnailPath = '';
+      let storageKey = '';
+      
       if (screenshotUrl) {
-        thumbnailPath = (await tryNormalizeAssetUrlToCdn(screenshotUrl, {
+        const result = await tryNormalizeAssetUrlToCdn(screenshotUrl, {
           preferredSubdir: 'public/tools-presets',
           preferredFileName: `${id}.png`,
-        })) || screenshotUrl;
+        });
+        thumbnailPath = result.url || screenshotUrl;
+        storageKey = result.storageKey || '';
       } else if (screenshot) {
         const buffer = Buffer.from(await screenshot.arrayBuffer());
-        thumbnailPath = await uploadImageBufferToCdn(buffer, {
+        const result = await uploadImageBufferToCdn(buffer, {
           preferredSubdir: 'public/tools-presets',
           preferredFileName: `${id}.png`,
           mimeType: 'image/png',
         });
+        thumbnailPath = result.url;
+        storageKey = result.storageKey;
       }
 
       const preset: ToolPreset = {
@@ -92,7 +99,7 @@ export class ToolsPresetsService {
 
       await this.toolPresetModel.updateOne(
         { _id: id },
-        { toolId, name, values, thumbnail: thumbnailPath, timestamp },
+        { toolId, name, values, thumbnail: storageKey || thumbnailPath, timestamp },
         { upsert: true },
       );
 

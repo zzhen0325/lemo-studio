@@ -28,17 +28,28 @@ export class StylesService {
     const rawImagePaths = Array.isArray(style.imagePaths) ? style.imagePaths : [];
     const normalizedImagePaths = await Promise.all(
       rawImagePaths.map(async (imagePath) => {
+        // 确保 imagePath 是字符串
+        if (typeof imagePath !== 'string') {
+          console.warn('[StylesService] Non-string imagePath found:', imagePath);
+          return '';
+        }
         const normalized = await tryNormalizeAssetUrlToCdn(imagePath, { preferredSubdir: 'outputs' });
-        return normalized || imagePath;
+        // 优先使用 url，如果没有则使用原始值
+        return normalized.url || imagePath;
       }),
     );
 
-    const normalizedCollageImageUrl = style.collageImageUrl
-      ? (await tryNormalizeAssetUrlToCdn(style.collageImageUrl, { preferredSubdir: 'outputs' })) || style.collageImageUrl
-      : undefined;
+    // 过滤掉空值
+    const validImagePaths = normalizedImagePaths.filter(Boolean);
+
+    let normalizedCollageImageUrl: string | undefined;
+    if (style.collageImageUrl && typeof style.collageImageUrl === 'string') {
+      const result = await tryNormalizeAssetUrlToCdn(style.collageImageUrl, { preferredSubdir: 'outputs' });
+      normalizedCollageImageUrl = result.url || style.collageImageUrl;
+    }
 
     const changed = normalizedCollageImageUrl !== style.collageImageUrl
-      || normalizedImagePaths.some((value, index) => value !== rawImagePaths[index]);
+      || validImagePaths.some((value, index) => value !== rawImagePaths[index]);
 
     const persistedId = String(styleWithId._id || styleWithId.id || '');
     if (changed && persistedId) {
@@ -46,8 +57,8 @@ export class StylesService {
         { _id: persistedId },
         {
           $set: {
-            imagePaths: normalizedImagePaths,
-            previewUrls: normalizedImagePaths,
+            imagePaths: validImagePaths,
+            previewUrls: validImagePaths,
             collageImageUrl: normalizedCollageImageUrl,
           },
         },
@@ -58,7 +69,7 @@ export class StylesService {
       id: persistedId,
       name: style.name,
       prompt: style.prompt,
-      imagePaths: normalizedImagePaths,
+      imagePaths: validImagePaths,
       collageImageUrl: normalizedCollageImageUrl,
       collageConfig: style.collageConfig,
       updatedAt: new Date(styleWithId.updatedAt || styleWithId.createdAt || Date.now()).toISOString(),
@@ -131,20 +142,29 @@ export class StylesService {
 
       const normalizedImagePaths = await Promise.all(
         (styleData.imagePaths || []).map(async (imagePath) => {
+          if (typeof imagePath !== 'string') {
+            console.warn('[StylesService] Non-string imagePath found:', imagePath);
+            return '';
+          }
           const normalized = await tryNormalizeAssetUrlToCdn(imagePath, { preferredSubdir: 'outputs' });
-          return normalized || imagePath;
+          return normalized.url || imagePath;
         }),
       );
-      const normalizedCollageImageUrl = styleData.collageImageUrl
-        ? (await tryNormalizeAssetUrlToCdn(styleData.collageImageUrl, { preferredSubdir: 'outputs' })) || styleData.collageImageUrl
-        : undefined;
+      
+      const validImagePaths = normalizedImagePaths.filter(Boolean);
+      
+      let normalizedCollageImageUrl: string | undefined;
+      if (styleData.collageImageUrl && typeof styleData.collageImageUrl === 'string') {
+        const result = await tryNormalizeAssetUrlToCdn(styleData.collageImageUrl, { preferredSubdir: 'outputs' });
+        normalizedCollageImageUrl = result.url || styleData.collageImageUrl;
+      }
 
       const updatedAt = new Date();
       const doc: Record<string, unknown> = {
         name: styleData.name,
         prompt: styleData.prompt,
-        imagePaths: normalizedImagePaths,
-        previewUrls: normalizedImagePaths,
+        imagePaths: validImagePaths,
+        previewUrls: validImagePaths,
         updatedAt,
       };
 
@@ -164,7 +184,7 @@ export class StylesService {
       return {
         ...styleData,
         id: styleData.id,
-        imagePaths: normalizedImagePaths,
+        imagePaths: validImagePaths,
         collageImageUrl: normalizedCollageImageUrl,
         updatedAt: updatedAt.toISOString(),
       };
