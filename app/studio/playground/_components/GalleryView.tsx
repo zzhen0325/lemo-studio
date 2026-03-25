@@ -281,7 +281,7 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                 {isFetchingGallery ? (
                                     <div className="flex flex-col items-center gap-2">
                                         <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                        <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
+                                        <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Thinking...</span>
                                     </div>
                                 ) : hasMoreGallery ? (
                                     <div className="h-4" />

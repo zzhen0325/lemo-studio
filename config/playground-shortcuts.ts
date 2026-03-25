@@ -5,6 +5,7 @@ export interface ShortcutPromptField {
   id: string;
   label: string;
   placeholder: string;
+  type?: "text" | "color";
   defaultValue?: string;
   required?: boolean;
   widthClassName?: string;
@@ -31,7 +32,62 @@ export interface PlaygroundShortcut {
 export type ShortcutPromptValues = Record<string, string>;
 export const SHORTCUT_MOODBOARD_PREFIX = "shortcut-";
 
+export interface ShortcutPromptBuildOptions {
+  usePlaceholder?: boolean;
+  removedFieldIds?: string[];
+}
+
+export interface ShortcutRenderableFieldSegment {
+  field: ShortcutPromptField;
+  prefixText: string;
+  value: string;
+  fieldOrder: number;
+}
+
 const buildFields = (...fields: ShortcutPromptField[]) => fields;
+
+const buildKvFields = () => buildFields(
+  {
+    id: "mainTitle",
+    label: "活动主标题",
+    placeholder: "主标题文案",
+    required: true,
+    widthClassName: "min-w-[10rem]",
+  },
+  {
+    id: "subTitle",
+    label: "活动副标题",
+    placeholder: "副标题或卖点",
+    required: true,
+    widthClassName: "min-w-[10rem]",
+  },
+  {
+    id: "eventTime",
+    label: "活动时间",
+    placeholder: "如 03.01 - 03.15",
+    required: true,
+    widthClassName: "min-w-[9rem]",
+  },
+  {
+    id: "style",
+    label: "想要的风格",
+    placeholder: "商业摄影 / 插画 / 海报等",
+    required: true,
+    widthClassName: "min-w-[11rem]",
+  },
+  {
+    id: "primaryColor",
+    label: "主色调",
+    placeholder: "#FF6B00",
+    type: "color",
+    required: true,
+    widthClassName: "min-w-[9rem]",
+  },
+);
+
+const LEADING_CLOSERS_PATTERN = /^[\s"'`’”)\]\}）】]+/;
+const LEADING_SEPARATORS_PATTERN = /^[\s,;:，、]+/;
+const HEX_COLOR_PATTERN = /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i;
 
 export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
   {
@@ -87,27 +143,19 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       "/loras/lemopin1_v1.webp",
       "/loras/美式喜剧风格插画_GPT4o(同款)_1.0.webp",
     ],
-    fields: buildFields(
-      { id: "campaign", label: "活动主题", placeholder: "campaign 名称", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "subject", label: "主体", placeholder: "人物或产品", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "styling", label: "风格", placeholder: "视觉风格", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "headline", label: "标题文案", placeholder: "主标题", defaultValue: "hero campaign headline", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "background", label: "背景", placeholder: "背景设定", defaultValue: "clean studio backdrop", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "extra", label: "补充要求", placeholder: "补充视觉要求", defaultValue: "premium commercial finish", required: true, widthClassName: "min-w-[9rem]" },
-    ),
+    fields: buildKvFields(),
     promptParts: [
-      { type: "text", value: "Create a US-market campaign key visual for " },
-      { type: "field", fieldId: "campaign" },
-      { type: "text", value: ", featuring " },
-      { type: "field", fieldId: "subject" },
-      { type: "text", value: ", in " },
-      { type: "field", fieldId: "styling" },
-      { type: "text", value: ", headline text \"" },
-      { type: "field", fieldId: "headline" },
-      { type: "text", value: "\", background " },
-      { type: "field", fieldId: "background" },
-      { type: "text", value: ", premium studio lighting, polished ad-poster composition, " },
-      { type: "field", fieldId: "extra" },
+      { type: "text", value: "Create a US-EVENT KV with main title \"" },
+      { type: "field", fieldId: "mainTitle" },
+      { type: "text", value: "\", supporting title \"" },
+      { type: "field", fieldId: "subTitle" },
+      { type: "text", value: "\", event timing \"" },
+      { type: "field", fieldId: "eventTime" },
+      { type: "text", value: "\", in " },
+      { type: "field", fieldId: "style" },
+      { type: "text", value: " style, using " },
+      { type: "field", fieldId: "primaryColor" },
+      { type: "text", value: " as the dominant palette, premium studio lighting, polished ad-poster composition, strong title hierarchy, retail-ready commercial finish" },
     ],
   },
   {
@@ -125,27 +173,19 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       "/loras/Scandinavian_graphic_illustration-000001.webp",
       "/loras/J_flat_illustration.webp",
     ],
-    fields: buildFields(
-      { id: "campaign", label: "活动主题", placeholder: "campaign 名称", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "subject", label: "主体", placeholder: "人物或产品", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "palette", label: "主色调", placeholder: "色彩关键词", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "headline", label: "标题文案", placeholder: "主标题", defaultValue: "regional promo headline", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "scene", label: "场景", placeholder: "日常或节日场景", defaultValue: "lifestyle retail setting", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "extra", label: "补充要求", placeholder: "补充视觉要求", defaultValue: "bright merchandising hierarchy", required: true, widthClassName: "min-w-[9rem]" },
-    ),
+    fields: buildKvFields(),
     promptParts: [
-      { type: "text", value: "Create an energetic SEA key visual for " },
-      { type: "field", fieldId: "campaign" },
-      { type: "text", value: ", featuring " },
-      { type: "field", fieldId: "subject" },
-      { type: "text", value: ", with a " },
-      { type: "field", fieldId: "palette" },
-      { type: "text", value: " color direction, headline \"" },
-      { type: "field", fieldId: "headline" },
-      { type: "text", value: "\", lifestyle scene " },
-      { type: "field", fieldId: "scene" },
-      { type: "text", value: ", crisp merchandising layout, friendly premium finish, " },
-      { type: "field", fieldId: "extra" },
+      { type: "text", value: "Create a SEA-EVENT KV with main title \"" },
+      { type: "field", fieldId: "mainTitle" },
+      { type: "text", value: "\", supporting title \"" },
+      { type: "field", fieldId: "subTitle" },
+      { type: "text", value: "\", event timing \"" },
+      { type: "field", fieldId: "eventTime" },
+      { type: "text", value: "\", in " },
+      { type: "field", fieldId: "style" },
+      { type: "text", value: " style, using " },
+      { type: "field", fieldId: "primaryColor" },
+      { type: "text", value: " as the dominant palette, bright merchandising hierarchy, lifestyle energy, friendly premium finish" },
     ],
   },
   {
@@ -163,27 +203,19 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       "/loras/JPv3.webp",
       "/loras/jpcha.webp",
     ],
-    fields: buildFields(
-      { id: "campaign", label: "活动主题", placeholder: "campaign 名称", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "subject", label: "主体", placeholder: "人物或产品", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "style", label: "风格", placeholder: "海报风格", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "headline", label: "标题文案", placeholder: "主标题", defaultValue: "main campaign title", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "supporting", label: "辅助文案", placeholder: "副标题或卖点", defaultValue: "short supporting copy", required: true, widthClassName: "min-w-[10rem]" },
-      { id: "extra", label: "补充要求", placeholder: "补充视觉要求", defaultValue: "refined poster finish", required: true, widthClassName: "min-w-[9rem]" },
-    ),
+    fields: buildKvFields(),
     promptParts: [
-      { type: "text", value: "Create a JP-market poster KV for " },
-      { type: "field", fieldId: "campaign" },
-      { type: "text", value: ", featuring " },
-      { type: "field", fieldId: "subject" },
-      { type: "text", value: ", in " },
+      { type: "text", value: "Create a JP-EVENT KV with main title \"" },
+      { type: "field", fieldId: "mainTitle" },
+      { type: "text", value: "\", supporting title \"" },
+      { type: "field", fieldId: "subTitle" },
+      { type: "text", value: "\", event timing \"" },
+      { type: "field", fieldId: "eventTime" },
+      { type: "text", value: "\", in " },
       { type: "field", fieldId: "style" },
-      { type: "text", value: ", main title \"" },
-      { type: "field", fieldId: "headline" },
-      { type: "text", value: "\", supporting copy \"" },
-      { type: "field", fieldId: "supporting" },
-      { type: "text", value: "\", clean layout rhythm, refined typography space, " },
-      { type: "field", fieldId: "extra" },
+      { type: "text", value: " style, using " },
+      { type: "field", fieldId: "primaryColor" },
+      { type: "text", value: " as the dominant palette, clean layout rhythm, refined typography space, polished poster finish" },
     ],
   },
 ];
@@ -199,36 +231,131 @@ export function createShortcutPromptValues(shortcut: PlaygroundShortcut): Shortc
   }, {});
 }
 
+export function sanitizeShortcutColorDraft(value: string): string {
+  const cleaned = value.replace(/[^0-9a-fA-F#]/g, "").replace(/^#+/, "").slice(0, 6).toUpperCase();
+  return cleaned ? `#${cleaned}` : "";
+}
+
+export function normalizeShortcutColorValue(value?: string | null): string {
+  if (!value) {
+    return "";
+  }
+
+  const draft = sanitizeShortcutColorDraft(value);
+  if (!HEX_COLOR_PATTERN.test(draft)) {
+    return "";
+  }
+
+  if (draft.length === 4) {
+    return `#${draft[1]}${draft[1]}${draft[2]}${draft[2]}${draft[3]}${draft[3]}`;
+  }
+
+  return draft;
+}
+
+function resolveShortcutFieldPromptValue(field: ShortcutPromptField, value: string): string {
+  if (field.type === "color") {
+    return normalizeShortcutColorValue(value);
+  }
+
+  return value.trim();
+}
+
+function sanitizeSegmentPrefix(
+  value: string,
+  segmentIndex: number,
+  previousFieldOrder: number | null,
+  currentFieldOrder: number
+) {
+  let nextValue = value.replace(LEADING_CLOSERS_PATTERN, "");
+
+  if (segmentIndex === 0) {
+    nextValue = nextValue.replace(LEADING_SEPARATORS_PATTERN, "");
+  } else if (previousFieldOrder !== null && currentFieldOrder - previousFieldOrder > 1) {
+    nextValue = nextValue.trimStart();
+  }
+
+  return nextValue;
+}
+
+export function getShortcutRenderableFieldSegments(
+  shortcut: PlaygroundShortcut,
+  values: ShortcutPromptValues,
+  options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
+): ShortcutRenderableFieldSegment[] {
+  const removedFieldIds = new Set(options?.removedFieldIds || []);
+  const segments: ShortcutRenderableFieldSegment[] = [];
+  let fieldOrder = 0;
+
+  shortcut.promptParts.forEach((part, index) => {
+    if (part.type !== "field") {
+      return;
+    }
+
+    const field = shortcut.fields.find((item) => item.id === part.fieldId);
+    const prefixCandidate = index > 0 ? shortcut.promptParts[index - 1] : null;
+    const prefixText = prefixCandidate?.type === "text" ? prefixCandidate.value : "";
+
+    if (field && !removedFieldIds.has(field.id)) {
+      segments.push({
+        field,
+        prefixText,
+        value: values[field.id] || "",
+        fieldOrder,
+      });
+    }
+
+    fieldOrder += 1;
+  });
+
+  return segments.map((segment, index) => ({
+    ...segment,
+    prefixText: sanitizeSegmentPrefix(
+      segment.prefixText,
+      index,
+      index > 0 ? segments[index - 1]?.fieldOrder ?? null : null,
+      segment.fieldOrder
+    ),
+  }));
+}
+
 export function buildShortcutPrompt(
   shortcut: PlaygroundShortcut,
   values: ShortcutPromptValues,
-  options?: { usePlaceholder?: boolean }
+  options?: ShortcutPromptBuildOptions
 ) {
   const usePlaceholder = options?.usePlaceholder ?? true;
+  const segments = getShortcutRenderableFieldSegments(shortcut, values, {
+    removedFieldIds: options?.removedFieldIds,
+  });
 
-  return shortcut.promptParts
-    .map((part) => {
-      if (part.type === "text") {
-        return part.value;
-      }
-
-      const field = shortcut.fields.find((item) => item.id === part.fieldId);
-      const value = values[part.fieldId]?.trim();
-      if (value) {
-        return value;
-      }
-      if (!usePlaceholder) {
+  return segments
+    .map((segment) => {
+      const value = resolveShortcutFieldPromptValue(segment.field, segment.value);
+      const renderedValue = value || (usePlaceholder ? `【${segment.field.placeholder || segment.field.id}】` : "");
+      if (!renderedValue) {
         return "";
       }
-      return `【${field?.placeholder || part.fieldId}】`;
+      return `${segment.prefixText}${renderedValue}`;
     })
     .join("")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-export function getShortcutMissingFields(shortcut: PlaygroundShortcut, values: ShortcutPromptValues) {
-  return shortcut.fields.filter((field) => field.required && !values[field.id]?.trim());
+export function getShortcutMissingFields(
+  shortcut: PlaygroundShortcut,
+  values: ShortcutPromptValues,
+  options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
+) {
+  const removedFieldIds = new Set(options?.removedFieldIds || []);
+  return shortcut.fields.filter((field) => {
+    if (!field.required || removedFieldIds.has(field.id)) {
+      return false;
+    }
+
+    return !resolveShortcutFieldPromptValue(field, values[field.id] || "");
+  });
 }
 
 export function getShortcutMoodboardId(shortcutId: PlaygroundShortcut["id"]) {

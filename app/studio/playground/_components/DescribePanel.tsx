@@ -160,7 +160,7 @@ export function DescribePanel({
                       {isDescribing ? (
                         <div className="flex items-center gap-2">
                           <LoadingSpinner size={14} />
-                          <span className="text-sm">生成中...</span>
+                          <span className="text-sm">Thinking...</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">

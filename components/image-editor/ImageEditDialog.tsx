@@ -190,7 +190,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
             >
               {isReady ? null : (
                 <div className="absolute inset-0 z-10 flex items-center justify-center text-sm" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
-                  {loadError || '加载编辑画布中...'}
+                  {loadError || 'Thinking...'}
                 </div>
               )}
               <canvas ref={setCanvasRef} className="block max-h-full max-w-full" />

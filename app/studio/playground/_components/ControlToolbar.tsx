@@ -82,7 +82,7 @@ export default function ControlToolbar({
   onToggleAspectRatioLock,
   onGenerate,
   isGenerating,
-  loadingText = "生成中...",
+  loadingText = "Thinking...",
   onOpenLoraSelector,
   selectedBaseModelName,
   selectedLoras = [],

@@ -25,7 +25,7 @@ enum SettingsTab {
 const MappingEditorPage = dynamic(
     () => import("../../mapping-editor/_components/mapping-editor-page"),
     {
-        loading: () => <div className="flex h-full min-h-[800px] items-center justify-center text-white">Loading Mapping Editor...</div>,
+        loading: () => <div className="flex h-full min-h-[800px] items-center justify-center text-white">Thinking...</div>,
     }
 );
 

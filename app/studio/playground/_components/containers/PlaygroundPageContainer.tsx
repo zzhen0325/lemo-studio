@@ -94,6 +94,7 @@ interface BannerSessionHistoryItem {
 interface ActiveShortcutTemplate {
   shortcut: PlaygroundShortcut;
   values: ShortcutPromptValues;
+  removedFieldIds: string[];
   appliedPrompt: string;
 }
 
@@ -861,6 +862,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setActiveShortcutTemplate({
       shortcut,
       values,
+      removedFieldIds: [],
       appliedPrompt: prompt,
     });
 
@@ -966,11 +968,34 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       ...current.values,
       [fieldId]: value,
     };
-    const nextPrompt = buildShortcutPrompt(current.shortcut, nextValues);
+    const nextPrompt = buildShortcutPrompt(current.shortcut, nextValues, {
+      removedFieldIds: current.removedFieldIds,
+    });
 
     setActiveShortcutTemplate({
       shortcut: current.shortcut,
       values: nextValues,
+      removedFieldIds: current.removedFieldIds,
+      appliedPrompt: nextPrompt,
+    });
+    updateConfig({ prompt: nextPrompt });
+  }, [updateConfig]);
+
+  const handleShortcutTemplateFieldRemove = useCallback((fieldId: string) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current || current.removedFieldIds.includes(fieldId)) {
+      return;
+    }
+
+    const nextRemovedFieldIds = [...current.removedFieldIds, fieldId];
+    const nextPrompt = buildShortcutPrompt(current.shortcut, current.values, {
+      removedFieldIds: nextRemovedFieldIds,
+    });
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: current.values,
+      removedFieldIds: nextRemovedFieldIds,
       appliedPrompt: nextPrompt,
     });
     updateConfig({ prompt: nextPrompt });
@@ -988,6 +1013,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       prompt: "",
       model: defaultImageModelId,
       baseModel: defaultImageModelId,
+      width: config.width,
+      height: config.height,
       loras: [],
       presetName: undefined,
       workflowName: undefined,
@@ -996,12 +1023,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       editConfig: undefined,
       generationMode: "playground",
     });
-  }, [applyModel, defaultImageModelId, setSelectedPresetName, setSelectedWorkflowConfig]);
+  }, [applyModel, config.height, config.width, defaultImageModelId, setSelectedPresetName, setSelectedWorkflowConfig]);
 
   const handlePromptGenerate = useCallback(() => {
     const current = activeShortcutTemplateRef.current;
     if (current) {
-      const missingFields = getShortcutMissingFields(current.shortcut, current.values);
+      const missingFields = getShortcutMissingFields(current.shortcut, current.values, {
+        removedFieldIds: current.removedFieldIds,
+      });
       if (missingFields.length > 0) {
         toast({
           title: "请先补全模板信息",
@@ -1548,9 +1577,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       ? {
         shortcut: activeShortcutTemplate.shortcut,
         values: activeShortcutTemplate.values,
+        removedFieldIds: activeShortcutTemplate.removedFieldIds,
       }
       : null,
     onShortcutTemplateFieldChange: handleShortcutTemplateFieldChange,
+    onShortcutTemplateFieldRemove: handleShortcutTemplateFieldRemove,
     onExitShortcutTemplate: handleExitShortcutTemplate,
   }), [
     viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused,
@@ -1566,7 +1597,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
     setUploadedImages, activeShortcutTemplate, handleShortcutTemplateFieldChange,
-    handleExitShortcutTemplate, handleClearShortcutTemplate
+    handleShortcutTemplateFieldRemove, handleExitShortcutTemplate, handleClearShortcutTemplate
   ]);
   return (
     <DndContext

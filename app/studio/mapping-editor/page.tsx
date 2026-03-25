@@ -7,7 +7,7 @@ export default function WorkflowMappingPage() {
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center text-white">
-            Loading Mapping Editor...
+            Thinking...
           </div>
         }
       >

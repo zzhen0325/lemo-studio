@@ -195,7 +195,7 @@ export const PresetGridOverlay: React.FC<PresetGridOverlayProps> = ({
                                 ref={loadMoreRef}
                                 className="flex justify-center py-4 text-xs text-black/40"
                             >
-                                Loading more... ({visiblePresets.length}/{filteredPresets.length})
+                                Thinking... ({visiblePresets.length}/{filteredPresets.length})
                             </div>
                         )}
                     </div>

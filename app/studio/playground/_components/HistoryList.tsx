@@ -369,7 +369,7 @@ const HistoryList = observer(function HistoryList({
           {isLoading ? (
             <div className="flex flex-col items-center gap-2">
               <LoadingSpinner size={24} className="text-white/20" />
-              <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading More...</span>
+              <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Thinking...</span>
             </div>
           ) : hasMore ? (
             <div className="h-4" />

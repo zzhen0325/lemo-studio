@@ -2306,7 +2306,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     return (
       <div className="studio-shell flex min-h-screen items-center justify-center text-studio-muted">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载项目中...
+        Thinking...
       </div>
     );
   }

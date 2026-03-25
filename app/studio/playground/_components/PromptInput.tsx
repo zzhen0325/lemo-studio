@@ -30,8 +30,10 @@ interface PromptInputProps {
   shortcutTemplate?: {
     shortcut: PlaygroundShortcut;
     values: ShortcutPromptValues;
+    removedFieldIds: string[];
   } | null;
   onShortcutTemplateFieldChange?: (fieldId: string, value: string) => void;
+  onShortcutTemplateFieldRemove?: (fieldId: string) => void;
   onExitShortcutTemplate?: () => void;
 }
 
@@ -45,6 +47,7 @@ export default function PromptInput({
   isOptimizing,
   shortcutTemplate,
   onShortcutTemplateFieldChange,
+  onShortcutTemplateFieldRemove,
   onExitShortcutTemplate,
 }: PromptInputProps) {
   const [localPrompt, setLocalPrompt] = React.useState(prompt);
@@ -103,7 +106,9 @@ export default function PromptInput({
         <ShortcutPromptComposer
           shortcut={shortcutTemplate.shortcut}
           values={shortcutTemplate.values}
+          removedFieldIds={shortcutTemplate.removedFieldIds}
           onFieldChange={(fieldId, value) => onShortcutTemplateFieldChange?.(fieldId, value)}
+          onRemoveField={(fieldId) => onShortcutTemplateFieldRemove?.(fieldId)}
           onExitTemplateMode={() => onExitShortcutTemplate?.()}
         />
       ) : (

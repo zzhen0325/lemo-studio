@@ -3,7 +3,7 @@
 import React from 'react';
 import { StyleStack } from './types';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Copy, Trash2, Edit2, Check, X, Upload, Settings2, Image as ImageIcon, Wand2, Sparkles } from 'lucide-react';
+import { ChevronLeft, Copy, Trash2, Edit2, Check, X, Upload, Settings2, Image as ImageIcon, Wand2, Download } from 'lucide-react';
 import NextImage from 'next/image';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/common/use-toast';
@@ -49,7 +49,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
     const promptTemplate = linkedShortcut
         ? buildShortcutPrompt(linkedShortcut, createShortcutPromptValues(linkedShortcut))
         : '';
-    const primaryImagePath = style.imagePaths[0];
+    const quickApplyPrompt = style.prompt.trim() || promptTemplate;
 
     React.useEffect(() => {
         setTempName(style.name);
@@ -150,16 +150,30 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
         }
     };
 
-    const handleUsePrompt = () => {
-        if (!style.prompt) return;
-        applyPrompt(style.prompt);
-        toast({ title: "Prompt Applied", description: "当前情绪板 prompt 已应用到输入框" });
+    const handleQuickApplyPrompt = () => {
+        if (!quickApplyPrompt) return;
+        applyPrompt(quickApplyPrompt);
+        toast({
+            title: "已快速应用",
+            description: `${style.name} 的 prompt 已应用到输入框`,
+        });
     };
 
-    const handleApplyTemplatePrompt = () => {
-        if (!promptTemplate) return;
-        applyPrompt(promptTemplate);
-        toast({ title: "Template Applied", description: `${linkedShortcut?.name || '快捷入口'} 的 prompt 模版已应用` });
+    const handleUsePrompt = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!quickApplyPrompt) return;
+        applyPrompt(quickApplyPrompt);
+        toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
+    };
+
+    const handleDownloadImage = (e: React.MouseEvent, path: string, index: number) => {
+        e.stopPropagation();
+        const link = document.createElement("a");
+        link.href = formatImageUrl(path);
+        link.download = `${style.name}-${index + 1}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -258,33 +272,15 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
 
             <div className='w-full flex-1 overflow-y-auto flex flex-col gap-10 px-8 pb-8 custom-scrollbar'>
                 <div className="flex flex-wrap items-center gap-3">
-                    {linkedShortcut && (
+                    {quickApplyPrompt && (
                         <Button
-                            onClick={handleApplyTemplatePrompt}
+                            onClick={handleQuickApplyPrompt}
                             className="rounded-xl border border-[#E8FFB7]/20 bg-[#E8FFB7]/10 px-4 text-[#F4FFCE] hover:bg-[#E8FFB7]/15"
                         >
                             <Wand2 size={14} className="mr-2" />
-                            应用 Prompt 模版
+                            快速应用
                         </Button>
                     )}
-                    <Button
-                        variant="outline"
-                        onClick={handleUsePrompt}
-                        disabled={!style.prompt}
-                        className="rounded-xl border-white/10 bg-white/5 px-4 text-white/70 hover:text-white hover:bg-white/10"
-                    >
-                        <Sparkles size={14} className="mr-2" />
-                        使用当前 Prompt
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={(e) => primaryImagePath && handleUseImage(e, primaryImagePath)}
-                        disabled={!primaryImagePath}
-                        className="rounded-xl border-white/10 bg-white/5 px-4 text-white/70 hover:text-white hover:bg-white/10"
-                    >
-                        <ImageIcon size={14} className="mr-2" />
-                        使用主图
-                    </Button>
                     <Button
                         variant="ghost"
                         onClick={() => setShowCollageTools((prev) => !prev)}
@@ -301,9 +297,7 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                 <div className="group relative w-full  space-y-4">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center justify-between w-full">
-                            <span className="text-xl text-white/60 font-normal">
-                                {linkedShortcut ? 'Current Prompt' : 'Prompt'}
-                            </span>
+                            <span className="text-xl text-white/60 font-normal">Prompt</span>
 
                         </div>
 
@@ -375,14 +369,6 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                     <div className="group relative w-full space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-xl text-white/60 font-normal">Prompt Template</span>
-                            <Button
-                                variant="light"
-                                onClick={handleApplyTemplatePrompt}
-                                className="p-2.5 h-8 rounded-xl bg-[#E8FFB7]/10 hover:bg-[#E8FFB7]/15 text-[#F4FFCE] transition-colors border border-[#E8FFB7]/15"
-                            >
-                                <Wand2 size={8} />
-                                Apply
-                            </Button>
                         </div>
                         <div className="relative p-6 rounded-2xl min-h-[120px] bg-white/5 border border-white/10">
                             <p className="text-sm text-white/70 leading-relaxed whitespace-pre-wrap">
@@ -553,15 +539,35 @@ export const StyleDetailView: React.FC<StyleDetailViewProps> = ({
                                             )}
 
                                             {!isManaging && (
-                                                <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div
+                                                    className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-white/10 bg-black/50 shadow-2xl backdrop-blur-xl transition-all duration-150 opacity-0 translate-y-4 scale-95 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 group-hover:pointer-events-auto"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
                                                     <TooltipButton
-                                                        icon={<ImageIcon size={14} />}
-                                                        label="使用此图"
-                                                        tooltipContent="作为参考图使用"
-                                                        tooltipSide="right"
-                                                        variant="secondary"
-                                                        className="h-8 w-8 bg-black/40 hover:bg-black/60 text-white border-none backdrop-blur-md"
+                                                        icon={<Wand2 className="w-4 h-4" />}
+                                                        label="Use Prompt"
+                                                        tooltipContent="Use Prompt"
+                                                        tooltipSide="top"
+                                                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                                                        onClick={handleUsePrompt}
+                                                    />
+                                                    <div className="mx-0.5 h-4 w-[1px] bg-white/10" />
+                                                    <TooltipButton
+                                                        icon={<ImageIcon className="w-4 h-4" />}
+                                                        label="Use Image"
+                                                        tooltipContent="Use Image"
+                                                        tooltipSide="top"
+                                                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                                                         onClick={(e) => handleUseImage(e, path)}
+                                                    />
+                                                    <div className="mx-0.5 h-4 w-[1px] bg-white/10" />
+                                                    <TooltipButton
+                                                        icon={<Download className="w-4 h-4" />}
+                                                        label="Download"
+                                                        tooltipContent="Download"
+                                                        tooltipSide="top"
+                                                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                                                        onClick={(e) => handleDownloadImage(e, path, index)}
                                                     />
                                                 </div>
                                             )}

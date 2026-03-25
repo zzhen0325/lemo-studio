@@ -111,8 +111,10 @@ export interface PlaygroundInputSectionProps {
     shortcutTemplate?: {
         shortcut: PlaygroundShortcut;
         values: ShortcutPromptValues;
+        removedFieldIds: string[];
     } | null;
     onShortcutTemplateFieldChange?: (fieldId: string, value: string) => void;
+    onShortcutTemplateFieldRemove?: (fieldId: string) => void;
     onExitShortcutTemplate?: () => void;
 }
 
@@ -175,6 +177,7 @@ export function PlaygroundInputSection({
     onClearShortcutTemplate,
     shortcutTemplate,
     onShortcutTemplateFieldChange,
+    onShortcutTemplateFieldRemove,
     onExitShortcutTemplate,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
@@ -393,6 +396,7 @@ export function PlaygroundInputSection({
                                     onDraggingOverChange={setIsDraggingOver}
                                     shortcutTemplate={shortcutTemplate}
                                     onShortcutTemplateFieldChange={onShortcutTemplateFieldChange}
+                                    onShortcutTemplateFieldRemove={onShortcutTemplateFieldRemove}
                                     onExitShortcutTemplate={onExitShortcutTemplate}
                                 />
                             </div>
@@ -509,7 +513,7 @@ export function PlaygroundInputSection({
                         onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
                         onGenerate={handleGenerate}
                         isGenerating={isGenerating}
-                        loadingText={selectedModel === "seed4_lemo1230" ? "Seed 4.0 生成中..." : "生成中..."}
+                        loadingText="Thinking..."
                         selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
                         selectedBaseModelName={config.model}
                         workflows={workflows}

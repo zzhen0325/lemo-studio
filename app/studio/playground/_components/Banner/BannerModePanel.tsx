@@ -1555,7 +1555,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                         </div>
                     <div className="shrink-0 p-4 border-t border-[#2e2e2e] bg-[#161616] flex flex-col gap-3">
                         <Button className="w-full h-[42px] rounded-xl bg-teal-600 hover:bg-teal-500 text-white shadow-sm font-semibold transition-colors border-0" onClick={handleGenerateClick} disabled={isGenerating || isPreparingBannerGuideImage}>
-                            {isPreparingBannerGuideImage ? '准备标注图...' : (isGenerating ? '生成中...' : 'Generate Banner')}
+                            {isPreparingBannerGuideImage || isGenerating ? 'Thinking...' : 'Generate Banner'}
                         </Button>
                         <Button variant="outline" className="w-full h-8 rounded-lg border-transparent text-zinc-400 hover:text-white hover:bg-[#2a2a2a] text-xs" onClick={resetBannerPromptFinal}>
                             <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> 重置模板 Prompt

@@ -752,7 +752,7 @@ export function TextHistoryCard({
     >
       <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
         <span className="block w-1 h-1 rounded-full bg-white/20" />
-        {result.status === 'pending' ? 'Analyzing...' : 'Image Description'}
+        {result.status === 'pending' ? 'Thinking...' : 'Image Description'}
       </div>
 
       <div className="flex-1 overflow-hidden">
