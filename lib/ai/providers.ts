@@ -18,6 +18,7 @@ import {
 } from "./utils";
 import { getConfiguredSiteBaseUrl, readLocalPublicImage } from "./imageInput";
 import { uploadToCoze } from "./cozeUploader";
+import { getFileUrl } from "@/src/storage/object-storage";
 
 type DoubaoResponseContentItem = { type?: string; text?: string };
 type DoubaoResponseOutputItem = {
@@ -170,6 +171,25 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
       url: `data:image/png;base64,${sanitized}`,
       file_type: "image",
     };
+  }
+
+  // 尝试作为对象存储 key 处理（生成预签名 URL）
+  // 对象存储 key 通常不包含 :// 且不是 data URL、base64、本地路径
+  try {
+    const presignedUrl = await getFileUrl(imageInput, 3600); // 1小时过期
+    console.info('[buildCozeImagePayload] resolved_storage_key_to_presigned_url', {
+      key: imageInput,
+      resolvedUrl: presignedUrl.substring(0, 50) + '...',
+    });
+    return {
+      url: presignedUrl,
+      file_type: "image",
+    };
+  } catch (error) {
+    console.warn('[buildCozeImagePayload] failed_to_resolve_storage_key', {
+      key: imageInput,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   throw new Error("Unsupported image input for Coze API");
