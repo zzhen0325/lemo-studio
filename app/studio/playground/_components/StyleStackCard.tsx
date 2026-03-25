@@ -22,6 +22,14 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    SMALL_STACK_CARD_LAYOUT_CLASS,
+    SMALL_STACK_DESCRIPTION_CLASS,
+    SMALL_STACK_EMPTY_CLASS,
+    SMALL_STACK_IMAGE_CLASS,
+    SMALL_STACK_STAGE_CLASS,
+    SMALL_STACK_TITLE_CLASS,
+} from './style-card-layout';
 
 interface StyleStackCardProps {
     style: StyleStack;
@@ -67,7 +75,8 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     return (
         <div
             className={cn(
-                "group relative flex flex-col gap-4 p-4 rounded-[2rem] transition-all cursor-pointer",
+                "group relative flex flex-col rounded-[2rem] transition-all cursor-pointer",
+                isSmall ? SMALL_STACK_CARD_LAYOUT_CLASS : "gap-4 p-4",
                 isGridLg && "hover:bg-white/5"
             )}
             onMouseEnter={() => setIsExpanded(true)}
@@ -140,7 +149,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
             {/* Image Stack Container */}
             <div className={cn(
                 "relative w-full flex items-center justify-center perspective-1000",
-                isSmall ? "h-[clamp(70px,14vh,140px)] [@media(max-height:850px)]:h-[clamp(30px,14vh,100px)] [@media(max-height:750px)]:h-[clamp(30px,14vh,80px)]" : "h-[200px]",
+                isSmall ? SMALL_STACK_STAGE_CLASS : "h-[200px]",
                 isGridLg && "h-[220px]"
             )}>
                 {hasImages ? (
@@ -149,7 +158,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                             key={path}
                             className={cn(
                                 "absolute rounded-2xl overflow-hidden border-1 border-white/20  bg-neutral-900 shadow-xl",
-                                isSmall ? "w-[clamp(56px,11vw,112px)] h-[clamp(70px,14vw,140px)] [@media(max-height:850px)]:h-[clamp(50px,14vw,100px)] [@media(max-height:850px)]:w-[clamp(40px,11vw,80px)] [@media(max-height:750px)]:h-[clamp(40px,14vw,80px)] [@media(max-height:750px)]:w-[clamp(32px,11vw,64px)]" : "w-40 h-[200px]",
+                                isSmall ? SMALL_STACK_IMAGE_CLASS : "w-40 h-[200px]",
                                 isGridLg && "w-[180px] h-[220px]"
                             )}
                             initial={false}
@@ -174,11 +183,11 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                 ) : (
                     <div className={cn(
                         "rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 text-white/40 bg-white/5 transition-all duration-300",
-                        isSmall ? "w-[clamp(56px,11vw,112px)] h-[clamp(56px,11vw,112px)] [@media(max-height:850px)]:w-[clamp(40px,11vw,80px)] [@media(max-height:850px)]:h-[clamp(40px,11vw,80px)] [@media(max-height:750px)]:w-[clamp(32px,11vw,64px)] [@media(max-height:750px)]:h-[clamp(32px,11vw,64px)]" : "w-40 h-40",
+                        isSmall ? SMALL_STACK_EMPTY_CLASS : "w-40 h-40",
                         isGridLg && "w-[180px] h-[220px]"
                     )}>
                         <Plus size={isSmall ? 18 : 24} />
-                        <span className="text-xs [@media(max-height:850px)]:hidden">暂无图片</span>
+                        <span className="text-xs [@media(max-height:820px)]:hidden">暂无图片</span>
                     </div>
                 )}
 
@@ -191,13 +200,13 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                     <div className="flex items-center justify-center gap-2 w-full">
                         <h3 className={cn(
                             "font-semibold text-white truncate max-w-full text-center transition-all duration-300",
-                            isSmall ? "text-base [@media(max-height:850px)]:text-sm" : "text-lg",
+                            isSmall ? SMALL_STACK_TITLE_CLASS : "text-lg",
                             isGridLg && "text-xl mt-2"
                         )}>{style.name}</h3>
                     </div>
                     <p className={cn(
                         "text-white/50 line-clamp-2 w-full text-center transition-all duration-300",
-                        isSmall ? "text-[10px] min-h-[1.5rem] [@media(max-height:850px)]:hidden" : "text-sm min-h-[2.5rem]"
+                        isSmall ? SMALL_STACK_DESCRIPTION_CLASS : "text-sm min-h-[2.5rem]"
                     )}>
                         {style.prompt || linkedShortcut?.description || "未设置提示词"}
                     </p>

@@ -293,7 +293,7 @@ export function HistoryCard({
           >
             <motion.div className="relative h-full bg-transparent grid grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))] gap-4 items-stretch content-start">
               <motion.div
-                className="relative w-full h-full overflow-hidden rounded-2xl border border-white/0 bg-[#2c2d2fa0]  p-4 flex flex-col justify-start"
+                className="relative w-full h-full overflow-hidden rounded-2xl border border-white/5 bg-white/10  p-4 flex flex-col justify-start"
               >
                 <div className="flex items-center justify-between text-[10px] text-white/20 uppercase font-medium mb-3">
                   <div className="flex items-center gap-1.5">
@@ -306,7 +306,7 @@ export function HistoryCard({
                     label="Copy Prompt"
                     tooltipContent="Copy Prompt"
                     tooltipSide="top"
-                    className="w-3 h-3 bg-transparent hover:bg-transparent text-white/40 hover:text-white transition-all group/copy -mr-1"
+                    className="w-2 h-2 p-1 bg-transparent hover:bg-transparent text-white/20 hover:text-white transition-all group/copy "
                     onClick={(e) => {
                       e.stopPropagation();
                       navigator.clipboard.writeText(prompt);
@@ -377,7 +377,7 @@ export function HistoryCard({
                             transition={{ exit: { delay: 0.5, duration: 0.3 } }}
                             className="absolute inset-0 z-0 flex items-center justify-center bg-white/5"
                           >
-                            <LoadingSpinner size={48} />
+                            <LoadingSpinner size={36} />
                           </motion.div>
                         ) : img ? (
                           <motion.div
@@ -470,7 +470,7 @@ export function HistoryCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 rounded-sm border-white/10 bg-[#2C2D2F] text-white/80 hover:bg-white/10 hover:text-white gap-1.5 px-3"
+                className="h-8 rounded-sm border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white gap-1.5 px-3"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRegenerate(result);
@@ -480,7 +480,7 @@ export function HistoryCard({
               </Button>
               <Button
                 size="sm"
-                className="h-8 rounded-sm border-white/10 bg-[#2C2D2F] text-white/80 hover:bg-white/10 hover:text-white gap-1.5 px-3"
+                className="h-8 rounded-sm border  border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white gap-1.5 px-3"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (isEditHistory) {
@@ -571,7 +571,7 @@ export function HistoryCard({
               transition={{ exit: { delay: 0.5, duration: 0.3 } }}
               className="absolute inset-0 z-0 flex items-center justify-center bg-white/5"
             >
-              <LoadingSpinner size={48} />
+              <LoadingSpinner size={36} />
             </motion.div>
           ) : mainImage ? (
             <motion.div

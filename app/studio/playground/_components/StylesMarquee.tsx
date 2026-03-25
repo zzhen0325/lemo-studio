@@ -10,6 +10,11 @@ import {
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { ShortcutStackCard } from './ShortcutStackCard';
 import { ShortcutDetailDialog } from './ShortcutDetailDialog';
+import {
+  SMALL_STACK_MARQUEE_ITEM_CLASS,
+  SMALL_STACK_MARQUEE_ROOT_CLASS,
+  SMALL_STACK_MARQUEE_TRACK_CLASS,
+} from './style-card-layout';
 
 interface StylesMarqueeProps {
   className?: string;
@@ -20,6 +25,7 @@ interface StylesMarqueeProps {
 export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuickApply, onPreviewImage }) => {
   const [selectedShortcut, setSelectedShortcut] = React.useState<PlaygroundShortcut | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
+  const [isPaused, setIsPaused] = React.useState(false);
   const styles = usePlaygroundStore((state) => state.styles);
   const initStyles = usePlaygroundStore((state) => state.initStyles);
   const duplicatedShortcuts = [...PLAYGROUND_SHORTCUTS, ...PLAYGROUND_SHORTCUTS, ...PLAYGROUND_SHORTCUTS];
@@ -50,8 +56,8 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
     <>
       <div
         className={cn(
-          'group/marquee relative w-full select-none overflow-hidden pointer-events-auto',
-          'py-[4vw] [@media(max-height:1080px)]:py-[2vw] [@media(max-height:900px)]:py-4 [@media(max-height:600px)]:hidden',
+          'relative w-full select-none overflow-hidden pointer-events-none',
+          SMALL_STACK_MARQUEE_ROOT_CLASS,
           className
         )}
       >
@@ -64,22 +70,37 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
           `}
         </style>
         <div
-          className="flex w-max gap-36 group-hover/marquee:[animation-play-state:paused] [@media(max-height:750px)]:gap-12"
-          style={{ animation: `marquee ${PLAYGROUND_SHORTCUTS.length * 9}s linear infinite` }}
+          className={cn(
+            SMALL_STACK_MARQUEE_TRACK_CLASS,
+            'pointer-events-none'
+          )}
+          style={{
+            animation: `marquee ${PLAYGROUND_SHORTCUTS.length * 9}s linear infinite`,
+            animationPlayState: isPaused ? 'paused' : 'running',
+          }}
         >
           {duplicatedShortcuts.map((shortcut, index) => (
             <div
               key={`${shortcut.id}-${index}`}
-              className="w-[clamp(32px,14vw,168px)] shrink-0 pt-14 text-white transition-all duration-300 [@media(max-height:900px)]:w-[clamp(32px,12vw,152px)] [@media(max-height:900px)]:pt-12 [@media(max-height:750px)]:w-[clamp(44px,10vw,136px)] [@media(max-height:750px)]:pt-10"
+              className={cn(
+                SMALL_STACK_MARQUEE_ITEM_CLASS,
+                'pointer-events-none'
+              )}
             >
-              <ShortcutStackCard
-                shortcut={shortcut}
-                moodboard={shortcutMoodboards[shortcut.id]}
-                size="sm"
-                onQuickApply={handleQuickApply}
-                onViewDetail={handleViewDetail}
-                onPreviewImage={onPreviewImage}
-              />
+              <div
+                className="pointer-events-auto"
+                onMouseEnter={() => setIsPaused(true)}
+                onMouseLeave={() => setIsPaused(false)}
+              >
+                <ShortcutStackCard
+                  shortcut={shortcut}
+                  moodboard={shortcutMoodboards[shortcut.id]}
+                  size="sm"
+                  onQuickApply={handleQuickApply}
+                  onViewDetail={handleViewDetail}
+                  onPreviewImage={onPreviewImage}
+                />
+              </div>
             </div>
           ))}
         </div>

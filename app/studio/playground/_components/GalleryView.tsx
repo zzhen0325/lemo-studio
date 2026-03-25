@@ -653,7 +653,7 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate }: GalleryCard
             <div className="relative w-full  flex items-center justify-center bg-white/5">
                 {item.status === 'pending' ? (
                     <div className="w-full flex flex-col items-center justify-center p-8 space-y-3">
-                        <div className="w-10 h-10 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                        <div className="w-9 h-9 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
                         <span className="text-[10px] text-white/30 font-medium uppercase tracking-widest animate-pulse">Generating</span>
                     </div>
                 ) : !isInView ? (

@@ -90,33 +90,33 @@ const HistoryList = observer(function HistoryList({
 
     // bg-white/5 border border-white/10 rounded-3xl
     <div
-      className=" rounded-3xl h-full flex flex-col relative overflow-hidden"
+      className=" rounded-2xl h-full flex flex-col relative overflow-hidden"
     >
-      <div className="absolute top-4 right-6 z-40 flex items-center gap-2">
-        <div className="flex items-center p-1 gap-1 bg-black/20 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20">
+      <div className="absolute top-4 right-0 z-40 flex items-center gap-2">
+        <div className="flex items-center p-1 gap-1 bg-black/20 backdrop-blur-xl rounded-md border border-white/10 shadow-2xl transition-all duration-300 hover:border-white/20">
           <button
             onClick={() => onLayoutModeChange?.('grid')}
             className={cn(
-              "p-1.5 rounded-lg transition-all",
+              "p-1.5 rounded-sm transition-all",
               layoutMode === 'grid'
                 ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20"
                 : "text-white/40 hover:text-white hover:bg-white/5"
             )}
             title="Grid View"
           >
-            <LayoutGrid className="w-3.5 h-3.5" />
+            <LayoutGrid className="w-3 h-3" />
           </button>
           <button
             onClick={() => onLayoutModeChange?.('list')}
             className={cn(
-              "p-1.5 rounded-lg transition-all",
+              "p-1.5 rounded-sm transition-all",
               layoutMode === 'list'
                 ? "bg-white/10 text-white shadow-sm ring-1 ring-white/20"
                 : "text-white/40 hover:text-white hover:bg-white/5"
             )}
             title="List View"
           >
-            <List className="w-3.5 h-3.5" />
+            <List className="w-3 h-3" />
           </button>
         </div>
       </div>

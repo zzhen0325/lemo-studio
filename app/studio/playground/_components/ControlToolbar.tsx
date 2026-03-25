@@ -132,6 +132,11 @@ export default function ControlToolbar({
     : (['1K', '2K', '4K'] as const);
   const selectedSupportsBatch = selectedModelMeta?.capabilities?.supportsBatch ?? true;
   const selectedMaxBatchSize = selectedSupportsBatch ? Math.max(1, selectedModelMeta?.capabilities?.maxBatchSize ?? 10) : 1;
+  const allowsContinuousGenerate = selectedModel === 'coze_seedream4_5';
+  const shouldLockGenerateControls = isGenerating && !allowsContinuousGenerate;
+  const generateButtonLabel = isGenerating
+    ? (allowsContinuousGenerate ? 'Generate Again' : loadingText)
+    : 'Generate';
 
   // 初始化与回填：根据外部 selectedModel 映射到内部 selectValue
   React.useEffect(() => {
@@ -557,7 +562,7 @@ export default function ControlToolbar({
                 size="sm"
                 className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
                 onClick={() => onBatchSizeChange?.(Math.max(1, batchSize - 1))}
-                disabled={batchSize <= 1 || isGenerating}
+                disabled={batchSize <= 1 || shouldLockGenerateControls}
               >
                 <Minus className="w-3 h-3" />
               </Button>
@@ -569,7 +574,7 @@ export default function ControlToolbar({
                 size="sm"
                 className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
                 onClick={() => onBatchSizeChange?.(Math.min(selectedMaxBatchSize, batchSize + 1))}
-                disabled={batchSize >= selectedMaxBatchSize || isGenerating}
+                disabled={batchSize >= selectedMaxBatchSize || shouldLockGenerateControls}
               >
                 <Plus className="w-3 h-3" />
               </Button>
@@ -579,9 +584,10 @@ export default function ControlToolbar({
           <div className="relative rounded-xl">
             <AnimatedButton
               onClick={onGenerate}
-              disabled={isGenerating}
+              disabled={shouldLockGenerateControls}
               loading={isGenerating}
-              label={isGenerating ? loadingText : "Generate"}
+              disableWhileLoading={!allowsContinuousGenerate}
+              label={generateButtonLabel}
               size="md"
               variant="default"
               className="relative z-10 rounded-2xl px-6 font-semibold text-black"

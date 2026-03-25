@@ -87,6 +87,7 @@ export interface AnimatedButtonProps
   iconLeft?: React.ReactNode
   iconRight?: React.ReactNode
   loading?: boolean
+  disableWhileLoading?: boolean
   className?: string
 }
 
@@ -99,6 +100,7 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
       iconLeft,
       iconRight,
       loading = false,
+      disableWhileLoading = true,
       className,
       onClick,
       disabled,
@@ -109,12 +111,12 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
     const [isHovered, setIsHovered] = React.useState(false)
 
     const handleClick: React.MouseEventHandler<HTMLButtonElement> = (event) => {
-      if (loading || disabled) return
+      if (disabled || (loading && disableWhileLoading)) return
 
       onClick?.(event)
     }
 
-    const isDisabled = loading || disabled
+    const isDisabled = Boolean(disabled || (loading && disableWhileLoading))
 
     return (
       <motion.button

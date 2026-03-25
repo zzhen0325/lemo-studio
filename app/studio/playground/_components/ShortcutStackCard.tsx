@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { type PlaygroundShortcut } from '@/config/playground-shortcuts';
 import type { StyleStack } from './types';
+import {
+  SMALL_STACK_BADGE_CLASS,
+  SMALL_STACK_CARD_LAYOUT_CLASS,
+  SMALL_STACK_DESCRIPTION_CLASS,
+  SMALL_STACK_IMAGE_CLASS,
+  SMALL_STACK_STAGE_CLASS,
+  SMALL_STACK_TITLE_CLASS,
+} from './style-card-layout';
 
 interface ShortcutStackCardProps {
   shortcut: PlaygroundShortcut;
@@ -37,7 +45,7 @@ export function ShortcutStackCard({
     <div
       className={cn(
         'group relative flex cursor-pointer flex-col rounded-[2rem] transition-all',
-        isSmall ? 'gap-3 p-3' : 'gap-4 p-4'
+        isSmall ? SMALL_STACK_CARD_LAYOUT_CLASS : 'gap-4 p-4'
       )}
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
@@ -71,7 +79,7 @@ export function ShortcutStackCard({
       <div
         className={cn(
           'relative flex w-full items-center justify-center perspective-1000',
-          isSmall ? 'h-[clamp(56px,14vw,140px)] min-w-0' : 'h-[200px]'
+          isSmall ? SMALL_STACK_STAGE_CLASS : 'h-[200px]'
         )}
       >
         {displayImages.map((imagePath, index) => (
@@ -79,7 +87,7 @@ export function ShortcutStackCard({
             key={`${shortcut.id}-${imagePath}-${index}`}
             className={cn(
               'absolute overflow-hidden rounded-2xl border border-white/20 bg-none shadow-xl',
-              isSmall ? 'h-[clamp(56px,14vw,140px)] w-[clamp(42px,11vw,112px)]' : 'h-[200px] w-40'
+              isSmall ? SMALL_STACK_IMAGE_CLASS : 'h-[200px] w-40'
             )}
             initial={false}
             animate={{
@@ -126,7 +134,7 @@ export function ShortcutStackCard({
           <h3
             className={cn(
               'w-full truncate text-center font-semibold text-white transition-all duration-300',
-              isSmall ? 'text-[clamp(0.875rem,1vw,1rem)]' : 'text-lg'
+              isSmall ? SMALL_STACK_TITLE_CLASS : 'text-lg'
             )}
           >
             {moodboard?.name || shortcut.name}
@@ -134,12 +142,15 @@ export function ShortcutStackCard({
           <p
             className={cn(
               'mt-1 w-full text-center text-white/48 transition-all duration-300',
-              isSmall ? 'line-clamp-2 min-h-[1.5rem] text-[clamp(9px,0.7vw,10px)]' : 'min-h-[2.5rem] text-sm'
+              isSmall ? SMALL_STACK_DESCRIPTION_CLASS : 'min-h-[2.5rem] text-sm'
             )}
           >
             {shortcut.description}
           </p>
-          <span className="mt-2 max-w-full truncate rounded-full border border-white/10 bg-black/15 px-3 py-1 text-[clamp(9px,0.75vw,11px)] text-white/75">
+          <span className={cn(
+            'mt-2 max-w-full truncate rounded-full border border-white/10 bg-black/15 px-3 py-1 text-white/75',
+            isSmall ? SMALL_STACK_BADGE_CLASS : 'text-[clamp(9px,0.75vw,11px)]'
+          )}>
             {shortcut.modelLabel}
           </span>
         </div>

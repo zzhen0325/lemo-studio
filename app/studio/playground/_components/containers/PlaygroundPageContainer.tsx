@@ -1827,7 +1827,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             </div>
 
             {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && (
-              <div className="absolute bottom-0 w-full overflow-visible z-50">
+              <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none">
                 <StylesMarquee
                   onQuickApply={handleShortcutQuickApply}
                   onPreviewImage={handleShortcutPreviewOpen}
