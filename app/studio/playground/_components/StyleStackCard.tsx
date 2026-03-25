@@ -140,7 +140,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
             {/* Image Stack Container */}
             <div className={cn(
                 "relative w-full flex items-center justify-center perspective-1000",
-                isSmall ? "h-[clamp(70px,14vw,140px)] [@media(max-height:850px)]:h-[clamp(50px,14vw,100px)] [@media(max-height:750px)]:h-[clamp(40px,14vw,80px)]" : "h-[200px]",
+                isSmall ? "h-[clamp(70px,14vh,140px)] [@media(max-height:850px)]:h-[clamp(30px,14vh,100px)] [@media(max-height:750px)]:h-[clamp(30px,14vh,80px)]" : "h-[200px]",
                 isGridLg && "h-[220px]"
             )}>
                 {hasImages ? (
