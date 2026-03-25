@@ -64,13 +64,13 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
           `}
         </style>
         <div
-          className="flex w-max gap-36 group-hover/marquee:[animation-play-state:paused] [@media(max-height:750px)]:gap-12"
+          className="flex w-max gap-18 group-hover/marquee:[animation-play-state:paused] [@media(max-height:750px)]:gap-6"
           style={{ animation: `marquee ${PLAYGROUND_SHORTCUTS.length * 9}s linear infinite` }}
         >
           {duplicatedShortcuts.map((shortcut, index) => (
             <div
               key={`${shortcut.id}-${index}`}
-              className="w-[clamp(64px,14vw,168px)] shrink-0 pt-14 text-white transition-all duration-300 [@media(max-height:900px)]:w-[clamp(64px,12vw,152px)] [@media(max-height:900px)]:pt-12 [@media(max-height:750px)]:w-[clamp(88px,10vw,136px)] [@media(max-height:750px)]:pt-10"
+              className="w-[clamp(32px,7vw,84px)] shrink-0 pt-7 text-white transition-all duration-300 [@media(max-height:900px)]:w-[clamp(32px,6vw,76px)] [@media(max-height:900px)]:pt-6 [@media(max-height:750px)]:w-[clamp(44px,5vw,68px)] [@media(max-height:750px)]:pt-5"
             >
               <ShortcutStackCard
                 shortcut={shortcut}
