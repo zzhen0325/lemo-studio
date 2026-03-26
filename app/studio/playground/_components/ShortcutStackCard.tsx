@@ -147,12 +147,12 @@ export function ShortcutStackCard({
           >
             {shortcut.description}
           </p>
-          <span className={cn(
+          {/* <span className={cn(
             'mt-2 max-w-full truncate rounded-full border border-white/10 bg-black/15 px-3 py-1 text-white/75',
             isSmall ? SMALL_STACK_BADGE_CLASS : 'text-[clamp(9px,0.75vw,11px)]'
           )}>
             {shortcut.modelLabel}
-          </span>
+          </span> */}
         </div>
       </div>
     </div>

@@ -104,6 +104,20 @@ export const OPTIMIZATION_LOADING_MESSAGES = [
   'Thinking...',
 ] as const;
 
+const DETAIL_TEXT_COLOR_PATTERN = /#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})\b/g;
+
+type DetailTextSegment =
+  | {
+    type: 'text';
+    value: string;
+  }
+  | {
+    type: 'color';
+    rawHex: string;
+    normalizedHex: string;
+    occurrenceIndex: number;
+  };
+
 function TokenEditor({
   label,
   items,
@@ -116,7 +130,7 @@ function TokenEditor({
   const normalizedItems = items.length > 0 ? items : [''];
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-2 mt-2">
       {normalizedItems.map((item, index) => {
         const itemHex = extractDesignHexMatches(item)[0];
 
@@ -177,43 +191,299 @@ function TokenEditor({
   );
 }
 
-function SectionColorReferences({
-  colors,
-  onReplaceColor,
-  className,
-}: {
-  colors: string[];
-  onReplaceColor: (previousHex: string, nextHex: string) => void;
-  className?: string;
-}) {
-  if (colors.length === 0) {
-    return null;
+function getDetailTextSegments(value: string) {
+  const segments: DetailTextSegment[] = [];
+  let lastIndex = 0;
+  let occurrenceIndex = 0;
+
+  for (const matched of value.matchAll(DETAIL_TEXT_COLOR_PATTERN)) {
+    const rawHex = matched[0];
+    const normalizedHex = normalizeShortcutColorValue(rawHex);
+    const startIndex = matched.index ?? 0;
+
+    if (!normalizedHex) {
+      continue;
+    }
+
+    if (startIndex > lastIndex) {
+      segments.push({
+        type: 'text',
+        value: value.slice(lastIndex, startIndex),
+      });
+    }
+
+    segments.push({
+      type: 'color',
+      rawHex,
+      normalizedHex,
+      occurrenceIndex,
+    });
+
+    lastIndex = startIndex + rawHex.length;
+    occurrenceIndex += 1;
   }
 
+  if (lastIndex < value.length) {
+    segments.push({
+      type: 'text',
+      value: value.slice(lastIndex),
+    });
+  }
+
+  return segments;
+}
+
+function getRenderedDetailTextTokenHexes(root: HTMLElement | null) {
+  if (!root) {
+    return [];
+  }
+
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-detail-text-color-token]'))
+    .map((node) => node.dataset.detailTextColorRawHex || '')
+    .filter(Boolean);
+}
+
+function serializeDetailTextEditor(root: HTMLElement | null): string {
+  if (!root) {
+    return '';
+  }
+
+  const parts: string[] = [];
+
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      parts.push((node.textContent || '').replace(/\u00A0/g, ' '));
+      return;
+    }
+
+    if (!(node instanceof HTMLElement)) {
+      return;
+    }
+
+    if (node.dataset.detailTextColorToken === 'true') {
+      parts.push(node.dataset.detailTextColorRawHex || '');
+      return;
+    }
+
+    if (node.tagName === 'BR') {
+      parts.push('\n');
+      return;
+    }
+
+    const childNodes = Array.from(node.childNodes);
+    childNodes.forEach(walk);
+
+    if ((node.tagName === 'DIV' || node.tagName === 'P') && node !== root) {
+      const latestPart = parts[parts.length - 1] || '';
+      if (!latestPart.endsWith('\n') && node.nextSibling) {
+        parts.push('\n');
+      }
+    }
+  };
+
+  Array.from(root.childNodes).forEach(walk);
+  return parts.join('').replace(/\u200B/g, '');
+}
+
+function replaceDetailTextColorAtIndex(value: string, targetIndex: number, nextHex: string) {
+  const normalizedNextHex = normalizeShortcutColorValue(nextHex);
+
+  if (!value || !normalizedNextHex || targetIndex < 0) {
+    return value;
+  }
+
+  let occurrenceIndex = 0;
+
+  return value.replace(DETAIL_TEXT_COLOR_PATTERN, (matched) => {
+    if (occurrenceIndex === targetIndex) {
+      occurrenceIndex += 1;
+      return normalizedNextHex;
+    }
+
+    occurrenceIndex += 1;
+    return matched;
+  });
+}
+
+function insertTextAtSelection(text: string) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return false;
+  }
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+  range.setStartAfter(textNode);
+  range.collapse(true);
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  return true;
+}
+
+function InlineDetailTextEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (nextValue: string) => void;
+  placeholder?: string;
+}) {
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
+  const isComposingRef = React.useRef(false);
+
+  const syncEditorFromValue = React.useCallback((nextValue: string) => {
+    const root = editorRef.current;
+    if (!root) {
+      return;
+    }
+
+    root.replaceChildren();
+
+    const segments = getDetailTextSegments(nextValue);
+    segments.forEach((segment) => {
+      if (segment.type === 'text') {
+        root.append(document.createTextNode(segment.value));
+        return;
+      }
+
+      const token = document.createElement('span');
+      token.contentEditable = 'false';
+      token.dataset.detailTextColorToken = 'true';
+      token.dataset.detailTextColorRawHex = segment.rawHex;
+      token.dataset.detailTextColorIndex = String(segment.occurrenceIndex);
+      token.className =
+        'mx-[1px] inline-flex h-5 cursor-pointer items-center gap-2 rounded-sm border-none bg-white/10 px-2 align-baseline text-white transition-colors hover:bg-[#E8FFB7]/12';
+
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className =
+        'h-3 w-3 shrink-0 rounded-sm border border-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]';
+      swatch.style.backgroundColor = segment.normalizedHex || '#1F2937';
+      swatch.setAttribute('aria-label', `调整 ${segment.rawHex.toUpperCase()} 颜色`);
+
+      const text = document.createElement('span');
+      text.className = 'font-mono text-[10px] text-white';
+      text.textContent = segment.rawHex.toUpperCase();
+
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.tabIndex = -1;
+      input.value = segment.normalizedHex || '#1F2937';
+      input.className = 'sr-only';
+
+      token.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+      });
+
+      token.addEventListener('click', () => {
+        input.click();
+      });
+
+      input.addEventListener('change', (event) => {
+        const currentValue = serializeDetailTextEditor(root);
+        const target = event.target as HTMLInputElement;
+        const nextText = replaceDetailTextColorAtIndex(
+          currentValue,
+          segment.occurrenceIndex,
+          target.value.toUpperCase(),
+        );
+
+        if (nextText !== currentValue) {
+          onChange(nextText);
+        }
+      });
+
+      token.append(swatch, text, input);
+      root.append(token);
+    });
+  }, [onChange]);
+
+  const emitCurrentValue = React.useCallback(() => {
+    const nextValue = serializeDetailTextEditor(editorRef.current);
+    if (nextValue !== value) {
+      onChange(nextValue);
+    }
+  }, [onChange, value]);
+
+  React.useLayoutEffect(() => {
+    const root = editorRef.current;
+    if (!root) {
+      return;
+    }
+
+    const expectedTokens = getDetailTextSegments(value)
+      .filter((segment): segment is Extract<DetailTextSegment, { type: 'color' }> => segment.type === 'color')
+      .map((segment) => segment.rawHex);
+    const renderedTokens = getRenderedDetailTextTokenHexes(root);
+    const shouldSync =
+      serializeDetailTextEditor(root) !== value
+      || renderedTokens.length !== expectedTokens.length
+      || renderedTokens.some((tokenHex, index) => tokenHex !== expectedTokens[index]);
+
+    if (shouldSync) {
+      syncEditorFromValue(value);
+    }
+  }, [syncEditorFromValue, value]);
+
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
-      {colors.map((hex) => (
-        <label
-          key={hex}
-          className="inline-flex h-7 cursor-pointer items-center gap-2 rounded-md border border-[#E8FFB7]/0 bg-white/10 px-2 text-white transition-colors hover:bg-[#E8FFB7]/12 focus-within:border-[#E8FFB7]/20 focus-within:bg-[#E8FFB7]/18"
-        >
-          <span className="whitespace-nowrap text-[10px] font-normal text-[#F4FFCE]">
-            色值
-          </span>
-          <span
-            className="h-4 w-4 rounded-full border border-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
-            style={{ backgroundColor: normalizeShortcutColorValue(hex) || '#1F2937' }}
-          />
-          <span className="font-mono text-sm text-white">{hex}</span>
-          <input
-            type="color"
-            tabIndex={-1}
-            value={normalizeShortcutColorValue(hex) || '#1F2937'}
-            onChange={(event) => onReplaceColor(hex, event.target.value.toUpperCase())}
-            className="sr-only"
-          />
-        </label>
-      ))}
+    <div className="relative">
+      {!value ? (
+        <span className="pointer-events-none absolute left-0 top-0 text-xs leading-5 text-white/35">
+          {placeholder}
+        </span>
+      ) : null}
+      <div
+        ref={editorRef}
+        contentEditable
+        role="textbox"
+        aria-multiline="true"
+        suppressContentEditableWarning
+        onInput={() => {
+          if (!isComposingRef.current) {
+            emitCurrentValue();
+          }
+        }}
+        onBlur={() => {
+          if (!isComposingRef.current) {
+            emitCurrentValue();
+          }
+        }}
+        onCompositionStart={() => {
+          isComposingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          isComposingRef.current = false;
+          emitCurrentValue();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') {
+            return;
+          }
+
+          event.preventDefault();
+          if (insertTextAtSelection('\n')) {
+            emitCurrentValue();
+          }
+        }}
+        onPaste={(event) => {
+          const pastedText = event.clipboardData.getData('text/plain');
+          if (!pastedText) {
+            return;
+          }
+
+          event.preventDefault();
+          if (insertTextAtSelection(pastedText)) {
+            emitCurrentValue();
+          }
+        }}
+        className="min-h-[5.5rem] min-w-[14rem] whitespace-pre-wrap break-words bg-transparent text-xs leading-5 text-white outline-none"
+      />
     </div>
   );
 }
@@ -231,15 +501,10 @@ function AnalysisSectionEditor({
   onRewrite?: () => void;
   isRewriting?: boolean;
 }) {
-  const sectionColors = React.useMemo(
-    () => extractDesignHexMatches([section.detailText, ...section.tokens].join(' ')),
-    [section.detailText, section.tokens]
-  );
-
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/55">
+        <span className="text-[11px] font-medium   text-white/55">
           {label}
         </span>
         <div className="flex items-center gap-1.5">
@@ -274,23 +539,11 @@ function AnalysisSectionEditor({
           Detail Text
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-sm text-white/78">
-          <div className="flex flex-wrap items-start gap-1.5">
-            <SectionColorReferences
-              colors={sectionColors}
-              onReplaceColor={(previousHex, nextHex) => onChange({
-                ...section,
-                tokens: section.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
-                detailText: replaceHexColorReferences(section.detailText, previousHex, nextHex),
-              })}
-            />
-            <textarea
-              value={section.detailText}
-              onChange={(event) => onChange({ ...section, detailText: event.target.value })}
-              placeholder="保留高细节来源分析 prose"
-              rows={3}
-              className="min-h-[5.5rem] min-w-[14rem] flex-1 resize-y bg-transparent text-xs leading-5 text-white outline-none placeholder:text-white/35"
-            />
-          </div>
+          <InlineDetailTextEditor
+            value={section.detailText}
+            onChange={(nextDetailText) => onChange({ ...section, detailText: nextDetailText })}
+            placeholder="保留高细节来源分析 prose"
+          />
         </div>
       </div>
     </div>
@@ -677,15 +930,6 @@ export function ShortcutPromptComposer({
       {optimizationSession ? (
         <div className="relative rounded-2xl border border-white/10 bg-transparent p-3">
           {inlinePromptEditor}
-          <button
-            type="button"
-            disabled={isOptimizing || isAnyVariantModifying}
-            onClick={() => onRegenerateVariants?.()}
-            className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/30  px-3 py-1 text-[12px] text-white transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-3 w-3', isOptimizing && 'animate-spin')} />
-            重新请求
-          </button>
         </div>
       ) : null}
 
@@ -713,13 +957,15 @@ export function ShortcutPromptComposer({
             })}
           </div>
 
+          {/* 生成当前方案按钮已隐藏 */}
           <button
             type="button"
-            disabled={isGenerating || isAnyVariantModifying}
-            onClick={() => onGenerateCurrent?.()}
-            className="inline-flex items-center justify-center gap-1 self-start rounded-md border border-[#D8FF8E]/25 bg-[#D8FF8E]/10 px-3 py-1 text-[11px] text-[#F4FFCE] transition-colors hover:bg-[#D8FF8E]/16 disabled:cursor-not-allowed disabled:opacity-50 md:self-auto"
+            disabled={isOptimizing || isAnyVariantModifying}
+            onClick={() => onRegenerateVariants?.()}
+            className="h-8 inline-flex items-center justify-center gap-1 self-start rounded-md border border-white/10 bg-white/5 px-3 py-1 text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 md:self-auto"
           >
-            生成当前方案
+            <RefreshCw className={cn('h-3 w-3', isOptimizing && 'animate-spin')} />
+            重新优化
           </button>
         </div>
       ) : null}
@@ -728,7 +974,7 @@ export function ShortcutPromptComposer({
 
       {activeVariant ? (
         <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/78" open>
-          <summary className="cursor-pointer list-none text-[11px] font-medium uppercase tracking-[0.14em] text-white/55">
+          <summary className="cursor-pointer list-none text-[11px] font-medium  text-white/55">
             最终 Prompt 预览
           </summary>
           <div className="mt-2 max-h-36 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-white/82 pr-2">

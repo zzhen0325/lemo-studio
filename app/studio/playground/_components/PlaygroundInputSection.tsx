@@ -242,6 +242,9 @@ export function PlaygroundInputSection({
     );
     const hasStructuredShortcutSession = Boolean(shortcutTemplate?.optimizationSession);
     const isHomeStructuredMode = hasStructuredShortcutSession && !showHistory;
+    const handlePrimaryGenerate = hasStructuredShortcutSession
+        ? (onShortcutTemplateGenerateAll || handleGenerate)
+        : handleGenerate;
 
     const getCurrentAspectRatio = () => {
         if (config.aspectRatio === 'auto') return 'auto';
@@ -576,7 +579,7 @@ export function PlaygroundInputSection({
                         }}
                         isAspectRatioLocked={isAspectRatioLocked}
                         onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
-                        onGenerate={handleGenerate}
+                        onGenerate={handlePrimaryGenerate}
                         isGenerating={isGenerating}
                         loadingText="Thinking..."
                         selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}

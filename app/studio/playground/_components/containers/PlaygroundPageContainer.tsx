@@ -1244,14 +1244,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       generationMode: 'playground',
     });
 
-    if (promptWrapperRef.current) {
-      window.requestAnimationFrame(() => {
-        promptWrapperRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-      });
-    }
+    // if (promptWrapperRef.current) {
+    //   window.requestAnimationFrame(() => {
+    //     promptWrapperRef.current?.scrollIntoView({
+    //       behavior: 'smooth',
+    //       block: 'center',
+    //     });
+    //   });
+    // }
 
     toast({
       title: `已应用 ${shortcut.name}`,
@@ -2009,11 +2009,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     for (const variant of readyVariants) {
       const currentConfig = usePlaygroundStore.getState().config;
+      const variantTaskId = `${Date.now()}-${variant.id}-${Math.random().toString(36).substring(2, 7)}`;
       await handleGenerate({
         configOverride: {
           ...currentConfig,
           prompt: variant.promptPreview,
+          taskId: undefined,
         },
+        taskId: variantTaskId,
         batchSizeOverride: 4,
       });
     }

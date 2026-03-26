@@ -167,7 +167,7 @@ export default function PromptInput({
       setLoadingMessageIndex((currentIndex) =>
         currentIndex < OPTIMIZATION_LOADING_MESSAGES.length - 1 ? currentIndex + 1 : currentIndex
       );
-    }, 1400);
+    }, 4500);
 
     return () => window.clearInterval(intervalId);
   }, [isOptimizing]);
@@ -188,6 +188,23 @@ export default function PromptInput({
     }
   };
 
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        isStructuredExpanded &&
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
+        setIsStructuredExpanded(false);
+        onFocusChange?.(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isStructuredExpanded, onFocusChange]);
+
   const handleStructuredExpand = React.useCallback(() => {
     if (!hasStructuredSession || isStructuredExpanded) {
       return;
@@ -199,6 +216,7 @@ export default function PromptInput({
 
   return (
     <div
+      ref={wrapperRef}
       className={cn(
         "w-full relative rounded-2xl",
         isDraggingOver && ""
@@ -296,7 +314,7 @@ export default function PromptInput({
             )}
           </div>
           {isOptimizing ? (
-            <div aria-live="polite" className="mt-2 pl-4 pr-10 text-[12px] font-medium text-[#D8FF8E]">
+            <div aria-live="polite" className=" pl-4 pr-10 text-[11px] font-medium text-white">
               {optimizationLoadingMessage}
             </div>
           ) : null}
