@@ -975,7 +975,7 @@ export function ShortcutPromptComposer({
       {activeVariant ? (
         <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/78" open>
           <summary className="cursor-pointer list-none text-[11px] font-medium  text-white/55">
-            最终 Prompt 预览
+            Final Prompt
           </summary>
           <div className="mt-2 max-h-36 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-white/82 pr-2">
             {activeVariant.promptPreview}
