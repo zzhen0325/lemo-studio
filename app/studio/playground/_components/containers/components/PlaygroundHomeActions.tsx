@@ -1,4 +1,4 @@
-import { Edit2, History, Image as ImageIcon, Palette, Sparkles, Square } from "lucide-react";
+import { Edit2, History, Image as ImageIcon, Sparkles, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PlaygroundHomeActionsProps {
@@ -7,7 +7,6 @@ interface PlaygroundHomeActionsProps {
   onOpenBanner: () => void;
   onOpenHistory: () => void;
   onOpenGallery: () => void;
-  onOpenStyle: () => void;
 }
 
 export function PlaygroundHomeActions({
@@ -16,7 +15,6 @@ export function PlaygroundHomeActions({
   onOpenBanner,
   onOpenHistory,
   onOpenGallery,
-  onOpenStyle,
 }: PlaygroundHomeActionsProps) {
   return (
     <div className="flex justify-center mt-4 gap-4">
@@ -66,16 +64,6 @@ export function PlaygroundHomeActions({
       >
         <ImageIcon className="w-4 h-4" />
         <span className="text-sm font-medium">Gallery</span>
-      </button>
-      <button
-        onClick={onOpenStyle}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
-          "bg-black/10 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
-        )}
-      >
-        <Palette className="w-4 h-4" />
-        <span className="text-sm font-medium">Moodboards</span>
       </button>
     </div>
   );

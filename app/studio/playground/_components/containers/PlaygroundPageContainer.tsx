@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
-import { Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon, Palette } from "lucide-react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { useMediaQuery } from "@/hooks/common/use-media-query";
@@ -2882,7 +2882,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                         onOpenBanner={() => enterBannerMode()}
                         onOpenHistory={() => { setViewMode('dock'); setActiveTab('history'); }}
                         onOpenGallery={() => { setViewMode('dock'); setActiveTab('gallery'); }}
-                        onOpenStyle={() => { setViewMode('dock'); setActiveTab('style'); }}
                       />
                     )}
 
@@ -2933,11 +2932,23 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             </div>
 
             {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && !hasStructuredShortcutSession && (
-              <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none">
+              <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none flex flex-col items-center">
                 <StylesMarquee
                   onQuickApply={handleShortcutQuickApply}
                   onPreviewImage={handleShortcutPreviewOpen}
                 />
+                <div className="mt-4 mb-8 pointer-events-auto">
+                  <button
+                    onClick={() => { setViewMode('dock'); setActiveTab('style'); }}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
+                      "bg-black/10 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <Palette className="w-4 h-4" />
+                    <span className="text-sm font-medium">ALL moodboard</span>
+                  </button>
+                </div>
               </div>
             )}
 
