@@ -57,6 +57,7 @@ export function usePlaygroundAvailableModels(): UnifiedModelConfig[] {
 
 export interface GenerateOptions {
     configOverride?: GenerationConfig;
+    batchSizeOverride?: number;
     fixedCreatedAt?: string;
     isBackground?: boolean;
     editConfig?: EditPresetConfig;

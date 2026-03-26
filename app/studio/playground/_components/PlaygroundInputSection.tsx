@@ -45,6 +45,13 @@ import {
     type PlaygroundShortcut,
     type ShortcutPromptValues,
 } from "@/config/playground-shortcuts";
+import type {
+    DesignStructuredAnalysis,
+    DesignAnalysisSectionKey,
+    DesignStructuredPaletteEntry,
+    DesignVariantEditScope,
+    DesignStructuredVariantId,
+} from "@/app/studio/playground/_lib/kv-structured-optimization";
 
 export interface PlaygroundInputSectionProps {
     // 状态
@@ -112,10 +119,39 @@ export interface PlaygroundInputSectionProps {
         shortcut: PlaygroundShortcut;
         values: ShortcutPromptValues;
         removedFieldIds: string[];
+        optimizationSession?: {
+            originPrompt: string;
+            activeVariantId: DesignStructuredVariantId;
+            variants: Array<{
+                id: DesignStructuredVariantId;
+                label: string;
+                coreSuggestions: ShortcutPromptValues;
+                palette: DesignStructuredPaletteEntry[];
+                analysis: DesignStructuredAnalysis;
+                promptPreview: string;
+                pendingInstruction: string;
+                pendingScope: DesignVariantEditScope;
+                isModifying: boolean;
+            }>;
+        } | null;
     } | null;
     onShortcutTemplateFieldChange?: (fieldId: string, value: string) => void;
     onShortcutTemplateFieldRemove?: (fieldId: string) => void;
     onExitShortcutTemplate?: () => void;
+    onShortcutTemplateOptimize?: () => void;
+    onShortcutTemplateVariantSelect?: (variantId: DesignStructuredVariantId) => void;
+    onShortcutTemplateRegenerate?: () => void;
+    onShortcutTemplateGenerateCurrent?: () => void;
+    onShortcutTemplateGenerateAll?: () => void;
+    onShortcutTemplateAnalysisSectionChange?: (
+        sectionKey: DesignAnalysisSectionKey,
+        nextSection: DesignStructuredAnalysis[DesignAnalysisSectionKey]
+    ) => void;
+    onShortcutTemplatePaletteChange?: (palette: DesignStructuredPaletteEntry[]) => void;
+    onShortcutTemplateEditInstructionChange?: (instruction: string) => void;
+    onShortcutTemplatePrefillInstruction?: (instruction: string, scope?: DesignVariantEditScope) => void;
+    onShortcutTemplateApplyEdit?: (scope: DesignVariantEditScope, instructionOverride?: string) => void;
+    onShortcutTemplateRestoreVariant?: () => void;
 }
 
 export function PlaygroundInputSection({
@@ -179,6 +215,17 @@ export function PlaygroundInputSection({
     onShortcutTemplateFieldChange,
     onShortcutTemplateFieldRemove,
     onExitShortcutTemplate,
+    onShortcutTemplateOptimize,
+    onShortcutTemplateVariantSelect,
+    onShortcutTemplateRegenerate,
+    onShortcutTemplateGenerateCurrent,
+    onShortcutTemplateGenerateAll,
+    onShortcutTemplateAnalysisSectionChange,
+    onShortcutTemplatePaletteChange,
+    onShortcutTemplateEditInstructionChange,
+    onShortcutTemplatePrefillInstruction,
+    onShortcutTemplateApplyEdit,
+    onShortcutTemplateRestoreVariant,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -193,6 +240,8 @@ export function PlaygroundInputSection({
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+    const hasStructuredShortcutSession = Boolean(shortcutTemplate?.optimizationSession);
+    const isHomeStructuredMode = hasStructuredShortcutSession && !showHistory;
 
     const getCurrentAspectRatio = () => {
         if (config.aspectRatio === 'auto') return 'auto';
@@ -287,7 +336,7 @@ export function PlaygroundInputSection({
                     "relative z-10 flex items-center bg-black/40 justify-center w-full text-white flex-col rounded-[30px] backdrop-blur-md border border-white/20  p-2 transition-colors duration-100",
                     showHistory ? " bg-gradient-to-br from-[#0F0F15] via-[#0F0F15] to-[#1d2025]  border-[#343434]" : "bg-black/40"
                 )}>
-                    <div className="flex items-start gap-0 bg-black/40 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
+                    <div className="flex items-start gap-0 bg-black/60 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
                         {variant !== 'edit' && (
                             <DndContext
                                 sensors={sensors}
@@ -379,7 +428,10 @@ export function PlaygroundInputSection({
                             </DndContext>
                         )}
 
-                        <div className="flex-1 mt-1 flex items-center gap-2 overflow-hidden">
+                        <div className={cn(
+                            "flex-1 mt-1 flex gap-2",
+                            hasStructuredShortcutSession ? "items-start overflow-visible py-3 pr-2" : "items-center overflow-hidden"
+                        )}>
                             <div className="flex-1">
                                 <PromptInput
                                     prompt={config.prompt}
@@ -398,9 +450,22 @@ export function PlaygroundInputSection({
                                     onShortcutTemplateFieldChange={onShortcutTemplateFieldChange}
                                     onShortcutTemplateFieldRemove={onShortcutTemplateFieldRemove}
                                     onExitShortcutTemplate={onExitShortcutTemplate}
+                                    onShortcutTemplateOptimize={onShortcutTemplateOptimize}
+                                    onShortcutTemplateVariantSelect={onShortcutTemplateVariantSelect}
+                                    onShortcutTemplateRegenerate={onShortcutTemplateRegenerate}
+                                    onShortcutTemplateGenerateCurrent={onShortcutTemplateGenerateCurrent}
+                                    onShortcutTemplateGenerateAll={onShortcutTemplateGenerateAll}
+                                    onShortcutTemplateAnalysisSectionChange={onShortcutTemplateAnalysisSectionChange}
+                                    onShortcutTemplatePaletteChange={onShortcutTemplatePaletteChange}
+                                    onShortcutTemplateEditInstructionChange={onShortcutTemplateEditInstructionChange}
+                                    onShortcutTemplatePrefillInstruction={onShortcutTemplatePrefillInstruction}
+                                    onShortcutTemplateApplyEdit={onShortcutTemplateApplyEdit}
+                                    onShortcutTemplateRestoreVariant={onShortcutTemplateRestoreVariant}
+                                    isGenerating={isGenerating}
+                                    isHomeStructuredMode={isHomeStructuredMode}
                                 />
                             </div>
-                            {variant !== 'edit' && (
+                            {variant !== 'edit' && !shortcutTemplate && (
                                 <Button
                                     variant="light"
                                     size="sm"
@@ -434,12 +499,12 @@ export function PlaygroundInputSection({
                         </div>
 
                         {/* 底部模糊遮罩 */}
-                        <div
+                        {/* <div
                             className={cn(
                                 "absolute bottom-0 left-0 right-0 h-10 pointer-events-none bg-gradient-to-t from-black/95 via-black/50 to-transparent transition-opacity duration-300 rounded-b-3xl z-10",
-                                (!isInputFocused && config.prompt?.length > 0) ? "opacity-40" : "opacity-0"
-                            )}
-                        />
+                                (!hasStructuredShortcutSession && !isInputFocused && config.prompt?.length > 0) ? "opacity-40" : "opacity-0"
+                            )}  /> */}
+
                     </div>
 
                     <ControlToolbar

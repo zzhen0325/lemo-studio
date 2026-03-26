@@ -377,7 +377,7 @@ export function HistoryCard({
                             transition={{ exit: { delay: 0.5, duration: 0.3 } }}
                             className="absolute inset-0 z-0 flex items-center justify-center bg-white/5"
                           >
-                            <LoadingSpinner size={36} />
+                            <LoadingSpinner size={20} />
                           </motion.div>
                         ) : img ? (
                           <motion.div

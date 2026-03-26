@@ -1,4 +1,3 @@
-import { MODEL_ID_FLUX_KLEIN } from "@/lib/constants/models";
 import type { AspectRatio, ImageSize, StyleStack } from "@/types/database";
 
 export interface ShortcutPromptField {
@@ -31,6 +30,8 @@ export interface PlaygroundShortcut {
 
 export type ShortcutPromptValues = Record<string, string>;
 export const SHORTCUT_MOODBOARD_PREFIX = "shortcut-";
+const SHORTCUT_DEFAULT_MODEL = "coze_seedream4_5";
+const SHORTCUT_DEFAULT_MODEL_LABEL = "Seedream 4.5";
 
 export interface ShortcutPromptBuildOptions {
   usePlaceholder?: boolean;
@@ -40,6 +41,14 @@ export interface ShortcutPromptBuildOptions {
 export interface ShortcutRenderableFieldSegment {
   field: ShortcutPromptField;
   prefixText: string;
+  value: string;
+  fieldOrder: number;
+}
+
+interface ShortcutFieldEntry {
+  field: ShortcutPromptField;
+  prefixText: string;
+  suffixText: string;
   value: string;
   fieldOrder: number;
 }
@@ -69,6 +78,13 @@ const buildKvFields = () => buildFields(
     widthClassName: "min-w-[9rem]",
   },
   {
+    id: "heroSubject",
+    label: "主体物",
+    placeholder: "主体物或主视觉隐喻",
+    required: true,
+    widthClassName: "min-w-[11rem]",
+  },
+  {
     id: "style",
     label: "想要的风格",
     placeholder: "商业摄影 / 插画 / 海报等",
@@ -78,7 +94,7 @@ const buildKvFields = () => buildFields(
   {
     id: "primaryColor",
     label: "主色调",
-    placeholder: "#FF6B00",
+    placeholder: "#F2FF00",
     type: "color",
     required: true,
     widthClassName: "min-w-[9rem]",
@@ -95,9 +111,9 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
     name: "Lemo",
     description: "Lemo 角色生成",
     detailDescription:
-      "Lemo 角色生成。快速应用会锁定到 Lemo Seed模型，并给出适合角色场景图的模板化 prompt。",
-    model: "seed4_v2_0226lemo",
-    modelLabel: "Lemo Seed",
+      "Lemo 角色生成。快速应用会锁定到 Seedream 4.5，并给出适合角色场景图的模板化 prompt。",
+    model: SHORTCUT_DEFAULT_MODEL,
+    modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
     aspectRatio: "1:1",
     imageSize: "2K",
     imagePaths: [
@@ -131,11 +147,11 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
   {
     id: "us-kv",
     name: "USkv",
-    description: "FluxKlein 美区 KV 模板",
+    description: "Seedream 4.5 美区 KV 模板",
     detailDescription:
-      "偏向美区海报和 campaign KV。默认使用 FluxKlein，适合广告级版式、标题和商业陈列感。",
-    model: MODEL_ID_FLUX_KLEIN,
-    modelLabel: "FluxKlein",
+      "偏向美区海报和 campaign KV。默认使用 Seedream 4.5，适合广告级版式、标题和商业陈列感。",
+    model: SHORTCUT_DEFAULT_MODEL,
+    modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
     aspectRatio: "4:5",
     imageSize: "2K",
     imagePaths: [
@@ -147,25 +163,27 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
     promptParts: [
       { type: "text", value: "Create a US-EVENT KV with main title \"" },
       { type: "field", fieldId: "mainTitle" },
-      { type: "text", value: "\", supporting title \"" },
+      { type: "text", value: "\"，supporting title \"" },
       { type: "field", fieldId: "subTitle" },
       { type: "text", value: "\", event timing \"" },
       { type: "field", fieldId: "eventTime" },
+      { type: "text", value: "\", featuring hero subject \"" },
+      { type: "field", fieldId: "heroSubject" },
       { type: "text", value: "\", in " },
       { type: "field", fieldId: "style" },
       { type: "text", value: " style, using " },
       { type: "field", fieldId: "primaryColor" },
-      { type: "text", value: " as the dominant palette, premium studio lighting, polished ad-poster composition, strong title hierarchy, retail-ready commercial finish" },
+
     ],
   },
   {
     id: "sea-kv",
     name: "SEA KV",
-    description: "FluxKlein 东南亚 KV 模板",
+    description: "Seedream 4.5 东南亚 KV 模板",
     detailDescription:
-      "偏向明快、强信息层级和生活方式感。默认使用 FluxKlein，适合活动页首图和 regional campaign KV。",
-    model: MODEL_ID_FLUX_KLEIN,
-    modelLabel: "FluxKlein",
+      "偏向明快、强信息层级和生活方式感。默认使用 Seedream 4.5，适合活动页首图和 regional campaign KV。",
+    model: SHORTCUT_DEFAULT_MODEL,
+    modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
     aspectRatio: "4:5",
     imageSize: "2K",
     imagePaths: [
@@ -181,21 +199,23 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       { type: "field", fieldId: "subTitle" },
       { type: "text", value: "\", event timing \"" },
       { type: "field", fieldId: "eventTime" },
+      { type: "text", value: "\", featuring hero subject \"" },
+      { type: "field", fieldId: "heroSubject" },
       { type: "text", value: "\", in " },
       { type: "field", fieldId: "style" },
       { type: "text", value: " style, using " },
       { type: "field", fieldId: "primaryColor" },
-      { type: "text", value: " as the dominant palette, bright merchandising hierarchy, lifestyle energy, friendly premium finish" },
+
     ],
   },
   {
     id: "jp-kv",
     name: "JP KV",
-    description: "FluxKlein 日区 KV 模板",
+    description: "Seedream 4.5 日区 KV 模板",
     detailDescription:
-      "偏向日区海报、插画式广告和更细致的版面秩序。默认使用 FluxKlein，适合 title-heavy 的 KV 方向。",
-    model: MODEL_ID_FLUX_KLEIN,
-    modelLabel: "FluxKlein",
+      "偏向日区海报、插画式广告和更细致的版面秩序。默认使用 Seedream 4.5，适合 title-heavy 的 KV 方向。",
+    model: SHORTCUT_DEFAULT_MODEL,
+    modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
     aspectRatio: "3:2",
     imageSize: "2K",
     imagePaths: [
@@ -211,11 +231,13 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       { type: "field", fieldId: "subTitle" },
       { type: "text", value: "\", event timing \"" },
       { type: "field", fieldId: "eventTime" },
+      { type: "text", value: "\", featuring hero subject \"" },
+      { type: "field", fieldId: "heroSubject" },
       { type: "text", value: "\", in " },
       { type: "field", fieldId: "style" },
       { type: "text", value: " style, using " },
       { type: "field", fieldId: "primaryColor" },
-      { type: "text", value: " as the dominant palette, clean layout rhythm, refined typography space, polished poster finish" },
+
     ],
   },
 ];
@@ -267,24 +289,29 @@ function sanitizeSegmentPrefix(
   previousFieldOrder: number | null,
   currentFieldOrder: number
 ) {
-  let nextValue = value.replace(LEADING_CLOSERS_PATTERN, "");
-
   if (segmentIndex === 0) {
-    nextValue = nextValue.replace(LEADING_SEPARATORS_PATTERN, "");
-  } else if (previousFieldOrder !== null && currentFieldOrder - previousFieldOrder > 1) {
-    nextValue = nextValue.trimStart();
+    return value
+      .replace(LEADING_CLOSERS_PATTERN, "")
+      .replace(LEADING_SEPARATORS_PATTERN, "");
   }
 
-  return nextValue;
+  if (previousFieldOrder !== null && currentFieldOrder - previousFieldOrder > 1) {
+    return value.trimStart();
+  }
+
+  return value;
 }
 
-export function getShortcutRenderableFieldSegments(
+function extractLeadingClosers(value: string) {
+  const match = value.match(LEADING_CLOSERS_PATTERN);
+  return match ? match[0].trimStart() : "";
+}
+
+function getShortcutFieldEntries(
   shortcut: PlaygroundShortcut,
-  values: ShortcutPromptValues,
-  options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
-): ShortcutRenderableFieldSegment[] {
-  const removedFieldIds = new Set(options?.removedFieldIds || []);
-  const segments: ShortcutRenderableFieldSegment[] = [];
+  values: ShortcutPromptValues
+): ShortcutFieldEntry[] {
+  const segments: ShortcutFieldEntry[] = [];
   let fieldOrder = 0;
 
   shortcut.promptParts.forEach((part, index) => {
@@ -294,12 +321,13 @@ export function getShortcutRenderableFieldSegments(
 
     const field = shortcut.fields.find((item) => item.id === part.fieldId);
     const prefixCandidate = index > 0 ? shortcut.promptParts[index - 1] : null;
-    const prefixText = prefixCandidate?.type === "text" ? prefixCandidate.value : "";
+    const suffixCandidate = index + 1 < shortcut.promptParts.length ? shortcut.promptParts[index + 1] : null;
 
-    if (field && !removedFieldIds.has(field.id)) {
+    if (field) {
       segments.push({
         field,
-        prefixText,
+        prefixText: prefixCandidate?.type === "text" ? prefixCandidate.value : "",
+        suffixText: suffixCandidate?.type === "text" ? suffixCandidate.value : "",
         value: values[field.id] || "",
         fieldOrder,
       });
@@ -307,6 +335,42 @@ export function getShortcutRenderableFieldSegments(
 
     fieldOrder += 1;
   });
+
+  return segments;
+}
+
+function resolveShortcutPromptSuffix(
+  shortcut: PlaygroundShortcut,
+  values: ShortcutPromptValues,
+  lastRenderedFieldOrder: number | null
+) {
+  if (lastRenderedFieldOrder === null) {
+    return "";
+  }
+
+  const fieldEntries = getShortcutFieldEntries(shortcut, values);
+  const lastRenderedFieldIndex = fieldEntries.findIndex((entry) => entry.fieldOrder === lastRenderedFieldOrder);
+
+  if (lastRenderedFieldIndex === -1) {
+    return "";
+  }
+
+  const lastRenderedField = fieldEntries[lastRenderedFieldIndex];
+
+  if (lastRenderedFieldIndex === fieldEntries.length - 1) {
+    return lastRenderedField.suffixText;
+  }
+
+  return extractLeadingClosers(fieldEntries[lastRenderedFieldIndex + 1]?.prefixText || "");
+}
+
+export function getShortcutRenderableFieldSegments(
+  shortcut: PlaygroundShortcut,
+  values: ShortcutPromptValues,
+  options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
+): ShortcutRenderableFieldSegment[] {
+  const removedFieldIds = new Set(options?.removedFieldIds || []);
+  const segments = getShortcutFieldEntries(shortcut, values).filter((entry) => !removedFieldIds.has(entry.field.id));
 
   return segments.map((segment, index) => ({
     ...segment,
@@ -319,6 +383,15 @@ export function getShortcutRenderableFieldSegments(
   }));
 }
 
+export function getShortcutRenderablePromptSuffix(
+  shortcut: PlaygroundShortcut,
+  values: ShortcutPromptValues,
+  options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
+) {
+  const segments = getShortcutRenderableFieldSegments(shortcut, values, options);
+  return resolveShortcutPromptSuffix(shortcut, values, segments[segments.length - 1]?.fieldOrder ?? null);
+}
+
 export function buildShortcutPrompt(
   shortcut: PlaygroundShortcut,
   values: ShortcutPromptValues,
@@ -328,17 +401,23 @@ export function buildShortcutPrompt(
   const segments = getShortcutRenderableFieldSegments(shortcut, values, {
     removedFieldIds: options?.removedFieldIds,
   });
+  let lastRenderedFieldOrder: number | null = null;
 
-  return segments
+  const promptBody = segments
     .map((segment) => {
       const value = resolveShortcutFieldPromptValue(segment.field, segment.value);
       const renderedValue = value || (usePlaceholder ? `【${segment.field.placeholder || segment.field.id}】` : "");
       if (!renderedValue) {
         return "";
       }
+      lastRenderedFieldOrder = segment.fieldOrder;
       return `${segment.prefixText}${renderedValue}`;
     })
-    .join("")
+    .join("");
+
+  const promptSuffix = resolveShortcutPromptSuffix(shortcut, values, lastRenderedFieldOrder);
+
+  return `${promptBody}${promptSuffix}`
     .replace(/\s+/g, " ")
     .trim();
 }

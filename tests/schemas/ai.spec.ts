@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TextRequestSchema, ImageRequestSchema, DescribeRequestSchema } from '@/lib/schemas/ai';
+import { TextRequestSchema, ImageRequestSchema, DescribeRequestSchema, DesignVariantEditRequestSchema } from '@/lib/schemas/ai';
 
 describe('AI request schemas', () => {
   describe('TextRequestSchema', () => {
@@ -154,6 +154,68 @@ describe('AI request schemas', () => {
         context: 'playground',
       });
 
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('DesignVariantEditRequestSchema', () => {
+    const validPayload = {
+      instruction: '请换一个更有创意的主体物，并让场景更有故事性。',
+      scope: 'variant',
+      variant: {
+        id: 'v1',
+        label: '贴纸拼贴',
+        coreFields: {
+          mainTitle: '#Biweeklybudget',
+          subTitle: 'Tell us what you actually spend in 2 weeks with #biweeklybudget',
+          eventTime: '8/1-8/31',
+          style: '拼贴、插画',
+          primaryColor: '#15BC55',
+        },
+        coreSuggestions: {
+          mainTitle: '',
+          subTitle: '',
+          eventTime: '',
+          style: '',
+          primaryColor: '',
+        },
+        palette: [
+          { hex: '#15BC55', weight: '' },
+        ],
+        analysis: {
+          canvas: { tokens: ['拼贴海报'], detailText: '绿色主导的拼贴海报。' },
+          subject: { tokens: ['预算账本主体'], detailText: '主体是一册夸张放大的预算账本。' },
+          background: { tokens: ['便签背景'], detailText: '背景是米色纸张与便签。' },
+          layout: { tokens: ['居中构图'], detailText: '主标题在中间。' },
+          typography: { tokens: ['圆角黑体'], detailText: '标题使用圆角黑体。' },
+        },
+        promptPreview: 'A playful budget collage poster...',
+      },
+      context: {
+        shortcutId: 'us-kv',
+        shortcutPrompt: 'Create a US-EVENT KV with main title ...',
+        market: 'US',
+      },
+    };
+
+    it('accepts a valid payload', () => {
+      const result = DesignVariantEditRequestSchema.safeParse(validPayload);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects missing instruction', () => {
+      const result = DesignVariantEditRequestSchema.safeParse({
+        ...validPayload,
+        instruction: '',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects unsupported scope', () => {
+      const result = DesignVariantEditRequestSchema.safeParse({
+        ...validPayload,
+        scope: 'prompt',
+      });
       expect(result.success).toBe(false);
     });
   });

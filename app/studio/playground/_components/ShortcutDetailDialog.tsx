@@ -47,7 +47,7 @@ export function ShortcutDetailDialog({
             <div className="mb-5 flex items-start justify-between gap-4">
               <div className="space-y-2 ">
                 <div className="flex items-center gap-2 mb-6">
-                  <span className="rounded-full border border-[#E8FFB7]/30 bg-[#E8FFB7]/10 px-3 py-1 text-[11px] uppercase  text-[#F4FFCE]">
+                  <span className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] uppercase  text-[#F4FFCE]">
                     {shortcut.name}
                   </span>
                   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55">
@@ -101,7 +101,7 @@ export function ShortcutDetailDialog({
             </div>
           </div>
 
-            <div className="relative flex flex-col overflow-y-auto p-6">
+          <div className="relative flex flex-col overflow-y-auto p-6">
             <div className="flex-1 space-y-6">
               {shouldShowCurrentPrompt && (
                 <div>
@@ -141,10 +141,10 @@ export function ShortcutDetailDialog({
                           key={`prompt-field-${shortcut.id}-${field.id}-${index}`}
                           className="inline-flex items-center rounded-md border border-[#E8FFB7]/30 bg-[#E8FFB7]/12 px-2 py-1 text-sm text-[#F4FFCE]"
                         >
-                                {field.placeholder}
-                            </span>
-                          );
-                        })}
+                          {field.placeholder}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

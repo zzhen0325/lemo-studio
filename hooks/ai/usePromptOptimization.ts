@@ -9,9 +9,19 @@ interface UsePromptOptimizationOptions {
   systemInstruction?: string;
 }
 
+interface OptimizePromptCallOptions {
+  profileId?: string;
+  systemInstruction?: string;
+}
+
 interface UsePromptOptimizationReturn {
   isOptimizing: boolean;
-  optimizePrompt: (text: string, model?: AIModel, image?: string) => Promise<string | null>;
+  optimizePrompt: (
+    text: string,
+    model?: AIModel,
+    image?: string,
+    callOptions?: OptimizePromptCallOptions,
+  ) => Promise<string | null>;
 }
 
 export function usePromptOptimization(
@@ -25,6 +35,7 @@ export function usePromptOptimization(
     text: string,
     model: AIModel = 'auto',
     image?: string,
+    callOptions?: OptimizePromptCallOptions,
   ): Promise<string | null> => {
     if (!text.trim() && !image) {
       toast({ title: '错误', description: '请先输入提示词内容或上传图片', variant: 'destructive' });
@@ -50,15 +61,15 @@ export function usePromptOptimization(
           model: modelId,
           image,
           input: text,
-          profileId: 'optimization-with-image',
+          profileId: callOptions?.profileId || 'optimization-with-image',
         });
         resultText = result.text;
       } else {
         const result = await callText({
           model: modelId,
           input: text,
-          systemPrompt: options.systemInstruction,
-          profileId: 'optimization',
+          systemPrompt: callOptions?.systemInstruction ?? options.systemInstruction,
+          profileId: callOptions?.profileId || 'optimization',
         });
         resultText = result.text;
       }

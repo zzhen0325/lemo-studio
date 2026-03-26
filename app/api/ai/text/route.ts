@@ -46,7 +46,13 @@ export async function POST(request: Request) {
 
     logger.info('ai_text_request_succeeded', {
       model: parsed.data.model,
+      profileId: parsed.data.profileId || null,
       textLength: result.text?.length ?? 0,
+    });
+    logger.info('ai_text_response_body', {
+      model: parsed.data.model,
+      profileId: parsed.data.profileId || null,
+      text: result.text ?? null,
     });
     return result;
   });

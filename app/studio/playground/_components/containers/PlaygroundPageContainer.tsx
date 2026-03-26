@@ -61,6 +61,29 @@ import {
   type PlaygroundShortcut,
   type ShortcutPromptValues,
 } from "@/config/playground-shortcuts";
+import {
+  assembleDesignStructuredShortcutPrompt,
+  buildDesignSectionDetailSyncInstruction,
+  buildKvStructuredOptimizationInput,
+  DESIGN_VARIANT_EDIT_MODE,
+  derivePaletteFromVariantContent,
+  getKvShortcutMarket,
+  KV_CORE_FIELD_IDS,
+  KV_STRUCTURED_VARIANT_IDS,
+  normalizeDesignPalette,
+  isKvShortcutId,
+  parseDesignStructuredOptimizationResponse,
+  parseDesignStructuredVariantEditResponse,
+  replaceHexColorReferences,
+  replacePaletteWeightReferences,
+  type DesignStructuredAnalysis,
+  type DesignAnalysisSectionKey,
+  type DesignStructuredPaletteEntry,
+  type DesignStructuredSourceType,
+  type DesignVariantEditScope,
+  type KvCoreFieldId,
+  type KvStructuredVariantId,
+} from "@/app/studio/playground/_lib/kv-structured-optimization";
 
 
 import gsap from "gsap";
@@ -91,11 +114,286 @@ interface BannerSessionHistoryItem {
   templateId: string;
 }
 
+interface ShortcutOptimizationVariantBaseline {
+  label: string;
+  values: ShortcutPromptValues;
+  removedFieldIds: string[];
+  coreSuggestions: ShortcutPromptValues;
+  palette: DesignStructuredPaletteEntry[];
+  analysis: DesignStructuredAnalysis;
+  promptPreview: string;
+}
+
+interface ShortcutOptimizationVariantDraft {
+  id: KvStructuredVariantId;
+  label: string;
+  values: ShortcutPromptValues;
+  removedFieldIds: string[];
+  coreSuggestions: ShortcutPromptValues;
+  palette: DesignStructuredPaletteEntry[];
+  analysis: DesignStructuredAnalysis;
+  promptPreview: string;
+  baseline: ShortcutOptimizationVariantBaseline;
+  pendingInstruction: string;
+  pendingScope: DesignVariantEditScope;
+  isModifying: boolean;
+}
+
+interface ShortcutOptimizationSession {
+  sourceType: DesignStructuredSourceType;
+  originValues: ShortcutPromptValues;
+  originRemovedFieldIds: string[];
+  activeVariantId: KvStructuredVariantId;
+  variants: ShortcutOptimizationVariantDraft[];
+  lastRawResponse: string;
+}
+
 interface ActiveShortcutTemplate {
   shortcut: PlaygroundShortcut;
   values: ShortcutPromptValues;
   removedFieldIds: string[];
   appliedPrompt: string;
+  optimizationSession?: ShortcutOptimizationSession;
+}
+
+function cloneShortcutValues(values: ShortcutPromptValues): ShortcutPromptValues {
+  return { ...values };
+}
+
+function cloneDesignPalette(palette: DesignStructuredPaletteEntry[]) {
+  return palette.map((entry) => ({ ...entry }));
+}
+
+function cloneDesignAnalysis(analysis: DesignStructuredAnalysis): DesignStructuredAnalysis {
+  return {
+    canvas: { tokens: [...analysis.canvas.tokens], detailText: analysis.canvas.detailText },
+    subject: { tokens: [...analysis.subject.tokens], detailText: analysis.subject.detailText },
+    background: { tokens: [...analysis.background.tokens], detailText: analysis.background.detailText },
+    layout: { tokens: [...analysis.layout.tokens], detailText: analysis.layout.detailText },
+    typography: { tokens: [...analysis.typography.tokens], detailText: analysis.typography.detailText },
+  };
+}
+
+function createEmptyCoreSuggestionValues(): ShortcutPromptValues {
+  return KV_CORE_FIELD_IDS.reduce<ShortcutPromptValues>((acc, fieldId) => {
+    acc[fieldId] = "";
+    return acc;
+  }, {});
+}
+
+function cloneVariantBaseline(baseline: ShortcutOptimizationVariantBaseline): ShortcutOptimizationVariantBaseline {
+  return {
+    label: baseline.label,
+    values: cloneShortcutValues(baseline.values),
+    removedFieldIds: [...baseline.removedFieldIds],
+    coreSuggestions: cloneShortcutValues(baseline.coreSuggestions),
+    palette: cloneDesignPalette(baseline.palette),
+    analysis: cloneDesignAnalysis(baseline.analysis),
+    promptPreview: baseline.promptPreview,
+  };
+}
+
+function mergeLockedKvValues(
+  baseValues: ShortcutPromptValues,
+  candidateValues: Partial<Record<KvCoreFieldId, string>>,
+): ShortcutPromptValues {
+  const nextValues = cloneShortcutValues(baseValues);
+
+  KV_CORE_FIELD_IDS.forEach((fieldId) => {
+    const currentValue = (baseValues[fieldId] || "").trim();
+    const candidateValue = (candidateValues[fieldId] || "").trim();
+    nextValues[fieldId] = currentValue || candidateValue || "";
+  });
+
+  return nextValues;
+}
+
+function findShortcutVariant(
+  session: ShortcutOptimizationSession,
+  variantId: KvStructuredVariantId,
+) {
+  return session.variants.find((variant) => variant.id === variantId);
+}
+
+function buildKvVariantPromptPreview(
+  shortcut: PlaygroundShortcut,
+  values: ShortcutPromptValues,
+  removedFieldIds: string[],
+  analysis: DesignStructuredAnalysis,
+  palette: DesignStructuredPaletteEntry[],
+) {
+  return assembleDesignStructuredShortcutPrompt(shortcut, values, removedFieldIds, analysis, palette);
+}
+
+function deriveVariantPalette(
+  shortcut: PlaygroundShortcut,
+  values: ShortcutPromptValues,
+  removedFieldIds: string[],
+  analysis: DesignStructuredAnalysis,
+  existingPalette: DesignStructuredPaletteEntry[],
+  promptPreview?: string,
+) {
+  return derivePaletteFromVariantContent({
+    analysis,
+    promptPreview,
+    basePrompt: buildShortcutPrompt(shortcut, values, {
+      removedFieldIds,
+      usePlaceholder: false,
+    }),
+    existingPalette,
+  });
+}
+
+function replaceColorInShortcutValues(
+  values: ShortcutPromptValues,
+  previousHex: string,
+  nextHex: string,
+) {
+  return Object.fromEntries(
+    Object.entries(values).map(([fieldId, value]) => [
+      fieldId,
+      replaceHexColorReferences(value, previousHex, nextHex),
+    ]),
+  );
+}
+
+function replaceColorInAnalysis(
+  analysis: DesignStructuredAnalysis,
+  previousHex: string,
+  nextHex: string,
+) {
+  return {
+    canvas: {
+      tokens: analysis.canvas.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
+      detailText: replaceHexColorReferences(analysis.canvas.detailText, previousHex, nextHex),
+    },
+    subject: {
+      tokens: analysis.subject.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
+      detailText: replaceHexColorReferences(analysis.subject.detailText, previousHex, nextHex),
+    },
+    background: {
+      tokens: analysis.background.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
+      detailText: replaceHexColorReferences(analysis.background.detailText, previousHex, nextHex),
+    },
+    layout: {
+      tokens: analysis.layout.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
+      detailText: replaceHexColorReferences(analysis.layout.detailText, previousHex, nextHex),
+    },
+    typography: {
+      tokens: analysis.typography.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
+      detailText: replaceHexColorReferences(analysis.typography.detailText, previousHex, nextHex),
+    },
+  };
+}
+
+function replacePaletteWeightsInAnalysis(
+  analysis: DesignStructuredAnalysis,
+  hex: string,
+  previousWeight: string,
+  nextWeight: string,
+) {
+  return {
+    canvas: {
+      tokens: analysis.canvas.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
+      detailText: replacePaletteWeightReferences(analysis.canvas.detailText, hex, previousWeight, nextWeight),
+    },
+    subject: {
+      tokens: analysis.subject.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
+      detailText: replacePaletteWeightReferences(analysis.subject.detailText, hex, previousWeight, nextWeight),
+    },
+    background: {
+      tokens: analysis.background.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
+      detailText: replacePaletteWeightReferences(analysis.background.detailText, hex, previousWeight, nextWeight),
+    },
+    layout: {
+      tokens: analysis.layout.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
+      detailText: replacePaletteWeightReferences(analysis.layout.detailText, hex, previousWeight, nextWeight),
+    },
+    typography: {
+      tokens: analysis.typography.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
+      detailText: replacePaletteWeightReferences(analysis.typography.detailText, hex, previousWeight, nextWeight),
+    },
+  };
+}
+
+function buildStructuredVariantPayload(variant: ShortcutOptimizationVariantDraft) {
+  return {
+    id: variant.id,
+    label: variant.label,
+    coreFields: {
+      mainTitle: variant.values.mainTitle || "",
+      subTitle: variant.values.subTitle || "",
+      eventTime: variant.values.eventTime || "",
+      style: variant.values.style || "",
+      primaryColor: variant.values.primaryColor || "",
+    },
+    coreSuggestions: {
+      mainTitle: variant.coreSuggestions.mainTitle || "",
+      subTitle: variant.coreSuggestions.subTitle || "",
+      eventTime: variant.coreSuggestions.eventTime || "",
+      style: variant.coreSuggestions.style || "",
+      primaryColor: variant.coreSuggestions.primaryColor || "",
+    },
+    analysis: cloneDesignAnalysis(variant.analysis),
+    promptPreview: variant.promptPreview,
+  };
+}
+
+function createShortcutOptimizationVariants(
+  shortcut: PlaygroundShortcut,
+  baseValues: ShortcutPromptValues,
+  removedFieldIds: string[],
+  rawText: string,
+): ShortcutOptimizationVariantDraft[] {
+  const parsed = parseDesignStructuredOptimizationResponse(rawText);
+
+  return KV_STRUCTURED_VARIANT_IDS.map((variantId, index) => {
+    const variant = parsed.variants.find((item) => item.id === variantId);
+    if (!variant) {
+      throw new Error(`缺少优化版本 ${variantId}`);
+    }
+
+    const nextValues = mergeLockedKvValues(baseValues, variant.coreFields);
+    const nextAnalysis = cloneDesignAnalysis(variant.analysis);
+    const nextPalette = deriveVariantPalette(
+      shortcut,
+      nextValues,
+      removedFieldIds,
+      nextAnalysis,
+      variant.palette,
+      variant.promptPreview,
+    );
+    const promptPreview = buildKvVariantPromptPreview(shortcut, nextValues, removedFieldIds, nextAnalysis, nextPalette);
+
+    return {
+      id: variant.id,
+      label: variant.label || `版本 ${index + 1}`,
+      values: nextValues,
+      removedFieldIds: [...removedFieldIds],
+      coreSuggestions: {
+        ...createEmptyCoreSuggestionValues(),
+        ...variant.coreSuggestions,
+      },
+      palette: nextPalette,
+      analysis: nextAnalysis,
+      promptPreview,
+      baseline: {
+        label: variant.label || `版本 ${index + 1}`,
+        values: cloneShortcutValues(nextValues),
+        removedFieldIds: [...removedFieldIds],
+        coreSuggestions: {
+          ...createEmptyCoreSuggestionValues(),
+          ...variant.coreSuggestions,
+        },
+        palette: cloneDesignPalette(nextPalette),
+        analysis: cloneDesignAnalysis(nextAnalysis),
+        promptPreview,
+      },
+      pendingInstruction: "",
+      pendingScope: "variant",
+      isModifying: false,
+    };
+  });
 }
 
 
@@ -567,10 +865,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const shortcutPreviewHasPrev = shortcutPreviewCurrentIndex > 0;
   const shortcutPreviewHasNext =
     shortcutPreviewCurrentIndex !== -1 && shortcutPreviewCurrentIndex < shortcutPreviewResults.length - 1;
+  const hasStructuredShortcutSession = Boolean(activeShortcutTemplate?.optimizationSession);
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
-    const { configOverride } = options;
+    const { configOverride, batchSizeOverride } = options;
     const storeState = usePlaygroundStore.getState();
     const isBannerModeGenerate = storeState.activeTab === 'banner' && Boolean(storeState.activeBannerData);
 
@@ -626,7 +925,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const batchTaskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
 
     // Determine the effective batch size: 4 if overriding config (e.g. regenerate/rerun), otherwise current batchSize
-    const effectiveBatchSize = configOverride ? 4 : batchSize;
+    const normalizedBatchSizeOverride =
+      typeof batchSizeOverride === 'number' && Number.isFinite(batchSizeOverride)
+        ? Math.max(1, Math.floor(batchSizeOverride))
+        : undefined;
+    const effectiveBatchSize = normalizedBatchSizeOverride ?? (configOverride ? 4 : batchSize);
 
     const modelForBatch = String(
       (configOverride as Partial<GenerationConfig> | undefined)?.model
@@ -725,6 +1028,59 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const { optimizePrompt, isOptimizing } = usePromptOptimization();
   const { callVision, getServiceConfig } = useAIServiceV1();
+
+  const requestDesignVariantEdit = useCallback(async (params: {
+    instruction: string;
+    scope: DesignVariantEditScope;
+    variant: ShortcutOptimizationVariantDraft;
+    shortcut: PlaygroundShortcut;
+    values: ShortcutPromptValues;
+    removedFieldIds: string[];
+  }) => {
+    const market = isKvShortcutId(params.shortcut.id)
+      ? getKvShortcutMarket(params.shortcut.id)
+      : undefined;
+    const shortcutPrompt = buildShortcutPrompt(params.shortcut, params.values, {
+      removedFieldIds: params.removedFieldIds,
+      usePlaceholder: false,
+    });
+
+    const response = await fetch(`${getApiBase()}/ai/design-variant-edit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        instruction: params.instruction,
+        scope: params.scope,
+        variant: buildStructuredVariantPayload(params.variant),
+        context: {
+          shortcutId: params.shortcut.id,
+          shortcutPrompt,
+          market,
+        },
+      }),
+    });
+
+    const raw = await response.text();
+    if (!response.ok) {
+      let errorMessage = raw || `HTTP ${response.status}`;
+      try {
+        const errorPayload = JSON.parse(raw) as { error?: string };
+        errorMessage = errorPayload.error || errorMessage;
+      } catch {
+        // Ignore parse errors and fall back to raw text.
+      }
+      throw new Error(errorMessage);
+    }
+
+    const parsed = parseDesignStructuredVariantEditResponse(raw);
+    if (parsed.mode !== DESIGN_VARIANT_EDIT_MODE) {
+      throw new Error('Unexpected design variant edit response mode');
+    }
+
+    return parsed.variant;
+  }, []);
 
   const handleFilesUpload = React.useCallback(async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -973,15 +1329,52 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       ...current.values,
       [fieldId]: value,
     };
-    const nextPrompt = buildShortcutPrompt(current.shortcut, nextValues, {
-      removedFieldIds: current.removedFieldIds,
-    });
+    const activeVariant = current.optimizationSession
+      ? findShortcutVariant(current.optimizationSession, current.optimizationSession.activeVariantId)
+      : null;
+    const nextPalette = activeVariant
+      ? deriveVariantPalette(
+        current.shortcut,
+        nextValues,
+        current.removedFieldIds,
+        activeVariant.analysis,
+        activeVariant.palette,
+      )
+      : null;
+    const nextPrompt = activeVariant
+      ? buildKvVariantPromptPreview(
+        current.shortcut,
+        nextValues,
+        current.removedFieldIds,
+        activeVariant.analysis,
+        nextPalette || activeVariant.palette,
+      )
+      : buildShortcutPrompt(current.shortcut, nextValues, {
+        removedFieldIds: current.removedFieldIds,
+      });
+
+    const nextOptimizationSession = current.optimizationSession
+      ? {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === current.optimizationSession?.activeVariantId
+            ? {
+              ...variant,
+              values: nextValues,
+              palette: nextPalette ? cloneDesignPalette(nextPalette) : variant.palette,
+              promptPreview: nextPrompt,
+            }
+            : variant
+        )),
+      }
+      : undefined;
 
     setActiveShortcutTemplate({
       shortcut: current.shortcut,
       values: nextValues,
       removedFieldIds: current.removedFieldIds,
       appliedPrompt: nextPrompt,
+      optimizationSession: nextOptimizationSession,
     });
     updateConfig({ prompt: nextPrompt });
   }, [updateConfig]);
@@ -993,18 +1386,542 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
 
     const nextRemovedFieldIds = [...current.removedFieldIds, fieldId];
-    const nextPrompt = buildShortcutPrompt(current.shortcut, current.values, {
-      removedFieldIds: nextRemovedFieldIds,
-    });
+    const activeVariant = current.optimizationSession
+      ? findShortcutVariant(current.optimizationSession, current.optimizationSession.activeVariantId)
+      : null;
+    const nextPalette = activeVariant
+      ? deriveVariantPalette(
+        current.shortcut,
+        current.values,
+        nextRemovedFieldIds,
+        activeVariant.analysis,
+        activeVariant.palette,
+      )
+      : null;
+    const nextPrompt = activeVariant
+      ? buildKvVariantPromptPreview(
+        current.shortcut,
+        current.values,
+        nextRemovedFieldIds,
+        activeVariant.analysis,
+        nextPalette || activeVariant.palette,
+      )
+      : buildShortcutPrompt(current.shortcut, current.values, {
+        removedFieldIds: nextRemovedFieldIds,
+      });
+
+    const nextOptimizationSession = current.optimizationSession
+      ? {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === current.optimizationSession?.activeVariantId
+            ? {
+              ...variant,
+              removedFieldIds: nextRemovedFieldIds,
+              palette: nextPalette ? cloneDesignPalette(nextPalette) : variant.palette,
+              promptPreview: nextPrompt,
+            }
+            : variant
+        )),
+      }
+      : undefined;
 
     setActiveShortcutTemplate({
       shortcut: current.shortcut,
       values: current.values,
       removedFieldIds: nextRemovedFieldIds,
       appliedPrompt: nextPrompt,
+      optimizationSession: nextOptimizationSession,
     });
     updateConfig({ prompt: nextPrompt });
   }, [updateConfig]);
+
+  const handleShortcutOptimizationVariantSelect = useCallback((variantId: KvStructuredVariantId) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current?.optimizationSession) {
+      return;
+    }
+
+    const nextVariant = findShortcutVariant(current.optimizationSession, variantId);
+    if (!nextVariant) {
+      return;
+    }
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: cloneShortcutValues(nextVariant.values),
+      removedFieldIds: [...nextVariant.removedFieldIds],
+      appliedPrompt: nextVariant.promptPreview,
+      optimizationSession: {
+        ...current.optimizationSession,
+        activeVariantId: variantId,
+      },
+    });
+    updateConfig({ prompt: nextVariant.promptPreview });
+  }, [updateConfig]);
+
+  const handleShortcutOptimizationAnalysisSectionChange = useCallback((
+    sectionKey: DesignAnalysisSectionKey,
+    nextSection: DesignStructuredAnalysis[DesignAnalysisSectionKey],
+  ) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current?.optimizationSession) {
+      return;
+    }
+
+    const activeVariantId = current.optimizationSession.activeVariantId;
+    const activeVariant = findShortcutVariant(current.optimizationSession, activeVariantId);
+    if (!activeVariant) {
+      return;
+    }
+
+    const nextAnalysis = {
+      ...activeVariant.analysis,
+      [sectionKey]: {
+        tokens: [...nextSection.tokens],
+        detailText: nextSection.detailText,
+      },
+    };
+    const nextPalette = deriveVariantPalette(
+      current.shortcut,
+      current.values,
+      current.removedFieldIds,
+      nextAnalysis,
+      activeVariant.palette,
+    );
+    const nextPrompt = buildKvVariantPromptPreview(
+      current.shortcut,
+      current.values,
+      current.removedFieldIds,
+      nextAnalysis,
+      nextPalette,
+    );
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: current.values,
+      removedFieldIds: current.removedFieldIds,
+      appliedPrompt: nextPrompt,
+      optimizationSession: {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === activeVariantId
+            ? {
+              ...variant,
+              analysis: nextAnalysis,
+              palette: cloneDesignPalette(nextPalette),
+              promptPreview: nextPrompt,
+            }
+            : variant
+        )),
+      },
+    });
+    updateConfig({ prompt: nextPrompt });
+  }, [updateConfig]);
+
+  const handleShortcutOptimizationPaletteChange = useCallback((
+    nextPalette: DesignStructuredPaletteEntry[],
+  ) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current?.optimizationSession) {
+      return;
+    }
+
+    const activeVariantId = current.optimizationSession.activeVariantId;
+    const activeVariant = findShortcutVariant(current.optimizationSession, activeVariantId);
+    if (!activeVariant) {
+      return;
+    }
+
+    const previousPalette = normalizeDesignPalette(activeVariant.palette);
+    let nextValues = cloneShortcutValues(current.values);
+    let nextAnalysis = cloneDesignAnalysis(activeVariant.analysis);
+    const normalizedPalette = normalizeDesignPalette(nextPalette);
+
+    previousPalette.forEach((previousEntry, index) => {
+      const nextEntry = normalizedPalette[index];
+      if (!nextEntry) {
+        return;
+      }
+
+      if (previousEntry.hex !== nextEntry.hex) {
+        nextValues = replaceColorInShortcutValues(nextValues, previousEntry.hex, nextEntry.hex);
+        nextAnalysis = replaceColorInAnalysis(nextAnalysis, previousEntry.hex, nextEntry.hex);
+      }
+
+      if (previousEntry.weight !== nextEntry.weight) {
+        nextAnalysis = replacePaletteWeightsInAnalysis(
+          nextAnalysis,
+          nextEntry.hex,
+          previousEntry.weight,
+          nextEntry.weight,
+        );
+      }
+    });
+
+    const syncedPalette = deriveVariantPalette(
+      current.shortcut,
+      nextValues,
+      current.removedFieldIds,
+      nextAnalysis,
+      normalizedPalette,
+    );
+    const nextPrompt = buildKvVariantPromptPreview(
+      current.shortcut,
+      nextValues,
+      current.removedFieldIds,
+      nextAnalysis,
+      syncedPalette,
+    );
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: nextValues,
+      removedFieldIds: current.removedFieldIds,
+      appliedPrompt: nextPrompt,
+      optimizationSession: {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === activeVariantId
+            ? {
+              ...variant,
+              values: cloneShortcutValues(nextValues),
+              analysis: nextAnalysis,
+              palette: syncedPalette,
+              promptPreview: nextPrompt,
+            }
+            : variant
+        )),
+      },
+    });
+    updateConfig({ prompt: nextPrompt });
+  }, [updateConfig]);
+
+  const handleShortcutOptimizationEditInstructionChange = useCallback((instruction: string) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current?.optimizationSession) {
+      return;
+    }
+
+    const activeVariantId = current.optimizationSession.activeVariantId;
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: current.values,
+      removedFieldIds: current.removedFieldIds,
+      appliedPrompt: current.appliedPrompt,
+      optimizationSession: {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === activeVariantId
+            ? {
+              ...variant,
+              pendingInstruction: instruction,
+              pendingScope: 'variant',
+            }
+            : variant
+        )),
+      },
+    });
+  }, []);
+
+  const handleShortcutOptimizationPrefillInstruction = useCallback((
+    instruction: string,
+    scope: DesignVariantEditScope = 'variant',
+  ) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current?.optimizationSession) {
+      return;
+    }
+
+    const activeVariantId = current.optimizationSession.activeVariantId;
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: current.values,
+      removedFieldIds: current.removedFieldIds,
+      appliedPrompt: current.appliedPrompt,
+      optimizationSession: {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === activeVariantId
+            ? {
+              ...variant,
+              pendingInstruction: instruction,
+              pendingScope: scope,
+            }
+            : variant
+        )),
+      },
+    });
+  }, []);
+
+  const handleShortcutOptimizationRestoreVariant = useCallback(() => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current?.optimizationSession) {
+      return;
+    }
+
+    const activeVariantId = current.optimizationSession.activeVariantId;
+    const activeVariant = findShortcutVariant(current.optimizationSession, activeVariantId);
+    if (!activeVariant) {
+      return;
+    }
+
+    const baseline = cloneVariantBaseline(activeVariant.baseline);
+    const restoredVariant: ShortcutOptimizationVariantDraft = {
+      ...activeVariant,
+      label: baseline.label,
+      values: cloneShortcutValues(baseline.values),
+      removedFieldIds: [...baseline.removedFieldIds],
+      coreSuggestions: cloneShortcutValues(baseline.coreSuggestions),
+      palette: cloneDesignPalette(baseline.palette),
+      analysis: cloneDesignAnalysis(baseline.analysis),
+      promptPreview: baseline.promptPreview,
+      pendingInstruction: "",
+      pendingScope: 'variant',
+      isModifying: false,
+      baseline,
+    };
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: cloneShortcutValues(restoredVariant.values),
+      removedFieldIds: [...restoredVariant.removedFieldIds],
+      appliedPrompt: restoredVariant.promptPreview,
+      optimizationSession: {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === activeVariantId ? restoredVariant : variant
+        )),
+      },
+    });
+    updateConfig({ prompt: restoredVariant.promptPreview });
+  }, [updateConfig]);
+
+  const handleShortcutOptimizationApplyEdit = useCallback(async (
+    scope: DesignVariantEditScope,
+    instructionOverride?: string,
+  ) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current?.optimizationSession) {
+      return;
+    }
+
+    const activeVariantId = current.optimizationSession.activeVariantId;
+    const activeVariant = findShortcutVariant(current.optimizationSession, activeVariantId);
+    if (!activeVariant) {
+      return;
+    }
+
+    const rawInstruction = (instructionOverride ?? activeVariant.pendingInstruction).trim();
+    const shouldSyncSectionDetailText = scope !== 'variant' && !rawInstruction;
+    const sectionKey = scope as DesignAnalysisSectionKey;
+    const currentSection = shouldSyncSectionDetailText
+      ? activeVariant.analysis[sectionKey]
+      : null;
+    const normalizedTokens = currentSection
+      ? currentSection.tokens.map((token) => token.trim()).filter(Boolean)
+      : [];
+    if (shouldSyncSectionDetailText && normalizedTokens.length === 0) {
+      toast({
+        title: '请先补充 Token',
+        description: '至少保留一个 token，AI 才能根据 token 更新 Detail Text。',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const instruction = shouldSyncSectionDetailText
+      ? buildDesignSectionDetailSyncInstruction({
+        sectionKey,
+        section: {
+          tokens: normalizedTokens,
+          detailText: currentSection?.detailText || '',
+        },
+      })
+      : rawInstruction;
+    if (!instruction) {
+      toast({
+        title: '请输入修改要求',
+        description: '可以点击快捷修改，或输入一句自然语言描述你想调整的方向。',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: current.values,
+      removedFieldIds: current.removedFieldIds,
+      appliedPrompt: current.appliedPrompt,
+      optimizationSession: {
+        ...current.optimizationSession,
+        variants: current.optimizationSession.variants.map((variant) => (
+          variant.id === activeVariantId
+            ? {
+              ...variant,
+              pendingInstruction: rawInstruction,
+              pendingScope: scope,
+              isModifying: true,
+            }
+            : variant
+        )),
+      },
+    });
+
+    try {
+      const nextVariant = await requestDesignVariantEdit({
+        instruction,
+        scope,
+        variant: activeVariant,
+        shortcut: current.shortcut,
+        values: current.values,
+        removedFieldIds: current.removedFieldIds,
+      });
+
+      const nextValues = mergeLockedKvValues(current.values, nextVariant.coreFields);
+      const nextPalette = deriveVariantPalette(
+        current.shortcut,
+        nextValues,
+        current.removedFieldIds,
+        nextVariant.analysis,
+        nextVariant.palette,
+        nextVariant.promptPreview,
+      );
+      const nextPrompt = buildKvVariantPromptPreview(
+        current.shortcut,
+        nextValues,
+        current.removedFieldIds,
+        nextVariant.analysis,
+        nextPalette,
+      );
+
+      const latest = activeShortcutTemplateRef.current;
+      if (!latest?.optimizationSession) {
+        return;
+      }
+      const shouldSyncActiveView = latest.optimizationSession.activeVariantId === activeVariantId;
+
+      if (shouldSyncSectionDetailText) {
+        const latestVariant = findShortcutVariant(latest.optimizationSession, activeVariantId);
+        if (!latestVariant) {
+          return;
+        }
+
+        const latestSection = latestVariant.analysis[sectionKey];
+        const nextAnalysis: DesignStructuredAnalysis = {
+          ...cloneDesignAnalysis(latestVariant.analysis),
+          [sectionKey]: {
+            tokens: [...latestSection.tokens],
+            detailText: nextVariant.analysis[sectionKey].detailText.trim() || latestSection.detailText,
+          },
+        };
+        const nextPalette = deriveVariantPalette(
+          latest.shortcut,
+          latestVariant.values,
+          latestVariant.removedFieldIds,
+          nextAnalysis,
+          latestVariant.palette,
+        );
+        const nextPrompt = buildKvVariantPromptPreview(
+          latest.shortcut,
+          latestVariant.values,
+          latestVariant.removedFieldIds,
+          nextAnalysis,
+          nextPalette,
+        );
+
+        setActiveShortcutTemplate({
+          shortcut: latest.shortcut,
+          values: shouldSyncActiveView ? cloneShortcutValues(latestVariant.values) : latest.values,
+          removedFieldIds: shouldSyncActiveView ? [...latestVariant.removedFieldIds] : latest.removedFieldIds,
+          appliedPrompt: shouldSyncActiveView ? nextPrompt : latest.appliedPrompt,
+          optimizationSession: {
+            ...latest.optimizationSession,
+            variants: latest.optimizationSession.variants.map((variant) => (
+              variant.id === activeVariantId
+                ? {
+                  ...variant,
+                  analysis: nextAnalysis,
+                  palette: cloneDesignPalette(nextPalette),
+                  promptPreview: nextPrompt,
+                  pendingInstruction: '',
+                  pendingScope: 'variant',
+                  isModifying: false,
+                }
+                : variant
+            )),
+          },
+        });
+        if (shouldSyncActiveView) {
+          updateConfig({ prompt: nextPrompt });
+        }
+        return;
+      }
+
+      setActiveShortcutTemplate({
+        shortcut: latest.shortcut,
+        values: shouldSyncActiveView ? cloneShortcutValues(nextValues) : latest.values,
+        removedFieldIds: shouldSyncActiveView ? current.removedFieldIds : latest.removedFieldIds,
+        appliedPrompt: shouldSyncActiveView ? nextPrompt : latest.appliedPrompt,
+        optimizationSession: {
+          ...latest.optimizationSession,
+          variants: latest.optimizationSession.variants.map((variant) => (
+            variant.id === activeVariantId
+              ? {
+                ...variant,
+                label: nextVariant.label,
+                values: cloneShortcutValues(nextValues),
+                removedFieldIds: [...current.removedFieldIds],
+                coreSuggestions: {
+                  ...createEmptyCoreSuggestionValues(),
+                  ...nextVariant.coreSuggestions,
+                },
+                palette: cloneDesignPalette(nextPalette),
+                analysis: cloneDesignAnalysis(nextVariant.analysis),
+                promptPreview: nextPrompt,
+                pendingInstruction: '',
+                pendingScope: 'variant',
+                isModifying: false,
+              }
+              : variant
+          )),
+        },
+      });
+      if (shouldSyncActiveView) {
+        updateConfig({ prompt: nextPrompt });
+      }
+    } catch (error) {
+      console.error('Failed to edit structured variant', error);
+      const latest = activeShortcutTemplateRef.current;
+      if (!latest?.optimizationSession) {
+        return;
+      }
+      setActiveShortcutTemplate({
+        shortcut: latest.shortcut,
+        values: latest.values,
+        removedFieldIds: latest.removedFieldIds,
+        appliedPrompt: latest.appliedPrompt,
+        optimizationSession: {
+          ...latest.optimizationSession,
+          variants: latest.optimizationSession.variants.map((variant) => (
+            variant.id === activeVariantId
+              ? {
+                ...variant,
+                pendingInstruction: rawInstruction,
+                pendingScope: scope,
+                isModifying: false,
+              }
+              : variant
+          )),
+        },
+      });
+      toast({
+        title: shouldSyncSectionDetailText ? 'AI 更新 Detail Text 失败' : 'AI 微调失败',
+        description: error instanceof Error ? error.message : '请稍后重试',
+        variant: 'destructive',
+      });
+    }
+  }, [requestDesignVariantEdit, toast, updateConfig]);
 
   const handleExitShortcutTemplate = useCallback(() => {
     setActiveShortcutTemplate(null);
@@ -1048,6 +1965,59 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
     void handleGenerate({});
   }, [handleGenerate, toast]);
+
+  const handleGenerateAllShortcutVariants = useCallback(async () => {
+    const current = activeShortcutTemplateRef.current;
+    const optimizationSession = current?.optimizationSession;
+
+    if (!current || !optimizationSession) {
+      handlePromptGenerate();
+      return;
+    }
+
+    const readyVariants: ShortcutOptimizationVariantDraft[] = [];
+    const skippedVariantIds: string[] = [];
+
+    optimizationSession.variants.forEach((variant) => {
+      const missingFields = getShortcutMissingFields(current.shortcut, variant.values, {
+        removedFieldIds: variant.removedFieldIds,
+      });
+
+      if (missingFields.length > 0) {
+        skippedVariantIds.push(variant.id.toUpperCase());
+        return;
+      }
+
+      readyVariants.push(variant);
+    });
+
+    if (readyVariants.length === 0) {
+      toast({
+        title: "没有可生成的版本",
+        description: "请先补全至少一个版本中的必填字段。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (skippedVariantIds.length > 0) {
+      toast({
+        title: "已跳过未完成版本",
+        description: `${skippedVariantIds.join('、')} 还有必填字段未补全，其余版本会继续生成。`,
+      });
+    }
+
+    for (const variant of readyVariants) {
+      const currentConfig = usePlaygroundStore.getState().config;
+      await handleGenerate({
+        configOverride: {
+          ...currentConfig,
+          prompt: variant.promptPreview,
+        },
+        batchSizeOverride: 4,
+      });
+    }
+  }, [handleGenerate, handlePromptGenerate, toast]);
 
   const handlePresetSelect = (p: PresetExtended) => {
     const preset = p as PresetExtended;
@@ -1134,11 +2104,87 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
     setIsPresetGridOpen(false);
   };
+  const runKvStructuredOptimization = React.useCallback(async (templateSnapshot?: ActiveShortcutTemplate | null) => {
+    const current = templateSnapshot || activeShortcutTemplateRef.current;
+    if (!current || !isKvShortcutId(current.shortcut.id)) {
+      return false;
+    }
+
+    const sourceValues = cloneShortcutValues(current.optimizationSession?.originValues || current.values);
+    const sourceRemovedFieldIds = [...(current.optimizationSession?.originRemovedFieldIds || current.removedFieldIds)];
+    const optimizationInput = buildKvStructuredOptimizationInput(
+      current.shortcut,
+      sourceValues,
+      sourceRemovedFieldIds,
+    );
+
+    const optimizedText = await optimizePrompt(optimizationInput, selectedAIModel);
+    console.info("[KV structured optimization] raw_response", optimizedText);
+
+    if (!optimizedText) {
+      return true;
+    }
+
+    try {
+      const parsedResponse = parseDesignStructuredOptimizationResponse(optimizedText);
+      const variants = createShortcutOptimizationVariants(
+        current.shortcut,
+        sourceValues,
+        sourceRemovedFieldIds,
+        optimizedText,
+      );
+      const activeVariant = variants[0];
+
+      setActiveShortcutTemplate({
+        shortcut: current.shortcut,
+        values: cloneShortcutValues(activeVariant.values),
+        removedFieldIds: [...activeVariant.removedFieldIds],
+        appliedPrompt: activeVariant.promptPreview,
+        optimizationSession: {
+          sourceType: parsedResponse.sourceType,
+          originValues: sourceValues,
+          originRemovedFieldIds: sourceRemovedFieldIds,
+          activeVariantId: activeVariant.id,
+          variants,
+          lastRawResponse: optimizedText,
+        },
+      });
+      updateConfig({ prompt: activeVariant.promptPreview });
+      toast({
+        title: "AI 已生成 2 个版本",
+        description: "可在输入区直接切换版本并继续编辑。",
+      });
+    } catch (error) {
+      console.error("Failed to parse KV structured optimization response", error);
+      toast({
+        title: "AI 优化结果解析失败",
+        description: "返回结果已尝试自动修复，但仍然无法解析，请重新请求一次。",
+        variant: "destructive",
+      });
+    }
+
+    return true;
+  }, [optimizePrompt, selectedAIModel, toast, updateConfig]);
+
+  const handleShortcutOptimizationRegenerate = React.useCallback(async () => {
+    await runKvStructuredOptimization();
+  }, [runKvStructuredOptimization]);
+
   const handleOptimizePrompt = React.useCallback(async () => {
-    setActiveShortcutTemplate(null);
+    const shortcutTemplateSnapshot = activeShortcutTemplateRef.current;
+
+    if (shortcutTemplateSnapshot) {
+      setActiveShortcutTemplate(null);
+    }
+
+    const handledByKvFlow = await runKvStructuredOptimization(shortcutTemplateSnapshot);
+    if (handledByKvFlow) {
+      return;
+    }
+
     const optimizedText = await optimizePrompt(config.prompt, selectedAIModel);
     if (optimizedText) setConfig(prev => ({ ...prev, prompt: optimizedText }));
-  }, [config.prompt, optimizePrompt, selectedAIModel, setConfig]);
+  }, [config.prompt, optimizePrompt, runKvStructuredOptimization, selectedAIModel, setConfig]);
 
   const handleDescribe = React.useCallback(async (mode: 'short' | 'json' = 'short') => {
     if (describeImages.length === 0) {
@@ -1213,7 +2259,15 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       let results: string[] = [];
 
       if (mode === 'json') {
-        results = [text.trim()].filter(Boolean);
+        try {
+          const parsed = parseDesignStructuredOptimizationResponse(text);
+          results = parsed.variants
+            .map((variant) => variant.promptPreview.trim())
+            .filter(Boolean);
+        } catch (parseError) {
+          console.warn("[Describe][json] failed to parse structured response, falling back to raw text", parseError);
+          results = [text.trim()].filter(Boolean);
+        }
       } else {
         results = text.split('|||').map((s: string) => s.trim()).filter(Boolean);
       }
@@ -1583,11 +2637,46 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         shortcut: activeShortcutTemplate.shortcut,
         values: activeShortcutTemplate.values,
         removedFieldIds: activeShortcutTemplate.removedFieldIds,
+        optimizationSession: activeShortcutTemplate.optimizationSession
+          ? {
+            originPrompt: buildShortcutPrompt(
+              activeShortcutTemplate.shortcut,
+              activeShortcutTemplate.optimizationSession.originValues,
+              {
+                usePlaceholder: false,
+                removedFieldIds: activeShortcutTemplate.optimizationSession.originRemovedFieldIds,
+              }
+            ),
+            activeVariantId: activeShortcutTemplate.optimizationSession.activeVariantId,
+            variants: activeShortcutTemplate.optimizationSession.variants.map((variant) => ({
+              id: variant.id,
+              label: variant.label,
+              coreSuggestions: variant.coreSuggestions,
+              palette: variant.palette,
+              analysis: variant.analysis,
+              promptPreview: variant.promptPreview,
+              pendingInstruction: variant.pendingInstruction,
+              pendingScope: variant.pendingScope,
+              isModifying: variant.isModifying,
+            })),
+          }
+          : null,
       }
       : null,
     onShortcutTemplateFieldChange: handleShortcutTemplateFieldChange,
     onShortcutTemplateFieldRemove: handleShortcutTemplateFieldRemove,
     onExitShortcutTemplate: handleExitShortcutTemplate,
+    onShortcutTemplateOptimize: handleOptimizePrompt,
+    onShortcutTemplateVariantSelect: handleShortcutOptimizationVariantSelect,
+    onShortcutTemplateRegenerate: handleShortcutOptimizationRegenerate,
+    onShortcutTemplateGenerateCurrent: handlePromptGenerate,
+    onShortcutTemplateGenerateAll: handleGenerateAllShortcutVariants,
+    onShortcutTemplateAnalysisSectionChange: handleShortcutOptimizationAnalysisSectionChange,
+    onShortcutTemplatePaletteChange: handleShortcutOptimizationPaletteChange,
+    onShortcutTemplateEditInstructionChange: handleShortcutOptimizationEditInstructionChange,
+    onShortcutTemplatePrefillInstruction: handleShortcutOptimizationPrefillInstruction,
+    onShortcutTemplateApplyEdit: handleShortcutOptimizationApplyEdit,
+    onShortcutTemplateRestoreVariant: handleShortcutOptimizationRestoreVariant,
   }), [
     viewMode, config, uploadedImages, describeImages, isStackHovered, isInputFocused,
     isOptimizing, isGenerating, isDescribing, activeTab, isDraggingOver,
@@ -1602,7 +2691,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
     setUploadedImages, activeShortcutTemplate, handleShortcutTemplateFieldChange,
-    handleShortcutTemplateFieldRemove, handleExitShortcutTemplate, handleClearShortcutTemplate
+    handleShortcutTemplateFieldRemove, handleExitShortcutTemplate, handleClearShortcutTemplate,
+    handleShortcutOptimizationAnalysisSectionChange, handleShortcutOptimizationPaletteChange,
+    handleShortcutOptimizationEditInstructionChange, handleShortcutOptimizationPrefillInstruction,
+    handleShortcutOptimizationApplyEdit, handleShortcutOptimizationRestoreVariant,
+    handleShortcutOptimizationRegenerate,
+    handleShortcutOptimizationVariantSelect, handleGenerateAllShortcutVariants
   ]);
   return (
     <DndContext
@@ -1744,12 +2838,19 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     : viewMode === 'dock'
                       ? "max-w-full sm:max-w-[600px] md:max-w-[800px] lg:max-w-[1000px] xl:max-w-[1200px] 2xl:max-w-[1200px] mt-10 h-full pt-4 overflow-hidden"
                       : "max-w-full sm:max-w-[540px] md:max-w-[720px] lg:max-w-[800px] xl:max-w-[900px] 2xl:max-w-[1000px]",
-                  (viewMode === 'home') && (isPresetGridOpen ? "mt-0" : "-mt-60")
+                  (viewMode === 'home') && (
+                    isPresetGridOpen
+                      ? "mt-0"
+                      : hasStructuredShortcutSession
+                        ? "mt-0 min-h-[calc(100vh-10rem)] justify-center"
+                        : "-mt-60"
+                  )
                 )}>
 
                   <div className={cn(
                     "flex flex-col w-full items-center relative z-30",
-                    (viewMode === 'dock') && "h-full"
+                    (viewMode === 'dock') && "h-full",
+                    viewMode === 'home' && hasStructuredShortcutSession && "justify-center"
                   )}>
 
 
@@ -1757,11 +2858,13 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     {activeTab !== 'gallery' && activeTab !== 'style' && activeTab !== 'banner' && (
                       <div ref={promptWrapperRef} className={cn(
                         "w-full transition-all duration-300",
-                        (viewMode === 'dock' && activeTab === 'describe') ? "h-full flex flex-col" : "h-auto"
+                        (viewMode === 'dock' && activeTab === 'describe') ? "h-full flex flex-col" : "h-auto",
+                        viewMode === 'home' && hasStructuredShortcutSession && "flex min-h-[70vh] items-center"
                       )}>
                         <div className={cn(
                           "w-full transition-all duration-300",
-                          (viewMode === 'dock' && activeTab === 'describe') ? "flex-1 min-h-0" : ""
+                          (viewMode === 'dock' && activeTab === 'describe') ? "flex-1 min-h-0" : "",
+                          viewMode === 'home' && hasStructuredShortcutSession && "w-full"
                         )}>
                           <PlaygroundInputSection {...inputSectionProps} />
                         </div>
@@ -1769,7 +2872,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     )}
 
                     {/* Capsule Triggers - Only visible in Home Mode */}
-                    {viewMode === 'home' && !isPresetGridOpen && (
+                    {viewMode === 'home' && !isPresetGridOpen && !hasStructuredShortcutSession && (
                       <PlaygroundHomeActions
                         onOpenDescribe={() => { setViewMode('dock'); setActiveTab('describe'); }}
                         onEdit={handleEditUploadedImage}
@@ -1826,7 +2929,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
             </div>
 
-            {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && (
+            {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && !hasStructuredShortcutSession && (
               <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none">
                 <StylesMarquee
                   onQuickApply={handleShortcutQuickApply}

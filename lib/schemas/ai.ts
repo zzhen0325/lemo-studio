@@ -43,3 +43,52 @@ export const DescribeRequestSchema = z.object({
 });
 
 export type DescribeRequestInput = z.infer<typeof DescribeRequestSchema>;
+
+const DesignStructuredCoreFieldsSchema = z.object({
+  mainTitle: z.string(),
+  subTitle: z.string(),
+  eventTime: z.string(),
+  style: z.string(),
+  primaryColor: z.string(),
+});
+
+const DesignStructuredPaletteEntrySchema = z.object({
+  hex: z.string(),
+  weight: z.string(),
+});
+
+const DesignStructuredAnalysisSectionSchema = z.object({
+  tokens: z.array(z.string()),
+  detailText: z.string(),
+});
+
+const DesignStructuredAnalysisSchema = z.object({
+  canvas: DesignStructuredAnalysisSectionSchema,
+  subject: DesignStructuredAnalysisSectionSchema,
+  background: DesignStructuredAnalysisSectionSchema,
+  layout: DesignStructuredAnalysisSectionSchema,
+  typography: DesignStructuredAnalysisSectionSchema,
+});
+
+export const DesignStructuredVariantSchema = z.object({
+  id: z.string().min(1),
+  label: z.string(),
+  coreFields: DesignStructuredCoreFieldsSchema,
+  coreSuggestions: DesignStructuredCoreFieldsSchema,
+  palette: z.array(DesignStructuredPaletteEntrySchema).optional().default([]),
+  analysis: DesignStructuredAnalysisSchema,
+  promptPreview: z.string(),
+});
+
+export const DesignVariantEditRequestSchema = z.object({
+  instruction: z.string().min(1, 'instruction is required'),
+  scope: z.enum(['variant', 'canvas', 'subject', 'background', 'layout', 'typography']),
+  variant: DesignStructuredVariantSchema,
+  context: z.object({
+    shortcutId: z.string().min(1, 'shortcutId is required'),
+    shortcutPrompt: z.string().min(1, 'shortcutPrompt is required'),
+    market: z.string().optional(),
+  }),
+});
+
+export type DesignVariantEditRequestInput = z.infer<typeof DesignVariantEditRequestSchema>;

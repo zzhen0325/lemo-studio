@@ -370,7 +370,7 @@ export default function ControlToolbar({
         <div className="flex justify-start items-center gap-2">
           <div className="flex items-center gap-2">
             {activeShortcutName ? (
-              <div className="flex items-center gap-2 rounded-xl border border-[#E8FFB7]/30 bg-[#E8FFB7]/15 px-3  h-8">
+              <div className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-3  h-8">
                 <span className="text-[11px] font-medium uppercase text-[#F4FFCE]">
                   {activeShortcutName}
                 </span>

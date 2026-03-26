@@ -912,6 +912,7 @@ export class CozePromptProvider implements TextProvider, VisionProvider {
     text: string;
   }): Promise<string> {
     const resolvedApiKey = this.resolveApiKey();
+    const resolvedRunUrl = this.resolveRunUrl();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -930,7 +931,14 @@ export class CozePromptProvider implements TextProvider, VisionProvider {
       fetchOptions.agent = agent;
     }
 
-    const response = await fetch(this.resolveRunUrl(), fetchOptions);
+    console.info("[AIProvider][coze-prompt] run_api_request", {
+      url: resolvedRunUrl,
+      hasApiKey: Boolean(resolvedApiKey),
+      hasImage: Boolean(payload.image),
+      textLength: payload.text.length,
+    });
+
+    const response = await fetch(resolvedRunUrl, fetchOptions);
     const raw = await response.text();
 
     if (!response.ok) {
