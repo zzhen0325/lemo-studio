@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildShortcutPrompt, getShortcutById } from '@/config/playground-shortcuts';
 
 describe('playground shortcut prompt builder', () => {
-  it('preserves closing quotes around populated KV fields and keeps the final suffix text', () => {
+  it('preserves closing quotes around populated KV fields in the simplified KV template', () => {
     const shortcut = getShortcutById('us-kv');
     if (!shortcut) {
       throw new Error('Missing us-kv shortcut');
@@ -22,8 +22,9 @@ describe('playground shortcut prompt builder', () => {
     expect(result).toContain('supporting title "Up to 50% off"');
     expect(result).toContain('event timing "03.01 - 03.15"');
     expect(result).toContain('featuring hero subject "floating product box"');
-    expect(result).toContain('using #FF6B00 as the dominant palette');
-    expect(result).toContain('retail-ready commercial finish');
+    expect(result).toContain('using #FF6B00');
+    expect(result).not.toContain('as the dominant palette');
+    expect(result).not.toContain('retail-ready commercial finish');
   });
 
   it('keeps the previous field closing quote when a middle KV field is removed', () => {
@@ -71,5 +72,11 @@ describe('playground shortcut prompt builder', () => {
     expect(result).toContain('featuring hero subject "floating product box"');
     expect(result).not.toContain('in cinematic poster');
     expect(result).not.toContain('using #FF6B00');
+  });
+
+  it('uses the simplified grid composer layout for all KV shortcuts', () => {
+    expect(getShortcutById('us-kv')?.promptComposerLayout).toBe('grid');
+    expect(getShortcutById('sea-kv')?.promptComposerLayout).toBe('grid');
+    expect(getShortcutById('jp-kv')?.promptComposerLayout).toBe('grid');
   });
 });

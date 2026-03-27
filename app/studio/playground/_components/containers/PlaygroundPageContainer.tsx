@@ -2942,11 +2942,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                     onClick={() => { setViewMode('dock'); setActiveTab('style'); }}
                     className={cn(
                       "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
-                      "bg-black/10 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
+                      "bg-black/10 border-white/20 text-white hover:bg-white/10 hover:text-white"
                     )}
                   >
-                    <Palette className="w-4 h-4" />
-                    <span className="text-sm font-medium">ALL moodboard</span>
+                    
+                    <span className="text-sm font-medium">See All Moodboard</span>
                   </button>
                 </div>
               </div>

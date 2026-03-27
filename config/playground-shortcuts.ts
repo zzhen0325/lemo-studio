@@ -24,6 +24,7 @@ export interface PlaygroundShortcut {
   aspectRatio: AspectRatio;
   imageSize: ImageSize;
   imagePaths: string[];
+  promptComposerLayout?: "inline" | "grid";
   fields: ShortcutPromptField[];
   promptParts: ShortcutPromptPart[];
 }
@@ -154,6 +155,7 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
     modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
     aspectRatio: "4:5",
     imageSize: "2K",
+    promptComposerLayout: "grid",
     imagePaths: [
       "/loras/USKV_V1.webp",
       "/loras/lemopin1_v1.webp",
@@ -186,6 +188,7 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
     modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
     aspectRatio: "4:5",
     imageSize: "2K",
+    promptComposerLayout: "grid",
     imagePaths: [
       "/loras/citypop.webp",
       "/loras/Scandinavian_graphic_illustration-000001.webp",
@@ -218,6 +221,7 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
     modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
     aspectRatio: "3:2",
     imageSize: "2K",
+    promptComposerLayout: "grid",
     imagePaths: [
       "/loras/JPbannerV1.webp",
       "/loras/JPv3.webp",

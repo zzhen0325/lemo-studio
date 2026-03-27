@@ -16,7 +16,6 @@ import type {
   DesignStructuredVariantId,
 } from '@/app/studio/playground/_lib/kv-structured-optimization';
 import {
-  OPTIMIZATION_LOADING_MESSAGES,
   ShortcutPromptComposer,
 } from '@studio/playground/_components/ShortcutPromptComposer';
 import { useDebounce } from '@/hooks/common/use-debounce';
@@ -108,13 +107,10 @@ export default function PromptInput({
   const debouncedPrompt = useDebounce(localPrompt, 100);
   const [isFocused, setIsFocused] = React.useState(false);
   const [isStructuredExpanded, setIsStructuredExpanded] = React.useState(false);
-  const [loadingMessageIndex, setLoadingMessageIndex] = React.useState(0);
   const lastSyncPrompt = React.useRef(prompt);
   const hadStructuredSessionRef = React.useRef(false);
   const wasGeneratingRef = React.useRef(false);
   const hasStructuredSession = Boolean(shortcutTemplate?.optimizationSession);
-  const optimizationLoadingMessage =
-    OPTIMIZATION_LOADING_MESSAGES[Math.min(loadingMessageIndex, OPTIMIZATION_LOADING_MESSAGES.length - 1)];
 
   // 当外部 prompt 变更时（例如 AI 优化），如果不是我们自己发出的变更，则同步到本地
   React.useEffect(() => {
@@ -154,23 +150,6 @@ export default function PromptInput({
 
     wasGeneratingRef.current = isGenerating;
   }, [hasStructuredSession, isGenerating, onFocusChange]);
-
-  React.useEffect(() => {
-    if (!isOptimizing) {
-      setLoadingMessageIndex(0);
-      return;
-    }
-
-    setLoadingMessageIndex(0);
-
-    const intervalId = window.setInterval(() => {
-      setLoadingMessageIndex((currentIndex) =>
-        currentIndex < OPTIMIZATION_LOADING_MESSAGES.length - 1 ? currentIndex + 1 : currentIndex
-      );
-    }, 4500);
-
-    return () => window.clearInterval(intervalId);
-  }, [isOptimizing]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -303,21 +282,16 @@ export default function PromptInput({
                 }
               }}
               className={cn(
-                "w-full placeholder:text-white/40 bg-transparent max-h-[400px] leading-relaxed tracking-wide p-2 pl-4 pr-10 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none ",
+                "w-full placeholder:text-white/40 bg-transparent max-h-[400px] leading-relaxed tracking-wide p-2 pl-4 pr-12 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none ",
                 isOptimizing ? "text-transparent" : "text-white"
               )}
             />
             {isOptimizing && (
-              <div className="pointer-events-none absolute inset-0 p-2 pl-4 pr-10 text-sm leading-relaxed tracking-wide whitespace-pre-wrap break-words">
+              <div className="pointer-events-none absolute inset-0 p-2 pl-4 pr-12 text-sm leading-relaxed tracking-wide whitespace-pre-wrap break-words md:pr-28">
                 <ShinyText text={localPrompt} color="#ffffff9b" direction="left" shineColor="rgb(255 255 255)" speed={2} />
               </div>
             )}
           </div>
-          {isOptimizing ? (
-            <div aria-live="polite" className=" pl-4 pr-10 text-[11px] font-medium text-white">
-              {optimizationLoadingMessage}
-            </div>
-          ) : null}
         </>
       )}
     </div>

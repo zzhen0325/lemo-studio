@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Loader2, Pipette, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
+import { Pipette, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
 
 import {
   getShortcutRenderableFieldSegments,
@@ -18,7 +18,6 @@ import {
   normalizeDesignPalette,
   replaceHexColorReferences,
   type DesignVariantEditScope,
-  isKvShortcutId,
   type DesignStructuredAnalysis,
   type DesignAnalysisSectionKey,
   type DesignStructuredAnalysisSection,
@@ -719,7 +718,6 @@ export function ShortcutPromptComposer({
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
   const colorPickerRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
   const pendingFocusFieldIdRef = React.useRef<string | null>(null);
-  const [loadingMessageIndex, setLoadingMessageIndex] = React.useState(0);
   const visibleSegments = React.useMemo(
     () => getShortcutRenderableFieldSegments(shortcut, values, { removedFieldIds }),
     [removedFieldIds, shortcut, values]
@@ -744,19 +742,22 @@ export function ShortcutPromptComposer({
     () => optimizationSession?.variants.some((variant) => variant.isModifying) || false,
     [optimizationSession]
   );
-  const canUseStructuredOptimization = isKvShortcutId(shortcut.id);
+  const useTokenGridLayout = shortcut.promptComposerLayout === 'grid';
   const isStructuredSession = Boolean(optimizationSession);
-  const optimizationLoadingMessage =
-    OPTIMIZATION_LOADING_MESSAGES[Math.min(loadingMessageIndex, OPTIMIZATION_LOADING_MESSAGES.length - 1)];
   const inlinePromptShinyText = React.useMemo(
-    () =>
-      `${visibleSegments
+    () => {
+      if (useTokenGridLayout) {
+        return '';
+      }
+
+      return `${visibleSegments
         .map(({ field, prefixText }) => {
           const fieldValue = values[field.id] || field.placeholder || '';
           return `${prefixText || ''}${field.type === 'color' ? fieldValue.toUpperCase() : fieldValue}`;
         })
-        .join('')}${promptSuffix || ''}`,
-    [promptSuffix, values, visibleSegments]
+        .join('')}${promptSuffix || ''}`;
+    },
+    [promptSuffix, useTokenGridLayout, values, visibleSegments]
   );
 
   React.useEffect(() => {
@@ -779,33 +780,128 @@ export function ShortcutPromptComposer({
     pendingFocusFieldIdRef.current = null;
   }, [visibleFieldIds]);
 
-  React.useEffect(() => {
-    if (!isOptimizing) {
-      setLoadingMessageIndex(0);
-      return;
-    }
-
-    setLoadingMessageIndex(0);
-
-    const intervalId = window.setInterval(() => {
-      setLoadingMessageIndex((currentIndex) =>
-        currentIndex < OPTIMIZATION_LOADING_MESSAGES.length - 1 ? currentIndex + 1 : currentIndex
-      );
-    }, 1400);
-
-    return () => window.clearInterval(intervalId);
-  }, [isOptimizing]);
+  const renderFieldControl = (
+    field: (typeof visibleSegments)[number]["field"],
+    nextFieldId: string | null,
+  ) => (
+    <label
+      className={cn(
+        'inline-flex min-w-0 items-center gap-2 rounded-md border border-[#E8FFB7]/0 bg-white/10 text-white transition-colors focus-within:border-[#E8FFB7]/20 focus-within:bg-[#E8FFB7]/18',
+        useTokenGridLayout ? 'h-11 w-full px-3' : cn('h-7 px-2', field.widthClassName)
+      )}
+    >
+      <span className="shrink-0 whitespace-nowrap text-[10px] font-normal text-[#F4FFCE]">
+        {field.label}
+      </span>
+      {field.type === 'color' ? (
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => colorPickerRefs.current[field.id]?.click()}
+            className="h-4 w-4 shrink-0 rounded-sm border border-white/30 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
+            style={{ backgroundColor: normalizeShortcutColorValue(values[field.id]) || '#FF6B00' }}
+            aria-label={`选择 ${field.label}`}
+          />
+          {useTokenGridLayout ? (
+            <input
+              ref={(node) => {
+                inputRefs.current[field.id] = node;
+              }}
+              value={values[field.id] || ''}
+              onChange={(event) => onFieldChange(field.id, sanitizeShortcutColorDraft(event.target.value))}
+              placeholder={field.placeholder}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="min-w-0 flex-1 bg-transparent text-sm uppercase text-white outline-none placeholder:text-white/35"
+            />
+          ) : (
+            <div className="relative flex min-w-[5rem] flex-1 items-center">
+              <input
+                ref={(node) => {
+                  inputRefs.current[field.id] = node;
+                }}
+                value={values[field.id] || ''}
+                onChange={(event) => onFieldChange(field.id, sanitizeShortcutColorDraft(event.target.value))}
+                placeholder={field.placeholder}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                className="absolute inset-0 w-full bg-transparent text-sm uppercase text-white outline-none placeholder:text-white/35"
+              />
+              <span className="invisible whitespace-pre text-sm uppercase">
+                {values[field.id] || field.placeholder || ''}
+              </span>
+            </div>
+          )}
+          <input
+            ref={(node) => {
+              colorPickerRefs.current[field.id] = node;
+            }}
+            type="color"
+            tabIndex={-1}
+            value={normalizeShortcutColorValue(values[field.id]) || '#FF6B00'}
+            onChange={(event) => onFieldChange(field.id, event.target.value.toUpperCase())}
+            className="sr-only"
+          />
+        </div>
+      ) : useTokenGridLayout ? (
+        <input
+          ref={(node) => {
+            inputRefs.current[field.id] = node;
+          }}
+          value={values[field.id] || ''}
+          onChange={(event) => onFieldChange(field.id, event.target.value)}
+          placeholder={field.placeholder}
+          className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+        />
+      ) : (
+        <div className="relative flex min-w-[5rem] flex-1 items-center">
+          <input
+            ref={(node) => {
+              inputRefs.current[field.id] = node;
+            }}
+            value={values[field.id] || ''}
+            onChange={(event) => onFieldChange(field.id, event.target.value)}
+            placeholder={field.placeholder}
+            className="absolute inset-0 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+          />
+          <span className="invisible whitespace-pre text-sm">
+            {values[field.id] || field.placeholder || ''}
+          </span>
+        </div>
+      )}
+      <button
+        type="button"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          pendingFocusFieldIdRef.current = nextFieldId;
+          onRemoveField(field.id);
+        }}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#F4FFCE]/65 transition-colors hover:bg-white/10 hover:text-white"
+        aria-label={`删除 ${field.label}`}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </label>
+  );
 
   const inlinePromptEditor = (
-    <div className="relative min-h-[80px]">
+    <div className={cn('relative', !useTokenGridLayout && 'min-h-[80px]')}>
       <div
         className={cn(
-          'flex min-h-[80px] flex-wrap items-center gap-x-1 gap-y-2 text-sm leading-7 text-white/70 transition-opacity',
+          useTokenGridLayout
+            ? 'grid grid-cols-2 gap-2.5 text-white/70'
+            : 'flex min-h-[80px] flex-wrap items-center gap-x-1 gap-y-2 text-sm leading-7 text-white/70',
           isOptimizing && 'opacity-45'
         )}
       >
         {visibleSegments.length === 0 ? (
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/55">
+          <span className={cn(
+            'rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/55',
+            useTokenGridLayout && 'col-span-2 justify-self-start'
+          )}>
             所有 inline token 已删除，可继续补充分析内容或直接生成。
           </span>
         ) : (
@@ -815,90 +911,15 @@ export function ShortcutPromptComposer({
 
             return (
               <React.Fragment key={`field-${shortcut.id}-${field.id}-${index}`}>
-                {prefixText ? <span className="whitespace-pre-wrap">{prefixText}</span> : null}
-                <label
-                  className={cn(
-                    'inline-flex h-7 items-center gap-2 rounded-md border border-[#E8FFB7]/0 bg-white/10 px-2 text-white transition-colors focus-within:border-[#E8FFB7]/20 focus-within:bg-[#E8FFB7]/18',
-                    field.widthClassName
-                  )}
-                >
-                  <span className="whitespace-nowrap text-[10px] font-normal text-[#F4FFCE]">
-                    {field.label}
-                  </span>
-                  {field.type === 'color' ? (
-                    <div className="flex flex-1 items-center gap-2">
-                      <button
-                        type="button"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => colorPickerRefs.current[field.id]?.click()}
-                        className="h-4 w-4 shrink-0 rounded-sm border border-white/30 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
-                        style={{ backgroundColor: normalizeShortcutColorValue(values[field.id]) || '#FF6B00' }}
-                        aria-label={`选择 ${field.label}`}
-                      />
-                      <div className="relative flex min-w-[5rem] flex-1 items-center">
-                        <input
-                          ref={(node) => {
-                            inputRefs.current[field.id] = node;
-                          }}
-                          value={values[field.id] || ''}
-                          onChange={(event) => onFieldChange(field.id, sanitizeShortcutColorDraft(event.target.value))}
-                          placeholder={field.placeholder}
-                          spellCheck={false}
-                          autoCapitalize="off"
-                          autoCorrect="off"
-                          className="absolute inset-0 w-full bg-transparent text-sm uppercase text-white outline-none placeholder:text-white/35"
-                        />
-                        <span className="invisible whitespace-pre text-sm uppercase">
-                          {values[field.id] || field.placeholder || ''}
-                        </span>
-                      </div>
-                      <input
-                        ref={(node) => {
-                          colorPickerRefs.current[field.id] = node;
-                        }}
-                        type="color"
-                        tabIndex={-1}
-                        value={normalizeShortcutColorValue(values[field.id]) || '#FF6B00'}
-                        onChange={(event) => onFieldChange(field.id, event.target.value.toUpperCase())}
-                        className="sr-only"
-                      />
-                    </div>
-                  ) : (
-                    <div className="relative flex min-w-[5rem] flex-1 items-center">
-                      <input
-                        ref={(node) => {
-                          inputRefs.current[field.id] = node;
-                        }}
-                        value={values[field.id] || ''}
-                        onChange={(event) => onFieldChange(field.id, event.target.value)}
-                        placeholder={field.placeholder}
-                        className="absolute inset-0 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/35"
-                      />
-                      <span className="invisible whitespace-pre text-sm">
-                        {values[field.id] || field.placeholder || ''}
-                      </span>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      pendingFocusFieldIdRef.current = nextFieldId;
-                      onRemoveField(field.id);
-                    }}
-                    className="flex h-5 w-5 items-center justify-center rounded-full text-[#F4FFCE]/65 transition-colors hover:bg-white/10 hover:text-white"
-                    aria-label={`删除 ${field.label}`}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </label>
+                {!useTokenGridLayout && prefixText ? <span className="whitespace-pre-wrap">{prefixText}</span> : null}
+                {renderFieldControl(field, nextFieldId)}
               </React.Fragment>
             );
           })
         )}
-        {promptSuffix ? <span className="whitespace-pre-wrap">{promptSuffix}</span> : null}
+        {!useTokenGridLayout && promptSuffix ? <span className="whitespace-pre-wrap">{promptSuffix}</span> : null}
       </div>
-      {isOptimizing && inlinePromptShinyText ? (
+      {!useTokenGridLayout && isOptimizing && inlinePromptShinyText ? (
         <div className="pointer-events-none absolute inset-0 overflow-hidden text-sm leading-7 whitespace-pre-wrap break-words">
           <ShinyText
             text={inlinePromptShinyText}
@@ -916,15 +937,15 @@ export function ShortcutPromptComposer({
   return (
     <div
       className={cn(
-        'flex w-full flex-col gap-3 p-2 pl-4',
+        'flex w-full flex-col gap-3 p-2 pl-6',
         isStructuredSession
           ? isExpanded
             ? cn(
-              'overflow-y-auto pb-2 pr-4',
+              'overflow-y-auto pb-2 pr-10',
               isHomeStructuredMode ? 'max-h-[68vh] md:max-h-[72vh]' : 'max-h-[56vh] md:max-h-[62vh]'
             )
-            : 'max-h-[96px] overflow-hidden pb-2 pr-4'
-          : 'pb-4 pr-10'
+            : 'max-h-[96px] overflow-hidden pb-2 pr-6'
+          : 'pb-4 pr-16 '
       )}
     >
       {optimizationSession ? (
@@ -1051,36 +1072,6 @@ export function ShortcutPromptComposer({
               isRewriting={activeVariant.isModifying}
             />
           ))}
-        </div>
-      ) : null}
-
-      {!optimizationSession && canUseStructuredOptimization ? (
-        <div className="z-300 flex flex-wrap items-center justify-start gap-2">
-          <button
-            type="button"
-            onClick={() => onOptimizeTemplate?.()}
-            disabled={isOptimizing}
-            className="inline-flex items-center gap-1 rounded-md border font-bold border-[#D8FF8E]/25 bg-white px-3 py-1 text-[12px] text-black transition-colors hover:bg-[#D8FF8E]/16 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isOptimizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-            {isOptimizing ? (
-              <ShinyText
-                text="优化中..."
-                speed={1.8}
-                color="#111111"
-                shineColor="#8FC8FF"
-                spread={135}
-                className="leading-none"
-              />
-            ) : (
-              'AI自动优化'
-            )}
-          </button>
-          {isOptimizing ? (
-            <span aria-live="polite" className="text-[12px] font-medium text-[#D8FF8E]">
-              {optimizationLoadingMessage}
-            </span>
-          ) : null}
         </div>
       ) : null}
     </div>

@@ -33,6 +33,7 @@ import { CSS } from "@dnd-kit/utilities";
 import PromptInput from "@studio/playground/_components/PromptInput";
 import ControlToolbar from "@studio/playground/_components/ControlToolbar";
 import { DescribePanel } from "@studio/playground/_components/DescribePanel";
+import { OPTIMIZATION_LOADING_MESSAGES } from "@studio/playground/_components/ShortcutPromptComposer";
 import SplitText from "@/components/ui/split-text";
 
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
@@ -161,7 +162,6 @@ export function PlaygroundInputSection({
     uploadedImages,
     describeImages,
     isStackHovered,
-    isInputFocused,
     isOptimizing,
     isGenerating,
     isDescribing,
@@ -229,6 +229,7 @@ export function PlaygroundInputSection({
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -245,6 +246,39 @@ export function PlaygroundInputSection({
     const handlePrimaryGenerate = hasStructuredShortcutSession
         ? (onShortcutTemplateGenerateAll || handleGenerate)
         : handleGenerate;
+    const optimizeButtonLabel = isOptimizing ? "AI自动优化中" : "AI自动优化";
+    const canOptimizeShortcutTemplate = !shortcutTemplate || Boolean(onShortcutTemplateOptimize);
+    const isOptimizeButtonDisabled = isOptimizing || !canOptimizeShortcutTemplate;
+    const optimizationLoadingMessage =
+        OPTIMIZATION_LOADING_MESSAGES[Math.min(loadingMessageIndex, OPTIMIZATION_LOADING_MESSAGES.length - 1)];
+
+    const handleOptimizeButtonClick = () => {
+        if (isOptimizeButtonDisabled) return;
+
+        if (shortcutTemplate) {
+            onShortcutTemplateOptimize?.();
+            return;
+        }
+
+        handleOptimizePrompt();
+    };
+
+    React.useEffect(() => {
+        if (!isOptimizing) {
+            setLoadingMessageIndex(0);
+            return;
+        }
+
+        setLoadingMessageIndex(0);
+
+        const intervalId = window.setInterval(() => {
+            setLoadingMessageIndex((currentIndex) =>
+                currentIndex < OPTIMIZATION_LOADING_MESSAGES.length - 1 ? currentIndex + 1 : currentIndex
+            );
+        }, shortcutTemplate ? 1400 : 4500);
+
+        return () => window.clearInterval(intervalId);
+    }, [isOptimizing, shortcutTemplate]);
 
     const getCurrentAspectRatio = () => {
         if (config.aspectRatio === 'auto') return 'auto';
@@ -432,10 +466,102 @@ export function PlaygroundInputSection({
                         )}
 
                         <div className={cn(
-                            "flex-1 mt-1 flex gap-2",
-                            hasStructuredShortcutSession ? "items-start overflow-visible py-3 pr-2" : "items-center overflow-hidden"
+                            "flex-1 mt-1 flex justify-start gap-2 items-start",
+                            hasStructuredShortcutSession ? "overflow-visible py-3 pr-2" : "overflow-hidden"
                         )}>
-                            <div className="flex-1">
+                            <div className="flex-1 flex flex-col items-start w-full">
+                                {variant !== 'edit' && (
+                                    <motion.div
+                                        className={cn(
+                                            "z-10 flex h-6 w-fit min-w-10 max-w-[calc(100%-24px)] items-center justify-center rounded-full",
+                                            isOptimizing
+                                                ? "relative self-start mb-0 mt-3 ml-2 origin-left px-1"
+                                                : "absolute right-3 top-3 origin-right "
+                                        )}
+                                        initial={false}
+                                        layout
+                                        animate={{ opacity: 1 }}
+                                        transition={{
+                                            layout: {
+                                                type: "spring",
+                                                bounce: 0.4,
+                                                duration: 0.6
+                                            },
+                                            opacity: {
+                                                duration: 1,
+                                                ease: "easeInOut"
+                                            }
+                                        }}
+                                    >
+                                        <Button
+                                            type="button"
+                                            variant="light"
+                                            size="sm"
+                                            aria-label={optimizeButtonLabel}
+                                            title={optimizeButtonLabel}
+                                            className={cn("h-6 w-fit justify-center rounded-full px-0 disabled:opacity-100", isOptimizing && "text-white")}
+                                            disabled={isOptimizeButtonDisabled}
+                                            onClick={handleOptimizeButtonClick}
+                                        >
+                                            <motion.div
+                                                initial={false}
+                                                animate={isOptimizing ? {
+                                                    opacity: [1, 0.8, 0.8, 1],
+                                                    filter: [
+                                                        "drop-shadow(0 0 4px rgba(255, 255, 255, 0.4))",
+                                                        "drop-shadow(0 0 18px rgba(255, 255, 255, 0.95))",
+                                                        "drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))",
+                                                        "drop-shadow(0 0 14px rgba(255, 255, 255, 0.9))",
+                                                        "drop-shadow(0 0 4px rgba(255, 255, 255, 0.4))"
+                                                    ]
+                                                } : {
+                                                    opacity: 1,
+                                                    filter: "drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))"
+                                                }}
+                                                transition={isOptimizing ? {
+                                                    duration: 1.1,
+                                                    repeat: Infinity,
+                                                    ease: "easeInOut"
+                                                } : {
+                                                    duration: 2,
+                                                    ease: "easeOut"
+                                                }}
+                                                className={cn("flex w-auto min-w-8 shrink-0 items-center justify-center overflow-hidden", isOptimizing ? "gap-1.5 px-1.5" : "gap-1 px-2")}
+                                            >
+                                                <Sparkles className="h-1.5 w-1.5 shrink-0 hover:drop-shadow-[0_0_18px_#ffffff]" />
+                                                <span className="shrink-0 text-[14px]">AI</span>
+                                                <AnimatePresence initial={false} mode="wait">
+                                                    {isOptimizing ? (
+                                                        <motion.span
+                                                            key={optimizationLoadingMessage}
+                                                            aria-live="polite"
+                                                            initial="hidden"
+                                                            animate="visible"
+                                                            exit={{ opacity: 0, x: -6, filter: "blur(4px)", transition: { duration: 0.18, ease: "easeIn" } }}
+                                                            variants={{
+                                                                hidden: {},
+                                                                visible: { transition: { staggerChildren: 0.035 } }
+                                                            }}
+                                                            className="flex truncate text-[14px] font-medium leading-none text-white/95"
+                                                        >
+                                                            {optimizationLoadingMessage.split("").map((char, i) => (
+                                                                <motion.span
+                                                                    key={i}
+                                                                    variants={{
+                                                                        hidden: { opacity: 0, x: -4, filter: "blur(3px)" },
+                                                                        visible: { opacity: 1, x: 0, filter: "blur(0px)", transition: { duration: 0.2, ease: "easeOut" } }
+                                                                    }}
+                                                                >
+                                                                    {char === " " ? "\u00A0" : char}
+                                                                </motion.span>
+                                                            ))}
+                                                        </motion.span>
+                                                    ) : null}
+                                                </AnimatePresence>
+                                            </motion.div>
+                                        </Button>
+                                    </motion.div>
+                                )}
                                 <PromptInput
                                     prompt={config.prompt}
                                     onPromptChange={(val) => setConfig(prev => ({ ...prev, prompt: val }))}
@@ -468,37 +594,6 @@ export function PlaygroundInputSection({
                                     isHomeStructuredMode={isHomeStructuredMode}
                                 />
                             </div>
-                            {variant !== 'edit' && !shortcutTemplate && (
-                                <Button
-                                    variant="light"
-                                    size="sm"
-                                    className="h-4 w-4 absolute right-4 top-4 rounded-2xl disabled:opacity-100"
-                                    disabled={isOptimizing}
-                                    onClick={() => {
-                                        if (!isOptimizing) {
-                                            handleOptimizePrompt();
-                                        }
-                                    }}
-                                >
-                                    <motion.div
-                                        animate={isOptimizing ? {
-                                            filter: [
-                                                "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))",
-                                                "drop-shadow(0 0 14px rgba(202, 255, 196, 1))",
-                                                "drop-shadow(0 0 4px rgba(255, 255, 255, 0.6))"
-                                            ]
-                                        } : {}}
-                                        transition={{
-                                            duration: 1,
-                                            repeat: Infinity,
-                                            ease: "easeInOut"
-                                        }}
-                                        className="flex items-center justify-center"
-                                    >
-                                        <Sparkles className="w-2 h-2" />
-                                    </motion.div>
-                                </Button>
-                            )}
                         </div>
 
                         {/* 底部模糊遮罩 */}
