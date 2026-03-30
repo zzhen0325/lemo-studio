@@ -20,17 +20,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import SplitText from "@/components/ui/split-text";
 import type { SortBy } from '@/lib/server/service/history.service';
+import {
+  getGalleryPromptCategory,
+  getGalleryPromptCategoryLabel,
+  type GalleryPromptCategory,
+} from '@studio/playground/_lib/prompt-history';
 
 const GALLERY_THUMB_QUALITY = 25;
 
+type GalleryInnerTab = 'gallery' | 'prompt';
 
 
 
-export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Generation) => void }) {
+
+export default function GalleryView({
+    onSelectItem,
+    onUsePrompt,
+}: {
+    onSelectItem?: (item: Generation) => void;
+    onUsePrompt?: (item: Generation) => void;
+}) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedModels, setSelectedModels] = useState<string[]>([]);
     const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
+    const [selectedPromptCategories, setSelectedPromptCategories] = useState<GalleryPromptCategory[]>([]);
+    const [activeInnerTab, setActiveInnerTab] = useState<GalleryInnerTab>('gallery');
 
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
     const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
@@ -88,11 +104,30 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
         return Array.from(presets).sort();
     }, [galleryItems]);
 
-    // Combine local history with active generations from store
-    const sortedHistory = React.useMemo(() => {
-        let filtered = galleryItems;
+    const imageItems = useMemo(
+        () => galleryItems.filter(
+            (item) => Boolean(item.outputUrl) && getGalleryPromptCategory(item.config) !== 'prompt_optimization'
+        ),
+        [galleryItems]
+    );
 
-        // 1. Search Filter
+    const promptItems = useMemo(
+        () => galleryItems.filter((item) => Boolean(item.config?.prompt?.trim())),
+        [galleryItems]
+    );
+
+    const availablePromptCategories = useMemo(() => {
+        const sourceItems = activeInnerTab === 'prompt' ? promptItems : imageItems;
+        const categories = new Set<GalleryPromptCategory>(
+            sourceItems.map((item) => getGalleryPromptCategory(item.config))
+        );
+        return Array.from(categories);
+    }, [activeInnerTab, imageItems, promptItems]);
+
+    // Combine local history with active generations from store
+    const buildFilteredItems = useCallback((items: Generation[]) => {
+        let filtered = items;
+
         if (searchQuery.trim() !== "") {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(item =>
@@ -100,23 +135,36 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
             );
         }
 
-        // 2. Model Filter
         if (selectedModels.length > 0) {
             filtered = filtered.filter(item =>
                 item.config?.model && selectedModels.includes(item.config.model)
             );
         }
 
-        // 3. Preset Filter
         if (selectedPresets.length > 0) {
             filtered = filtered.filter(item =>
                 item.config?.presetName && selectedPresets.includes(item.config.presetName)
             );
         }
 
-        // Keep API/store order to avoid expensive re-sort on every render.
+        if (selectedPromptCategories.length > 0) {
+            filtered = filtered.filter((item) =>
+                selectedPromptCategories.includes(getGalleryPromptCategory(item.config))
+            );
+        }
+
         return filtered;
-    }, [galleryItems, searchQuery, selectedModels, selectedPresets]);
+    }, [searchQuery, selectedModels, selectedPresets, selectedPromptCategories]);
+
+    const filteredGalleryItems = useMemo(
+        () => buildFilteredItems(imageItems),
+        [buildFilteredItems, imageItems]
+    );
+
+    const filteredPromptItems = useMemo(
+        () => buildFilteredItems(promptItems),
+        [buildFilteredItems, promptItems]
+    );
 
     const toggleModel = (model: string) => {
         setSelectedModels(prev =>
@@ -131,6 +179,14 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
             prev.includes(preset)
                 ? prev.filter(p => p !== preset)
                 : [...prev, preset]
+        );
+    };
+
+    const togglePromptCategory = (category: GalleryPromptCategory) => {
+        setSelectedPromptCategories((prev) =>
+            prev.includes(category)
+                ? prev.filter((item) => item !== category)
+                : [...prev, category]
         );
     };
 
@@ -231,6 +287,9 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
         </div>
     );
 
+    const currentItems = activeInnerTab === 'gallery' ? filteredGalleryItems : filteredPromptItems;
+    const searchPlaceholder = activeInnerTab === 'gallery' ? 'Search gallery prompts...' : 'Search prompt records...';
+
     return (
         <div className="w-[95%] h-full mt-10 mx-auto  bg-transparent flex flex-col overflow-hidden">
 
@@ -246,11 +305,18 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                     <div className="flex flex-col space-y-4  overflow-hidden">
 
                         <div className="flex flex-row items-center h-14 mt-4 justify-between gap-4">
-                            <div className="flex mb-0">
-                                <span className="text-3xl font-instrument-sans text-white flex items-center "
-                                    style={{ fontFamily: "'InstrumentSerif', serif" }}>
-                                    Gallery
-                                </span>
+                            <div className="flex mb-0 items-center gap-5 "
+                            style={{ fontFamily: "'InstrumentSerif', serif" }}>
+                                <GalleryHeaderTab
+                                    label="Gallery"
+                                    isActive={activeInnerTab === 'gallery'}
+                                    onClick={() => setActiveInnerTab('gallery')}
+                                />
+                                <GalleryHeaderTab
+                                    label="Prompt"
+                                    isActive={activeInnerTab === 'prompt'}
+                                    onClick={() => setActiveInnerTab('prompt')}
+                                />
                             </div>
 
                             <div className="flex items-center gap-3">
@@ -288,7 +354,7 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                     <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 " />
                                     <input
                                         type="text"
-                                        placeholder="Search prompts..."
+                                        placeholder={searchPlaceholder}
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 "
@@ -310,9 +376,9 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
 
                             {isInitialLoading ? (
                                 <GallerySkeletonGrid columnsCount={columnsCount} />
-                            ) : (
+                            ) : activeInnerTab === 'gallery' ? (
                                 <MasonryGrid
-                                    items={sortedHistory}
+                                    items={filteredGalleryItems}
                                     columnsCount={columnsCount}
                                     scrollContainerRef={galleryScrollRef}
                                     renderItem={(item, index) => (
@@ -322,8 +388,14 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                             onSelectItem={handleSelectItem}
                                             onDownload={handleDownload}
                                             onGenerate={handleGenerate}
+                                            onUsePrompt={onUsePrompt}
                                         />
                                     )}
+                                />
+                            ) : (
+                                <PromptListView
+                                    items={filteredPromptItems}
+                                    onUsePrompt={onUsePrompt}
                                 />
                             )}
 
@@ -336,10 +408,12 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                     </div>
                                 ) : hasMoreGallery ? (
                                     <div className="h-4" />
-                                ) : galleryItems.length > 0 && (
+                                ) : currentItems.length > 0 && (
                                     <div className="flex flex-col items-center gap-2 opacity-20">
                                         <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
-                                        <span className="text-[10px] text-white font-mono uppercase tracking-widest">End of Gallery</span>
+                                        <span className="text-[10px] text-white font-mono uppercase tracking-widest">
+                                            {activeInnerTab === 'gallery' ? 'End of Gallery' : 'End of Prompt'}
+                                        </span>
                                         <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
                                     </div>
                                 )}
@@ -374,11 +448,12 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                             {/* Header */}
                             <div className="flex items-center px-2 justify-between z-20 shrink-0">
                                 <span className="text-xl text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Filters</span>
-                                {(selectedModels.length > 0 || selectedPresets.length > 0) && (
+                                {(selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0) && (
                                     <button
                                         onClick={() => {
                                             setSelectedModels([]);
                                             setSelectedPresets([]);
+                                            setSelectedPromptCategories([]);
                                         }}
                                         className="h-7 w-7 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                                         title="Clear Filters"
@@ -402,6 +477,23 @@ export default function GalleryView({ onSelectItem }: { onSelectItem?: (item: Ge
                                                         isSelected={selectedModels.includes(model)}
                                                         onClick={() => toggleModel(model)}
                                                         icon={Box}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {availablePromptCategories.length > 0 && (
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-white/40">Prompt Categories</div>
+                                            <div className="space-y-1">
+                                                {availablePromptCategories.map((category) => (
+                                                    <FilterItem
+                                                        key={`filter-prompt-category-${category}`}
+                                                        label={getGalleryPromptCategoryLabel(category)}
+                                                        isSelected={selectedPromptCategories.includes(category)}
+                                                        onClick={() => togglePromptCategory(category)}
+                                                        icon={Type}
                                                     />
                                                 ))}
                                             </div>
@@ -607,9 +699,10 @@ interface GalleryCardProps {
     onSelectItem?: (item: Generation) => void;
     onDownload: (e: React.MouseEvent, url: string, filename: string) => void;
     onGenerate: HandleGenerateFn;
+    onUsePrompt?: (item: Generation) => void;
 }
 
-function GalleryCard({ item, onSelectItem, onDownload, onGenerate }: GalleryCardProps) {
+function GalleryCard({ item, onSelectItem, onDownload, onGenerate, onUsePrompt }: GalleryCardProps) {
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const { ref, isInView } = useInView('200px');
@@ -644,7 +737,7 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate }: GalleryCard
     return (
         <div
             ref={ref}
-            className="group relative bg-black/20 border-[0.8px] border-black overflow-hidden  hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
+            className="group relative flex flex-col bg-black/20 border-[0.8px] border-black overflow-hidden hover:border-white/20 transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] cursor-pointer translate-z-0"
             onClick={handleCardClick}
             onMouseEnter={() => setIsHover(true)}
             onMouseLeave={() => setIsHover(false)}
@@ -723,7 +816,11 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate }: GalleryCard
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
                             if (item.config?.prompt) {
-                                usePlaygroundStore.getState().applyPrompt(item.config.prompt);
+                                if (onUsePrompt) {
+                                    onUsePrompt(item);
+                                } else {
+                                    usePlaygroundStore.getState().applyPrompt(item.config.prompt);
+                                }
                                 toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
                             }
                         }}
@@ -820,6 +917,127 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate }: GalleryCard
                 </div>
             </div>
         </div>
+    );
+}
+
+function GalleryHeaderTab({
+    label,
+    isActive,
+    onClick,
+}: {
+    label: string;
+    isActive: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                "transition-opacity duration-200",
+                isActive ? "opacity-100" : "opacity-35 hover:opacity-70"
+            )}
+        >
+            <SplitText
+                text={label}
+                tag="span"
+                textAlign="left"
+                className="text-3xl font-instrument-sans text-white flex items-center"
+                from={{ opacity: 1, y: 0 }}
+                to={{ opacity: 1, y: 0 }}
+                hoverFrom={{ opacity: 0.45, y: 10 }}
+                hoverTo={{ opacity: 1, y: 0 }}
+                duration={0.28}
+                delay={12}
+                threshold={0}
+                rootMargin="0px"
+            />
+        </button>
+    );
+}
+
+function PromptListView({
+    items,
+    onUsePrompt,
+}: {
+    items: Generation[];
+    onUsePrompt?: (item: Generation) => void;
+}) {
+    if (items.length === 0) {
+        return (
+            <div className="flex h-full min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
+                No prompt records yet
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-1 gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3">
+            {items.map((item, index) => (
+                <PromptCard
+                    key={`${item.id}-${index}`}
+                    item={item}
+                    onUsePrompt={onUsePrompt}
+                />
+            ))}
+        </div>
+    );
+}
+
+function PromptCard({
+    item,
+    onUsePrompt,
+}: {
+    item: Generation;
+    onUsePrompt?: (item: Generation) => void;
+}) {
+    const { toast } = useToast();
+    const promptCategory = getGalleryPromptCategory(item.config);
+    const promptCategoryLabel = getGalleryPromptCategoryLabel(promptCategory);
+    const prompt = item.config?.prompt || '';
+
+    const handleUsePrompt = () => {
+        if (!prompt) {
+            return;
+        }
+
+        if (onUsePrompt) {
+            onUsePrompt(item);
+        } else {
+            usePlaygroundStore.getState().applyPrompt(prompt);
+        }
+
+        toast({
+            title: "Prompt Applied",
+            description: "提示词已应用到输入框",
+        });
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleUsePrompt}
+            className="group flex min-h-[220px] w-full flex-col rounded-2xl border border-white/10 bg-black/20 p-5 text-left transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06]"
+        >
+            <div className="flex items-center justify-between gap-3">
+                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium tracking-[0.16em] text-white/65 uppercase">
+                    {promptCategoryLabel}
+                </span>
+                <span className="text-[10px] text-white/30 font-mono uppercase">
+                    {new Date(item.createdAt).toLocaleDateString()}
+                </span>
+            </div>
+            <div className="mt-4 flex items-center gap-3 text-[11px] text-white/35">
+                <span>{item.config?.model || 'Unknown Model'}</span>
+                {item.config?.presetName ? <span>/ {item.config.presetName}</span> : null}
+            </div>
+            <p className="mt-4 flex-1 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-white/82 line-clamp-[10]">
+                {prompt || '暂无提示词'}
+            </p>
+            <div className="mt-4 text-[11px] text-white/25 transition-colors group-hover:text-white/55">
+                Click to use prompt
+            </div>
+        </button>
     );
 }
 

@@ -16,6 +16,10 @@ import {
   TextHistoryCard,
 } from '@studio/playground/_components/history/HistoryCards';
 import type { HistoryListProps } from '@studio/playground/_components/history/types';
+import {
+  getPromptOptimizationSource,
+  isPromptOptimizationHistoryItem,
+} from '@studio/playground/_lib/prompt-history';
 
 const HistoryList = observer(function HistoryList({
   history,
@@ -23,6 +27,7 @@ const HistoryList = observer(function HistoryList({
   onDownload,
   onEdit,
   onImageClick,
+  onUsePrompt,
   variant = 'default',
   onLayoutModeChange,
   layoutMode = 'list',
@@ -237,7 +242,7 @@ const HistoryList = observer(function HistoryList({
         )}>
           {layoutMode === 'grid' ? (
             history.map((result, resultIdx) => {
-              if (isTextHistoryResult(result)) {
+              if (isTextHistoryResult(result) || isPromptOptimizationHistoryItem(result)) {
                 return null;
               }
 
@@ -257,6 +262,7 @@ const HistoryList = observer(function HistoryList({
                       onDownload={onDownload}
                       onEdit={onEdit}
                       onImageClick={onImageClick}
+                      onUsePrompt={onUsePrompt}
                       onRefImageClick={(url, id) => {
                         setPreviewImage(url, id);
                       }}
@@ -303,6 +309,7 @@ const HistoryList = observer(function HistoryList({
                           onDownload={onDownload}
                           onEdit={onEdit}
                           onImageClick={onImageClick}
+                          onUsePrompt={onUsePrompt}
                           onRefImageClick={(url, id) => {
                             setPreviewImage(url, id);
                           }}
@@ -313,7 +320,7 @@ const HistoryList = observer(function HistoryList({
                         />
                       </DraggableHistoryCard>
                     </div>
-                  ) : (
+                  ) : group.type === 'text' ? (
                     <div className="flex flex-col gap-6 group/card">
                       <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase ">
                         <div className="flex items-center gap-4">
@@ -348,6 +355,51 @@ const HistoryList = observer(function HistoryList({
                             >
                               <TextHistoryCard
                                 result={item}
+                                title="Image Analysis"
+                                onUsePrompt={onUsePrompt}
+                                isSelectionMode={isSelectionMode}
+                                isSelected={selectedIds.has(item.id)}
+                                onToggleSelect={() => toggleSelection(item.id)}
+                              />
+                            </DraggableHistoryCard>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-6 group/card">
+                      <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase ">
+                        <div className="flex items-center gap-4">
+                          <span>{new Date(group.startAt).toLocaleString()}</span>
+                          <span className="opacity-40">/</span>
+                          <span className="text-white/40">Prompt Optimization</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-[minmax(0,1.7fr)_minmax(0,4fr)] gap-4 items-stretch content-start">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col gap-4">
+                          <div className="flex items-center gap-2 text-[10px] text-white/30 font-mono uppercase tracking-[0.2em]">
+                            <span className="block w-1 h-1 rounded-full bg-white/20" />
+                            Original Prompt
+                          </div>
+                          <p className="text-[12px] leading-relaxed text-white/85 whitespace-pre-wrap break-words">
+                            {group.originalPrompt || group.items[0]?.config?.prompt || 'Untitled prompt'}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          {group.items.map((item, itemIdx) => (
+                            <DraggableHistoryCard
+                              key={`${item.id}-${itemIdx}`}
+                              result={item}
+                              selectedIds={selectedIds}
+                              isSelectionMode={isSelectionMode}
+                            >
+                              <TextHistoryCard
+                                result={item}
+                                title={getPromptOptimizationSource(item.config)?.activeVariantLabel || `Optimized Prompt ${itemIdx + 1}`}
+                                actionLabel="Use Variant"
+                                onUsePrompt={onUsePrompt}
                                 isSelectionMode={isSelectionMode}
                                 isSelected={selectedIds.has(item.id)}
                                 onToggleSelect={() => toggleSelection(item.id)}

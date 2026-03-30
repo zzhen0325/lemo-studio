@@ -1299,7 +1299,7 @@ export const InfiniteCanvasProjectModel = {
 export interface PromptFieldDefinition {
   key: string; // 字段 key
   label: string; // 显示名称
-  type: 'text' | 'textarea' | 'select' | 'number'; // 字段类型
+  type: 'text' | 'textarea' | 'select' | 'number' | 'color'; // 字段类型
   required?: boolean; // 是否必填
   placeholder?: string; // 占位提示
   defaultValue?: string | number; // 默认值

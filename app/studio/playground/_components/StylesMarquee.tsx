@@ -1,15 +1,12 @@
 'use client';
 
 import React from 'react';
+
 import { cn } from '@/lib/utils';
-import {
-  PLAYGROUND_SHORTCUTS,
-  getShortcutMoodboardId,
-  type PlaygroundShortcut,
-} from '@/config/playground-shortcuts';
-import { usePlaygroundStore } from '@/lib/store/playground-store';
+import type { StyleStack } from '@/types/database';
+import { type PlaygroundShortcut } from '@/config/playground-shortcuts';
 import { ShortcutStackCard } from './ShortcutStackCard';
-import { ShortcutDetailDialog } from './ShortcutDetailDialog';
+import { MoodboardDetailDialog } from './MoodboardDetailDialog';
 import {
   SMALL_STACK_MARQUEE_ITEM_CLASS,
   SMALL_STACK_MARQUEE_ROOT_CLASS,
@@ -18,29 +15,28 @@ import {
 
 interface StylesMarqueeProps {
   className?: string;
+  shortcuts: PlaygroundShortcut[];
+  shortcutMoodboards: Record<string, StyleStack | null>;
   onQuickApply: (shortcut: PlaygroundShortcut) => void;
   onPreviewImage?: (shortcut: PlaygroundShortcut, imageIndex: number) => void;
+  onShortcutsChange?: () => Promise<void> | void;
 }
 
-export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuickApply, onPreviewImage }) => {
+export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
+  className,
+  shortcuts,
+  shortcutMoodboards,
+  onQuickApply,
+  onPreviewImage,
+  onShortcutsChange,
+}) => {
   const [selectedShortcut, setSelectedShortcut] = React.useState<PlaygroundShortcut | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const [isPaused, setIsPaused] = React.useState(false);
-  const styles = usePlaygroundStore((state) => state.styles);
-  const initStyles = usePlaygroundStore((state) => state.initStyles);
-  const duplicatedShortcuts = [...PLAYGROUND_SHORTCUTS, ...PLAYGROUND_SHORTCUTS, ...PLAYGROUND_SHORTCUTS];
-
-  React.useEffect(() => {
-    void initStyles();
-  }, [initStyles]);
-
-  const shortcutMoodboards = React.useMemo(() => {
-    const moodboardById = new Map(styles.map((style) => [style.id, style]));
-    return PLAYGROUND_SHORTCUTS.reduce<Record<string, (typeof styles)[number] | null>>((acc, shortcut) => {
-      acc[shortcut.id] = moodboardById.get(getShortcutMoodboardId(shortcut.id)) || null;
-      return acc;
-    }, {});
-  }, [styles]);
+  const duplicatedShortcuts = React.useMemo(
+    () => [...shortcuts, ...shortcuts, ...shortcuts],
+    [shortcuts],
+  );
 
   const handleViewDetail = React.useCallback((shortcut: PlaygroundShortcut) => {
     setSelectedShortcut(shortcut);
@@ -58,7 +54,7 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
         className={cn(
           'relative w-full select-none overflow-hidden pointer-events-none',
           SMALL_STACK_MARQUEE_ROOT_CLASS,
-          className
+          className,
         )}
       >
         <style>
@@ -72,10 +68,10 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
         <div
           className={cn(
             SMALL_STACK_MARQUEE_TRACK_CLASS,
-            'pointer-events-none'
+            'pointer-events-none',
           )}
           style={{
-            animation: `marquee ${PLAYGROUND_SHORTCUTS.length * 9}s linear infinite`,
+            animation: `marquee ${Math.max(shortcuts.length, 1) * 9}s linear infinite`,
             animationPlayState: isPaused ? 'paused' : 'running',
           }}
         >
@@ -84,7 +80,7 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
               key={`${shortcut.id}-${index}`}
               className={cn(
                 SMALL_STACK_MARQUEE_ITEM_CLASS,
-                'pointer-events-none'
+                'pointer-events-none',
               )}
             >
               <div
@@ -106,13 +102,14 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({ className, onQuick
         </div>
       </div>
 
-      <ShortcutDetailDialog
+      <MoodboardDetailDialog
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
-        shortcut={selectedShortcut}
         moodboard={selectedShortcut ? shortcutMoodboards[selectedShortcut.id] : null}
-        onQuickApply={handleQuickApply}
-        onPreviewImage={onPreviewImage}
+        shortcut={selectedShortcut}
+        onShortcutQuickApply={handleQuickApply}
+        onShortcutPreviewImage={onPreviewImage}
+        onShortcutsChange={onShortcutsChange}
       />
     </>
   );

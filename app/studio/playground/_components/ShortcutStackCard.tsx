@@ -36,7 +36,7 @@ export function ShortcutStackCard({
 }: ShortcutStackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isSmall = size === 'sm';
-  const galleryImages = moodboard?.imagePaths?.length ? moodboard.imagePaths : shortcut.imagePaths;
+  const galleryImages = moodboard ? moodboard.imagePaths : shortcut.imagePaths;
   const displayImages = galleryImages.slice(-3).reverse();
   const collapsedOffset = isSmall ? 24 : 50;
   const expandedOffset = isSmall ? 72 : 160;

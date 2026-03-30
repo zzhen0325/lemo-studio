@@ -25,6 +25,7 @@ import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
 import {
+  BASE_SYSTEM_INSTRUCTION,
   VISION_DESCRIBE_SYSTEM_PROMPT,
   type GenerationConfig,
   type UploadedImage,
@@ -40,7 +41,7 @@ import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
-import { Image as ImageIcon, Palette } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { useMediaQuery } from "@/hooks/common/use-media-query";
@@ -49,6 +50,7 @@ import { PlaygroundBackground } from "@studio/playground/_components/PlaygroundB
 import { PlaygroundInputSection } from "@studio/playground/_components/PlaygroundInputSection";
 import { AR_MAP } from "@studio/playground/_components/constants/aspect-ratio";
 import { StylesMarquee } from "@studio/playground/_components/StylesMarquee";
+import { usePlaygroundMoodboards } from "@studio/playground/_components/hooks/usePlaygroundMoodboards";
 import { PlaygroundDockSidebar } from "@studio/playground/_components/containers/components/PlaygroundDockSidebar";
 import { PlaygroundHomeActions } from "@studio/playground/_components/containers/components/PlaygroundHomeActions";
 import { PlaygroundDockPanels } from "@studio/playground/_components/containers/components/PlaygroundDockPanels";
@@ -56,6 +58,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   buildShortcutPrompt,
   createShortcutPromptValues,
+  getShortcutById,
   getShortcutMissingFields,
   getShortcutMoodboardId,
   type PlaygroundShortcut,
@@ -84,6 +87,21 @@ import {
   type KvCoreFieldId,
   type KvStructuredVariantId,
 } from "@/app/studio/playground/_lib/kv-structured-optimization";
+import {
+  buildPromptOptimizationVariantsInput,
+  buildPromptOptimizationVariantsSystemPrompt,
+  parsePromptOptimizationVariants,
+} from "@/app/infinite-canvas/_lib/prompt-optimization";
+import {
+  createPromptOptimizationHistoryItems,
+  getPromptOptimizationSource,
+  IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
+  PROMPT_OPTIMIZATION_VARIANT_COUNT,
+  type PromptOptimizationSourcePayload,
+  type SerializedShortcutOptimizationSession,
+  withPromptOptimizationSource,
+  withoutPromptOptimizationSource,
+} from "@/app/studio/playground/_lib/prompt-history";
 
 
 import gsap from "gsap";
@@ -156,6 +174,40 @@ interface ActiveShortcutTemplate {
   optimizationSession?: ShortcutOptimizationSession;
 }
 
+function serializeShortcutOptimizationSession(
+  session: ShortcutOptimizationSession,
+): SerializedShortcutOptimizationSession {
+  return {
+    sourceType: session.sourceType,
+    originValues: { ...session.originValues },
+    originRemovedFieldIds: [...session.originRemovedFieldIds],
+    activeVariantId: session.activeVariantId,
+    variants: session.variants.map((variant) => ({
+      id: variant.id,
+      label: variant.label,
+      values: { ...variant.values },
+      removedFieldIds: [...variant.removedFieldIds],
+      coreSuggestions: { ...variant.coreSuggestions },
+      palette: variant.palette.map((entry) => ({ ...entry })),
+      analysis: cloneDesignAnalysis(variant.analysis),
+      promptPreview: variant.promptPreview,
+      baseline: {
+        label: variant.baseline.label,
+        values: { ...variant.baseline.values },
+        removedFieldIds: [...variant.baseline.removedFieldIds],
+        coreSuggestions: { ...variant.baseline.coreSuggestions },
+        palette: variant.baseline.palette.map((entry) => ({ ...entry })),
+        analysis: cloneDesignAnalysis(variant.baseline.analysis),
+        promptPreview: variant.baseline.promptPreview,
+      },
+      pendingInstruction: variant.pendingInstruction,
+      pendingScope: variant.pendingScope,
+      isModifying: variant.isModifying,
+    })),
+    lastRawResponse: session.lastRawResponse,
+  };
+}
+
 function cloneShortcutValues(values: ShortcutPromptValues): ShortcutPromptValues {
   return { ...values };
 }
@@ -213,6 +265,76 @@ function findShortcutVariant(
   variantId: KvStructuredVariantId,
 ) {
   return session.variants.find((variant) => variant.id === variantId);
+}
+
+function buildStructuredOptimizationSourcePayload(
+  template: ActiveShortcutTemplate | null,
+  taskId: string,
+  variantId?: KvStructuredVariantId,
+): PromptOptimizationSourcePayload | null {
+  if (!template?.optimizationSession) {
+    return null;
+  }
+
+  const activeVariantId = variantId || template.optimizationSession.activeVariantId;
+  const activeVariant = findShortcutVariant(template.optimizationSession, activeVariantId);
+  if (!activeVariant) {
+    return null;
+  }
+
+  const originalPrompt = buildShortcutPrompt(
+    template.shortcut,
+    template.optimizationSession.originValues,
+    {
+      usePlaceholder: false,
+      removedFieldIds: template.optimizationSession.originRemovedFieldIds,
+    },
+  );
+
+  return {
+    version: 1,
+    sourceKind: "kv_structured",
+    taskId,
+    originalPrompt,
+    activeVariantId: activeVariant.id,
+    activeVariantLabel: activeVariant.label,
+    shortcutId: template.shortcut.id,
+    session: serializeShortcutOptimizationSession(template.optimizationSession),
+  };
+}
+
+function hydrateShortcutOptimizationSession(
+  session: SerializedShortcutOptimizationSession,
+): ShortcutOptimizationSession {
+  return {
+    sourceType: session.sourceType,
+    originValues: { ...session.originValues },
+    originRemovedFieldIds: [...session.originRemovedFieldIds],
+    activeVariantId: session.activeVariantId,
+    variants: session.variants.map((variant) => ({
+      id: variant.id,
+      label: variant.label,
+      values: { ...variant.values },
+      removedFieldIds: [...variant.removedFieldIds],
+      coreSuggestions: { ...variant.coreSuggestions },
+      palette: variant.palette.map((entry) => ({ ...entry })),
+      analysis: cloneDesignAnalysis(variant.analysis),
+      promptPreview: variant.promptPreview,
+      baseline: {
+        label: variant.baseline.label,
+        values: { ...variant.baseline.values },
+        removedFieldIds: [...variant.baseline.removedFieldIds],
+        coreSuggestions: { ...variant.baseline.coreSuggestions },
+        palette: variant.baseline.palette.map((entry) => ({ ...entry })),
+        analysis: cloneDesignAnalysis(variant.baseline.analysis),
+        promptPreview: variant.baseline.promptPreview,
+      },
+      pendingInstruction: variant.pendingInstruction,
+      pendingScope: variant.pendingScope,
+      isModifying: variant.isModifying,
+    })),
+    lastRawResponse: session.lastRawResponse,
+  };
 }
 
 function buildKvVariantPromptPreview(
@@ -419,6 +541,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   // const fetchHistory = usePlaygroundStore(s => s.fetchHistory); // Deprecated in favor of useHistory
   const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
   const initPresets = usePlaygroundStore(s => s.initPresets);
+  const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
   const applyModel = usePlaygroundStore(s => s.applyModel);
   const addStyle = usePlaygroundStore(s => s.addStyle);
   const styles = usePlaygroundStore(s => s.styles);
@@ -451,6 +574,12 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const setIsAspectRatioLocked = usePlaygroundStore(s => s.setAspectRatioLocked);
   const isSelectorExpanded = usePlaygroundStore(s => s.isSelectorExpanded);
   const setIsSelectorExpanded = usePlaygroundStore(s => s.setSelectorExpanded);
+  const {
+    shortcuts: runtimeShortcuts,
+    shortcutMoodboardsByCode,
+    shortcutByCode,
+    refreshShortcuts,
+  } = usePlaygroundMoodboards();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const describePanelRef = useRef<HTMLDivElement>(null);
@@ -638,6 +767,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       // Optional: Add toast notification if needed, but avoiding it to keep behavior identical to before
     }
   }, [effectiveUserId]);
+
+  const prependHistoryItems = React.useCallback((items: Generation[]) => {
+    if (items.length === 0) {
+      return;
+    }
+
+    setGenerationHistory((prev: Generation[]) => [...items, ...prev]);
+    items.forEach((item) => {
+      void saveHistoryToBackend(item);
+    });
+  }, [saveHistoryToBackend, setGenerationHistory]);
 
   useEffect(() => {
     const fetchWorkflows = async () => {
@@ -929,7 +1069,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       typeof batchSizeOverride === 'number' && Number.isFinite(batchSizeOverride)
         ? Math.max(1, Math.floor(batchSizeOverride))
         : undefined;
-    const effectiveBatchSize = normalizedBatchSizeOverride ?? (configOverride ? 4 : batchSize);
+    const effectiveBatchSize = normalizedBatchSizeOverride ?? (options.useCurrentBatchSize ? batchSize : (configOverride ? 4 : batchSize));
+    const structuredOptimizationSource = !getPromptOptimizationSource(configOverride)
+      ? buildStructuredOptimizationSourcePayload(activeShortcutTemplateRef.current, batchTaskId)
+      : null;
 
     const modelForBatch = String(
       (configOverride as Partial<GenerationConfig> | undefined)?.model
@@ -957,13 +1100,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       // Create history item immediately to show all cards at once
       const currentConfig = usePlaygroundStore.getState().config;
       const currentLoras = usePlaygroundStore.getState().selectedLoras;
-      const finalConfig = {
+      let finalConfig: GenerationConfig = {
         ...currentConfig,
         ...(configOverride && typeof configOverride === 'object' ? configOverride : {}),
         loras: currentLoras,
         taskId: batchTaskId,
         isPreset: !!(currentConfig.presetName || (configOverride as GenerationConfig)?.presetName)
       };
+      const effectiveOptimizationSource = getPromptOptimizationSource(finalConfig) || structuredOptimizationSource;
+      finalConfig = effectiveOptimizationSource
+        ? withPromptOptimizationSource(finalConfig, effectiveOptimizationSource)
+        : withoutPromptOptimizationSource(finalConfig);
       // 优先使用显式传入的 sourceImageUrls（例如 rerun 场景），否则从当前 store 读取
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
       const sourceImageUrls = options.sourceImageUrls && options.sourceImageUrls.length > 0
@@ -974,9 +1121,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       // 关键修复：普通生成显式禁用 isEdit，逻辑上它不是编辑。
       // 使用显式合并逻辑，并保证 prompt 不为空
       const displayConfigOverride: GenerationConfig = {
-        ...currentConfig,
-        ...(configOverride || {}),
-        prompt: (configOverride as Partial<GenerationConfig>)?.prompt || currentConfig.prompt || '',
+        ...finalConfig,
+        prompt: (configOverride as Partial<GenerationConfig>)?.prompt || finalConfig.prompt || currentConfig.prompt || '',
         isEdit: false
       };
 
@@ -991,7 +1137,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       pendingExecutions.push(
         pendingExecution.then((uniqueId) => ({
           uniqueId: typeof uniqueId === 'string' ? uniqueId : undefined,
-          finalConfig: { ...finalConfig, isEdit: false },
+          finalConfig,
           sourceImageUrls,
         }))
       );
@@ -1227,7 +1373,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       appliedPrompt: prompt,
     });
 
-    applyModel(shortcut.model, {
+    applyModel(shortcut.model, withoutPromptOptimizationSource({
       prompt,
       model: shortcut.model,
       baseModel: shortcut.model,
@@ -1242,7 +1388,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       isEdit: false,
       editConfig: undefined,
       generationMode: 'playground',
-    });
+    }));
 
     // if (promptWrapperRef.current) {
     //   window.requestAnimationFrame(() => {
@@ -1262,8 +1408,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const buildShortcutPreviewResults = useCallback((shortcut: PlaygroundShortcut): Generation[] => {
     const shortcutMoodboard = styles.find((style) => style.id === getShortcutMoodboardId(shortcut.id));
     const values = createShortcutPromptValues(shortcut);
-    const prompt = shortcutMoodboard?.prompt || buildShortcutPrompt(shortcut, values);
-    const previewImages = shortcutMoodboard?.imagePaths?.length ? shortcutMoodboard.imagePaths : shortcut.imagePaths;
+    const prompt = buildShortcutPrompt(shortcut, values);
+    const previewImages = shortcutMoodboard?.imagePaths ?? shortcut.imagePaths;
     const dimensions = AR_MAP[shortcut.aspectRatio]?.[shortcut.imageSize] || {
       w: config.width || 1024,
       h: config.height || 1024,
@@ -1284,7 +1430,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         aspectRatio: shortcut.aspectRatio,
         loras: [],
         presetName: undefined,
-        workflowName: shortcutMoodboard?.name || shortcut.name,
+        workflowName: shortcut.name,
         isPreset: false,
         isEdit: false,
         editConfig: undefined,
@@ -1318,6 +1464,79 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const handleShortcutPreviewSelect = useCallback((result: Generation) => {
     setSelectedShortcutPreviewResult(result);
   }, []);
+
+  const handleUseHistoryPrompt = useCallback((result: Generation) => {
+    const optimizationSource = getPromptOptimizationSource(result.config);
+
+    if (
+      optimizationSource?.sourceKind === "kv_structured"
+      && optimizationSource.shortcutId
+      && optimizationSource.session
+    ) {
+      const shortcut = shortcutByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
+        || getShortcutById(optimizationSource.shortcutId);
+      if (!shortcut) {
+        applyPrompt(result.config?.prompt || "");
+        return;
+      }
+
+      const hydratedSession = hydrateShortcutOptimizationSession(optimizationSource.session);
+      const activeVariant = hydratedSession.variants.find(
+        (variant) => variant.id === optimizationSource.activeVariantId,
+      ) || hydratedSession.variants[0];
+
+      if (!activeVariant) {
+        applyPrompt(result.config?.prompt || "");
+        return;
+      }
+
+      hydratedSession.activeVariantId = activeVariant.id;
+
+      const restoredPrompt = activeVariant.promptPreview || result.config?.prompt || "";
+      const restoredConfig = withPromptOptimizationSource(
+        {
+          ...withoutPromptOptimizationSource({
+            ...usePlaygroundStore.getState().config,
+            ...result.config,
+            prompt: restoredPrompt,
+            model: result.config?.model || shortcut.model,
+            baseModel: result.config?.baseModel || result.config?.model || shortcut.model,
+            isPreset: false,
+            presetName: undefined,
+          }),
+        },
+        {
+          ...optimizationSource,
+          activeVariantId: activeVariant.id,
+          activeVariantLabel: activeVariant.label,
+          session: serializeShortcutOptimizationSession(hydratedSession),
+        },
+      );
+
+      setSelectedPresetName(undefined);
+      setSelectedWorkflowConfig(undefined);
+      setActiveShortcutTemplate({
+        shortcut,
+        values: cloneShortcutValues(activeVariant.values),
+        removedFieldIds: [...activeVariant.removedFieldIds],
+        appliedPrompt: restoredPrompt,
+        optimizationSession: hydratedSession,
+      });
+      applyModel(restoredConfig.model, restoredConfig);
+
+      toast({
+        title: "优化方案已回填",
+        description: "已恢复为可继续编辑的结构化提示词。",
+      });
+      return;
+    }
+
+    applyPrompt(result.config?.prompt || "");
+    toast({
+      title: "提示词已应用",
+      description: "已将此条提示词填充到输入框",
+    });
+  }, [applyModel, applyPrompt, setSelectedPresetName, setSelectedWorkflowConfig, shortcutByCode, toast]);
 
   const handleShortcutTemplateFieldChange = useCallback((fieldId: string, value: string) => {
     const current = activeShortcutTemplateRef.current;
@@ -1925,13 +2144,14 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
   const handleExitShortcutTemplate = useCallback(() => {
     setActiveShortcutTemplate(null);
-  }, []);
+    updateConfig(withoutPromptOptimizationSource(usePlaygroundStore.getState().config));
+  }, [updateConfig]);
 
   const handleClearShortcutTemplate = useCallback(() => {
     setActiveShortcutTemplate(null);
     setSelectedPresetName(undefined);
     setSelectedWorkflowConfig(undefined);
-    applyModel(defaultImageModelId, {
+    applyModel(defaultImageModelId, withoutPromptOptimizationSource({
       prompt: "",
       model: defaultImageModelId,
       baseModel: defaultImageModelId,
@@ -1944,7 +2164,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       isEdit: false,
       editConfig: undefined,
       generationMode: "playground",
-    });
+    }));
   }, [applyModel, config.height, config.width, defaultImageModelId, setSelectedPresetName, setSelectedWorkflowConfig]);
 
   const handlePromptGenerate = useCallback(() => {
@@ -1961,6 +2181,29 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         });
         return;
       }
+    }
+
+    const sourceTaskId = getPromptOptimizationSource(usePlaygroundStore.getState().config)?.taskId
+      || `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const optimizationSource = buildStructuredOptimizationSourcePayload(current, sourceTaskId);
+
+    if (optimizationSource && current?.optimizationSession) {
+      const activeVariant = findShortcutVariant(
+        current.optimizationSession,
+        current.optimizationSession.activeVariantId,
+      );
+
+      void handleGenerate({
+        useCurrentBatchSize: true,
+        configOverride: withPromptOptimizationSource(
+          {
+            ...usePlaygroundStore.getState().config,
+            prompt: activeVariant?.promptPreview || current.appliedPrompt,
+          },
+          optimizationSource,
+        ),
+      });
+      return;
     }
 
     void handleGenerate({});
@@ -2010,12 +2253,23 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     for (const variant of readyVariants) {
       const currentConfig = usePlaygroundStore.getState().config;
       const variantTaskId = `${Date.now()}-${variant.id}-${Math.random().toString(36).substring(2, 7)}`;
+      const sourceTaskId = getPromptOptimizationSource(currentConfig)?.taskId || variantTaskId;
+      const optimizationSource = buildStructuredOptimizationSourcePayload(current, sourceTaskId, variant.id);
       await handleGenerate({
-        configOverride: {
-          ...currentConfig,
-          prompt: variant.promptPreview,
-          taskId: undefined,
-        },
+        configOverride: optimizationSource
+          ? withPromptOptimizationSource(
+            {
+              ...currentConfig,
+              prompt: variant.promptPreview,
+              taskId: undefined,
+            },
+            optimizationSource,
+          )
+          : {
+            ...currentConfig,
+            prompt: variant.promptPreview,
+            taskId: undefined,
+          },
         taskId: variantTaskId,
         batchSizeOverride: 4,
       });
@@ -2025,6 +2279,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const handlePresetSelect = (p: PresetExtended) => {
     const preset = p as PresetExtended;
     const effectiveConfig = (preset.config as GenerationConfig) || (preset as unknown as GenerationConfig);
+    const sanitizedEffectiveConfig = withoutPromptOptimizationSource(effectiveConfig);
     const workflowId = (preset as PresetExtended & { workflow_id?: string }).workflow_id || effectiveConfig.presetName;
     const presetName = (preset as PresetExtended & { title?: string; name?: string }).title || (preset as PresetExtended & { title?: string; name?: string }).name || effectiveConfig.presetName || 'Preset';
     setActiveShortcutTemplate(null);
@@ -2056,17 +2311,17 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         setSelectedModel(MODEL_ID_WORKFLOW);
 
         // 比例和尺寸处理
-        const resSize = effectiveConfig.imageSize || '1K';
-        const arName = effectiveConfig.aspectRatio || '1:1';
-        const dims = AR_MAP[arName]?.[resSize] || { w: effectiveConfig.width || 1024, h: effectiveConfig.height || 1024 };
+        const resSize = sanitizedEffectiveConfig.imageSize || '1K';
+        const arName = sanitizedEffectiveConfig.aspectRatio || '1:1';
+        const dims = AR_MAP[arName]?.[resSize] || { w: sanitizedEffectiveConfig.width || 1024, h: sanitizedEffectiveConfig.height || 1024 };
 
         // Apply fixed config from preset
         setConfig(prev => ({
           ...prev,
-          prompt: effectiveConfig.prompt || '',
+          prompt: sanitizedEffectiveConfig.prompt || '',
           width: dims.w,
           height: dims.h,
-          model: effectiveConfig.model || MODEL_ID_WORKFLOW,
+          model: sanitizedEffectiveConfig.model || MODEL_ID_WORKFLOW,
           imageSize: resSize,
           aspectRatio: arName as GenerationConfig['aspectRatio'],
           presetName: preset.editConfig ? undefined : presetName,
@@ -2078,16 +2333,16 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       }
     } else {
       // Regular preset
-      const modelToSet = effectiveConfig.model || 'Nano banana';
-      const resSize = effectiveConfig.imageSize || '1K';
-      const arName = effectiveConfig.aspectRatio || '1:1';
-      const dims = AR_MAP[arName]?.[resSize] || { w: effectiveConfig.width || 1024, h: effectiveConfig.height || 1024 };
+      const modelToSet = sanitizedEffectiveConfig.model || 'Nano banana';
+      const resSize = sanitizedEffectiveConfig.imageSize || '1K';
+      const arName = sanitizedEffectiveConfig.aspectRatio || '1:1';
+      const dims = AR_MAP[arName]?.[resSize] || { w: sanitizedEffectiveConfig.width || 1024, h: sanitizedEffectiveConfig.height || 1024 };
 
       setConfig(prev => ({
         ...prev,
-        ...effectiveConfig,
+        ...sanitizedEffectiveConfig,
         presetName: preset.editConfig ? undefined : presetName,
-        loras: effectiveConfig.loras || [],
+        loras: sanitizedEffectiveConfig.loras || [],
         model: modelToSet,
         width: dims.w,
         height: dims.h,
@@ -2137,22 +2392,62 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         optimizedText,
       );
       const activeVariant = variants[0];
-
-      setActiveShortcutTemplate({
+      const optimizationSession: ShortcutOptimizationSession = {
+        sourceType: parsedResponse.sourceType,
+        originValues: sourceValues,
+        originRemovedFieldIds: sourceRemovedFieldIds,
+        activeVariantId: activeVariant.id,
+        variants,
+        lastRawResponse: optimizedText,
+      };
+      const optimizationTaskId = `prompt-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const activeTemplate: ActiveShortcutTemplate = {
         shortcut: current.shortcut,
         values: cloneShortcutValues(activeVariant.values),
         removedFieldIds: [...activeVariant.removedFieldIds],
         appliedPrompt: activeVariant.promptPreview,
-        optimizationSession: {
-          sourceType: parsedResponse.sourceType,
-          originValues: sourceValues,
-          originRemovedFieldIds: sourceRemovedFieldIds,
-          activeVariantId: activeVariant.id,
-          variants,
-          lastRawResponse: optimizedText,
+        optimizationSession,
+      };
+      const activeOptimizationSource = buildStructuredOptimizationSourcePayload(
+        activeTemplate,
+        optimizationTaskId,
+        activeVariant.id,
+      );
+
+      setActiveShortcutTemplate(activeTemplate);
+      prependHistoryItems(createPromptOptimizationHistoryItems({
+        taskId: optimizationTaskId,
+        createdAt: new Date().toISOString(),
+        userId: effectiveUserId,
+        originalPrompt: buildShortcutPrompt(current.shortcut, sourceValues, {
+          usePlaceholder: false,
+          removedFieldIds: sourceRemovedFieldIds,
+        }),
+        sourceKind: "kv_structured",
+        shortcutId: current.shortcut.id,
+        session: serializeShortcutOptimizationSession(optimizationSession),
+        variants: variants.map((variant) => ({
+          id: variant.id,
+          label: variant.label,
+          prompt: variant.promptPreview,
+        })),
+        configBase: {
+          model: current.shortcut.model,
+          baseModel: current.shortcut.model,
+          width: usePlaygroundStore.getState().config.width,
+          height: usePlaygroundStore.getState().config.height,
         },
-      });
-      updateConfig({ prompt: activeVariant.promptPreview });
+      }));
+      updateConfig(activeOptimizationSource
+        ? withPromptOptimizationSource(
+          {
+            ...usePlaygroundStore.getState().config,
+            prompt: activeVariant.promptPreview,
+          },
+          activeOptimizationSource,
+        )
+        : { prompt: activeVariant.promptPreview },
+      );
       toast({
         title: "AI 已生成 2 个版本",
         description: "可在输入区直接切换版本并继续编辑。",
@@ -2167,7 +2462,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     }
 
     return true;
-  }, [optimizePrompt, selectedAIModel, toast, updateConfig]);
+  }, [effectiveUserId, optimizePrompt, prependHistoryItems, selectedAIModel, toast, updateConfig]);
 
   const handleShortcutOptimizationRegenerate = React.useCallback(async () => {
     await runKvStructuredOptimization();
@@ -2185,9 +2480,88 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       return;
     }
 
-    const optimizedText = await optimizePrompt(config.prompt, selectedAIModel);
-    if (optimizedText) setConfig(prev => ({ ...prev, prompt: optimizedText }));
-  }, [config.prompt, optimizePrompt, runKvStructuredOptimization, selectedAIModel, setConfig]);
+    const optimizationInput = buildPromptOptimizationVariantsInput(
+      config.prompt,
+      PROMPT_OPTIMIZATION_VARIANT_COUNT,
+    );
+    const optimizedText = await optimizePrompt(
+      optimizationInput,
+      selectedAIModel,
+      undefined,
+      {
+        profileId: 'prompt-optimization-variants',
+        systemInstruction: buildPromptOptimizationVariantsSystemPrompt(
+          BASE_SYSTEM_INSTRUCTION,
+          PROMPT_OPTIMIZATION_VARIANT_COUNT,
+        ),
+      },
+    );
+
+    if (!optimizedText) {
+      return;
+    }
+
+    const parsedVariants = parsePromptOptimizationVariants(
+      optimizedText,
+      PROMPT_OPTIMIZATION_VARIANT_COUNT,
+    );
+    if (parsedVariants.length === 0) {
+      toast({
+        title: "AI 优化结果为空",
+        description: "本次没有拿到可用的优化结果，请重新尝试。",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const createdAt = new Date().toISOString();
+    const optimizationTaskId = `prompt-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const promptVariants = parsedVariants
+      .slice(0, PROMPT_OPTIMIZATION_VARIANT_COUNT)
+      .map((prompt, index) => ({
+        id: `v${index + 1}`,
+        label: `方案 ${String.fromCharCode(65 + index)}`,
+        prompt,
+      }));
+    const firstVariant = promptVariants[0];
+
+    prependHistoryItems(createPromptOptimizationHistoryItems({
+      taskId: optimizationTaskId,
+      createdAt,
+      userId: effectiveUserId,
+      originalPrompt: config.prompt,
+      sourceKind: "plain_text",
+      variants: promptVariants,
+      configBase: {
+        model: config.model,
+        baseModel: config.baseModel || config.model,
+        width: config.width,
+        height: config.height,
+      },
+    }));
+
+    if (firstVariant) {
+      setConfig((prev) => withPromptOptimizationSource(
+        {
+          ...withoutPromptOptimizationSource(prev),
+          prompt: firstVariant.prompt,
+        },
+        {
+          version: 1,
+          sourceKind: "plain_text",
+          taskId: optimizationTaskId,
+          originalPrompt: config.prompt,
+          activeVariantId: firstVariant.id,
+          activeVariantLabel: firstVariant.label,
+        },
+      ));
+    }
+
+    toast({
+      title: "AI 已生成 2 个方案",
+      description: "结果已写入历史记录，当前输入框已回填方案 A。",
+    });
+  }, [config.baseModel, config.height, config.model, config.prompt, config.width, effectiveUserId, optimizePrompt, prependHistoryItems, runKvStructuredOptimization, selectedAIModel, setConfig, toast]);
 
   const handleDescribe = React.useCallback(async (mode: 'short' | 'json' = 'short') => {
     if (describeImages.length === 0) {
@@ -2224,6 +2598,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
         isEdit: false,
         taskId: batchTaskId,
         sourceImageUrls: [imageUrl],
+        historyRecordType: IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
+        promptCategory: "image_description",
       },
       status: 'pending',
       createdAt: startTime,
@@ -2290,6 +2666,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             loras: config.loras,
             taskId: batchTaskId,
             sourceImageUrls: [imageUrl],
+            historyRecordType: IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
+            promptCategory: "image_description",
           },
           status: 'completed',
           createdAt: startTime,
@@ -2604,7 +2982,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     setSelectedAIModel,
     setSelectedModel: (model: string) => {
       setActiveShortcutTemplate(null);
-      applyModel(model);
+      applyModel(model, withoutPromptOptimizationSource(usePlaygroundStore.getState().config));
     },
     setIsAspectRatioLocked,
     setSelectedWorkflowConfig,
@@ -2616,7 +2994,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     onClearPreset: () => {
       setSelectedPresetName(undefined);
       setSelectedWorkflowConfig(undefined);
-      updateConfig({ presetName: undefined, isPreset: false });
+      updateConfig(withoutPromptOptimizationSource({
+        ...usePlaygroundStore.getState().config,
+        presetName: undefined,
+        isPreset: false,
+      }));
     },
     setIsDescribeMode: (val: boolean) => {
       if (val) {
@@ -2903,6 +3285,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                           onDownload={handleDownload}
                           onEdit={handleEditImage}
                           onImageClick={openImageModal}
+                          onUsePrompt={handleUseHistoryPrompt}
                           onBatchUse={handleBatchUse}
                           layoutMode={historyLayoutMode}
                           onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
@@ -2921,6 +3304,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
                   viewMode={viewMode}
                   activeTab={activeTab}
                   onImageClick={openImageModal}
+                  onUsePrompt={handleUseHistoryPrompt}
+                  onShortcutQuickApply={handleShortcutQuickApply}
                   isGenerating={isGenerating}
                   onGenerateBanner={(options) => handleGenerate((options as GenerateOptions) || {})}
                   bannerSessionHistory={bannerSessionHistory}
@@ -2934,8 +3319,11 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
             {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && !hasStructuredShortcutSession && (
               <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none flex flex-col items-center">
                 <StylesMarquee
+                  shortcuts={runtimeShortcuts}
+                  shortcutMoodboards={shortcutMoodboardsByCode}
                   onQuickApply={handleShortcutQuickApply}
                   onPreviewImage={handleShortcutPreviewOpen}
+                  onShortcutsChange={refreshShortcuts}
                 />
                 <div className="mt-4 mb-8 pointer-events-auto">
                   <button

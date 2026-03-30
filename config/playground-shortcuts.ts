@@ -1,13 +1,28 @@
 import type { AspectRatio, ImageSize, StyleStack } from "@/types/database";
 
+export type BuiltinShortcutId = "lemo" | "us-kv" | "sea-kv" | "jp-kv";
+export type ShortcutFieldType = "text" | "textarea" | "select" | "number" | "color";
+
+export interface ShortcutPromptFieldDefinition {
+  key: string;
+  label: string;
+  placeholder?: string;
+  type?: ShortcutFieldType;
+  defaultValue?: string | number;
+  required?: boolean;
+  options?: string[];
+  order?: number;
+}
+
 export interface ShortcutPromptField {
   id: string;
   label: string;
   placeholder: string;
-  type?: "text" | "color";
+  type?: ShortcutFieldType;
   defaultValue?: string;
   required?: boolean;
   widthClassName?: string;
+  options?: string[];
 }
 
 export type ShortcutPromptPart =
@@ -15,7 +30,8 @@ export type ShortcutPromptPart =
   | { type: "field"; fieldId: string };
 
 export interface PlaygroundShortcut {
-  id: "lemo" | "us-kv" | "sea-kv" | "jp-kv";
+  id: BuiltinShortcutId;
+  persistedId?: string;
   name: string;
   description: string;
   detailDescription: string;
@@ -25,8 +41,22 @@ export interface PlaygroundShortcut {
   imageSize: ImageSize;
   imagePaths: string[];
   promptComposerLayout?: "inline" | "grid";
+  promptTemplate: string;
+  promptFields: ShortcutPromptFieldDefinition[];
   fields: ShortcutPromptField[];
   promptParts: ShortcutPromptPart[];
+}
+
+export interface PersistedPlaygroundShortcutRecord {
+  id: string;
+  code: string;
+  name?: string;
+  model_id?: string;
+  prompt_template?: string;
+  prompt_fields?: ShortcutPromptFieldDefinition[];
+  moodboard_description?: string;
+  is_enabled?: boolean;
+  publish_status?: "draft" | "published" | "archived";
 }
 
 export type ShortcutPromptValues = Record<string, string>;
@@ -53,6 +83,13 @@ interface ShortcutFieldEntry {
   value: string;
   fieldOrder: number;
 }
+
+interface StaticShortcutSeed extends Omit<PlaygroundShortcut, "persistedId" | "promptTemplate" | "promptFields"> {}
+
+const LEADING_CLOSERS_PATTERN = /^[\s"'`’”)\]\}）】]+/;
+const LEADING_SEPARATORS_PATTERN = /^[\s,;:，、]+/;
+const HEX_COLOR_PATTERN = /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i;
+const TEMPLATE_TOKEN_PATTERN = /{{\s*([a-zA-Z0-9_-]+)\s*}}/g;
 
 const buildFields = (...fields: ShortcutPromptField[]) => fields;
 
@@ -102,11 +139,188 @@ const buildKvFields = () => buildFields(
   },
 );
 
-const LEADING_CLOSERS_PATTERN = /^[\s"'`’”)\]\}）】]+/;
-const LEADING_SEPARATORS_PATTERN = /^[\s,;:，、]+/;
-const HEX_COLOR_PATTERN = /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i;
+function normalizeShortcutFieldType(value?: string | null): ShortcutFieldType {
+  switch (value) {
+    case "textarea":
+    case "select":
+    case "number":
+    case "color":
+      return value;
+    default:
+      return "text";
+  }
+}
 
-export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
+function buildPromptFieldDefinition(field: ShortcutPromptField, order: number): ShortcutPromptFieldDefinition {
+  return {
+    key: field.id,
+    label: field.label,
+    placeholder: field.placeholder,
+    type: normalizeShortcutFieldType(field.type),
+    defaultValue: field.defaultValue,
+    required: field.required,
+    options: field.options,
+    order,
+  };
+}
+
+function buildRuntimeField(
+  definition: ShortcutPromptFieldDefinition,
+  fallbackField?: ShortcutPromptField,
+): ShortcutPromptField {
+  const normalizedType = normalizeShortcutFieldType(definition.type);
+
+  return {
+    id: definition.key,
+    label: definition.label || fallbackField?.label || definition.key,
+    placeholder: definition.placeholder || fallbackField?.placeholder || definition.key,
+    type: normalizedType,
+    defaultValue: definition.defaultValue === undefined || definition.defaultValue === null
+      ? (fallbackField?.defaultValue || "")
+      : String(definition.defaultValue),
+    required: definition.required ?? fallbackField?.required ?? false,
+    widthClassName: fallbackField?.widthClassName,
+    options: definition.options || fallbackField?.options,
+  };
+}
+
+export function serializeShortcutPromptTemplate(parts: ShortcutPromptPart[]): string {
+  return parts.map((part) => (
+    part.type === "text" ? part.value : `{{${part.fieldId}}}`
+  )).join("");
+}
+
+function parseShortcutPromptTemplate(
+  template: string,
+  fields: ShortcutPromptField[],
+): ShortcutPromptPart[] {
+  const parts: ShortcutPromptPart[] = [];
+  const fieldById = new Map(fields.map((field) => [field.id, field]));
+  let lastIndex = 0;
+
+  for (const match of template.matchAll(TEMPLATE_TOKEN_PATTERN)) {
+    const token = match[1]?.trim();
+    const index = match.index ?? 0;
+
+    if (index > lastIndex) {
+      parts.push({
+        type: "text",
+        value: template.slice(lastIndex, index),
+      });
+    }
+
+    if (token) {
+      if (!fieldById.has(token)) {
+        fieldById.set(token, {
+          id: token,
+          label: token,
+          placeholder: token,
+          type: "text",
+          defaultValue: "",
+          required: false,
+        });
+      }
+      parts.push({ type: "field", fieldId: token });
+    }
+
+    lastIndex = index + match[0].length;
+  }
+
+  if (lastIndex < template.length) {
+    parts.push({
+      type: "text",
+      value: template.slice(lastIndex),
+    });
+  }
+
+  if (parts.length === 0) {
+    return [{ type: "text", value: template }];
+  }
+
+  return parts;
+}
+
+export function extractShortcutTemplateTokens(template: string): string[] {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const match of template.matchAll(TEMPLATE_TOKEN_PATTERN)) {
+    const token = match[1]?.trim();
+    if (!token || seen.has(token)) {
+      continue;
+    }
+    seen.add(token);
+    tokens.push(token);
+  }
+
+  return tokens;
+}
+
+function normalizePromptFieldDefinitions(
+  input: ShortcutPromptFieldDefinition[] | undefined,
+  fallbackFields: ShortcutPromptField[],
+): ShortcutPromptFieldDefinition[] {
+  const fallbackByKey = new Map(fallbackFields.map((field, index) => [
+    field.id,
+    buildPromptFieldDefinition(field, index),
+  ]));
+
+  if (input === undefined) {
+    return fallbackFields.map((field, index) => buildPromptFieldDefinition(field, index));
+  }
+
+  if (input.length === 0) {
+    return [];
+  }
+
+  const normalized: ShortcutPromptFieldDefinition[] = [];
+  const seen = new Set<string>();
+
+  input.forEach((rawField, index) => {
+    const key = typeof rawField?.key === "string" ? rawField.key.trim() : "";
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+
+    const fallback = fallbackByKey.get(key);
+    normalized.push({
+      key,
+      label: typeof rawField.label === "string" && rawField.label.trim()
+        ? rawField.label.trim()
+        : (fallback?.label || key),
+      placeholder: typeof rawField.placeholder === "string" && rawField.placeholder.trim()
+        ? rawField.placeholder.trim()
+        : (fallback?.placeholder || key),
+      type: normalizeShortcutFieldType(rawField.type || fallback?.type),
+      defaultValue: rawField.defaultValue ?? fallback?.defaultValue,
+      required: rawField.required ?? fallback?.required ?? false,
+      options: Array.isArray(rawField.options)
+        ? rawField.options.filter((option): option is string => typeof option === "string" && option.trim().length > 0)
+        : (fallback?.options || []),
+      order: typeof rawField.order === "number" ? rawField.order : (fallback?.order ?? index),
+    });
+  });
+
+  if (normalized.length === 0) {
+    return fallbackFields.map((field, index) => buildPromptFieldDefinition(field, index));
+  }
+
+  return normalized.sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+}
+
+function finalizeShortcut(seed: StaticShortcutSeed): PlaygroundShortcut {
+  const promptTemplate = serializeShortcutPromptTemplate(seed.promptParts);
+  const promptFields = seed.fields.map((field, index) => buildPromptFieldDefinition(field, index));
+
+  return {
+    ...seed,
+    promptTemplate,
+    promptFields,
+  };
+}
+
+const PLAYGROUND_SHORTCUT_SEEDS: StaticShortcutSeed[] = [
   {
     id: "lemo",
     name: "Lemo",
@@ -175,7 +389,6 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       { type: "field", fieldId: "style" },
       { type: "text", value: " style, using " },
       { type: "field", fieldId: "primaryColor" },
-
     ],
   },
   {
@@ -208,7 +421,6 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       { type: "field", fieldId: "style" },
       { type: "text", value: " style, using " },
       { type: "field", fieldId: "primaryColor" },
-
     ],
   },
   {
@@ -241,13 +453,17 @@ export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = [
       { type: "field", fieldId: "style" },
       { type: "text", value: " style, using " },
       { type: "field", fieldId: "primaryColor" },
-
     ],
   },
 ];
 
-export function getShortcutById(shortcutId: PlaygroundShortcut["id"]) {
-  return PLAYGROUND_SHORTCUTS.find((shortcut) => shortcut.id === shortcutId);
+export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = PLAYGROUND_SHORTCUT_SEEDS.map((shortcut) => finalizeShortcut(shortcut));
+
+export function getShortcutById(
+  shortcutId: PlaygroundShortcut["id"],
+  shortcuts: readonly PlaygroundShortcut[] = PLAYGROUND_SHORTCUTS,
+) {
+  return shortcuts.find((shortcut) => shortcut.id === shortcutId);
 }
 
 export function createShortcutPromptValues(shortcut: PlaygroundShortcut): ShortcutPromptValues {
@@ -445,12 +661,148 @@ export function getShortcutMoodboardId(shortcutId: PlaygroundShortcut["id"]) {
   return `${SHORTCUT_MOODBOARD_PREFIX}${shortcutId}`;
 }
 
-export function getShortcutByMoodboardId(moodboardId: string) {
+export function getShortcutByMoodboardId(
+  moodboardId: string,
+  shortcuts: readonly PlaygroundShortcut[] = PLAYGROUND_SHORTCUTS,
+) {
   if (!moodboardId.startsWith(SHORTCUT_MOODBOARD_PREFIX)) {
     return null;
   }
   const shortcutId = moodboardId.slice(SHORTCUT_MOODBOARD_PREFIX.length) as PlaygroundShortcut["id"];
-  return getShortcutById(shortcutId) || null;
+  return getShortcutById(shortcutId, shortcuts) || null;
+}
+
+function buildShortcutFromRecord(options: {
+  fallbackShortcut: PlaygroundShortcut;
+  record?: PersistedPlaygroundShortcutRecord;
+  legacyStyle?: StyleStack;
+  modelLabels?: Map<string, string>;
+}): PlaygroundShortcut {
+  const { fallbackShortcut, record, legacyStyle, modelLabels } = options;
+  const promptFields = normalizePromptFieldDefinitions(record?.prompt_fields, fallbackShortcut.fields);
+  const runtimeFields = promptFields.map((fieldDefinition) => (
+    buildRuntimeField(
+      fieldDefinition,
+      fallbackShortcut.fields.find((field) => field.id === fieldDefinition.key),
+    )
+  ));
+
+  const promptTemplate = typeof record?.prompt_template === "string" && record.prompt_template.trim()
+    ? record.prompt_template.trim()
+    : (legacyStyle?.prompt?.trim() || fallbackShortcut.promptTemplate);
+
+  const runtimeFieldsById = new Map(runtimeFields.map((field) => [field.id, field]));
+  extractShortcutTemplateTokens(promptTemplate).forEach((token) => {
+    if (runtimeFieldsById.has(token)) {
+      return;
+    }
+    const fallbackField = fallbackShortcut.fields.find((field) => field.id === token);
+    const definition = fallbackField
+      ? buildPromptFieldDefinition(fallbackField, promptFields.length)
+      : {
+        key: token,
+        label: token,
+        placeholder: token,
+        type: "text" as const,
+        defaultValue: "",
+        required: false,
+        order: promptFields.length,
+      };
+    promptFields.push(definition);
+    runtimeFields.push(buildRuntimeField(definition, fallbackField));
+    runtimeFieldsById.set(token, runtimeFields[runtimeFields.length - 1]);
+  });
+
+  const model = record?.model_id?.trim() || fallbackShortcut.model;
+
+  return {
+    ...fallbackShortcut,
+    persistedId: record?.id,
+    name: record?.name?.trim() || legacyStyle?.name?.trim() || fallbackShortcut.name,
+    detailDescription: record?.moodboard_description?.trim() || fallbackShortcut.detailDescription,
+    model,
+    modelLabel: modelLabels?.get(model) || fallbackShortcut.modelLabel || model,
+    promptTemplate,
+    promptFields,
+    fields: runtimeFields,
+    promptParts: parseShortcutPromptTemplate(promptTemplate, runtimeFields),
+  };
+}
+
+export function buildShortcutFromDraft(options: {
+  baseShortcut: PlaygroundShortcut;
+  name?: string;
+  detailDescription?: string;
+  model?: string;
+  modelLabel?: string;
+  promptTemplate?: string;
+  promptFields?: ShortcutPromptFieldDefinition[];
+}): PlaygroundShortcut {
+  const { baseShortcut } = options;
+  const promptFields = normalizePromptFieldDefinitions(options.promptFields, baseShortcut.fields);
+  const runtimeFields = promptFields.map((fieldDefinition) => (
+    buildRuntimeField(
+      fieldDefinition,
+      baseShortcut.fields.find((field) => field.id === fieldDefinition.key),
+    )
+  ));
+  const promptTemplate = options.promptTemplate?.trim() || baseShortcut.promptTemplate;
+  const runtimeFieldsById = new Map(runtimeFields.map((field) => [field.id, field]));
+
+  extractShortcutTemplateTokens(promptTemplate).forEach((token) => {
+    if (runtimeFieldsById.has(token)) {
+      return;
+    }
+    const fallbackField = baseShortcut.fields.find((field) => field.id === token);
+    const definition = fallbackField
+      ? buildPromptFieldDefinition(fallbackField, promptFields.length)
+      : {
+        key: token,
+        label: token,
+        placeholder: token,
+        type: "text" as const,
+        defaultValue: "",
+        required: false,
+        order: promptFields.length,
+      };
+    promptFields.push(definition);
+    runtimeFields.push(buildRuntimeField(definition, fallbackField));
+    runtimeFieldsById.set(token, runtimeFields[runtimeFields.length - 1]);
+  });
+
+  const promptParts = parseShortcutPromptTemplate(promptTemplate, runtimeFields);
+
+  return {
+    ...baseShortcut,
+    name: options.name?.trim() || baseShortcut.name,
+    detailDescription: options.detailDescription?.trim() || baseShortcut.detailDescription,
+    model: options.model?.trim() || baseShortcut.model,
+    modelLabel: options.modelLabel?.trim() || baseShortcut.modelLabel,
+    promptTemplate,
+    promptFields,
+    fields: runtimeFields,
+    promptParts,
+  };
+}
+
+export function buildRuntimePlaygroundShortcuts(options?: {
+  persistedShortcuts?: PersistedPlaygroundShortcutRecord[];
+  legacyStyles?: StyleStack[];
+  modelLabelById?: Map<string, string>;
+}): PlaygroundShortcut[] {
+  const persistedShortcutsByCode = new Map(
+    (options?.persistedShortcuts || []).map((shortcut) => [shortcut.code, shortcut]),
+  );
+  const legacyStylesById = new Map(
+    (options?.legacyStyles || []).map((style) => [style.id, style]),
+  );
+
+  return PLAYGROUND_SHORTCUTS.map((fallbackShortcut) => buildShortcutFromRecord({
+    fallbackShortcut,
+    record: persistedShortcutsByCode.get(fallbackShortcut.id),
+    legacyStyle: legacyStylesById.get(getShortcutMoodboardId(fallbackShortcut.id)),
+    modelLabels: options?.modelLabelById,
+  }));
 }
 
 export function buildShortcutMoodboard(shortcut: PlaygroundShortcut): StyleStack {
@@ -466,12 +818,15 @@ export function buildShortcutMoodboard(shortcut: PlaygroundShortcut): StyleStack
   };
 }
 
-export function mergeShortcutMoodboards(styles: StyleStack[]): StyleStack[] {
+export function mergeShortcutMoodboards(
+  styles: StyleStack[],
+  shortcuts: readonly PlaygroundShortcut[] = PLAYGROUND_SHORTCUTS,
+): StyleStack[] {
   const shortcutsById = new Map(
-    PLAYGROUND_SHORTCUTS.map((shortcut) => [getShortcutMoodboardId(shortcut.id), buildShortcutMoodboard(shortcut)])
+    shortcuts.map((shortcut) => [getShortcutMoodboardId(shortcut.id), buildShortcutMoodboard(shortcut)])
   );
 
-  const mergedShortcutMoodboards = PLAYGROUND_SHORTCUTS.map((shortcut) => {
+  const mergedShortcutMoodboards = shortcuts.map((shortcut) => {
     const shortcutMoodboardId = getShortcutMoodboardId(shortcut.id);
     const baseMoodboard = shortcutsById.get(shortcutMoodboardId)!;
     const savedMoodboard = styles.find((style) => style.id === shortcutMoodboardId);
@@ -482,15 +837,15 @@ export function mergeShortcutMoodboards(styles: StyleStack[]): StyleStack[] {
 
     return {
       ...baseMoodboard,
-      ...savedMoodboard,
-      imagePaths:
-        Array.isArray(savedMoodboard.imagePaths) && savedMoodboard.imagePaths.length > 0
-          ? savedMoodboard.imagePaths
-          : baseMoodboard.imagePaths,
+      imagePaths: Array.isArray(savedMoodboard.imagePaths)
+        ? savedMoodboard.imagePaths
+        : baseMoodboard.imagePaths,
+      collageImageUrl: savedMoodboard.collageImageUrl,
+      collageConfig: savedMoodboard.collageConfig,
       updatedAt: savedMoodboard.updatedAt || baseMoodboard.updatedAt,
     };
   });
 
-  const customMoodboards = styles.filter((style) => !getShortcutByMoodboardId(style.id));
+  const customMoodboards = styles.filter((style) => !getShortcutByMoodboardId(style.id, shortcuts));
   return [...mergedShortcutMoodboards, ...customMoodboards];
 }

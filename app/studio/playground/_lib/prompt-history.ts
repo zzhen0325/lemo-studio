@@ -1,0 +1,302 @@
+import type { PlaygroundShortcut, ShortcutPromptValues } from "@/config/playground-shortcuts";
+import type { Generation, GenerationConfig } from "@/types/database";
+import type {
+  DesignStructuredAnalysis,
+  DesignStructuredPaletteEntry,
+  DesignStructuredSourceType,
+  DesignVariantEditScope,
+  KvStructuredVariantId,
+} from "@/app/studio/playground/_lib/kv-structured-optimization";
+
+export const PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE = "prompt_optimization";
+export const IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE = "image_description";
+export const PROMPT_OPTIMIZATION_VARIANT_COUNT = 2;
+
+export type PromptHistoryRecordType =
+  | "generation"
+  | typeof PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE
+  | typeof IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE;
+
+export type PromptOptimizationSourceKind = "plain_text" | "kv_structured";
+
+export type GalleryPromptCategory =
+  | "standard_generation"
+  | "optimized_generation"
+  | "prompt_optimization"
+  | "image_description"
+  | "edit_generation"
+  | "banner_generation"
+  | "workflow_generation";
+
+export const GALLERY_PROMPT_CATEGORY_LABELS: Record<GalleryPromptCategory, string> = {
+  standard_generation: "普通生成",
+  optimized_generation: "优化生成",
+  prompt_optimization: "提示词优化",
+  image_description: "图像描述",
+  edit_generation: "编辑生成",
+  banner_generation: "Banner",
+  workflow_generation: "工作流",
+};
+
+export interface SerializedShortcutOptimizationVariantBaseline {
+  label: string;
+  values: ShortcutPromptValues;
+  removedFieldIds: string[];
+  coreSuggestions: ShortcutPromptValues;
+  palette: DesignStructuredPaletteEntry[];
+  analysis: DesignStructuredAnalysis;
+  promptPreview: string;
+}
+
+export interface SerializedShortcutOptimizationVariant {
+  id: KvStructuredVariantId;
+  label: string;
+  values: ShortcutPromptValues;
+  removedFieldIds: string[];
+  coreSuggestions: ShortcutPromptValues;
+  palette: DesignStructuredPaletteEntry[];
+  analysis: DesignStructuredAnalysis;
+  promptPreview: string;
+  baseline: SerializedShortcutOptimizationVariantBaseline;
+  pendingInstruction: string;
+  pendingScope: DesignVariantEditScope;
+  isModifying: boolean;
+}
+
+export interface SerializedShortcutOptimizationSession {
+  sourceType: DesignStructuredSourceType;
+  originValues: ShortcutPromptValues;
+  originRemovedFieldIds: string[];
+  activeVariantId: KvStructuredVariantId;
+  variants: SerializedShortcutOptimizationVariant[];
+  lastRawResponse: string;
+}
+
+export interface PromptOptimizationSourcePayload {
+  version: 1;
+  sourceKind: PromptOptimizationSourceKind;
+  taskId: string;
+  originalPrompt: string;
+  activeVariantId: string;
+  activeVariantLabel: string;
+  shortcutId?: PlaygroundShortcut["id"];
+  session?: SerializedShortcutOptimizationSession;
+}
+
+export interface PromptOptimizationVariantDraftInput {
+  id: string;
+  label: string;
+  prompt: string;
+}
+
+interface BuildPromptOptimizationHistoryItemsParams {
+  taskId: string;
+  createdAt: string;
+  userId: string;
+  originalPrompt: string;
+  sourceKind: PromptOptimizationSourceKind;
+  variants: PromptOptimizationVariantDraftInput[];
+  configBase: Pick<GenerationConfig, "model" | "width" | "height"> & Partial<GenerationConfig>;
+  shortcutId?: PlaygroundShortcut["id"];
+  session?: SerializedShortcutOptimizationSession;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+export function getPromptHistoryRecordType(
+  config?: GenerationConfig | Record<string, unknown> | null,
+): PromptHistoryRecordType {
+  const recordType = asString(asRecord(config)?.historyRecordType);
+
+  if (recordType === PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE) {
+    return PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE;
+  }
+  if (recordType === IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE) {
+    return IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE;
+  }
+  return "generation";
+}
+
+export function getPromptOptimizationSource(
+  config?: GenerationConfig | Record<string, unknown> | null,
+): PromptOptimizationSourcePayload | null {
+  const payload = asRecord(asRecord(config)?.optimizationSource);
+  if (!payload) {
+    return null;
+  }
+
+  const version = payload.version;
+  const sourceKind = asString(payload.sourceKind);
+  const taskId = asString(payload.taskId);
+  const originalPrompt = asString(payload.originalPrompt);
+  const activeVariantId = asString(payload.activeVariantId);
+  const activeVariantLabel = asString(payload.activeVariantLabel);
+
+  if (
+    version !== 1
+    || (sourceKind !== "plain_text" && sourceKind !== "kv_structured")
+    || !taskId
+    || !originalPrompt
+    || !activeVariantId
+    || !activeVariantLabel
+  ) {
+    return null;
+  }
+
+  const shortcutId = asString(payload.shortcutId) as PlaygroundShortcut["id"] | null;
+  const session = payload.session as SerializedShortcutOptimizationSession | undefined;
+
+  return {
+    version: 1,
+    sourceKind,
+    taskId,
+    originalPrompt,
+    activeVariantId,
+    activeVariantLabel,
+    shortcutId: shortcutId || undefined,
+    session,
+  };
+}
+
+export function getGalleryPromptCategory(
+  config?: GenerationConfig | Record<string, unknown> | null,
+): GalleryPromptCategory {
+  const recordType = getPromptHistoryRecordType(config);
+
+  if (recordType === PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE) {
+    return "prompt_optimization";
+  }
+
+  if (recordType === IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE) {
+    return "image_description";
+  }
+
+  if (getPromptOptimizationSource(config)) {
+    return "optimized_generation";
+  }
+
+  const record = asRecord(config);
+  if (record?.generationMode === "banner") {
+    return "banner_generation";
+  }
+  if (record?.isEdit) {
+    return "edit_generation";
+  }
+  if (asString(record?.workflowName)) {
+    return "workflow_generation";
+  }
+
+  return "standard_generation";
+}
+
+export function getGalleryPromptCategoryLabel(
+  category: GalleryPromptCategory,
+): string {
+  return GALLERY_PROMPT_CATEGORY_LABELS[category];
+}
+
+export function isPromptOptimizationHistoryItem(result: Generation): boolean {
+  return getPromptHistoryRecordType(result.config) === PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE;
+}
+
+export function isImageDescriptionHistoryItem(result: Generation): boolean {
+  return getPromptHistoryRecordType(result.config) === IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE;
+}
+
+export function getOptimizationVariantOrder(result: Generation): number {
+  const payload = getPromptOptimizationSource(result.config);
+  if (!payload) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const sessionVariantIndex = payload.session?.variants.findIndex(
+    (variant) => variant.id === payload.activeVariantId,
+  );
+
+  if (typeof sessionVariantIndex === "number" && sessionVariantIndex >= 0) {
+    return sessionVariantIndex;
+  }
+
+  const numericSuffix = Number(payload.activeVariantId.replace(/[^\d]/g, ""));
+  return Number.isFinite(numericSuffix) && numericSuffix > 0
+    ? numericSuffix - 1
+    : Number.MAX_SAFE_INTEGER;
+}
+
+export function createPromptOptimizationHistoryItems(
+  params: BuildPromptOptimizationHistoryItemsParams,
+): Generation[] {
+  const {
+    taskId,
+    createdAt,
+    userId,
+    originalPrompt,
+    sourceKind,
+    variants,
+    configBase,
+    shortcutId,
+    session,
+  } = params;
+
+  return variants.slice(0, PROMPT_OPTIMIZATION_VARIANT_COUNT).map((variant, index) => {
+    const optimizationSource: PromptOptimizationSourcePayload = {
+      version: 1,
+      sourceKind,
+      taskId,
+      originalPrompt,
+      activeVariantId: variant.id,
+      activeVariantLabel: variant.label,
+      shortcutId,
+      session,
+    };
+
+    return {
+      id: `prompt-opt-${taskId}-${variant.id}-${index}`,
+      userId,
+      projectId: "default",
+      outputUrl: "",
+      config: {
+        ...configBase,
+        prompt: variant.prompt,
+        taskId,
+        historyRecordType: PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE,
+        promptCategory: "prompt_optimization",
+        optimizationSource,
+      },
+      status: "completed",
+      createdAt,
+    };
+  });
+}
+
+export function withPromptOptimizationSource(
+  config: GenerationConfig,
+  payload: PromptOptimizationSourcePayload,
+  promptCategory: GalleryPromptCategory = "optimized_generation",
+): GenerationConfig {
+  return {
+    ...config,
+    promptCategory,
+    optimizationSource: payload,
+  };
+}
+
+export function withoutPromptOptimizationSource(
+  config: GenerationConfig,
+): GenerationConfig {
+  const nextConfig = { ...config };
+  delete nextConfig.optimizationSource;
+
+  if (nextConfig.promptCategory === "optimized_generation") {
+    delete nextConfig.promptCategory;
+  }
+
+  return nextConfig;
+}
+

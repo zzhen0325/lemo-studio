@@ -13,7 +13,8 @@ import {
 import { TooltipButton } from "@/components/ui/tooltip-button";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
-import { mergeShortcutMoodboards, getShortcutByMoodboardId } from '@/config/playground-shortcuts';
+import { getShortcutByMoodboardId } from '@/config/playground-shortcuts';
+import { usePlaygroundMoodboards } from './hooks/usePlaygroundMoodboards';
 
 interface AddToMoodboardMenuProps {
   imagePath: string;
@@ -28,19 +29,10 @@ export function AddToMoodboardMenu({
   label = "Add to Moodboard",
   tooltipContent = "添加到情绪板",
 }: AddToMoodboardMenuProps) {
-  const styles = usePlaygroundStore((state) => state.styles);
-  const initStyles = usePlaygroundStore((state) => state.initStyles);
   const addImageToStyle = usePlaygroundStore((state) => state.addImageToStyle);
   const { toast } = useToast();
   const [isOpen, setIsOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    if (styles.length === 0) {
-      void initStyles();
-    }
-  }, [initStyles, styles.length]);
-
-  const moodboards = React.useMemo(() => mergeShortcutMoodboards(styles), [styles]);
+  const { moodboards, shortcuts } = usePlaygroundMoodboards();
 
   return (
     <DropdownMenu onOpenChange={setIsOpen}>
@@ -63,7 +55,7 @@ export function AddToMoodboardMenu({
           <DropdownMenuSeparator className="bg-white/5" />
           {moodboards.length > 0 ? (
             moodboards.map((moodboard) => {
-              const linkedShortcut = getShortcutByMoodboardId(moodboard.id);
+              const linkedShortcut = getShortcutByMoodboardId(moodboard.id, shortcuts);
 
               return (
                 <DropdownMenuItem

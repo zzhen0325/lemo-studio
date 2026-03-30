@@ -1,4 +1,5 @@
 import type { Generation } from '@/types/database';
+import type { PromptOptimizationSourcePayload } from '@/app/studio/playground/_lib/prompt-history';
 
 export interface HistoryListProps {
   history: Generation[];
@@ -6,6 +7,7 @@ export interface HistoryListProps {
   onDownload: (imageUrl: string) => void;
   onEdit?: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
+  onUsePrompt?: (result: Generation) => void;
   isGenerating?: boolean;
   variant?: 'default' | 'sidebar';
   onBatchUse?: (results: Generation[], sourceImage?: string) => void;
@@ -18,9 +20,11 @@ export interface HistoryListProps {
 }
 
 export interface GroupedHistoryItem {
-  type: 'image' | 'text';
+  type: 'image' | 'text' | 'optimization';
   key: string;
   items: Generation[];
   sourceImage?: string;
   startAt: string;
+  originalPrompt?: string;
+  optimizationSource?: PromptOptimizationSourcePayload | null;
 }

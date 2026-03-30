@@ -12,9 +12,10 @@ import { useToast } from '@/hooks/common/use-toast';
 import { formatImageUrl } from '@/lib/api-base';
 import { useImageSource } from '@/hooks/common/use-image-source';
 import {
-    buildShortcutPrompt,
-    createShortcutPromptValues,
-    getShortcutByMoodboardId,
+  buildShortcutPrompt,
+  createShortcutPromptValues,
+  getShortcutByMoodboardId,
+  type PlaygroundShortcut,
 } from '@/config/playground-shortcuts';
 import {
     DropdownMenu,
@@ -33,7 +34,9 @@ import {
 
 interface StyleStackCardProps {
     style: StyleStack;
+    shortcut?: PlaygroundShortcut | null;
     onClick?: () => void;
+    onQuickApplyShortcut?: (shortcut: PlaygroundShortcut) => void;
     size?: 'sm' | 'md' | 'grid-lg';
 }
 
@@ -52,7 +55,9 @@ const StyleCardImage = ({ path }: { path: string }) => {
 
 export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     style,
+    shortcut,
     onClick,
+    onQuickApplyShortcut,
     size = 'md'
 }) => {
     const { applyPrompt, deleteStyle } = usePlaygroundStore();
@@ -60,7 +65,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     const isSmall = size === 'sm';
     const isGridLg = size === 'grid-lg';
     const [isExpanded, setIsExpanded] = useState(false);
-    const linkedShortcut = getShortcutByMoodboardId(style.id);
+    const linkedShortcut = shortcut ?? getShortcutByMoodboardId(style.id);
     const promptTemplate = linkedShortcut
         ? buildShortcutPrompt(linkedShortcut, createShortcutPromptValues(linkedShortcut))
         : '';
@@ -91,6 +96,10 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                     className="rounded-full bg-neutral-900/90 backdrop-blur-xl border border-white/10 text-white hover:bg-neutral-800 hover:border-[#E8FFB7]/40 gap-1.5 h-9 px-4 shadow-2xl transition-all active:scale-95 group/btn"
                     onClick={(e) => {
                         e.stopPropagation();
+                        if (linkedShortcut && onQuickApplyShortcut) {
+                            onQuickApplyShortcut(linkedShortcut);
+                            return;
+                        }
                         if (!quickApplyPrompt) return;
                         applyPrompt(quickApplyPrompt);
                         toast({
@@ -208,7 +217,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                         "text-white/50 line-clamp-2 w-full text-center transition-all duration-300",
                         isSmall ? SMALL_STACK_DESCRIPTION_CLASS : "text-sm min-h-[2.5rem]"
                     )}>
-                        {style.prompt || linkedShortcut?.description || "未设置提示词"}
+                        {linkedShortcut?.description || style.prompt || "未设置提示词"}
                     </p>
                 </div>
 

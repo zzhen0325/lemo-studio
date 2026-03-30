@@ -162,6 +162,7 @@ export function HistoryCard({
   onEdit,
   onImageClick,
   onRefImageClick,
+  onUsePrompt,
   layoutMode = 'list',
   isSelectionMode,
   isSelected,
@@ -174,6 +175,7 @@ export function HistoryCard({
   onEdit?: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onRefImageClick: (url: string, id: string) => void;
+  onUsePrompt?: (result: Generation) => void;
   layoutMode?: 'grid' | 'list';
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -205,6 +207,14 @@ export function HistoryCard({
   const baseModelDisplayName = config?.baseModel ? (availableModels.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
   const prompt = config?.prompt || '';
   const timeStr = new Date(result.createdAt).toLocaleString();
+  const applyPromptFromHistoryItem = React.useCallback((target: Generation) => {
+    if (onUsePrompt) {
+      onUsePrompt(target);
+      return;
+    }
+
+    applyPrompt(target.config?.prompt || '');
+  }, [applyPrompt, onUsePrompt]);
 
   if (layoutMode === 'list') {
     const resultsToDisplay = allResults || [result];
@@ -322,7 +332,7 @@ export function HistoryCard({
                     className="text-[12px] text-white/90 leading-relaxed line-clamp-4 cursor-pointer hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all"
                     onClick={(e) => {
                       e.stopPropagation();
-                      applyPrompt(prompt);
+                      applyPromptFromHistoryItem(result);
                       toast({
                         title: "提示词已应用",
                         description: "已将此条提示词填充到输入框",
@@ -509,7 +519,7 @@ export function HistoryCard({
                     setSelectedPresetName(config.presetName);
 
                     // 2. 回填 Prompt
-                    applyPrompt(prompt);
+                    applyPromptFromHistoryItem(result);
 
                     // 3. 回填参考图（使用 applyImages 处理 local/remote 逻辑，若无图片则清空）
                     const sourceImages = sourceUrls;
@@ -635,7 +645,7 @@ export function HistoryCard({
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
-              applyPrompt(result.config?.prompt || '');
+              applyPromptFromHistoryItem(result);
             }}
           />
           <TooltipButton
@@ -717,11 +727,17 @@ export function HistoryCard({
 
 export function TextHistoryCard({
   result,
+  title = 'Image Description',
+  actionLabel = 'Use Prompt',
+  onUsePrompt,
   isSelectionMode,
   isSelected,
   onToggleSelect
 }: {
   result: Generation;
+  title?: string;
+  actionLabel?: string;
+  onUsePrompt?: (result: Generation) => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -732,8 +748,12 @@ export function TextHistoryCard({
 
   const handleApply = (e: React.MouseEvent) => {
     e.stopPropagation();
-    applyPrompt(prompt);
-    toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
+    if (onUsePrompt) {
+      onUsePrompt(result);
+    } else {
+      applyPrompt(prompt);
+    }
+    toast({ title: "提示词已应用", description: "已将内容填充到输入框" });
   };
 
   return (
@@ -752,7 +772,7 @@ export function TextHistoryCard({
     >
       <div className="flex items-center gap-1.5 text-[10px] text-white/20 uppercase font-medium mb-3">
         <span className="block w-1 h-1 rounded-full bg-white/20" />
-        {result.status === 'pending' ? 'Thinking...' : 'Image Description'}
+        {result.status === 'pending' ? 'Thinking...' : title}
       </div>
 
       <div className="flex-1 overflow-hidden">
@@ -766,8 +786,12 @@ export function TextHistoryCard({
             onClick={(e) => {
               e.stopPropagation();
               if (!isSelectionMode) {
-                applyPrompt(prompt);
-                toast({ title: "提示词已应用", description: "已将描述填充到输入框" });
+                if (onUsePrompt) {
+                  onUsePrompt(result);
+                } else {
+                  applyPrompt(prompt);
+                }
+                toast({ title: "提示词已应用", description: "已将内容填充到输入框" });
               } else {
                 onToggleSelect?.();
               }
@@ -787,7 +811,7 @@ export function TextHistoryCard({
             onClick={handleApply}
           >
             <Type className="w-3 h-3" />
-            <span className="text-[10px]">Use Prompt</span>
+            <span className="text-[10px]">{actionLabel}</span>
           </Button>
         </div>
       )}

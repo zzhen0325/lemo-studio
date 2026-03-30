@@ -9,11 +9,33 @@ import {
   mergeUniqueGalleryItems,
   prependUniqueGalleryItems,
 } from './playground-store.helpers';
-import { mergeShortcutMoodboards } from '@/config/playground-shortcuts';
+import {
+  buildShortcutMoodboard,
+  getShortcutByMoodboardId,
+} from '@/config/playground-shortcuts';
 import type { SortBy } from '@/lib/server/service/history.service';
 
 type PlaygroundSet = StoreApi<PlaygroundState>['setState'];
 type PlaygroundGet = StoreApi<PlaygroundState>['getState'];
+
+function upsertStyle(styles: StyleStack[], nextStyle: StyleStack): StyleStack[] {
+  const existingIndex = styles.findIndex((style) => style.id === nextStyle.id);
+  if (existingIndex === -1) {
+    return [nextStyle, ...styles];
+  }
+
+  return styles.map((style) => style.id === nextStyle.id ? nextStyle : style);
+}
+
+function resolveEditableStyle(styles: StyleStack[], styleId: string): StyleStack | null {
+  const existingStyle = styles.find((style) => style.id === styleId);
+  if (existingStyle) {
+    return existingStyle;
+  }
+
+  const linkedShortcut = getShortcutByMoodboardId(styleId);
+  return linkedShortcut ? buildShortcutMoodboard(linkedShortcut) : null;
+}
 
 export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pick<
   PlaygroundState,
@@ -42,6 +64,8 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
   | 'removePreset'
   | 'updatePreset'
   | 'styles'
+  | '_stylesLoading'
+  | '_stylesLoaded'
   | 'initStyles'
   | 'addStyle'
   | 'updateStyle'
@@ -436,16 +460,30 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
     },
 
     styles: [],
+    _stylesLoading: false,
+    _stylesLoaded: false,
     initStyles: async () => {
+      const state = get();
+      if (state._stylesLoading || state._stylesLoaded) {
+        return;
+      }
+
+      set({ _stylesLoading: true });
       try {
         const res = await fetch(`${getApiBase()}/styles`);
         if (res.ok) {
           const data = await res.json();
-          set({ styles: mergeShortcutMoodboards(data) });
+          set({
+            styles: Array.isArray(data) ? data : [],
+            _stylesLoading: false,
+            _stylesLoaded: true,
+          });
+          return;
         }
       } catch (e) {
         console.error("Error fetching styles:", e);
       }
+      set({ _stylesLoading: false });
     },
 
     addStyle: async (style: StyleStack) => {
@@ -457,12 +495,10 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         });
         if (res.ok) {
           const savedStyle = await res.json();
-          set((state) => {
-            const nextStyles = state.styles.some((item) => item.id === savedStyle.id)
-              ? state.styles.map((item) => item.id === savedStyle.id ? savedStyle : item)
-              : [savedStyle, ...state.styles];
-            return { styles: mergeShortcutMoodboards(nextStyles) };
-          });
+          set((state) => ({
+            styles: upsertStyle(state.styles, savedStyle),
+            _stylesLoaded: true,
+          }));
         }
       } catch (e) {
         console.error("Failed to add style", e);
@@ -479,9 +515,8 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         if (res.ok) {
           const savedStyle = await res.json();
           set((state) => ({
-            styles: mergeShortcutMoodboards(
-              state.styles.map(s => s.id === savedStyle.id ? savedStyle : s)
-            )
+            styles: upsertStyle(state.styles, savedStyle),
+            _stylesLoaded: true,
           }));
         }
       } catch (e) {
@@ -493,7 +528,10 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       try {
         const res = await fetch(`${getApiBase()}/styles?id=${id}`, { method: 'DELETE' });
         if (res.ok) {
-          set((state) => ({ styles: mergeShortcutMoodboards(state.styles.filter(s => s.id !== id)) }));
+          set((state) => ({
+            styles: state.styles.filter((style) => style.id !== id),
+            _stylesLoaded: true,
+          }));
         }
       } catch (e) {
         console.error("Failed to delete style", e);
@@ -502,7 +540,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
 
     removeImageFromStyle: async (styleId: string, imagePath: string) => {
       const state = get();
-      const style = state.styles.find(s => s.id === styleId);
+      const style = resolveEditableStyle(state.styles, styleId);
       if (!style) return;
 
       const updatedStyle = {
@@ -518,8 +556,10 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
           body: JSON.stringify(updatedStyle)
         });
         if (res.ok) {
-          set((state) => ({
-            styles: mergeShortcutMoodboards(state.styles.map(s => s.id === styleId ? updatedStyle : s))
+          const savedStyle = await res.json();
+          set((current) => ({
+            styles: upsertStyle(current.styles, savedStyle),
+            _stylesLoaded: true,
           }));
         }
       } catch (e) {
@@ -529,7 +569,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
 
     addImageToStyle: async (styleId: string, imagePath: string) => {
       set((state) => {
-        const style = state.styles.find(s => s.id === styleId);
+        const style = resolveEditableStyle(state.styles, styleId);
         if (!style) return state;
         if (style.imagePaths.includes(imagePath)) return state;
         const updatedStyle = {
@@ -537,13 +577,13 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
           imagePaths: [...style.imagePaths, imagePath],
           updatedAt: new Date().toISOString()
         };
-        const newStyles = state.styles.map(s => s.id === styleId ? updatedStyle : s);
+        const newStyles = upsertStyle(state.styles, updatedStyle);
         fetch(`${getApiBase()}/styles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedStyle)
         }).catch(e => console.error("Failed to sync style image addition", e));
-        return { styles: mergeShortcutMoodboards(newStyles) };
+        return { styles: newStyles, _stylesLoaded: true };
       });
     },
   };

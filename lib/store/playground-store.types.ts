@@ -85,6 +85,8 @@ export interface PlaygroundState {
   updatePreset: (preset: Preset, coverFile?: File) => void;
 
   styles: StyleStack[];
+  _stylesLoading: boolean;
+  _stylesLoaded: boolean;
   initStyles: () => void;
   addStyle: (style: StyleStack) => Promise<void>;
   updateStyle: (style: StyleStack) => void;
