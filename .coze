@@ -3,7 +3,7 @@ requires = ["nodejs-24"]
 
 [dev]
 build = ["pnpm", "install"]
-run = ["pnpm", "run", "dev:next"]
+run = ["bash", "-c", "APP_PORT=5000 pnpm run dev"]
 
 [deploy]
 build = ["./scripts/deploy-build.sh"]

@@ -71,8 +71,8 @@ function getSupabaseCredentials(): SupabaseCredentials {
   loadEnv();
 
   const url = process.env.COZE_SUPABASE_URL;
-  // 优先使用 DB_PASSWORD，否则回退到 COZE_SUPABASE_ANON_KEY
-  const anonKey = process.env.DB_PASSWORD || process.env.COZE_SUPABASE_ANON_KEY;
+  // 优先使用 COZE_SUPABASE_ANON_KEY（有效 JWT），否则回退到 DB_PASSWORD
+  const anonKey = process.env.COZE_SUPABASE_ANON_KEY || process.env.DB_PASSWORD;
 
   if (!url) {
     throw new Error('COZE_SUPABASE_URL is not set');
