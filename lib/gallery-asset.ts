@@ -9,62 +9,7 @@
  * 禁止走 /api/proxy-image?url=...，因为线上 403 已证明服务端代抓不稳定
  */
 
-import { getApiBase } from './api-base';
-
-/**
- * 对象存储 presigned URL 的域名模式
- */
-const STORAGE_DOMAINS = [
-  'coze-coding-project.tos.coze.site',
-  'tos.coze.site',
-];
-
-/**
- * 对象存储路径前缀（storageKey 开头）
- */
-const STORAGE_KEY_PREFIX = 'ljhwZthlaukjlkulzlp/';
-
-/**
- * 从对象存储 presigned URL 中提取 storageKey
- * 
- * 示例 URL:
- * https://coze-coding-project.tos.coze.site/coze_storage_xxx/ljhwZthlaukjlkulzlp/Lemon8_Activity/...?sign=...
- * 
- * 提取结果:
- * ljhwZthlaukjlkulzlp/Lemon8_Activity/...
- */
-function extractStorageKeyFromPresignedUrl(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    
-    // 检查是否是对象存储域名
-    const isStorageDomain = STORAGE_DOMAINS.some(domain => 
-      parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
-    );
-    
-    if (!isStorageDomain) {
-      return null;
-    }
-    
-    // 从路径中提取 storageKey
-    // 路径格式: /coze_storage_xxx/ljhwZthlaukjlkulzlp/...?sign=...
-    const pathParts = parsed.pathname.split('/');
-    
-    // 查找 storageKey 开始的位置
-    const storageKeyIndex = pathParts.findIndex(part => part === 'ljhwZthlaukjlkulzlp');
-    
-    if (storageKeyIndex === -1) {
-      return null;
-    }
-    
-    // 提取从 storageKey 开始的完整路径（不含查询参数）
-    const storageKey = pathParts.slice(storageKeyIndex).join('/');
-    
-    return storageKey || null;
-  } catch {
-    return null;
-  }
-}
+import { getApiBase, extractStorageKeyFromPresignedUrl, STORAGE_KEY_PREFIX } from './api-base';
 
 /**
  * Gallery 专用图片解析函数
