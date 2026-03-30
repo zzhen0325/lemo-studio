@@ -119,7 +119,7 @@ export function ShortcutStackCard({
             style={{ cursor: onPreviewImage ? 'zoom-in' : 'pointer' }}
           >
             <NextImage
-              src={formatImageUrl(imagePath, true)}
+              src={formatImageUrl(imagePath)}
               alt={`${shortcut.name} cover ${index + 1}`}
               fill
               sizes={isSmall ? '(max-width: 1280px) 96px, 112px' : '220px'}

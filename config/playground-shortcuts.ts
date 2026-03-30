@@ -257,7 +257,7 @@ export function extractShortcutTemplateTokens(template: string): string[] {
 }
 
 function normalizePromptFieldDefinitions(
-  input: ShortcutPromptFieldDefinition[] | undefined,
+  input: ShortcutPromptFieldDefinition[] | undefined | null,
   fallbackFields: ShortcutPromptField[],
 ): ShortcutPromptFieldDefinition[] {
   const fallbackByKey = new Map(fallbackFields.map((field, index) => [
@@ -265,7 +265,7 @@ function normalizePromptFieldDefinitions(
     buildPromptFieldDefinition(field, index),
   ]));
 
-  if (input === undefined) {
+  if (input === undefined || input === null) {
     return fallbackFields.map((field, index) => buildPromptFieldDefinition(field, index));
   }
 

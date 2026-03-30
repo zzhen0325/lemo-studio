@@ -123,9 +123,12 @@ export function formatImageUrl(url: string | undefined | null, useProxy = false)
         const isCdnUrl = /^[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+\//.test(url);
         if (isCdnUrl) {
             resultUrl = `https://${url}`;
+        } else if (url.startsWith('/')) {
+            // 对于以 / 开头的本地静态资源，直接返回原始路径，避免 SSR/CSR hydration mismatch
+            resultUrl = url;
         } else {
-            // Handle relative paths
-            resultUrl = `${siteBase}${url.startsWith('/') ? '' : '/'}${url}`;
+            // Handle other relative paths
+            resultUrl = `/${url}`;
         }
     }
 
