@@ -2,8 +2,8 @@
  * Gallery 图片解析工具
  * 
  * 解析优先级：
- * 1. 如果值是 storageKey（ljhwZthlaukjlkulzlp/...），转成 /api/storage/image?key=...
- * 2. 如果值是对象存储的 presigned URL，先提取 storageKey，再转成 /api/storage/image?key=...
+ * 1. 如果值是 storageKey（ljhwZthlaukjlkulzlp/...），转成 /storage/image?key=...
+ * 2. 如果值是对象存储的 presigned URL，先提取 storageKey，再转成 /storage/image?key=...
  * 3. 如果值是普通第三方外链，直接使用原始 URL
  * 
  * 禁止走 /api/proxy-image?url=...，因为线上 403 已证明服务端代抓不稳定
@@ -90,7 +90,7 @@ export function resolveGalleryImageUrl(url: string | undefined | null): string {
   // 3. 处理 storageKey 格式（ljhwZthlaukjlkulzlp/...）
   if (url.startsWith(STORAGE_KEY_PREFIX)) {
     const apiBase = getApiBase();
-    return `${apiBase}/api/storage/image?key=${encodeURIComponent(url)}`;
+    return `${apiBase}/storage/image?key=${encodeURIComponent(url)}`;
   }
   
   // 4. 处理本地静态资源（以 / 开头）
@@ -104,9 +104,9 @@ export function resolveGalleryImageUrl(url: string | undefined | null): string {
     const storageKey = extractStorageKeyFromPresignedUrl(url);
     
     if (storageKey) {
-      // 成功提取 storageKey，转换为 /api/storage/image
+      // 成功提取 storageKey，转换为 /storage/image
       const apiBase = getApiBase();
-      return `${apiBase}/api/storage/image?key=${encodeURIComponent(storageKey)}`;
+      return `${apiBase}/storage/image?key=${encodeURIComponent(storageKey)}`;
     }
     
     // 6. 普通第三方外链，直接返回原始 URL
