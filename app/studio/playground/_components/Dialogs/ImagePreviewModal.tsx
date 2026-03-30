@@ -107,7 +107,7 @@ export default function ImagePreviewModal({
   if (!result) return null;
 
   // Modal always uses the original output URL to keep preview quality high.
-  const fullResImageUrl = formatImageUrl(result.outputUrl || "", true);
+  const fullResImageUrl = formatImageUrl(result.outputUrl || "");
   const config = result.config;
   const prompt = config?.prompt || "";
   const modelDisplayName = availableModels.find((model) => model.id === config?.model)?.displayName || config?.model || "Standard";
@@ -572,7 +572,7 @@ function PreviewResultThumbnail({
   isActive: boolean;
   onSelect?: (result: Generation) => void;
 }) {
-  const imageUrl = formatImageUrl(result.outputUrl || '', true);
+  const imageUrl = formatImageUrl(result.outputUrl || '');
 
   return (
     <button
@@ -620,7 +620,7 @@ function ReferenceImageItem({
 }) {
   const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
   const sourceImage = useImageSource(url, localId);
-  const displayUrl = sourceImage || formatImageUrl(url, true);
+  const displayUrl = sourceImage || formatImageUrl(url);
 
   return (
     <motion.div

@@ -2292,7 +2292,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
 
       setImageEditState({
         open: true,
-        imageUrl: formatImageUrl(preset.editConfig.originalImageUrl, true),
+        imageUrl: formatImageUrl(preset.editConfig.originalImageUrl),
         initialPrompt: effectiveConfig.prompt || '',
         initialSession,
         legacySnapshot,
@@ -2825,7 +2825,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       imageUrl = resolvedOriginalUrl || historyItem.outputUrl;
     }
 
-    const normalizedImageUrl = formatImageUrl(imageUrl, true);
+    const normalizedImageUrl = formatImageUrl(imageUrl);
 
     setImageEditState({
       open: true,
@@ -2853,7 +2853,7 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     const imageUrl = imageToEdit ? (imageToEdit.path || imageToEdit.previewUrl) : "";
     const currentConfig = usePlaygroundStore.getState().config;
 
-    const normalizedImageUrl = formatImageUrl(imageUrl, true);
+    const normalizedImageUrl = formatImageUrl(imageUrl);
 
     setImageEditState({
       open: true,
