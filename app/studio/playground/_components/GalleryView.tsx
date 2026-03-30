@@ -712,11 +712,11 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate, onUsePrompt }
     const sourceUrls = item.config?.sourceImageUrls || [];
     const firstSourceUrl = sourceUrls[0];
     const sourceImage = useMemo(
-        () => (firstSourceUrl ? formatImageUrl(firstSourceUrl, true) : undefined),
+        () => (firstSourceUrl ? formatImageUrl(firstSourceUrl) : undefined),
         [firstSourceUrl]
     );
     const mainImageUrl = useMemo(
-        () => (item.outputUrl ? formatImageUrl(item.outputUrl, true) : ""),
+        () => (item.outputUrl ? formatImageUrl(item.outputUrl) : ""),
         [item.outputUrl]
     );
 
