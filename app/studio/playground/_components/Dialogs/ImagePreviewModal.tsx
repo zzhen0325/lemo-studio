@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight, Layers, Type, Image as ImageIcon, ZoomIn, Heart } from 'lucide-react';
+import { X, RefreshCw, Pencil, Info, Copy, Download, ChevronLeft, ChevronRight, Layers, Type, Image as ImageIcon, ZoomIn } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -16,7 +16,6 @@ import { downloadImage } from '@/lib/utils/download';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
 import { InteractionButtons, InteractionStatsDisplay } from '@studio/playground/_components/InteractionButtons';
-import { likeGeneration, downloadGeneration, editGeneration } from '@/lib/interaction-tracking';
 
 interface ImagePreviewModalProps {
   isOpen: boolean;
@@ -108,7 +107,7 @@ export default function ImagePreviewModal({
   if (!result) return null;
 
   // Modal always uses the original output URL to keep preview quality high.
-  const fullResImageUrl = formatImageUrl(result.outputUrl || "");
+  const fullResImageUrl = formatImageUrl(result.outputUrl || "", true);
   const config = result.config;
   const prompt = config?.prompt || "";
   const modelDisplayName = availableModels.find((model) => model.id === config?.model)?.displayName || config?.model || "Standard";
@@ -573,7 +572,7 @@ function PreviewResultThumbnail({
   isActive: boolean;
   onSelect?: (result: Generation) => void;
 }) {
-  const imageUrl = formatImageUrl(result.outputUrl || '');
+  const imageUrl = formatImageUrl(result.outputUrl || '', true);
 
   return (
     <button
@@ -621,6 +620,7 @@ function ReferenceImageItem({
 }) {
   const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
   const sourceImage = useImageSource(url, localId);
+  const displayUrl = sourceImage || formatImageUrl(url, true);
 
   return (
     <motion.div
@@ -640,11 +640,11 @@ function ReferenceImageItem({
         className="w-20 h-20 rounded-xl border-2 border-white overflow-hidden shadow-2xl cursor-zoom-in relative"
         onClick={(e) => {
           e.stopPropagation();
-          setPreviewImage(sourceImage || url || null, `ref-${generationId}-${index}`);
+          setPreviewImage(displayUrl || null, `ref-${generationId}-${index}`);
         }}
       >
         <Image
-          src={sourceImage || formatImageUrl(url)}
+          src={displayUrl}
           alt={`Reference ${index + 1}`}
           fill
           className="object-cover"

@@ -39,7 +39,7 @@ export default function GalleryView({
     onSelectItem,
     onUsePrompt,
 }: {
-    onSelectItem?: (item: Generation) => void;
+    onSelectItem?: (item: Generation, items?: Generation[]) => void;
     onUsePrompt?: (item: Generation) => void;
 }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -264,9 +264,9 @@ export default function GalleryView({
 
     const handleSelectItem = useCallback((item: Generation) => {
         if (item.status !== 'pending') {
-            onSelectItem?.(item);
+            onSelectItem?.(item, filteredGalleryItems);
         }
-    }, [onSelectItem]);
+    }, [filteredGalleryItems, onSelectItem]);
 
     const isInitialLoading = activeTab === 'gallery' && isFetchingGallery && galleryItems.length === 0;
 
@@ -696,7 +696,7 @@ type HandleGenerateFn = ReturnType<typeof useGenerationService>['handleGenerate'
 
 interface GalleryCardProps {
     item: Generation;
-    onSelectItem?: (item: Generation) => void;
+    onSelectItem?: (item: Generation, items?: Generation[]) => void;
     onDownload: (e: React.MouseEvent, url: string, filename: string) => void;
     onGenerate: HandleGenerateFn;
     onUsePrompt?: (item: Generation) => void;
@@ -712,16 +712,12 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate, onUsePrompt }
     const sourceUrls = item.config?.sourceImageUrls || [];
     const firstSourceUrl = sourceUrls[0];
     const sourceImage = useMemo(
-        () => (firstSourceUrl ? formatImageUrl(firstSourceUrl) : undefined),
+        () => (firstSourceUrl ? formatImageUrl(firstSourceUrl, true) : undefined),
         [firstSourceUrl]
     );
     const mainImageUrl = useMemo(
-        () => (item.outputUrl ? formatImageUrl(item.outputUrl) : ""),
+        () => (item.outputUrl ? formatImageUrl(item.outputUrl, true) : ""),
         [item.outputUrl]
-    );
-    const isExternalMainImage = useMemo(
-        () => /^https?:\/\//i.test(mainImageUrl),
-        [mainImageUrl]
     );
 
     const handleCardClick = useCallback(() => {
@@ -762,11 +758,11 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate, onUsePrompt }
                         height={item.config?.height || 1024}
                         sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw"
                         quality={GALLERY_THUMB_QUALITY}
-                        unoptimized={isExternalMainImage}
                         loading="lazy"
                         fetchPriority="low"
                         placeholder="blur"
                         blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                        unoptimized
                         className={cn(
                             "w-full h-auto object-cover transition-all duration-700 group-hover:scale-105",
                             isLoaded ? "opacity-100 blur-0" : "opacity-0 blur-xl"

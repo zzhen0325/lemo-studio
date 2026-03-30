@@ -12,6 +12,7 @@ export function useResultModalState({ filteredHistory, viewMode, ensureDockMode 
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedResult, setSelectedResult] = useState<Generation | undefined>(undefined);
   const [isHydratingSelectedResult, setIsHydratingSelectedResult] = useState(false);
+  const [previewResultsOverride, setPreviewResultsOverride] = useState<Generation[] | null>(null);
   const modalDetailCacheRef = useRef<Map<string, Generation>>(new Map());
   const modalDetailInFlightRef = useRef<Map<string, Promise<Generation | null>>>(new Map());
 
@@ -75,7 +76,8 @@ export function useResultModalState({ filteredHistory, viewMode, ensureDockMode 
     }
   }, [getResultCacheKey]);
 
-  const openImageModal = useCallback((result: Generation) => {
+  const openImageModal = useCallback((result: Generation, context?: Generation[] | DOMRect) => {
+    setPreviewResultsOverride(Array.isArray(context) ? context : null);
     const cached = modalDetailCacheRef.current.get(getResultCacheKey(result));
     setSelectedResult(cached || result);
     setIsImageModalOpen(true);
@@ -85,7 +87,7 @@ export function useResultModalState({ filteredHistory, viewMode, ensureDockMode 
   }, [ensureDockMode, getResultCacheKey, viewMode]);
 
   const previewableHistory = useMemo(() => (
-    filteredHistory.filter((result) => {
+    (previewResultsOverride || filteredHistory).filter((result) => {
       const outputUrl = result.outputUrl?.trim();
       if (!outputUrl) return false;
 
@@ -95,7 +97,7 @@ export function useResultModalState({ filteredHistory, viewMode, ensureDockMode 
       const firstSourceUrl = sourceUrls[0];
       return !(firstSourceUrl && outputUrl === firstSourceUrl);
     })
-  ), [filteredHistory]);
+  ), [filteredHistory, previewResultsOverride]);
 
   const selectedResultKey = useMemo(() => getResultCacheKey(selectedResult), [getResultCacheKey, selectedResult]);
   const currentIndex = useMemo(
@@ -124,6 +126,7 @@ export function useResultModalState({ filteredHistory, viewMode, ensureDockMode 
   const closeImageModal = useCallback(() => {
     setIsImageModalOpen(false);
     setIsHydratingSelectedResult(false);
+    setPreviewResultsOverride(null);
   }, []);
 
   useEffect(() => {
