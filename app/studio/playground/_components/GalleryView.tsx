@@ -11,6 +11,7 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
 import { useGenerationService } from "@studio/playground/_components/hooks/useGenerationService";
+import type { PlaygroundHistoryController } from "@studio/playground/_components/hooks/useHistory";
 import { Generation, GenerationConfig } from '@/types/database';
 import { AddToMoodboardMenu } from "@studio/playground/_components/AddToMoodboardMenu";
 import {
@@ -38,9 +39,11 @@ type GalleryInnerTab = 'gallery' | 'prompt';
 export default function GalleryView({
     onSelectItem,
     onUsePrompt,
+    historyController,
 }: {
     onSelectItem?: (item: Generation, items?: Generation[]) => void;
     onUsePrompt?: (item: Generation) => void;
+    historyController?: Pick<PlaygroundHistoryController, 'setHistory' | 'getHistoryItem'>;
 }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedModels, setSelectedModels] = useState<string[]>([]);
@@ -58,7 +61,7 @@ export default function GalleryView({
     const activeTab = usePlaygroundStore(s => s.activeTab);
     const gallerySortBy = usePlaygroundStore(s => s.gallerySortBy);
     const setGallerySortBy = usePlaygroundStore(s => s.setGallerySortBy);
-    const { handleGenerate } = useGenerationService();
+    const { handleGenerate } = useGenerationService(historyController);
 
     // Sort options configuration (excluding interactionPriority which is internal)
     const sortOptions: { value: Exclude<SortBy, 'interactionPriority'>; label: string; icon: LucideIcon }[] = [

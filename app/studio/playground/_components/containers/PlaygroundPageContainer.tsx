@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
-import NextImage from "next/image";
 import { useToast } from "@/hooks/common/use-toast";
 
 import { usePromptOptimization, AIModel } from "@studio/playground/_components/hooks/usePromptOptimization";
@@ -14,8 +13,6 @@ import { useHistoryDragTransfer } from "@studio/playground/_components/hooks/use
 import { useAIService as useAIServiceV1 } from "@/hooks/ai/useAIService";
 
 import { GoogleApiStatus } from "@studio/playground/_components/GoogleApiStatus";
-import SimpleImagePreview from "@studio/playground/_components/SimpleImagePreview";
-import HistoryList from "@studio/playground/_components/HistoryList";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
@@ -36,7 +33,6 @@ import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { MODEL_ID_FLUX_KLEIN, MODEL_ID_WORKFLOW } from "@/lib/constants/models";
 import { isWorkflowModel } from "@/lib/utils/model-utils";
-import { Image as ImageIcon } from "lucide-react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { useMediaQuery } from "@/hooks/common/use-media-query";
@@ -47,8 +43,32 @@ import { AR_MAP } from "@studio/playground/_components/constants/aspect-ratio";
 import { StylesMarquee } from "@studio/playground/_components/StylesMarquee";
 import { usePlaygroundMoodboards } from "@studio/playground/_components/hooks/usePlaygroundMoodboards";
 import { PlaygroundDockSidebar } from "@studio/playground/_components/containers/components/PlaygroundDockSidebar";
+import { PlaygroundHistoryPanel } from "@studio/playground/_components/containers/components/PlaygroundHistoryPanel";
 import { PlaygroundHomeActions } from "@studio/playground/_components/containers/components/PlaygroundHomeActions";
 import { PlaygroundDockPanels } from "@studio/playground/_components/containers/components/PlaygroundDockPanels";
+import { PlaygroundModalStack } from "@studio/playground/_components/containers/components/PlaygroundModalStack";
+import {
+  buildKvVariantPromptPreview,
+  buildStructuredOptimizationSourcePayload,
+  buildStructuredVariantPayload,
+  cloneDesignAnalysis,
+  cloneDesignPalette,
+  cloneShortcutValues,
+  cloneVariantBaseline,
+  createShortcutOptimizationVariants,
+  createEmptyCoreSuggestionValues,
+  deriveVariantPalette,
+  findShortcutVariant,
+  hydrateShortcutOptimizationSession,
+  mergeLockedKvValues,
+  replaceColorInAnalysis,
+  replaceColorInShortcutValues,
+  replacePaletteWeightsInAnalysis,
+  serializeShortcutOptimizationSession,
+  type ActiveShortcutTemplate,
+  type ShortcutOptimizationSession,
+  type ShortcutOptimizationVariantDraft,
+} from "@studio/playground/_components/containers/shortcut-optimization";
 import { v4 as uuidv4 } from 'uuid';
 import {
   buildShortcutPrompt,
@@ -60,26 +80,18 @@ import {
   type ShortcutPromptValues,
 } from "@/config/playground-shortcuts";
 import {
-  assembleDesignStructuredShortcutPrompt,
   buildDesignSectionDetailSyncInstruction,
   buildKvStructuredOptimizationInput,
   DESIGN_VARIANT_EDIT_MODE,
-  derivePaletteFromVariantContent,
   getKvShortcutMarket,
-  KV_CORE_FIELD_IDS,
-  KV_STRUCTURED_VARIANT_IDS,
   normalizeDesignPalette,
   isKvShortcutId,
   parseDesignStructuredOptimizationResponse,
   parseDesignStructuredVariantEditResponse,
-  replaceHexColorReferences,
-  replacePaletteWeightReferences,
   type DesignStructuredAnalysis,
   type DesignAnalysisSectionKey,
   type DesignStructuredPaletteEntry,
-  type DesignStructuredSourceType,
   type DesignVariantEditScope,
-  type KvCoreFieldId,
   type KvStructuredVariantId,
 } from "@/app/studio/playground/_lib/kv-structured-optimization";
 import {
@@ -92,8 +104,6 @@ import {
   getPromptOptimizationSource,
   IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
   PROMPT_OPTIMIZATION_VARIANT_COUNT,
-  type PromptOptimizationSourcePayload,
-  type SerializedShortcutOptimizationSession,
   withPromptOptimizationSource,
   withoutPromptOptimizationSource,
 } from "@/app/studio/playground/_lib/prompt-history";
@@ -105,21 +115,10 @@ import { useGSAP } from "@gsap/react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   DndContext,
-  DragOverlay,
-  defaultDropAnimationSideEffects
 } from "@dnd-kit/core";
-import { snapCenterToCursor } from "@dnd-kit/modifiers";
 
 gsap.registerPlugin(Flip, useGSAP);
 
-const ImagePreviewModal = dynamic(
-  () => import("@studio/playground/_components/Dialogs/ImagePreviewModal"),
-  { ssr: false },
-);
-const FluxKleinConnectionHelpDialog = dynamic(
-  () => import("@studio/playground/_components/Dialogs/FluxKleinConnectionHelpDialog"),
-  { ssr: false },
-);
 const WorkflowSelectorDialog = dynamic(
   () => import("@studio/playground/_components/Dialogs/WorkflowSelectorDialog"),
   { ssr: false },
@@ -136,10 +135,6 @@ const PresetManagerDialog = dynamic(
   () => import("@studio/playground/_components/Dialogs/PresetManagerDialog").then((module) => module.PresetManagerDialog),
   { ssr: false },
 );
-const ImageEditDialog = dynamic(
-  () => import('@/components/image-editor').then((module) => module.ImageEditDialog),
-  { ssr: false },
-);
 
 export interface PlaygroundV2PageProps {
   onEditMapping?: (workflow: IViewComfy) => void;
@@ -154,393 +149,6 @@ interface BannerSessionHistoryItem {
   createdAt: string;
   templateId: string;
 }
-
-interface ShortcutOptimizationVariantBaseline {
-  label: string;
-  values: ShortcutPromptValues;
-  removedFieldIds: string[];
-  coreSuggestions: ShortcutPromptValues;
-  palette: DesignStructuredPaletteEntry[];
-  analysis: DesignStructuredAnalysis;
-  promptPreview: string;
-}
-
-interface ShortcutOptimizationVariantDraft {
-  id: KvStructuredVariantId;
-  label: string;
-  values: ShortcutPromptValues;
-  removedFieldIds: string[];
-  coreSuggestions: ShortcutPromptValues;
-  palette: DesignStructuredPaletteEntry[];
-  analysis: DesignStructuredAnalysis;
-  promptPreview: string;
-  baseline: ShortcutOptimizationVariantBaseline;
-  pendingInstruction: string;
-  pendingScope: DesignVariantEditScope;
-  isModifying: boolean;
-}
-
-interface ShortcutOptimizationSession {
-  sourceType: DesignStructuredSourceType;
-  originValues: ShortcutPromptValues;
-  originRemovedFieldIds: string[];
-  activeVariantId: KvStructuredVariantId;
-  variants: ShortcutOptimizationVariantDraft[];
-  lastRawResponse: string;
-}
-
-interface ActiveShortcutTemplate {
-  shortcut: PlaygroundShortcut;
-  values: ShortcutPromptValues;
-  removedFieldIds: string[];
-  appliedPrompt: string;
-  optimizationSession?: ShortcutOptimizationSession;
-}
-
-function serializeShortcutOptimizationSession(
-  session: ShortcutOptimizationSession,
-): SerializedShortcutOptimizationSession {
-  return {
-    sourceType: session.sourceType,
-    originValues: { ...session.originValues },
-    originRemovedFieldIds: [...session.originRemovedFieldIds],
-    activeVariantId: session.activeVariantId,
-    variants: session.variants.map((variant) => ({
-      id: variant.id,
-      label: variant.label,
-      values: { ...variant.values },
-      removedFieldIds: [...variant.removedFieldIds],
-      coreSuggestions: { ...variant.coreSuggestions },
-      palette: variant.palette.map((entry) => ({ ...entry })),
-      analysis: cloneDesignAnalysis(variant.analysis),
-      promptPreview: variant.promptPreview,
-      baseline: {
-        label: variant.baseline.label,
-        values: { ...variant.baseline.values },
-        removedFieldIds: [...variant.baseline.removedFieldIds],
-        coreSuggestions: { ...variant.baseline.coreSuggestions },
-        palette: variant.baseline.palette.map((entry) => ({ ...entry })),
-        analysis: cloneDesignAnalysis(variant.baseline.analysis),
-        promptPreview: variant.baseline.promptPreview,
-      },
-      pendingInstruction: variant.pendingInstruction,
-      pendingScope: variant.pendingScope,
-      isModifying: variant.isModifying,
-    })),
-    lastRawResponse: session.lastRawResponse,
-  };
-}
-
-function cloneShortcutValues(values: ShortcutPromptValues): ShortcutPromptValues {
-  return { ...values };
-}
-
-function cloneDesignPalette(palette: DesignStructuredPaletteEntry[]) {
-  return palette.map((entry) => ({ ...entry }));
-}
-
-function cloneDesignAnalysis(analysis: DesignStructuredAnalysis): DesignStructuredAnalysis {
-  return {
-    canvas: { tokens: [...analysis.canvas.tokens], detailText: analysis.canvas.detailText },
-    subject: { tokens: [...analysis.subject.tokens], detailText: analysis.subject.detailText },
-    background: { tokens: [...analysis.background.tokens], detailText: analysis.background.detailText },
-    layout: { tokens: [...analysis.layout.tokens], detailText: analysis.layout.detailText },
-    typography: { tokens: [...analysis.typography.tokens], detailText: analysis.typography.detailText },
-  };
-}
-
-function createEmptyCoreSuggestionValues(): ShortcutPromptValues {
-  return KV_CORE_FIELD_IDS.reduce<ShortcutPromptValues>((acc, fieldId) => {
-    acc[fieldId] = "";
-    return acc;
-  }, {});
-}
-
-function cloneVariantBaseline(baseline: ShortcutOptimizationVariantBaseline): ShortcutOptimizationVariantBaseline {
-  return {
-    label: baseline.label,
-    values: cloneShortcutValues(baseline.values),
-    removedFieldIds: [...baseline.removedFieldIds],
-    coreSuggestions: cloneShortcutValues(baseline.coreSuggestions),
-    palette: cloneDesignPalette(baseline.palette),
-    analysis: cloneDesignAnalysis(baseline.analysis),
-    promptPreview: baseline.promptPreview,
-  };
-}
-
-function mergeLockedKvValues(
-  baseValues: ShortcutPromptValues,
-  candidateValues: Partial<Record<KvCoreFieldId, string>>,
-): ShortcutPromptValues {
-  const nextValues = cloneShortcutValues(baseValues);
-
-  KV_CORE_FIELD_IDS.forEach((fieldId) => {
-    const currentValue = (baseValues[fieldId] || "").trim();
-    const candidateValue = (candidateValues[fieldId] || "").trim();
-    nextValues[fieldId] = currentValue || candidateValue || "";
-  });
-
-  return nextValues;
-}
-
-function findShortcutVariant(
-  session: ShortcutOptimizationSession,
-  variantId: KvStructuredVariantId,
-) {
-  return session.variants.find((variant) => variant.id === variantId);
-}
-
-function buildStructuredOptimizationSourcePayload(
-  template: ActiveShortcutTemplate | null,
-  taskId: string,
-  variantId?: KvStructuredVariantId,
-): PromptOptimizationSourcePayload | null {
-  if (!template?.optimizationSession) {
-    return null;
-  }
-
-  const activeVariantId = variantId || template.optimizationSession.activeVariantId;
-  const activeVariant = findShortcutVariant(template.optimizationSession, activeVariantId);
-  if (!activeVariant) {
-    return null;
-  }
-
-  const originalPrompt = buildShortcutPrompt(
-    template.shortcut,
-    template.optimizationSession.originValues,
-    {
-      usePlaceholder: false,
-      removedFieldIds: template.optimizationSession.originRemovedFieldIds,
-    },
-  );
-
-  return {
-    version: 1,
-    sourceKind: "kv_structured",
-    taskId,
-    originalPrompt,
-    activeVariantId: activeVariant.id,
-    activeVariantLabel: activeVariant.label,
-    shortcutId: template.shortcut.id,
-    session: serializeShortcutOptimizationSession(template.optimizationSession),
-  };
-}
-
-function hydrateShortcutOptimizationSession(
-  session: SerializedShortcutOptimizationSession,
-): ShortcutOptimizationSession {
-  return {
-    sourceType: session.sourceType,
-    originValues: { ...session.originValues },
-    originRemovedFieldIds: [...session.originRemovedFieldIds],
-    activeVariantId: session.activeVariantId,
-    variants: session.variants.map((variant) => ({
-      id: variant.id,
-      label: variant.label,
-      values: { ...variant.values },
-      removedFieldIds: [...variant.removedFieldIds],
-      coreSuggestions: { ...variant.coreSuggestions },
-      palette: variant.palette.map((entry) => ({ ...entry })),
-      analysis: cloneDesignAnalysis(variant.analysis),
-      promptPreview: variant.promptPreview,
-      baseline: {
-        label: variant.baseline.label,
-        values: { ...variant.baseline.values },
-        removedFieldIds: [...variant.baseline.removedFieldIds],
-        coreSuggestions: { ...variant.baseline.coreSuggestions },
-        palette: variant.baseline.palette.map((entry) => ({ ...entry })),
-        analysis: cloneDesignAnalysis(variant.baseline.analysis),
-        promptPreview: variant.baseline.promptPreview,
-      },
-      pendingInstruction: variant.pendingInstruction,
-      pendingScope: variant.pendingScope,
-      isModifying: variant.isModifying,
-    })),
-    lastRawResponse: session.lastRawResponse,
-  };
-}
-
-function buildKvVariantPromptPreview(
-  shortcut: PlaygroundShortcut,
-  values: ShortcutPromptValues,
-  removedFieldIds: string[],
-  analysis: DesignStructuredAnalysis,
-  palette: DesignStructuredPaletteEntry[],
-) {
-  return assembleDesignStructuredShortcutPrompt(shortcut, values, removedFieldIds, analysis, palette);
-}
-
-function deriveVariantPalette(
-  shortcut: PlaygroundShortcut,
-  values: ShortcutPromptValues,
-  removedFieldIds: string[],
-  analysis: DesignStructuredAnalysis,
-  existingPalette: DesignStructuredPaletteEntry[],
-  promptPreview?: string,
-) {
-  return derivePaletteFromVariantContent({
-    analysis,
-    promptPreview,
-    basePrompt: buildShortcutPrompt(shortcut, values, {
-      removedFieldIds,
-      usePlaceholder: false,
-    }),
-    existingPalette,
-  });
-}
-
-function replaceColorInShortcutValues(
-  values: ShortcutPromptValues,
-  previousHex: string,
-  nextHex: string,
-) {
-  return Object.fromEntries(
-    Object.entries(values).map(([fieldId, value]) => [
-      fieldId,
-      replaceHexColorReferences(value, previousHex, nextHex),
-    ]),
-  );
-}
-
-function replaceColorInAnalysis(
-  analysis: DesignStructuredAnalysis,
-  previousHex: string,
-  nextHex: string,
-) {
-  return {
-    canvas: {
-      tokens: analysis.canvas.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
-      detailText: replaceHexColorReferences(analysis.canvas.detailText, previousHex, nextHex),
-    },
-    subject: {
-      tokens: analysis.subject.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
-      detailText: replaceHexColorReferences(analysis.subject.detailText, previousHex, nextHex),
-    },
-    background: {
-      tokens: analysis.background.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
-      detailText: replaceHexColorReferences(analysis.background.detailText, previousHex, nextHex),
-    },
-    layout: {
-      tokens: analysis.layout.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
-      detailText: replaceHexColorReferences(analysis.layout.detailText, previousHex, nextHex),
-    },
-    typography: {
-      tokens: analysis.typography.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
-      detailText: replaceHexColorReferences(analysis.typography.detailText, previousHex, nextHex),
-    },
-  };
-}
-
-function replacePaletteWeightsInAnalysis(
-  analysis: DesignStructuredAnalysis,
-  hex: string,
-  previousWeight: string,
-  nextWeight: string,
-) {
-  return {
-    canvas: {
-      tokens: analysis.canvas.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
-      detailText: replacePaletteWeightReferences(analysis.canvas.detailText, hex, previousWeight, nextWeight),
-    },
-    subject: {
-      tokens: analysis.subject.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
-      detailText: replacePaletteWeightReferences(analysis.subject.detailText, hex, previousWeight, nextWeight),
-    },
-    background: {
-      tokens: analysis.background.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
-      detailText: replacePaletteWeightReferences(analysis.background.detailText, hex, previousWeight, nextWeight),
-    },
-    layout: {
-      tokens: analysis.layout.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
-      detailText: replacePaletteWeightReferences(analysis.layout.detailText, hex, previousWeight, nextWeight),
-    },
-    typography: {
-      tokens: analysis.typography.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
-      detailText: replacePaletteWeightReferences(analysis.typography.detailText, hex, previousWeight, nextWeight),
-    },
-  };
-}
-
-function buildStructuredVariantPayload(variant: ShortcutOptimizationVariantDraft) {
-  return {
-    id: variant.id,
-    label: variant.label,
-    coreFields: {
-      mainTitle: variant.values.mainTitle || "",
-      subTitle: variant.values.subTitle || "",
-      eventTime: variant.values.eventTime || "",
-      style: variant.values.style || "",
-      primaryColor: variant.values.primaryColor || "",
-    },
-    coreSuggestions: {
-      mainTitle: variant.coreSuggestions.mainTitle || "",
-      subTitle: variant.coreSuggestions.subTitle || "",
-      eventTime: variant.coreSuggestions.eventTime || "",
-      style: variant.coreSuggestions.style || "",
-      primaryColor: variant.coreSuggestions.primaryColor || "",
-    },
-    analysis: cloneDesignAnalysis(variant.analysis),
-    promptPreview: variant.promptPreview,
-  };
-}
-
-function createShortcutOptimizationVariants(
-  shortcut: PlaygroundShortcut,
-  baseValues: ShortcutPromptValues,
-  removedFieldIds: string[],
-  rawText: string,
-): ShortcutOptimizationVariantDraft[] {
-  const parsed = parseDesignStructuredOptimizationResponse(rawText);
-
-  return KV_STRUCTURED_VARIANT_IDS.map((variantId, index) => {
-    const variant = parsed.variants.find((item) => item.id === variantId);
-    if (!variant) {
-      throw new Error(`缺少优化版本 ${variantId}`);
-    }
-
-    const nextValues = mergeLockedKvValues(baseValues, variant.coreFields);
-    const nextAnalysis = cloneDesignAnalysis(variant.analysis);
-    const nextPalette = deriveVariantPalette(
-      shortcut,
-      nextValues,
-      removedFieldIds,
-      nextAnalysis,
-      variant.palette,
-      variant.promptPreview,
-    );
-    const promptPreview = buildKvVariantPromptPreview(shortcut, nextValues, removedFieldIds, nextAnalysis, nextPalette);
-
-    return {
-      id: variant.id,
-      label: variant.label || `版本 ${index + 1}`,
-      values: nextValues,
-      removedFieldIds: [...removedFieldIds],
-      coreSuggestions: {
-        ...createEmptyCoreSuggestionValues(),
-        ...variant.coreSuggestions,
-      },
-      palette: nextPalette,
-      analysis: nextAnalysis,
-      promptPreview,
-      baseline: {
-        label: variant.label || `版本 ${index + 1}`,
-        values: cloneShortcutValues(nextValues),
-        removedFieldIds: [...removedFieldIds],
-        coreSuggestions: {
-          ...createEmptyCoreSuggestionValues(),
-          ...variant.coreSuggestions,
-        },
-        palette: cloneDesignPalette(nextPalette),
-        analysis: cloneDesignAnalysis(nextAnalysis),
-        promptPreview,
-      },
-      pendingInstruction: "",
-      pendingScope: "variant",
-      isModifying: false,
-    };
-  });
-}
-
 
 export const PlaygroundV2Page = function PlaygroundV2Page({
   onEditMapping,
@@ -559,9 +167,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const setSelectedWorkflowConfig = usePlaygroundStore(s => s.setSelectedWorkflowConfig);
   const selectedLoras = usePlaygroundStore(s => s.selectedLoras);
   const setSelectedLoras = usePlaygroundStore(s => s.setSelectedLoras);
-  const generationHistory = usePlaygroundStore(s => s.generationHistory);
-  const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
-  // const fetchHistory = usePlaygroundStore(s => s.fetchHistory); // Deprecated in favor of useHistory
   const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
@@ -606,23 +211,24 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const describePanelRef = useRef<HTMLDivElement>(null);
 
-  // Use SWR hook for history
-  const { history: swrHistory, size, setSize, isLoading: isHistoryLoading, hasMore: hasMoreHistory } = useHistory();
-  const syncHistoryWithSWR = usePlaygroundStore(s => s.syncHistoryWithSWR);
-
-  // Sync SWR data to store whenever it changes
-  useEffect(() => {
-    if (swrHistory) {
-      syncHistoryWithSWR(swrHistory);
-    }
-  }, [swrHistory, syncHistoryWithSWR]);
+  const {
+    history: filteredHistory,
+    size,
+    setSize,
+    isLoading: isHistoryLoading,
+    hasMore: hasMoreHistory,
+    setHistory,
+    getHistoryItem,
+  } = useHistory();
+  const historyController = useMemo(() => ({
+    setHistory,
+    getHistoryItem,
+  }), [getHistoryItem, setHistory]);
 
   useEffect(() => {
     // 预加载图库 (之前图库只有在切换到图库标签且组件挂载后才加载)
     fetchGallery(1);
   }, [fetchGallery]);
-
-  const filteredHistory = useMemo(() => generationHistory, [generationHistory]);
 
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel>('auto'); // 默认使用settings中的配置
   const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
@@ -676,8 +282,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       currentUserId: currentUser?.id || null,
       actorId: actorId || null,
       effectiveUserId,
-      swrHistoryCount: swrHistory?.length || 0,
-      storeHistoryCount: generationHistory.length,
+      historyCount: filteredHistory.length,
       activeTab,
       viewMode,
       isHistoryLoading,
@@ -688,8 +293,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     currentUser?.id,
     actorId,
     effectiveUserId,
-    swrHistory,
-    generationHistory.length,
+    filteredHistory.length,
     activeTab,
     viewMode,
     isHistoryLoading,
@@ -715,7 +319,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
 
     const bannerHistoryMap = new Map(
-      generationHistory
+      filteredHistory
         .filter((item) => item.config?.generationMode === 'banner' && Boolean(item.outputUrl))
         .map((item) => [item.id, item])
     );
@@ -736,7 +340,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       });
       return changed ? next : prev;
     });
-  }, [bannerSessionHistory.length, generationHistory]);
+  }, [bannerSessionHistory.length, filteredHistory]);
 
   // Sync showHistory with viewMode for side effects (like project sidebar)
   useEffect(() => {
@@ -792,11 +396,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return;
     }
 
-    setGenerationHistory((prev: Generation[]) => [...items, ...prev]);
+    setHistory((prev: Generation[]) => [...items, ...prev]);
     items.forEach((item) => {
       void saveHistoryToBackend(item);
     });
-  }, [saveHistoryToBackend, setGenerationHistory]);
+  }, [saveHistoryToBackend, setHistory]);
 
   useEffect(() => {
     const fetchWorkflows = async () => {
@@ -933,7 +537,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     fluxKleinConnectionHelp,
     dismissFluxKleinConnectionHelp,
     isGenerating,
-  } = useGenerationService();
+  } = useGenerationService(historyController);
   const {
     isImageModalOpen,
     selectedResult,
@@ -2581,7 +2185,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     };
 
     // Insert loading card
-    setGenerationHistory((prev: import('@/types/database').Generation[]) => [loadingCard, ...prev]);
+    setHistory((prev: import('@/types/database').Generation[]) => [loadingCard, ...prev]);
 
     try {
       // 1. Convert the first image to base64 if needed, or use existing base64
@@ -2649,7 +2253,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         }));
 
         // Remove loading card and add real results
-        setGenerationHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => item.id !== loadingId)]);
+        setHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => item.id !== loadingId)]);
 
         // Also save each description to backend and sync to gallery
         newHistoryItems.forEach(item => {
@@ -2664,12 +2268,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     } catch (error) {
       console.error("Describe Error:", error);
       // Remove loading card on error
-      setGenerationHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => item.id !== loadingId));
+      setHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => item.id !== loadingId));
       toast({ title: "描述失败", description: error instanceof Error ? error.message : "未知错误", variant: "destructive" });
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setGenerationHistory, callVision, getServiceConfig, toast, effectiveUserId, saveHistoryToBackend]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setHistory, callVision, getServiceConfig, toast, effectiveUserId, saveHistoryToBackend]);
 
   const handleBatchUse = async (results: Generation[]) => {
     if (!results || results.length === 0) return;
@@ -2780,7 +2384,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           break;
         }
 
-        const parentGeneration: Generation | undefined = generationHistory.find((historyEntry: Generation) => historyEntry.id === parentRecordId);
+        const parentGeneration = getHistoryItem(parentRecordId);
         if (!parentGeneration) {
           break;
         }
@@ -2821,7 +2425,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       imageEditorSession: initialSession,
     });
     setSelectedPresetName(undefined);
-  }, [generationHistory, setSelectedPresetName, updateConfig]);
+  }, [getHistoryItem, setSelectedPresetName, updateConfig]);
 
   const handleEditUploadedImage = useCallback(() => {
     const imageToEdit = usePlaygroundStore.getState().uploadedImages[0];
@@ -3243,33 +2847,30 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                     )}
 
                     {viewMode === 'dock' && activeTab === 'history' && (
-                      <div className="mt-2 w-full relative flex-1 overflow-hidden z-30">
-                        <HistoryList
-                          variant="sidebar"
-                          history={filteredHistory}
-                          onRegenerate={(res) => {
-                            if (res.config) {
-                              applyModel(res.config.model, {
-                                ...res.config,
-                                loras: res.config.loras || [],
-                                presetName: res.config.presetName,
-                              });
-                            }
-                            handleRegenerate(res);
-                          }}
-                          onDownload={handleDownload}
-                          onEdit={handleEditImage}
-                          onImageClick={openImageModal}
-                          onUsePrompt={handleUseHistoryPrompt}
-                          onBatchUse={handleBatchUse}
-                          layoutMode={historyLayoutMode}
-                          onLayoutModeChange={(mode) => setHistoryLayoutMode(mode)}
-                          onClose={() => setViewMode('home')}
-                          onLoadMore={() => setSize(size + 1)}
-                          hasMore={hasMoreHistory}
-                          isLoading={isHistoryLoading}
-                        />
-                      </div>
+                      <PlaygroundHistoryPanel
+                        history={filteredHistory}
+                        historyLayoutMode={historyLayoutMode}
+                        onHistoryLayoutModeChange={setHistoryLayoutMode}
+                        onClose={() => setViewMode('home')}
+                        onLoadMore={() => setSize(size + 1)}
+                        hasMore={hasMoreHistory}
+                        isLoading={isHistoryLoading}
+                        onRegenerate={handleRegenerate}
+                        onApplyModelFromHistory={(result) => {
+                          if (result.config) {
+                            applyModel(result.config.model, {
+                              ...result.config,
+                              loras: result.config.loras || [],
+                              presetName: result.config.presetName,
+                            });
+                          }
+                        }}
+                        onDownload={handleDownload}
+                        onEdit={handleEditImage}
+                        onImageClick={openImageModal}
+                        onUsePrompt={handleUseHistoryPrompt}
+                        onBatchUse={handleBatchUse}
+                      />
                     )}
 
                   </div>
@@ -3285,6 +2886,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                   onGenerateBanner={(options) => handleGenerate((options as GenerateOptions) || {})}
                   bannerSessionHistory={bannerSessionHistory}
                   isDraggingOver={isDraggingOver}
+                  historyController={historyController}
                 />
 
               </div>
@@ -3349,110 +2951,47 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           </main>
         </div>
 
-        <ImagePreviewModal
-          key={selectedResultPreviewKey}
-          isOpen={isImageModalOpen}
-          onClose={closeImageModal}
-          result={selectedResult}
-          results={previewableHistory}
+        <PlaygroundModalStack
+          selectedResultPreviewKey={selectedResultPreviewKey}
+          isImageModalOpen={isImageModalOpen}
+          onCloseImageModal={closeImageModal}
+          selectedResult={selectedResult}
+          previewableHistory={previewableHistory}
           currentIndex={currentIndex}
-          isLoadingDetails={isHydratingSelectedResult}
+          isHydratingSelectedResult={isHydratingSelectedResult}
           onSelectResult={jumpToResult}
-          onEdit={handleEditImage}
-          onNext={handleNextImage}
-          onPrev={handlePrevImage}
+          onEditImage={handleEditImage}
+          onNextImage={handleNextImage}
+          onPrevImage={handlePrevImage}
           hasNext={hasNext}
           hasPrev={hasPrev}
           onRegenerate={handleRegenerate}
-        />
-
-        <ImagePreviewModal
-          key={selectedShortcutPreviewKey}
-          isOpen={Boolean(selectedShortcutPreviewResult)}
-          onClose={handleShortcutPreviewClose}
-          result={selectedShortcutPreviewResult}
-          results={shortcutPreviewResults}
-          currentIndex={shortcutPreviewCurrentIndex}
-          onSelectResult={handleShortcutPreviewSelect}
-          onNext={handleShortcutPreviewNext}
-          onPrev={handleShortcutPreviewPrev}
-          hasNext={shortcutPreviewHasNext}
-          hasPrev={shortcutPreviewHasPrev}
-        />
-
-        <ImageEditDialog
-          open={imageEditState.open}
-          imageUrl={imageEditState.imageUrl}
-          initialPrompt={imageEditState.initialPrompt}
-          initialSession={imageEditState.initialSession}
-          legacyTldrawSnapshot={imageEditState.legacySnapshot}
-          onOpenChange={(open) => {
+          selectedShortcutPreviewKey={selectedShortcutPreviewKey}
+          selectedShortcutPreviewResult={selectedShortcutPreviewResult}
+          onCloseShortcutPreview={handleShortcutPreviewClose}
+          shortcutPreviewResults={shortcutPreviewResults}
+          shortcutPreviewCurrentIndex={shortcutPreviewCurrentIndex}
+          onSelectShortcutPreview={handleShortcutPreviewSelect}
+          onNextShortcutPreview={handleShortcutPreviewNext}
+          onPrevShortcutPreview={handleShortcutPreviewPrev}
+          shortcutPreviewHasNext={shortcutPreviewHasNext}
+          shortcutPreviewHasPrev={shortcutPreviewHasPrev}
+          imageEditState={imageEditState}
+          onImageEditOpenChange={(open) => {
             setImageEditState((previous) => ({
               ...previous,
               open,
             }));
           }}
-          onConfirm={handleImageEditConfirm}
+          onImageEditConfirm={handleImageEditConfirm}
+          fluxKleinConnectionHelp={fluxKleinConnectionHelp}
+          onDismissFluxKleinConnectionHelp={dismissFluxKleinConnectionHelp}
+          previewImageUrl={previewImageUrl}
+          previewLayoutId={previewLayoutId}
+          onClosePreviewImage={() => setPreviewImage(null)}
+          activeDragItem={activeDragItem}
+          selectedHistoryCount={selectedHistoryIds.size}
         />
-
-        <FluxKleinConnectionHelpDialog
-          open={Boolean(fluxKleinConnectionHelp)}
-          comfyUrl={fluxKleinConnectionHelp?.comfyUrl}
-          technicalReason={fluxKleinConnectionHelp?.technicalReason}
-          onOpenChange={(open) => {
-            if (!open) {
-              dismissFluxKleinConnectionHelp();
-            }
-          }}
-        />
-
-        <SimpleImagePreview
-          imageUrl={previewImageUrl}
-          layoutId={previewLayoutId}
-          onClose={() => setPreviewImage(null)}
-        />
-
-        <DragOverlay
-          dropAnimation={{
-            sideEffects: defaultDropAnimationSideEffects({
-              styles: {
-                active: {
-                  opacity: '0.5',
-                },
-              },
-            }),
-          }}
-          modifiers={[snapCenterToCursor]}
-        >
-          {activeDragItem ? (
-            <div
-              className="flex items-center w-[200px] gap-3 p-3 bg-black/70 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl pointer-events-none"
-            >
-              {activeDragItem.outputUrl ? (
-                <NextImage
-                  src={formatImageUrl(activeDragItem.outputUrl)}
-                  alt="dragging"
-                  width={40}
-                  height={40}
-                  unoptimized
-                  className="w-10 h-10 object-cover rounded-lg border border-white/10"
-                />
-              ) : (
-                <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center border border-white/10">
-                  <ImageIcon className="w-4 h-4 text-white/20" />
-                </div>
-              )}
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-white">
-                  Moving {selectedHistoryIds.size} items
-                </span>
-                <span className="text-[9px] text-white/40 uppercase font-mono tracking-wider">
-                  Release to move
-                </span>
-              </div>
-            </div>
-          ) : null}
-        </DragOverlay>
       </div >
     </DndContext >
   );

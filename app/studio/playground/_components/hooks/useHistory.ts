@@ -1,8 +1,22 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import { getApiBase } from '@/lib/api-base';
 import { useAuthStore } from '@/lib/store/auth-store';
 import type { Generation } from '@/types/database';
+
+const HISTORY_PAGE_LIMIT = 50;
+
+interface HistoryPage {
+    history: Generation[];
+    hasMore: boolean;
+    total?: number;
+}
+
+export interface PlaygroundHistoryController {
+    history: Generation[];
+    setHistory: (history: Generation[] | ((prev: Generation[]) => Generation[])) => void;
+    getHistoryItem: (matcher: string | ((item: Generation) => boolean)) => Generation | undefined;
+}
 
 const isHistoryDebugEnabled = () => {
     if (typeof window !== 'undefined') {
@@ -45,7 +59,7 @@ const getKey = (
     // If we reached the end
     if (previousPageData && !previousPageData.hasMore) return null;
 
-    const limit = 50;
+    const limit = HISTORY_PAGE_LIMIT;
     const apiBase = getApiBase().replace(/\/$/, '');
     const params = new URLSearchParams();
     params.set('page', (pageIndex + 1).toString());
@@ -105,6 +119,38 @@ export function useHistory() {
     const isEmpty = (data?.[0]?.history?.length === 0);
     const hasMore = data ? data[data.length - 1].hasMore : true;
 
+    const setHistory = useCallback((updater: Generation[] | ((prev: Generation[]) => Generation[])) => {
+        void mutate((previousPages?: HistoryPage[]) => {
+            const previousHistory = previousPages ? previousPages.flatMap((page) => page.history) : [];
+            const nextHistory = typeof updater === 'function' ? updater(previousHistory) : updater;
+            const uniqueHistory = Array.from(
+                new Map(nextHistory.map((item) => [item.id, item])).values()
+            );
+
+            const chunkCount = Math.max(1, Math.ceil(uniqueHistory.length / HISTORY_PAGE_LIMIT));
+            const existingLastHasMore = previousPages?.[previousPages.length - 1]?.hasMore ?? false;
+            const existingLastTotal = previousPages?.[previousPages.length - 1]?.total;
+
+            return Array.from({ length: chunkCount }, (_, index) => {
+                const start = index * HISTORY_PAGE_LIMIT;
+                const end = start + HISTORY_PAGE_LIMIT;
+                const historyChunk = uniqueHistory.slice(start, end);
+                return {
+                    history: historyChunk,
+                    hasMore: index < chunkCount - 1 ? true : existingLastHasMore,
+                    total: typeof existingLastTotal === 'number' ? Math.max(existingLastTotal, uniqueHistory.length) : undefined,
+                };
+            });
+        }, { revalidate: false });
+    }, [mutate]);
+
+    const getHistoryItem = useCallback((matcher: string | ((item: Generation) => boolean)) => {
+        if (typeof matcher === 'string') {
+            return history.find((item) => item.id === matcher);
+        }
+        return history.find(matcher);
+    }, [history]);
+
     return {
         history,
         isLoading,
@@ -113,6 +159,8 @@ export function useHistory() {
         hasMore,
         size,
         setSize,
-        mutate
+        mutate,
+        setHistory,
+        getHistoryItem,
     };
 }

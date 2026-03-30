@@ -17,6 +17,10 @@ const instrument = localFont({
 export const metadata: Metadata = {
   title: "Lemostudio",
   description: "PlaygroundV2 & Mapping Editor",
+  icons: {
+    icon: "/images/logo.ico/favicon.ico",
+    shortcut: "/images/logo.ico/favicon.ico",
+  },
 };
 
 const enableTweakcnLivePreview = process.env.NEXT_PUBLIC_ENABLE_TWEAKCN_LIVE_PREVIEW === "true";
@@ -38,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={`${instrument.variable}`}>
       <head>
         <link rel="preload" href="/Font/InstrumentSerif-Regular.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
-        <link rel="preload" href="/images/logo.svg" as="image" />
+        <link rel="preload" href="/images/studiologo.svg" as="image" />
         <link rel="preload" href="/assets/loading-icon.svg" as="image" />
       </head>
       <body className={cn("min-h-screen font-sans antialiased")} suppressHydrationWarning>

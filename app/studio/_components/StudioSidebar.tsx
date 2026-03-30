@@ -62,7 +62,15 @@ export const StudioSidebar = function StudioSidebar() {
           navigateToTab(STUDIO_ROUTES.playground);
         }}
       >
-        <span className="text-white font-bold text-lg">LEMO STUDIO</span>
+        <Image
+          src="/images/studiologo.svg"
+          alt="Lemo Studio"
+          width={131}
+          height={20}
+          priority
+          unoptimized
+          className="h-5 w-auto"
+        />
       </div>
 
       <nav className="flex items-center mx-auto space-x-1">

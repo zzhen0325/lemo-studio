@@ -5,6 +5,7 @@ import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
+import type { PlaygroundHistoryController } from "@studio/playground/_components/hooks/useHistory";
 import { GenerationConfig, EditPresetConfig } from "@/lib/playground/types";
 import { Generation } from "@/types/database";
 import { IMultiValueInput } from "@/lib/workflow-api-parser";
@@ -140,7 +141,7 @@ async function sanitizeDataUrlForGemini(dataUrl: string): Promise<string> {
     return fallback;
 }
 
-export function useGenerationService() {
+export function useGenerationService(historyController?: Pick<PlaygroundHistoryController, 'setHistory' | 'getHistoryItem'>) {
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
     const [fluxKleinConnectionHelp, setFluxKleinConnectionHelp] = useState<FluxKleinConnectionHelp | null>(null);
@@ -162,6 +163,15 @@ export function useGenerationService() {
         || settings.defaults?.image?.textToImage?.binding?.modelId
         || availableModels[0]?.id
         || 'gemini-3-pro-image-preview';
+    const fallbackGetHistoryItem = useCallback((matcher: string | ((item: Generation) => boolean)) => {
+        const items = usePlaygroundStore.getState().generationHistory;
+        if (typeof matcher === 'string') {
+            return items.find((item) => item.id === matcher);
+        }
+        return items.find(matcher);
+    }, []);
+    const setHistoryEntries = historyController?.setHistory ?? setGenerationHistory;
+    const getHistoryItem = historyController?.getHistoryItem ?? fallbackGetHistoryItem;
     const resolveEffectiveUserId = useCallback(() => {
         return useAuthStore.getState().actorId || actorId || 'anonymous';
     }, [actorId]);
@@ -292,7 +302,7 @@ export function useGenerationService() {
     const addGalleryItem = usePlaygroundStore(s => s.addGalleryItem);
 
     const updateHistoryAndSave = useCallback((uniqueId: string, result: Generation) => {
-        setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
+        setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
             ...item,
             ...result,
             // 确保保持原始 ID 和基础字段
@@ -330,7 +340,7 @@ export function useGenerationService() {
         if (result.status === 'completed') {
             setIsGenerating(false);
         }
-    }, [setGenerationHistory, toast, addGalleryItem]);
+    }, [setHistoryEntries, toast, addGalleryItem]);
 
     const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         // Calculate effective source URLs - prioritize passed parameter
@@ -466,7 +476,7 @@ export function useGenerationService() {
             }
         }, isCoze ? async (chunk) => {
             if (chunk.text) {
-                setGenerationHistory((prev: Generation[]) => prev.map(item =>
+                setHistoryEntries((prev: Generation[]) => prev.map(item =>
                     item.id === uniqueId ? { ...item, llmResponse: (item.llmResponse || "") + chunk.text } : item
                 ));
             }
@@ -474,7 +484,7 @@ export function useGenerationService() {
                 for (const imgUrl of chunk.images.filter(url => !processedImages.has(url))) {
                     processedImages.add(imgUrl);
                     const previewUrl = await toPreviewUrl(imgUrl);
-                    setGenerationHistory((prev: Generation[]) => prev.map(item =>
+                    setHistoryEntries((prev: Generation[]) => prev.map(item =>
                         item.id === uniqueId ? {
                             ...item,
                             outputUrl: previewUrl,
@@ -497,7 +507,7 @@ export function useGenerationService() {
                             });
                             if (!savedPath) return;
                             lastSavedPath = savedPath;
-                            const latestItem = usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
+                            const latestItem = getHistoryItem(uniqueId);
                             if (!latestItem) return;
                             updateHistoryAndSave(uniqueId, {
                                 ...latestItem,
@@ -519,7 +529,7 @@ export function useGenerationService() {
 
         if (isCoze) {
             await Promise.allSettled(pendingSaveTasks);
-            const finalItemInState = usePlaygroundStore.getState().generationHistory.find(h => h.id === uniqueId);
+            const finalItemInState = getHistoryItem(uniqueId);
             if (finalItemInState) {
                 if (lastSavedPath && finalItemInState.outputUrl !== lastSavedPath) {
                     const itemToSave = {
@@ -548,7 +558,7 @@ export function useGenerationService() {
                 status: 'completed',
                 createdAt: generationTime,
             };
-            setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
+            setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
                 ...item,
                 ...previewGen,
                 id: uniqueId,
@@ -584,7 +594,7 @@ export function useGenerationService() {
             return previewGen;
         }
         throw new Error(`${selectedModel} returned empty result`);
-    }, [selectedModel, defaultImageModelId, setGenerationHistory, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, normalizeGeminiInputImage, resolveEffectiveUserId, getModelEntryById]);
+    }, [selectedModel, defaultImageModelId, setHistoryEntries, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, normalizeGeminiInputImage, resolveEffectiveUserId, getModelEntryById, getHistoryItem]);
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
@@ -691,7 +701,7 @@ export function useGenerationService() {
                                 status: 'completed',
                                 createdAt: generationTime,
                             };
-                            setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
+                            setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
                                 ...item,
                                 ...previewGen,
                                 id: uniqueId,
@@ -732,7 +742,7 @@ export function useGenerationService() {
             });
         });
         return previewResult;
-    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs, setGenerationHistory, resolveEffectiveUserId]);
+    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs, setHistoryEntries, resolveEffectiveUserId]);
 
     const handleFluxKlein = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const effectiveSourceUrls = sourceImageUrls.length > 0 ? sourceImageUrls : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
@@ -768,7 +778,7 @@ export function useGenerationService() {
                                 status: 'completed',
                                 createdAt: generationTime,
                             };
-                            setGenerationHistory((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
+                            setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
                                 ...item,
                                 ...previewGen,
                                 id: uniqueId,
@@ -809,7 +819,7 @@ export function useGenerationService() {
             });
         });
         return previewResult;
-    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave, setGenerationHistory, resolveEffectiveUserId]);
+    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave, setHistoryEntries, resolveEffectiveUserId]);
 
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
@@ -822,14 +832,14 @@ export function useGenerationService() {
             else return await handleUnifiedImageGen(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
         } catch (err) {
             console.error("Generation failed:", err);
-            setGenerationHistory(prev => prev.filter(item => item.id !== uniqueId));
+            setHistoryEntries(prev => prev.filter(item => item.id !== uniqueId));
             const openedConnectionHelp = maybeShowFluxKleinConnectionHelp(err);
             if (!openedConnectionHelp) {
                 toast({ title: "生成失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
             }
             return undefined;
         }
-    }, [selectedModel, handleWorkflow, handleUnifiedImageGen, handleFluxKlein, setGenerationHistory, toast, selectedWorkflowConfig, maybeShowFluxKleinConnectionHelp]);
+    }, [selectedModel, handleWorkflow, handleUnifiedImageGen, handleFluxKlein, setHistoryEntries, toast, selectedWorkflowConfig, maybeShowFluxKleinConnectionHelp]);
 
     const handleGenerate = useCallback(async (options: GenerateOptions = {}) => {
         const { configOverride, fixedCreatedAt, isBackground } = options;
@@ -921,15 +931,15 @@ export function useGenerationService() {
         const uniqueId = `gen-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
         const effectiveUserId = resolveEffectiveUserId();
         const loadingGen: Generation = { id: uniqueId, userId: effectiveUserId, projectId: 'default', outputUrl: "", config: { ...configForHistory, sourceImageUrls, localSourceIds, baseModel: effectiveModel, editConfig: displayEditConfig, isEdit, parentId, taskId, isPreset: !!(finalConfig.presetName) }, status: 'pending', createdAt: generationTime };
-        setGenerationHistory((prev: Generation[]) => [loadingGen, ...prev]);
+        setHistoryEntries((prev: Generation[]) => [loadingGen, ...prev]);
         if (isBackground) return uniqueId;
         return await executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
-    }, [setHasGenerated, setGenerationHistory, executeGeneration, toast, resolveEffectiveUserId]);
+    }, [setHasGenerated, setHistoryEntries, executeGeneration, toast, resolveEffectiveUserId]);
 
     const syncHistoryConfig = useCallback(async (updates: { id?: string; taskId?: string; config: Partial<GenerationConfig> }) => {
         const { id, taskId, config: newConfig } = updates;
 
-        setGenerationHistory((prev: Generation[]) => {
+        setHistoryEntries((prev: Generation[]) => {
             const newHistory = prev.map(item => {
                 const match = (id && item.id === id) || (taskId && item.config?.taskId === taskId);
                 if (match) {
@@ -954,7 +964,7 @@ export function useGenerationService() {
 
             return newHistory;
         });
-    }, [setGenerationHistory]);
+    }, [setHistoryEntries]);
 
     return {
         handleGenerate,

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
   Check,
   CircleDashed,
@@ -18,7 +17,6 @@ import {
   Plus,
   Save,
   Square,
-  Upload,
   WandSparkles,
   ZoomIn,
   ZoomOut,
@@ -28,15 +26,34 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/common/use-toast';
 import { usePromptOptimization } from '@/hooks/ai/usePromptOptimization';
-import { ImageEditDialog, type ImageEditConfirmPayload, type ImageEditorSessionSnapshot } from '@/components/image-editor';
+import { ImageEditDialog, type ImageEditConfirmPayload } from '@/components/image-editor';
 import { useAPIConfigStore } from '@/lib/store/api-config-store';
 import {
   createProject,
   generateCanvasImage,
-  getProject,
   saveImageAsset,
   saveProject,
 } from '../_lib/api';
+import {
+  buildConnectionPath,
+  canConnect,
+  createsCycle,
+  EDITOR_COMPACT_BUTTON_CLASS,
+  EDITOR_ICON_BUTTON_CLASS,
+  EDITOR_SECONDARY_BUTTON_CLASS,
+  estimateNodeRunSeconds,
+  findConnectionTargetCandidate,
+  getNodeOutput,
+  intersectsRect,
+  sanitizeName,
+  uniqueStrings,
+  worldToScreen,
+  type AlignMode,
+  type DragGuide,
+  type InteractionSession,
+  type InfiniteImageEditDialogState,
+  type ScreenPoint,
+} from './infinite-canvas-editor-helpers';
 import {
   DEFAULT_INFINITE_CANVAS_MODEL_ID,
   type InfinitePanel,
@@ -65,223 +82,12 @@ import type {
   InfiniteCanvasProject,
 } from '@/types/infinite-canvas';
 import CanvasNodeCard from './CanvasNodeCard';
-import InfiniteCanvasProjectSidebar from './InfiniteCanvasProjectSidebar';
 import CanvasContextMenu from './CanvasContextMenu';
+import CanvasSidebarPanels from './CanvasSidebarPanels';
+import { useInfiniteCanvasProject } from './hooks/useInfiniteCanvasProject';
 
 interface InfiniteCanvasEditorProps {
   projectId: string;
-}
-
-interface ScreenPoint {
-  x: number;
-  y: number;
-}
-
-interface DragGuide {
-  axis: 'x' | 'y';
-  value: number;
-  start: number;
-  end: number;
-}
-
-interface ConnectionTargetCandidate {
-  nodeId: string;
-  point: ScreenPoint;
-  distance: number;
-}
-
-interface DragSnapshotNode {
-  nodeId: string;
-  width: number;
-  height: number;
-  position: { x: number; y: number };
-  isLocked: boolean;
-}
-
-type DragSession = {
-  type: 'drag';
-  startClient: ScreenPoint;
-  nodeIds: string[];
-  startPositions: Record<string, { x: number; y: number }>;
-  allNodes: DragSnapshotNode[];
-};
-
-type PanSession = {
-  type: 'pan';
-  startClient: ScreenPoint;
-  startViewport: { x: number; y: number };
-};
-
-type SelectSession = {
-  type: 'select';
-  startClient: ScreenPoint;
-  currentClient: ScreenPoint;
-  additive: boolean;
-  baseSelection: string[];
-};
-
-type InteractionSession = DragSession | PanSession | SelectSession;
-type AlignMode =
-  | 'left'
-  | 'hCenter'
-  | 'right'
-  | 'top'
-  | 'vCenter'
-  | 'bottom'
-  | 'hDistribute'
-  | 'vDistribute'
-  | 'tidy'
-  | 'topology';
-
-interface InfiniteImageEditDialogState {
-  open: boolean;
-  sourceNodeId?: string;
-  imageUrl: string;
-  initialPrompt: string;
-  initialSession?: ImageEditorSessionSnapshot;
-}
-
-function worldToScreen(viewport: { x: number; y: number; scale: number }, point: { x: number; y: number }): ScreenPoint {
-  return {
-    x: point.x * viewport.scale + viewport.x,
-    y: point.y * viewport.scale + viewport.y,
-  };
-}
-
-function sanitizeName(value: string) {
-  const next = value.trim();
-  if (!next) return '未命名项目';
-  return next.slice(0, 50);
-}
-
-function getNodeOutput(node: InfiniteCanvasNode) {
-  return node.outputs[node.outputs.length - 1];
-}
-
-function uniqueStrings(values: string[]) {
-  return Array.from(new Set(values.filter(Boolean)));
-}
-
-function buildConnectionPath(source: ScreenPoint, target: ScreenPoint) {
-  const handle = Math.max(60, Math.abs(target.x - source.x) * 0.4);
-  return `M ${source.x} ${source.y} C ${source.x + handle} ${source.y}, ${target.x - handle} ${target.y}, ${target.x} ${target.y}`;
-}
-
-function formatEtaLabel(seconds?: number) {
-  if (typeof seconds !== 'number' || Number.isNaN(seconds) || seconds <= 0) {
-    return '--';
-  }
-  if (seconds < 60) {
-    return `${Math.max(1, Math.round(seconds))}s`;
-  }
-  const mins = Math.floor(seconds / 60);
-  const rest = Math.round(seconds % 60);
-  return `${mins}m ${rest}s`;
-}
-
-const EDITOR_ICON_BUTTON_CLASS = "studio-icon-button h-10 w-10 rounded-xl";
-const EDITOR_SECONDARY_BUTTON_CLASS = "studio-secondary-button h-8 rounded-lg text-xs";
-const EDITOR_COMPACT_BUTTON_CLASS = "studio-secondary-button h-7 rounded-md px-1 text-[10px]";
-const EDITOR_SIDE_PANEL_CLASS = "studio-panel-glass absolute top-4 z-40 h-[calc(100%-2rem)] w-[320px] overflow-hidden rounded-2xl";
-
-
-function intersectsRect(
-  a: { x: number; y: number; width: number; height: number },
-  b: { x: number; y: number; width: number; height: number },
-) {
-  return !(
-    a.x > b.x + b.width
-    || a.x + a.width < b.x
-    || a.y > b.y + b.height
-    || a.y + a.height < b.y
-  );
-}
-
-function estimateNodeRunSeconds(node: InfiniteCanvasNode, referenceCount: number) {
-  const batch = Math.max(1, node.params?.batchSize || 1);
-  return Math.max(8, Math.round(12 + batch * 7 + referenceCount * 4));
-}
-
-function findConnectionTargetCandidate(
-  project: InfiniteCanvasProject | null,
-  sourceNodeId: string | null,
-  pointerPosition: ScreenPoint | null,
-  viewport: { x: number; y: number; scale: number },
-): ConnectionTargetCandidate | null {
-  if (!project || !sourceNodeId || !pointerPosition) return null;
-  const sourceNode = project.nodes.find((node) => node.nodeId === sourceNodeId);
-  if (!sourceNode) return null;
-
-  const maxDistance = 32;
-  let best: ConnectionTargetCandidate | null = null;
-
-  for (const node of project.nodes) {
-    if (!canConnect(sourceNode, node)) continue;
-    if (project.edges.some((edge) => edge.sourceNodeId === sourceNodeId && edge.targetNodeId === node.nodeId)) continue;
-    if (createsCycle(project.edges, sourceNodeId, node.nodeId)) continue;
-
-    const point = worldToScreen(viewport, {
-      x: node.position.x,
-      y: node.position.y + node.height / 2,
-    });
-    const distance = Math.hypot(pointerPosition.x - point.x, pointerPosition.y - point.y);
-    if (distance > maxDistance) continue;
-    if (!best || distance < best.distance) {
-      best = {
-        nodeId: node.nodeId,
-        point,
-        distance,
-      };
-    }
-  }
-
-  return best;
-}
-
-
-
-function canConnect(source: InfiniteCanvasNode | undefined, target: InfiniteCanvasNode | undefined) {
-  if (!source || !target) return false;
-  if (source.nodeId === target.nodeId) return false;
-
-  if (source.nodeType === 'text' && target.nodeType === 'image') return true;
-  if (source.nodeType === 'text' && target.nodeType === 'text') return true;
-  if (source.nodeType === 'image' && target.nodeType === 'image') return true;
-  if (source.nodeType === 'image' && target.nodeType === 'text') return true;
-  return false;
-}
-
-function createsCycle(edges: InfiniteCanvasEdge[], sourceNodeId: string, targetNodeId: string) {
-  const graph = new Map<string, string[]>();
-
-  for (const edge of edges) {
-    const list = graph.get(edge.sourceNodeId) || [];
-    list.push(edge.targetNodeId);
-    graph.set(edge.sourceNodeId, list);
-  }
-
-  const appended = graph.get(sourceNodeId) || [];
-  appended.push(targetNodeId);
-  graph.set(sourceNodeId, appended);
-
-  const visited = new Set<string>();
-
-  const dfs = (nodeId: string): boolean => {
-    if (nodeId === sourceNodeId) return true;
-    if (visited.has(nodeId)) return false;
-    visited.add(nodeId);
-
-    const nextNodes = graph.get(nodeId) || [];
-    for (const next of nextNodes) {
-      if (dfs(next)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  return dfs(targetNodeId);
 }
 
 export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditorProps) {
@@ -299,28 +105,57 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const progressTimersRef = useRef<Map<string, number>>(new Map());
   const isSpacePressedRef = useRef(false);
-  const projectRef = useRef<InfiniteCanvasProject | null>(null);
-  const viewportRef = useRef({ x: 180, y: 120, scale: 1 });
   // 拖拽时记录当前偏移，避免每帧触发 React 渲染
   const dragOffsetRef = useRef({ dx: 0, dy: 0 });
 
-  const [project, setProject] = useState<InfiniteCanvasProject | null>(null);
+  const {
+    project,
+    setProject,
+    projectRef,
+    loading,
+    saving,
+    lastSavedAt,
+    viewport,
+    setViewport,
+    viewportRef,
+    undoStack,
+    setUndoStack,
+    redoStack,
+    setRedoStack,
+    markDirty,
+    pushUndoSnapshot,
+    mutateProject,
+    handleSelectProject,
+  } = useInfiniteCanvasProject({
+    projectId,
+    onLoadError: (error) => {
+      toast({
+        title: '项目加载失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        variant: 'destructive',
+      });
+      router.push('/infinite-canvas');
+    },
+    onAutoSaveError: (error) => {
+      toast({
+        title: '自动保存失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        variant: 'destructive',
+      });
+    },
+    onProjectRouteChange: (nextProjectId) => {
+      router.push(`/infinite-canvas/editor/${nextProjectId}`);
+    },
+  });
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [activePanel, setActivePanel] = useState<InfinitePanel | null>(null);
   const [projectSidebarOpen, setProjectSidebarOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<string>('');
-  const [dirtyVersion, setDirtyVersion] = useState(0);
-  const [viewport, setViewport] = useState({ x: 180, y: 120, scale: 1 });
   const [connectionSourceId, setConnectionSourceId] = useState<string | null>(null);
   const [pointerPosition, setPointerPosition] = useState<ScreenPoint | null>(null);
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [dragGuides, setDragGuides] = useState<DragGuide[]>([]);
-  const [undoStack, setUndoStack] = useState<InfiniteCanvasProject[]>([]);
-  const [redoStack, setRedoStack] = useState<InfiniteCanvasProject[]>([]);
   const [pendingAutoRunNodeId, setPendingAutoRunNodeId] = useState<string | null>(null);
   const [optimizingNodeIds, setOptimizingNodeIds] = useState<string[]>([]);
   const [imageEditDialogState, setImageEditDialogState] = useState<InfiniteImageEditDialogState>({
@@ -332,138 +167,21 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
   });
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
-  const isMountedRef = useRef(true);
   const cancelRunRef = useRef(false);
-
-  useEffect(() => {
-    projectRef.current = project;
-  }, [project]);
-
-  useEffect(() => {
-    viewportRef.current = viewport;
-  }, [viewport]);
 
   useEffect(() => {
     const controllers = abortControllersRef.current;
     const timers = progressTimersRef.current;
-    isMountedRef.current = true;
     return () => {
-      isMountedRef.current = false;
       controllers.forEach((controller) => controller.abort());
       timers.forEach((timerId) => window.clearInterval(timerId));
       timers.clear();
     };
   }, []);
 
-
-
-  const markDirty = useCallback(() => {
-    setDirtyVersion((value) => value + 1);
-  }, []);
-
-  const pushUndoSnapshot = useCallback(() => {
-    setProject((currentProject) => {
-      if (!currentProject) return currentProject;
-      const snapshot = deepClone({
-        ...currentProject,
-        canvasViewport: viewport,
-      });
-      setUndoStack((stack) => [...stack.slice(-59), snapshot]);
-      setRedoStack([]);
-      return currentProject;
-    });
-  }, [viewport]);
-
-  const mutateProject = useCallback(
-    (updater: (draft: InfiniteCanvasProject) => void, options?: { markDirty?: boolean }) => {
-      setProject((prev) => {
-        if (!prev) return prev;
-        const draft = deepClone(prev);
-        updater(draft);
-        draft.updatedAt = nowISO();
-        draft.nodeCount = draft.nodes.length;
-        return draft;
-      });
-
-      if (options?.markDirty !== false) {
-        markDirty();
-      }
-    },
-    [markDirty],
-  );
-
-  const loadProject = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await getProject(projectId);
-      const loadedProject = response.project;
-      setProject(loadedProject);
-      setViewport({
-        x: loadedProject.canvasViewport?.x ?? 180,
-        y: loadedProject.canvasViewport?.y ?? 120,
-        scale: loadedProject.canvasViewport?.scale ?? 1,
-      });
-      setSelectedNodeIds([]);
-      setLastSavedAt(nowISO());
-      setUndoStack([]);
-      setRedoStack([]);
-    } catch (error) {
-      toast({
-        title: '项目加载失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive',
-      });
-      router.push('/infinite-canvas');
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, router, toast]);
-
   useEffect(() => {
-    loadProject();
-  }, [loadProject]);
-
-  const handleSelectProject = useCallback(
-    (nextProjectId: string) => {
-      if (!nextProjectId || nextProjectId === projectId) {
-        return;
-      }
-      router.push(`/infinite-canvas/editor/${nextProjectId}`);
-    },
-    [projectId, router],
-  );
-
-  useEffect(() => {
-    if (!project || loading || dirtyVersion === 0) return;
-
-    const timer = window.setTimeout(async () => {
-      setSaving(true);
-      try {
-        const payload: InfiniteCanvasProject = {
-          ...project,
-          canvasViewport: viewport,
-          projectName: sanitizeName(project.projectName),
-        };
-        await saveProject(project.projectId, payload);
-        if (!isMountedRef.current) return;
-        setLastSavedAt(nowISO());
-      } catch (error) {
-        toast({
-          title: '自动保存失败',
-          description: error instanceof Error ? error.message : '未知错误',
-          variant: 'destructive',
-        });
-      } finally {
-        if (isMountedRef.current) {
-          setSaving(false);
-        }
-      }
-    }, 700);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [project, viewport, dirtyVersion, loading, toast]);
+    setSelectedNodeIds([]);
+  }, [project?.projectId]);
 
   const viewportToWorld = useCallback(
     (clientX: number, clientY: number) => {
@@ -854,7 +572,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         })),
       };
     },
-    [pushUndoSnapshot, selectedNodeIds],
+    [projectRef, pushUndoSnapshot, selectedNodeIds],
   );
 
   const handleCanvasPointerDown = useCallback(
@@ -966,7 +684,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         height: 0,
       });
     },
-    [connectionSourceId, mutateProject, pushUndoSnapshot, selectedNodeIds],
+    [connectionSourceId, mutateProject, projectRef, pushUndoSnapshot, selectedNodeIds, viewportRef],
   );
 
   const handleCanvasContextMenu = useCallback((event: React.MouseEvent) => {
@@ -1026,7 +744,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
     setViewport(nextViewport);
     markDirty();
-  }, [markDirty, viewport]);
+  }, [markDirty, setViewport, viewport]);
 
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0 || !project) return;
@@ -1042,7 +760,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     });
     setSelectedNodeIds([]);
     markDirty();
-  }, [markDirty, project, undoStack, viewport]);
+  }, [markDirty, project, setProject, setRedoStack, setUndoStack, setViewport, undoStack, viewport]);
 
   const handleRedo = useCallback(() => {
     if (redoStack.length === 0 || !project) return;
@@ -1058,7 +776,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     });
     setSelectedNodeIds([]);
     markDirty();
-  }, [markDirty, project, redoStack, viewport]);
+  }, [markDirty, project, redoStack, setProject, setRedoStack, setUndoStack, setViewport, viewport]);
 
   const handleOutputPortClick = useCallback((nodeId: string) => {
     setConnectionSourceId((current) => (current === nodeId ? null : nodeId));
@@ -1137,7 +855,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
     setViewport({ x, y, scale });
     markDirty();
-  }, [markDirty, project]);
+  }, [markDirty, project, setViewport]);
 
   const createHistoryItem = useCallback((
     node: InfiniteCanvasNode,
@@ -1948,6 +1666,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
     handleNodeImageUpload,
     mutateProject,
     pointerPosition,
+    projectRef,
     pushUndoSnapshot,
     selectedNodeIds,
     toast,
@@ -2131,7 +1850,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
     };
-  }, [markDirty, mutateProject]);
+  }, [markDirty, mutateProject, projectRef, setViewport, viewportRef]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2441,178 +2160,20 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         </Button>
       </aside>
 
-      {projectSidebarOpen ? (
-        <section
-          data-panel
-          className={EDITOR_SIDE_PANEL_CLASS}
-          style={{ left: projectSidebarLeft }}
-        >
-          <InfiniteCanvasProjectSidebar
-            activeProjectId={project.projectId}
-            onSelectProject={handleSelectProject}
-          />
-        </section>
-      ) : null}
-
-      {activePanel ? (
-        <section
-          data-panel
-          className={EDITOR_SIDE_PANEL_CLASS}
-          style={{ left: sidePanelLeft }}
-        >
-          {activePanel === 'assets' ? (
-            <div className="flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-studio-border px-4 py-3">
-                <p className="text-sm font-semibold text-studio-foreground">Assets</p>
-                <Button size="sm" className="studio-action-button h-8 rounded-lg" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mr-1.5 h-3.5 w-3.5" />上传
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  multiple
-                  onChange={(event) => {
-                    uploadAssets(event.target.files);
-                    event.target.value = '';
-                  }}
-                />
-              </div>
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {project.assets.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-studio-border bg-studio-surface-muted/60 p-3 text-xs text-studio-subtle">暂无素材，上传后可一键插入画布。</p>
-                ) : (
-                  project.assets.map((asset) => (
-                    <div key={asset.assetId} className="rounded-xl border border-studio-border bg-studio-surface-muted p-2">
-                      <div className="relative h-24 w-full overflow-hidden rounded-lg border border-studio-surface-muted bg-studio-surface-strong dark:border-studio-canvas dark:bg-studio-canvas/40">
-                        <Image src={asset.thumbnailUrl || asset.url} alt={asset.name} fill sizes="300px" className="object-cover" unoptimized />
-                      </div>
-                      <p className="mt-2 truncate text-xs text-studio-foreground">{asset.name}</p>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="studio-secondary-button mt-2 h-7 w-full rounded-lg text-xs"
-                        onClick={() => insertAssetAsNode(asset)}
-                      >
-                        插入画布
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          {activePanel === 'history' ? (
-            <div className="flex h-full flex-col">
-              <div className="border-b border-studio-border px-4 py-3">
-                <p className="text-sm font-semibold text-studio-foreground">Generation History</p>
-              </div>
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {project.history.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-studio-border bg-studio-surface-muted/60 p-3 text-xs text-studio-subtle">暂无历史生成结果。</p>
-                ) : (
-                  project.history.map((item) => (
-                    <div key={item.historyId} className="rounded-xl border border-studio-border bg-studio-surface-muted p-2">
-                      {item.outputUrl ? (
-                        <div className="relative h-24 w-full overflow-hidden rounded-lg border border-studio-surface-muted bg-studio-surface-strong dark:border-studio-canvas dark:bg-studio-canvas/40">
-                          <Image src={item.outputUrl} alt="history" fill sizes="300px" className="object-cover" unoptimized />
-                        </div>
-                      ) : null}
-                      <p className="mt-2 line-clamp-2 text-[11px] text-studio-muted">{item.promptSnapshot || '无 Prompt 快照'}</p>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="studio-secondary-button mt-2 h-7 w-full rounded-lg text-xs"
-                        onClick={() => insertHistoryAsNode(item)}
-                      >
-                        继续编辑
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          {activePanel === 'flows' ? (
-            <div className="flex h-full flex-col">
-              <div className="border-b border-studio-border px-4 py-3">
-                <p className="text-sm font-semibold text-studio-foreground">Flows Library</p>
-              </div>
-              <div className="flex-1 space-y-3 overflow-y-auto p-4 text-xs text-studio-muted">
-                <div className="rounded-lg border border-studio-accent/20 bg-studio-accent/10 p-3">
-                  <span className="text-studio-foreground">模板能力为 P1，当前提供快捷创建：</span>
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" className="studio-action-button h-7 rounded-lg" onClick={() => createNodeAtCenter('text')}>
-                      Text 模板
-                    </Button>
-                    <Button size="sm" className="studio-action-button h-7 rounded-lg" onClick={() => createNodeAtCenter('image')}>
-                      Image 模板
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {activePanel === 'queue' ? (
-            <div className="flex h-full flex-col">
-              <div className="border-b border-studio-border px-4 py-3">
-                <p className="text-sm font-semibold text-studio-foreground">Run Queue</p>
-              </div>
-              <div className="flex-1 space-y-2 overflow-y-auto p-4">
-                {project.runQueue.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-studio-border bg-studio-surface-muted/60 p-3 text-xs text-studio-subtle">暂无任务。</p>
-                ) : (
-                  project.runQueue.map((item) => {
-                    const progress = Math.max(0, Math.min(1, item.progress ?? (item.status === 'success' ? 1 : 0)));
-                    const progressPercent = Math.round(progress * 100);
-                    const showProgress = item.status === 'running' || item.status === 'success';
-
-                    return (
-                      <div key={item.queueId} className="rounded-lg border border-studio-border bg-studio-surface-muted p-2 text-xs">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-studio-foreground">{item.nodeTitle}</p>
-                          <span className="rounded border border-studio-border px-1.5 py-0.5 text-[10px] uppercase text-studio-muted">{item.status}</span>
-                        </div>
-
-                        {showProgress ? (
-                          <div className="mt-2 space-y-1">
-                            <div className="flex items-center justify-between text-[10px] text-studio-muted">
-                              <span>{progressPercent}%</span>
-                              <span>ETA {formatEtaLabel(item.etaSeconds)}</span>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-studio-surface">
-                              <div
-                                className="h-full rounded-full bg-studio-accent"
-                                style={{ width: `${Math.max(4, progressPercent)}%` }}
-                              />
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {item.errorMsg ? <p className="mt-1 text-rose-500 dark:text-rose-400">{item.errorMsg}</p> : null}
-                        <div className="mt-2 flex justify-end">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="studio-secondary-button h-6 rounded-md px-2 text-[10px]"
-                            onClick={() => runSingleNode(item.nodeId)}
-                          >
-                            重试
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+      <CanvasSidebarPanels
+        projectSidebarOpen={projectSidebarOpen}
+        projectSidebarLeft={projectSidebarLeft}
+        activePanel={activePanel}
+        sidePanelLeft={sidePanelLeft}
+        project={project}
+        fileInputRef={fileInputRef}
+        onSelectProject={handleSelectProject}
+        onUploadAssets={uploadAssets}
+        onInsertAsset={insertAssetAsNode}
+        onInsertHistory={insertHistoryAsNode}
+        onCreateNodeAtCenter={createNodeAtCenter}
+        onRetryQueueItem={runSingleNode}
+      />
 
       <header
         className="absolute right-4 top-4 z-30 flex items-center justify-between rounded-2xl px-4 py-3"
