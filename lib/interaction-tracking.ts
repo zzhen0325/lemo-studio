@@ -19,16 +19,16 @@ export interface InteractionTrackingResult {
 export async function trackInteraction(
   generationId: string,
   action: InteractionAction,
-  userId: string,
+  userId?: string,
   options?: { moodboardId?: string }
 ): Promise<InteractionTrackingResult> {
+  void userId;
   try {
     const response = await fetch(`/api/history/${generationId}/interactions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action,
-        userId,
         moodboardId: options?.moodboardId,
       }),
     });
@@ -57,12 +57,9 @@ export async function getInteractionData(
   generationId: string,
   userId?: string
 ): Promise<InteractionTrackingResult> {
+  void userId;
   try {
-    const url = userId 
-      ? `/api/history/${generationId}/interactions?userId=${encodeURIComponent(userId)}`
-      : `/api/history/${generationId}/interactions`;
-    
-    const response = await fetch(url, { method: 'GET' });
+    const response = await fetch(`/api/history/${generationId}/interactions`, { method: 'GET' });
 
     if (!response.ok) {
       const error = await response.json();
@@ -86,7 +83,7 @@ export async function getInteractionData(
  */
 export async function likeGeneration(
   generationId: string,
-  userId: string
+  userId?: string
 ): Promise<InteractionTrackingResult> {
   return trackInteraction(generationId, 'like', userId);
 }
@@ -96,7 +93,7 @@ export async function likeGeneration(
  */
 export async function addToMoodboard(
   generationId: string,
-  userId: string,
+  userId: string | undefined,
   moodboardId: string
 ): Promise<InteractionTrackingResult> {
   return trackInteraction(generationId, 'moodboard_add', userId, { moodboardId });
@@ -107,7 +104,7 @@ export async function addToMoodboard(
  */
 export async function downloadGeneration(
   generationId: string,
-  userId: string
+  userId?: string
 ): Promise<InteractionTrackingResult> {
   return trackInteraction(generationId, 'download', userId);
 }
@@ -117,7 +114,7 @@ export async function downloadGeneration(
  */
 export async function editGeneration(
   generationId: string,
-  userId: string
+  userId?: string
 ): Promise<InteractionTrackingResult> {
   return trackInteraction(generationId, 'edit', userId);
 }

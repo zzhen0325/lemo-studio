@@ -1,20 +1,16 @@
-import { Inject, Injectable } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
+import { PresetsRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
-import { PresetCategory } from '../db';
 import { readJsonAsset } from '../../runtime-assets';
 
 const CATEGORIES_PATH = 'public/preset/categories.json';
 const DEFAULT_CATEGORIES = ['General', 'Portrait', 'Landscape', 'Anime', '3D', 'Architecture', 'Character', 'Workflow', 'Other'];
 
-@Injectable()
 export class PresetCategoriesService {
-  @Inject(PresetCategory)
-  private categoryModel!: ModelType<PresetCategory>;
+  constructor(private readonly presetsRepository: PresetsRepository) {}
 
   public async getCategories(): Promise<string[]> {
     try {
-      const doc = await this.categoryModel.findOne({ key: 'default' }).lean();
+      const doc = await this.presetsRepository.getCategoriesRecord();
       if (doc && doc.categories && doc.categories.length > 0) {
         return doc.categories;
       }
@@ -43,11 +39,7 @@ export class PresetCategoriesService {
 
   public async saveCategories(categories: string[]): Promise<string[]> {
     try {
-      await this.categoryModel.updateOne(
-        { key: 'default' },
-        { categories },
-        { upsert: true }
-      );
+      await this.presetsRepository.saveCategories(categories);
       return categories;
     } catch (error) {
       console.error('Failed to save categories to DB', error);

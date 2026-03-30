@@ -109,9 +109,9 @@ export async function uploadTextAssetToRuntimeCdn(
 
   const entry: RuntimeCdnManifestEntry = {
     file: normalizedFile,
-    cdnUrl: uploaded.url,
-    fileName: uploaded.fileName,
-    dir: uploaded.dir,
+    cdnUrl: uploaded.url || '',
+    fileName: uploaded.fileName || buildUploadFileName(normalizedFile),
+    dir: uploaded.dir || DEFAULT_RUNTIME_CDN_DIR,
     size: buffer.length,
     uploadedAt,
   };

@@ -1,8 +1,6 @@
 import { randomUUID } from 'crypto';
-import { Inject, Injectable } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
+import { ImageAssetsRepository, ToolPresetsRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
-import { ToolPreset as ToolPresetEntity, ImageAsset } from '../db';
 import { tryNormalizeAssetUrlToCdn, uploadImageBufferToCdn } from '../utils/cdn-image-url';
 
 export interface ToolPreset {
@@ -13,13 +11,11 @@ export interface ToolPreset {
   timestamp: number;
 }
 
-@Injectable()
 export class ToolsPresetsService {
-  @Inject(ToolPresetEntity)
-  private toolPresetModel!: ModelType<ToolPresetEntity>;
-
-  @Inject(ImageAsset)
-  private imageAssetModel!: ModelType<ImageAsset>;
+  constructor(
+    private readonly toolPresetsRepository: ToolPresetsRepository,
+    private readonly imageAssetsRepository: ImageAssetsRepository,
+  ) {}
 
   private async normalizeThumbnail(id: string, thumbnail?: string) {
     const normalized = await tryNormalizeAssetUrlToCdn(thumbnail, {
@@ -30,7 +26,7 @@ export class ToolsPresetsService {
     const displayUrl = normalized.url || thumbnail || '';
     
     if (normalized.storageKey && normalized.storageKey !== thumbnail) {
-      await this.toolPresetModel.updateOne({ _id: id }, { $set: { thumbnail: normalized.storageKey } });
+      await this.toolPresetsRepository.upsert(id, { thumbnail: normalized.storageKey });
     }
 
     return displayUrl;
@@ -38,7 +34,7 @@ export class ToolsPresetsService {
 
   public async listPresets(toolId: string): Promise<ToolPreset[]> {
     try {
-      const presets = await this.toolPresetModel.find({ toolId }).sort({ timestamp: -1 }).lean();
+      const presets = await this.toolPresetsRepository.listByToolId(toolId);
       return Promise.all(presets.map(async (p) => ({
         id: String(p._id),
         name: p.name,
@@ -97,11 +93,7 @@ export class ToolsPresetsService {
         timestamp,
       };
 
-      await this.toolPresetModel.updateOne(
-        { _id: id },
-        { toolId, name, values, thumbnail: storageKey || thumbnailPath, timestamp },
-        { upsert: true },
-      );
+      await this.toolPresetsRepository.upsert(id, { toolId, name, values, thumbnail: storageKey || thumbnailPath, timestamp });
 
       return preset;
     } catch (error) {
@@ -113,8 +105,8 @@ export class ToolsPresetsService {
 
   public async deletePreset(toolId: string, id: string): Promise<void> {
     try {
-      await this.toolPresetModel.deleteOne({ _id: id, toolId });
-      await this.imageAssetModel.deleteMany({ 'meta.presetId': id, 'meta.toolId': toolId });
+      await this.toolPresetsRepository.deleteOwned(toolId, id);
+      await this.imageAssetsRepository.deleteMany({ 'meta.presetId': id, 'meta.toolId': toolId });
     } catch (error) {
       console.error('Failed to delete preset', error);
       throw new HttpError(500, 'Failed to delete preset');

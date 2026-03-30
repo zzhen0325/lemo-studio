@@ -1,9 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import { getApiBase } from '@/lib/api-base';
-import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import type { Generation } from '@/types/database';
-import { userStore } from '@/lib/store/user-store';
 
 const isHistoryDebugEnabled = () => {
     if (typeof window !== 'undefined') {
@@ -66,23 +65,25 @@ const getKey = (
 };
 
 export function useHistory() {
-    const visitorId = usePlaygroundStore((s) => s.visitorId);
-    const sessionUserId = typeof window !== 'undefined' ? localStorage.getItem('CURRENT_USER_ID') : null;
-    const effectiveUserId = userStore.currentUser?.id || sessionUserId || visitorId || null;
+    const actorId = useAuthStore((state) => state.actorId);
+    const currentUser = useAuthStore((state) => state.currentUser);
+    const ensureSession = useAuthStore((state) => state.ensureSession);
+
+    useEffect(() => {
+        void ensureSession().catch(() => undefined);
+    }, [ensureSession]);
 
     useEffect(() => {
         if (!isHistoryDebugEnabled()) return;
         console.info('[HistoryDebug][Front] identity', {
-            currentUserId: userStore.currentUser?.id || null,
-            sessionUserId,
-            visitorId,
-            effectiveUserId,
+            currentUserId: currentUser?.id || null,
+            actorId: actorId || null,
             apiBase: getApiBase(),
         });
-    }, [effectiveUserId, sessionUserId, visitorId]);
+    }, [actorId, currentUser?.id]);
 
     const { data, size, setSize, isValidating, mutate } = useSWRInfinite(
-        (index, prev) => getKey(index, prev, effectiveUserId),
+        (index, prev) => getKey(index, prev, actorId),
         fetcher,
         {
             revalidateOnFocus: true,

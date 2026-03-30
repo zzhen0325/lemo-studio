@@ -14,6 +14,7 @@ import {
   getShortcutByMoodboardId,
 } from '@/config/playground-shortcuts';
 import type { SortBy } from '@/lib/server/service/history.service';
+import { useAuthStore } from './auth-store';
 
 type PlaygroundSet = StoreApi<PlaygroundState>['setState'];
 type PlaygroundGet = StoreApi<PlaygroundState>['getState'];
@@ -98,12 +99,6 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       if (page > 1 && page <= state.galleryPage) return;
       if (state.isFetchingGallery || (page === 1 && state._galleryLoaded)) return;
 
-      // 确保 visitorId 存在
-      if (!state.visitorId) {
-        const { v4: uuidv4 } = await import('uuid');
-        set({ visitorId: uuidv4() });
-      }
-
       if (page > 1 && state.galleryPrefetch?.page === page) {
         const cachedPage = state.galleryPrefetch;
         set((current) => ({
@@ -131,7 +126,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         const limit = page === 1 ? 24 : 30;
         const currentState = get();
         const sortBy = currentState.gallerySortBy;
-        const viewerUserId = currentState.visitorId;
+        const viewerUserId = useAuthStore.getState().actorId || undefined;
         const data = await fetchGalleryPageFromApi(page, limit, { sortBy, viewerUserId });
         if (!data) return;
 
@@ -171,7 +166,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       set({ isSyncingGalleryLatest: true });
       try {
         const sortBy = state.gallerySortBy;
-        const viewerUserId = state.visitorId;
+        const viewerUserId = useAuthStore.getState().actorId || undefined;
         const data = await fetchGalleryPageFromApi(1, 24, { sortBy, viewerUserId });
         if (!data) return;
 
@@ -204,7 +199,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       set({ isPrefetchingGallery: true });
       try {
         const sortBy = state.gallerySortBy;
-        const viewerUserId = state.visitorId;
+        const viewerUserId = useAuthStore.getState().actorId || undefined;
         const data = await fetchGalleryPageFromApi(nextPage, 30, { sortBy, viewerUserId });
         if (!data) return;
 

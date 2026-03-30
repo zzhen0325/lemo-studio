@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/common/use-toast';
 
 import { resolveGalleryImageUrl } from '@/lib/gallery-asset';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { useImageSource } from '@/hooks/common/use-image-source';
 import { downloadImage } from '@/lib/utils/download';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
@@ -60,8 +61,7 @@ export default function ImagePreviewModal({
   const applyImages = usePlaygroundStore((state) => state.applyImages);
   const applyPrompt = usePlaygroundStore((state) => state.applyPrompt);
   const applyImage = usePlaygroundStore((state) => state.applyImage);
-  const visitorId = usePlaygroundStore((state) => state.visitorId);
-  const initVisitorId = usePlaygroundStore((state) => state.initVisitorId);
+  const ensureSession = useAuthStore((state) => state.ensureSession);
   const [mounted, setMounted] = useState(false);
   const availableModels = usePlaygroundAvailableModels();
 
@@ -77,9 +77,8 @@ export default function ImagePreviewModal({
 
   useEffect(() => {
     setMounted(true);
-    // 确保初始化 visitorId
-    initVisitorId();
-  }, [initVisitorId]);
+    void ensureSession().catch(() => undefined);
+  }, [ensureSession]);
 
   // 当 result 变化时，重置本地交互数据状态
   useEffect(() => {
@@ -299,7 +298,6 @@ export default function ImagePreviewModal({
                     generationId={result.id}
                     interactionStats={localInteractionStats}
                     viewerState={localViewerState}
-                    userId={visitorId}
                     onInteractionUpdate={handleInteractionUpdate}
                   />
 

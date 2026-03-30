@@ -5,7 +5,6 @@ import type { APIProviderConfig, APIConfigSettings, APIConfigResponse } from '..
 import { normalizeProviderConfigs } from '../../model-center';
 import {
   DEFAULT_API_CONFIG_SETTINGS,
-  migrateLooseModels,
   normalizeApiConfigSettings,
 } from '../../api-config/core';
 
@@ -148,6 +147,7 @@ export class ApiConfigService {
    * 删除 provider（已简化，不再支持）
    */
   public async deleteProvider(_id: string): Promise<void> {
+    void _id;
     console.warn('[ApiConfigService] deleteProvider is no longer supported. Providers are managed via providers.json');
   }
 }

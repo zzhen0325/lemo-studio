@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
-import { userStore } from "@/lib/store/user-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { useAIService } from "@/hooks/ai/useAIService";
 import { useToast } from "@/hooks/common/use-toast";
 import { GenerationConfig, EditPresetConfig } from "@/lib/playground/types";
@@ -145,6 +145,8 @@ export function useGenerationService() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [fluxKleinConnectionHelp, setFluxKleinConnectionHelp] = useState<FluxKleinConnectionHelp | null>(null);
     const availableModels = usePlaygroundAvailableModels();
+    const actorId = useAuthStore((state) => state.actorId);
+    const ensureSession = useAuthStore((state) => state.ensureSession);
     const getModelEntryById = useAPIConfigStore(state => state.getModelEntryById);
     const settings = useAPIConfigStore(state => state.settings);
 
@@ -161,9 +163,12 @@ export function useGenerationService() {
         || availableModels[0]?.id
         || 'gemini-3-pro-image-preview';
     const resolveEffectiveUserId = useCallback(() => {
-        const sessionUserId = typeof window !== 'undefined' ? localStorage.getItem('CURRENT_USER_ID') : null;
-        return userStore.currentUser?.id || sessionUserId || usePlaygroundStore.getState().visitorId || 'anonymous';
-    }, []);
+        return useAuthStore.getState().actorId || actorId || 'anonymous';
+    }, [actorId]);
+
+    useEffect(() => {
+        void ensureSession().catch(() => undefined);
+    }, [ensureSession]);
 
     // Helper: URL to DataURL
     const blobToDataURL = useCallback((blob: Blob) => new Promise<string>((resolve) => {

@@ -1,4 +1,3 @@
-import { Injectable } from '../compat/gulux';
 import { ComfyUIService } from '../../api/comfyui-service';
 import { ErrorResponseFactory } from '../../models/errors';
 import { HttpError } from '../utils/http-error';
@@ -17,7 +16,6 @@ type FluxKleinBody = {
   apiKey?: string;
 };
 
-@Injectable()
 export class ComfyFluxKleinService {
   public async runFluxKleinFromBody(body: FluxKleinBody, logId?: string): Promise<ReadableStream<Uint8Array>> {
     try {

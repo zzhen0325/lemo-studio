@@ -1,4 +1,3 @@
-import { Inject, Injectable } from '../compat/gulux';
 import { HttpError } from '../utils/http-error';
 import { getGoogleApiKey } from '../../ai/modelRegistry';
 import { ApiConfigService } from './api-config.service';
@@ -9,10 +8,8 @@ export interface GoogleApiCheckResult {
   code?: number;
 }
 
-@Injectable()
 export class CheckGoogleApiService {
-  @Inject()
-  private readonly apiConfigService!: ApiConfigService;
+  constructor(private readonly apiConfigService: ApiConfigService) {}
 
   public async check(): Promise<GoogleApiCheckResult> {
     const providers = await this.apiConfigService.getRuntimeProviders();

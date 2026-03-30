@@ -1,12 +1,10 @@
 import { ComfyUIService } from '../../api/comfyui-service';
 import { ErrorResponseFactory } from '../../models/errors';
-import { Injectable } from '../compat/gulux';
 import { HttpError } from '../utils/http-error';
 import type { IViewComfy } from '../../../types/comfy-input';
 
 const errorResponseFactory = new ErrorResponseFactory();
 
-@Injectable()
 export class ComfyService {
   public async runWorkflowFromFormData(formData: FormData, logId?: string): Promise<ReadableStream<Uint8Array>> {
     let workflow: object | undefined;

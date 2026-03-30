@@ -1,9 +1,7 @@
 import { z } from 'zod';
-import { Injectable, Inject } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
+import { ImageAssetsRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
-import { ImageAsset } from '../db';
 
 const BodySchema = z.object({
   imageBase64: z.string(),
@@ -89,10 +87,8 @@ async function fetchImageBuffer(url: string, depth = 0): Promise<{ buffer: Buffe
   throw new Error(`Downloaded content is not an image: mime=${mime || 'unknown'} url=${url} body=${text.slice(0, 500)}`);
 }
 
-@Injectable()
 export class SaveImageService {
-  @Inject(ImageAsset)
-  private imageAssetModel!: ModelType<ImageAsset>;
+  constructor(private readonly imageAssetsRepository: ImageAssetsRepository) {}
 
   public async save(body: unknown): Promise<{ path: string; storageKey: string }> {
     const parsed = BodySchema.safeParse(body);
@@ -144,7 +140,7 @@ export class SaveImageService {
       generateSignedUrl: true, // 为了向后兼容，仍然生成预签名 URL 返回给前端
     });
 
-    await this.imageAssetModel.create({
+    await this.imageAssetsRepository.create({
       storage_key: cdnRes.storageKey, // 存储 URI
       url: cdnRes.url, // 可选，预签名 URL
       dir: cdnRes.dir,

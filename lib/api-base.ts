@@ -180,7 +180,6 @@ export function formatImageUrl(url: string | undefined | null, useProxy = false)
 
     let resultUrl = url;
     const apiBase = getApiBase();
-    const siteBase = apiBase.replace('/api', '');
 
     if (!url.startsWith('http')) {
         // Handle CDN URLs that don't start with protocol (e.g. sf16-sg.tiktokcdn.com/...)

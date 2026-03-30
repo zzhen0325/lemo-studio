@@ -119,6 +119,11 @@ export default function FluxKleinConnectionHelpDialog({
                 <DialogDescription className="mt-1 text-sm text-white/60">
                   {isSuccess ? "浏览器已经可以访问 Fluxklein，对这台机器后续一般不用重复操作。" : ""}
                 </DialogDescription>
+                {!isSuccess && (technicalReason || verificationError) ? (
+                  <p className="mt-2 text-xs text-amber-200/80">
+                    {verificationError || technicalReason}
+                  </p>
+                ) : null}
               </div>
             </div>
           </DialogHeader>

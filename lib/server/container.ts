@@ -1,17 +1,15 @@
-import { Logger } from './compat/gulux';
 import {
-  GenerationModel,
-  ImageAssetModel,
-  PresetModel,
-  PresetCategoryModel,
-  StyleStackModel,
-  ToolPresetModel,
-  DatasetEntryModel,
-  DatasetCollectionModel,
-  UserModel,
-  InfiniteCanvasProjectModel,
-} from './db/models';
-import { connectMongo } from './db/supabase';
+  DatasetRepository,
+  HistoryRepository,
+  ImageAssetsRepository,
+  InfiniteCanvasRepository,
+  PlaygroundShortcutsRepository,
+  PresetsRepository,
+  StylesRepository,
+  ToolPresetsRepository,
+  UsersRepository,
+} from './repositories';
+import { Logger } from './utils/logger';
 import { AiService } from './service/ai.service';
 import { ApiConfigService } from './service/api-config.service';
 import { CheckGoogleApiService } from './service/check-google-api.service';
@@ -23,6 +21,7 @@ import { DatasetService } from './service/dataset.service';
 import { HistoryService } from './service/history.service';
 import { InfiniteCanvasService } from './service/infinite-canvas.service';
 import { LorasService } from './service/loras.service';
+import { PlaygroundShortcutsService } from './service/playground-shortcuts.service';
 import { PresetCategoriesService } from './service/preset-categories.service';
 import { PresetsService } from './service/presets.service';
 import { SaveImageService } from './service/save-image.service';
@@ -33,15 +32,33 @@ import { UploadService } from './service/upload.service';
 import { UsersService } from './service/users.service';
 import { ViewComfyConfigService } from './service/view-comfy.service';
 
-function wire<T extends object>(service: T, dependencies: Record<string, unknown>): T {
-  Object.assign(service as Record<string, unknown>, dependencies);
-  return service;
+function createRepositories() {
+  return {
+    datasetRepository: new DatasetRepository(),
+    historyRepository: new HistoryRepository(),
+    imageAssetsRepository: new ImageAssetsRepository(),
+    infiniteCanvasRepository: new InfiniteCanvasRepository(),
+    playgroundShortcutsRepository: new PlaygroundShortcutsRepository(),
+    presetsRepository: new PresetsRepository(),
+    stylesRepository: new StylesRepository(),
+    toolPresetsRepository: new ToolPresetsRepository(),
+    usersRepository: new UsersRepository(),
+  };
 }
 
 export type ServerServices = Awaited<ReturnType<typeof createServerServices>>;
 
 let servicesPromise: Promise<{
   logger: Logger;
+  datasetRepository: DatasetRepository;
+  historyRepository: HistoryRepository;
+  imageAssetsRepository: ImageAssetsRepository;
+  infiniteCanvasRepository: InfiniteCanvasRepository;
+  playgroundShortcutsRepository: PlaygroundShortcutsRepository;
+  presetsRepository: PresetsRepository;
+  stylesRepository: StylesRepository;
+  toolPresetsRepository: ToolPresetsRepository;
+  usersRepository: UsersRepository;
   apiConfigService: ApiConfigService;
   aiService: AiService;
   checkGoogleApiService: CheckGoogleApiService;
@@ -53,6 +70,7 @@ let servicesPromise: Promise<{
   historyService: HistoryService;
   infiniteCanvasService: InfiniteCanvasService;
   lorasService: LorasService;
+  playgroundShortcutsService: PlaygroundShortcutsService;
   presetCategoriesService: PresetCategoriesService;
   presetsService: PresetsService;
   saveImageService: SaveImageService;
@@ -65,88 +83,34 @@ let servicesPromise: Promise<{
 }> | null = null;
 
 async function createServerServices() {
-  // Initialize Supabase client
-  try {
-    await connectMongo();
-    console.log('[Container] Supabase client initialized successfully');
-  } catch (error) {
-    console.warn('[Container] Failed to initialize Supabase client:', error);
-    // Continue anyway - some features may not work
-  }
-
   const logger = new Logger();
+  const repositories = createRepositories();
 
   const apiConfigService = new ApiConfigService();
-
-  const aiService = wire(new AiService(), {
-    apiConfigService,
-    logger,
-  });
-
-  const checkGoogleApiService = wire(new CheckGoogleApiService(), {
-    apiConfigService,
-  });
-
+  const aiService = new AiService(apiConfigService, logger);
+  const checkGoogleApiService = new CheckGoogleApiService(apiConfigService);
   const comfyFluxKleinService = new ComfyFluxKleinService();
   const comfyProxyService = new ComfyProxyService();
   const comfyService = new ComfyService();
   const datasetSyncService = new DatasetSyncService();
-
-  const datasetService = wire(new DatasetService(), {
-    datasetCollectionModel: DatasetCollectionModel,
-    datasetEntryModel: DatasetEntryModel,
-    imageAssetModel: ImageAssetModel,
-  });
-
-  const historyService = wire(new HistoryService(), {
-    generationModel: GenerationModel,
-    imageAssetModel: ImageAssetModel,
-  });
-
-  const infiniteCanvasService = wire(new InfiniteCanvasService(), {
-    projectModel: InfiniteCanvasProjectModel,
-  });
-
+  const datasetService = new DatasetService(repositories.datasetRepository, repositories.imageAssetsRepository);
+  const historyService = new HistoryService(repositories.historyRepository);
+  const infiniteCanvasService = new InfiniteCanvasService(repositories.infiniteCanvasRepository);
   const lorasService = new LorasService();
-
-  const presetCategoriesService = wire(new PresetCategoriesService(), {
-    categoryModel: PresetCategoryModel,
-  });
-
-  const presetsService = wire(new PresetsService(), {
-    presetModel: PresetModel,
-    imageAssetModel: ImageAssetModel,
-  });
-
-  const saveImageService = wire(new SaveImageService(), {
-    imageAssetModel: ImageAssetModel,
-  });
-
-  const stylesService = wire(new StylesService(), {
-    styleStackModel: StyleStackModel,
-  });
-
-  const toolsPresetsService = wire(new ToolsPresetsService(), {
-    toolPresetModel: ToolPresetModel,
-    imageAssetModel: ImageAssetModel,
-  });
-
-  const translateService = wire(new TranslateService(), {
-    apiConfigService,
-  });
-
-  const uploadService = wire(new UploadService(), {
-    imageAssetModel: ImageAssetModel,
-  });
-
-  const usersService = wire(new UsersService(), {
-    userModel: UserModel,
-  });
-
+  const playgroundShortcutsService = new PlaygroundShortcutsService(repositories.playgroundShortcutsRepository);
+  const presetCategoriesService = new PresetCategoriesService(repositories.presetsRepository);
+  const presetsService = new PresetsService(repositories.presetsRepository, repositories.imageAssetsRepository);
+  const saveImageService = new SaveImageService(repositories.imageAssetsRepository);
+  const stylesService = new StylesService(repositories.stylesRepository);
+  const toolsPresetsService = new ToolsPresetsService(repositories.toolPresetsRepository, repositories.imageAssetsRepository);
+  const translateService = new TranslateService(apiConfigService);
+  const uploadService = new UploadService(repositories.imageAssetsRepository);
+  const usersService = new UsersService(repositories.usersRepository);
   const viewComfyConfigService = new ViewComfyConfigService();
 
   return {
     logger,
+    ...repositories,
     apiConfigService,
     aiService,
     checkGoogleApiService,
@@ -158,6 +122,7 @@ async function createServerServices() {
     historyService,
     infiniteCanvasService,
     lorasService,
+    playgroundShortcutsService,
     presetCategoriesService,
     presetsService,
     saveImageService,

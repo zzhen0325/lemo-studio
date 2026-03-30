@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto';
 import { HttpError } from '../utils/http-error';
-import { 
-  PlaygroundShortcutModel, 
+import {
   PlaygroundShortcutDoc, 
   PromptFieldDefinition 
 } from '../db/models';
+import { PlaygroundShortcutsRepository } from '../repositories';
 import { getFileUrl, uploadImageToStorage } from '@/src/storage/object-storage';
 
 /**
@@ -47,12 +47,14 @@ export interface PlaygroundShortcutOutput extends PlaygroundShortcutDoc {
  * 快捷入口服务
  */
 export class PlaygroundShortcutsService {
+  constructor(private readonly playgroundShortcutsRepository = new PlaygroundShortcutsRepository()) {}
+
   /**
    * 获取所有启用的快捷入口（前端首页用）
    */
   public async listEnabled(): Promise<PlaygroundShortcutOutput[]> {
     try {
-      const shortcuts = await PlaygroundShortcutModel.findEnabled();
+      const shortcuts = await this.playgroundShortcutsRepository.listEnabled();
       return Promise.all(shortcuts.map((s: PlaygroundShortcutDoc) => this.resolveShortcutUrls(s)));
     } catch (error) {
       console.error('Failed to fetch enabled shortcuts', error);
@@ -76,9 +78,7 @@ export class PlaygroundShortcutsService {
         filter.is_enabled = options.isEnabled;
       }
 
-      const shortcuts = await PlaygroundShortcutModel.find(filter)
-        .sort({ sort_order: 1 })
-        .lean();
+      const shortcuts = await this.playgroundShortcutsRepository.list(filter);
       
       return Promise.all(shortcuts.map((s: PlaygroundShortcutDoc) => this.resolveShortcutUrls(s)));
     } catch (error) {
@@ -92,7 +92,7 @@ export class PlaygroundShortcutsService {
    */
   public async getById(id: string): Promise<PlaygroundShortcutOutput | null> {
     try {
-      const shortcut = await PlaygroundShortcutModel.findById(id);
+      const shortcut = await this.playgroundShortcutsRepository.findById(id);
       if (!shortcut) return null;
       return this.resolveShortcutUrls(shortcut);
     } catch (error) {
@@ -106,7 +106,7 @@ export class PlaygroundShortcutsService {
    */
   public async getByCode(code: string): Promise<PlaygroundShortcutOutput | null> {
     try {
-      const shortcut = await PlaygroundShortcutModel.findByCode(code);
+      const shortcut = await this.playgroundShortcutsRepository.findByCode(code);
       if (!shortcut) return null;
       return this.resolveShortcutUrls(shortcut);
     } catch (error) {
@@ -121,7 +121,7 @@ export class PlaygroundShortcutsService {
   public async create(input: PlaygroundShortcutInput): Promise<PlaygroundShortcutOutput> {
     try {
       // 检查 code 是否已存在
-      const existing = await PlaygroundShortcutModel.findByCode(input.code);
+      const existing = await this.playgroundShortcutsRepository.findByCode(input.code);
       if (existing) {
         throw new HttpError(400, `Shortcut with code "${input.code}" already exists`);
       }
@@ -151,7 +151,7 @@ export class PlaygroundShortcutsService {
         publish_status: input.publishStatus ?? 'draft',
       };
 
-      const created = await PlaygroundShortcutModel.create(doc);
+      const created = await this.playgroundShortcutsRepository.create(doc);
       return this.resolveShortcutUrls(created);
     } catch (error) {
       if (error instanceof HttpError) throw error;
@@ -196,14 +196,14 @@ export class PlaygroundShortcutsService {
 
       // 如果更新 code，需要检查是否冲突
       if (input.code !== undefined) {
-        const existing = await PlaygroundShortcutModel.findByCode(input.code);
+        const existing = await this.playgroundShortcutsRepository.findByCode(input.code);
         if (existing && existing.id !== id) {
           throw new HttpError(400, `Shortcut with code "${input.code}" already exists`);
         }
         updateData.code = input.code;
       }
 
-      await PlaygroundShortcutModel.updateOne({ id }, { $set: updateData });
+      await this.playgroundShortcutsRepository.update(id, updateData);
       return this.getById(id);
     } catch (error) {
       if (error instanceof HttpError) throw error;
@@ -217,7 +217,7 @@ export class PlaygroundShortcutsService {
    */
   public async delete(id: string): Promise<void> {
     try {
-      await PlaygroundShortcutModel.deleteOne({ id });
+      await this.playgroundShortcutsRepository.delete(id);
     } catch (error) {
       console.error('Failed to delete shortcut', error);
       throw new HttpError(500, 'Failed to delete shortcut');
@@ -246,10 +246,7 @@ export class PlaygroundShortcutsService {
       const url = await getFileUrl(storageKey);
 
       // 更新快捷入口的封面信息
-      await PlaygroundShortcutModel.updateOne(
-        { id: shortcutId },
-        { $set: { cover_storage_key: storageKey, cover_url: url } }
-      );
+      await this.playgroundShortcutsRepository.update(shortcutId, { cover_storage_key: storageKey, cover_url: url });
 
       return { storageKey, url };
     } catch (error) {
@@ -321,7 +318,7 @@ export class PlaygroundShortcutsService {
   public async updateSortOrder(orders: Array<{ id: string; sortOrder: number }>): Promise<void> {
     try {
       for (const { id, sortOrder } of orders) {
-        await PlaygroundShortcutModel.updateOne({ id }, { $set: { sort_order: sortOrder } });
+        await this.playgroundShortcutsRepository.update(id, { sort_order: sortOrder });
       }
     } catch (error) {
       console.error('Failed to update sort order', error);

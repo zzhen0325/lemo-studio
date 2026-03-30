@@ -1,6 +1,4 @@
 import { useState, useRef } from "react";
-import { observer } from "mobx-react-lite";
-import { userStore } from "@/lib/store/user-store";
 import {
     Dialog,
     DialogContent,
@@ -15,6 +13,7 @@ import { Loader2, Upload, User as UserIcon } from "lucide-react";
 import Image from "next/image";
 import { useImageUpload } from "@/hooks/common/use-image-upload";
 import { useImageSource } from "@/hooks/common/use-image-source";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 interface UserProfileDialogProps {
     open: boolean;
@@ -27,8 +26,9 @@ const AvatarImage = ({ src, alt, width, height, className }: { src: string; alt:
     return <Image src={source} alt={alt} width={width} height={height} className={className} />;
 };
 
-export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDialogProps) => {
-    const user = userStore.currentUser;
+export const UserProfileDialog = ({ open, onOpenChange }: UserProfileDialogProps) => {
+    const user = useAuthStore((state) => state.currentUser);
+    const updateProfile = useAuthStore((state) => state.updateProfile);
     const [name, setName] = useState(user?.name || "");
     const [avatar, setAvatar] = useState(user?.avatar || "");
     const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
 
     const handleSave = async () => {
         setLoading(true);
-        const success = await userStore.updateProfile({ name, avatar });
+        const success = await updateProfile({ name, avatar });
         setLoading(false);
         if (success) {
             onOpenChange(false);
@@ -123,4 +123,4 @@ export const UserProfileDialog = observer(({ open, onOpenChange }: UserProfileDi
             </DialogContent>
         </Dialog>
     );
-});
+};

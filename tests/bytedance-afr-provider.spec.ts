@@ -2,15 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { BytedanceAfrProvider } from "@/lib/ai/providers";
 
 describe("BytedanceAfrProvider", () => {
-  const originalNodeEnv = process.env.NODE_ENV;
+  const env = process.env as Record<string, string | undefined>;
+  const originalNodeEnv = env.NODE_ENV;
   const originalGatewayBaseUrl = process.env.GATEWAY_BASE_URL;
   const originalBytedanceAid = process.env.BYTEDANCE_AID;
   const originalBytedanceAppKey = process.env.BYTEDANCE_APP_KEY;
   const originalBytedanceAppSecret = process.env.BYTEDANCE_APP_SECRET;
 
   afterEach(() => {
-    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalNodeEnv === undefined) delete env.NODE_ENV;
+    else env.NODE_ENV = originalNodeEnv;
 
     if (originalGatewayBaseUrl === undefined) delete process.env.GATEWAY_BASE_URL;
     else process.env.GATEWAY_BASE_URL = originalGatewayBaseUrl;
@@ -29,7 +30,7 @@ describe("BytedanceAfrProvider", () => {
   });
 
   it("uses fixed conf schema for seed4_v2_0226lemo", async () => {
-    process.env.NODE_ENV = "test";
+    env.NODE_ENV = "test";
     process.env.GATEWAY_BASE_URL = "https://effect.bytedance.net";
     process.env.BYTEDANCE_AID = "6834";
     process.env.BYTEDANCE_APP_KEY = "test-app-key";
@@ -76,7 +77,7 @@ describe("BytedanceAfrProvider", () => {
   });
 
   it("fails fast in production when AFR env vars are missing", async () => {
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
     delete process.env.GATEWAY_BASE_URL;
     delete process.env.BYTEDANCE_AID;
     delete process.env.BYTEDANCE_APP_KEY;

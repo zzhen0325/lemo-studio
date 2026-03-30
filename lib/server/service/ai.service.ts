@@ -7,7 +7,7 @@ import type {
   ImageProvider,
   TextProvider,
 } from '../../ai/types';
-import { Inject, Injectable, Logger } from '../compat/gulux';
+import { Logger } from '../utils/logger';
 import { HttpError } from '../utils/http-error';
 import { ApiConfigService } from './api-config.service';
 import { normalizeImageSizeToken, validateModelUsage } from '../../model-center';
@@ -44,13 +44,11 @@ export interface TextRequestBody {
   options?: Record<string, unknown>;
 }
 
-@Injectable()
 export class AiService {
-  @Inject()
-  private readonly apiConfigService!: ApiConfigService;
-
-  @Inject()
-  private readonly logger!: Logger;
+  constructor(
+    private readonly apiConfigService: ApiConfigService,
+    private readonly logger: Logger,
+  ) {}
 
   public async describe(body: DescribeRequestBody): Promise<{ text: string }> {
     const { image, model, profileId, systemPrompt: explicitSystemPrompt, prompt, options } = body;

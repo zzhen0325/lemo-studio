@@ -1,5 +1,4 @@
 import path from 'path';
-import { Injectable } from '../compat/gulux';
 import { HttpError } from '../utils/http-error';
 import { readJsonAsset } from '../../runtime-assets';
 import { uploadTextAssetToRuntimeCdn } from '../utils/runtime-cdn-manifest';
@@ -16,7 +15,6 @@ export interface ViewComfyConfigPayload {
   viewComfys: Record<string, unknown>[];
 }
 
-@Injectable()
 export class ViewComfyConfigService {
   private getLegacyFallbackPaths() {
     return [

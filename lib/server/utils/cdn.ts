@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 import {
-  getObjectStorage,
   uploadImageToStorage,
   getFileUrl,
 } from '@/src/storage/object-storage';
@@ -48,8 +47,6 @@ export async function uploadBufferToCdn(buffer: Buffer, opts: UploadOptions = {}
   const mimeType = opts.mimeType || 'image/png';
 
   // Build the storage key (URI)
-  const storageKey = `${dir}/${fileName}`;
-
   // Upload to object storage - returns the actual key
   const actualKey = await uploadImageToStorage(buffer, fileName, dir, mimeType);
 
@@ -83,6 +80,7 @@ export async function getSignedUrlForStorageKey(storageKey: string, expireTime: 
  * Build CDN path (kept for backward compatibility)
  */
 export function buildCdnPath(subdir: string, fileName: string, region = DEFAULT_REGION): string {
+  void region;
   const key = `${DEFAULT_CDN_DIR}/${subdir}/${fileName}`;
   return key;
 }

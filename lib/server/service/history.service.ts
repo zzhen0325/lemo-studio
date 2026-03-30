@@ -1,6 +1,6 @@
 import { HttpError } from '../utils/http-error';
-import { GenerationModel, type GenerationDoc } from '../db/models';
-import type { Generation, GenerationConfig } from '../../../types/database';
+import { HistoryRepository, type GenerationRecord } from '../repositories';
+import type { Generation } from '../../../types/database';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 import { getFileUrl } from '@/src/storage/object-storage';
 import { getBatchInteractionData } from './interaction.service';
@@ -91,6 +91,8 @@ function isValidId(id: string): boolean {
 }
 
 export class HistoryService {
+  constructor(private readonly historyRepository: HistoryRepository) {}
+
   /**
    * Normalize URLs for storage and display
    * - Converts local paths and data URLs to storage keys
@@ -146,7 +148,7 @@ export class HistoryService {
       sourceStorageKeys.some((key, index) => key !== sourceImageUrls[index]);
 
     if (itemId && needsUpdate) {
-      const updatePayload: Partial<GenerationDoc> = {};
+      const updatePayload: Partial<GenerationRecord> = {};
       if (outputStorageKey && outputStorageKey !== outputUrl) {
         updatePayload.output_url = outputStorageKey;
       }
@@ -156,7 +158,7 @@ export class HistoryService {
         };
       }
       if (Object.keys(updatePayload).length > 0) {
-        await GenerationModel.updateOne({ id: itemId }, updatePayload);
+        await this.historyRepository.update(itemId, updatePayload);
       }
     }
 
@@ -178,13 +180,7 @@ export class HistoryService {
     }
 
     try {
-      const filter: Record<string, unknown> = {};
-      if (projectId && projectId !== 'null' && projectId !== 'undefined') {
-        filter.project_id = projectId;
-      }
-      if (userId) {
-        filter.user_id = userId;
-      }
+      const hasOwnerFilter = Boolean(userId);
 
       if (debugHistory) {
         console.info('[HistoryDebug][Server] query', {
@@ -194,7 +190,10 @@ export class HistoryService {
           userId: userId || null,
           sortBy: sortBy || 'recent',
           viewerUserId: viewerUserId || null,
-          filter,
+          filter: {
+            user_id: userId || null,
+            project_id: projectId || null,
+          },
         });
       }
 
@@ -233,17 +232,21 @@ export class HistoryService {
       }
 
       // Get total count
-      const total = Object.keys(filter).length === 0
-        ? await GenerationModel.estimatedDocumentCount()
-        : await GenerationModel.countDocuments(filter);
+      const total = hasOwnerFilter
+        ? await this.historyRepository.countByOwner(userId!, projectId)
+        : await this.historyRepository.countPublic(projectId);
 
       // Get items with pagination
-      const items = await GenerationModel.findWithPagination(filter, {
+      const listOptions = {
+        projectId,
         sort: sortOption,
         skip: (pageNum - 1) * limitNum,
         limit: limitNum,
         select: 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage,like_count,moodboard_add_count,download_count,edit_count,last_liked_at,last_moodboard_added_at,last_downloaded_at,last_edited_at',
-      });
+      };
+      const items = hasOwnerFilter
+        ? await this.historyRepository.listByOwner(userId!, listOptions)
+        : await this.historyRepository.listPublic(listOptions);
 
       if (debugHistory) {
         const sampleUserIds = items.slice(0, 5).map((item) => item.user_id || null);
@@ -320,7 +323,19 @@ export class HistoryService {
     }
   }
 
-  public async saveHistory(body: unknown): Promise<{ success: true; migratedCount?: number }> {
+  public async reassignHistoryOwner(fromUserId: string, toUserId: string): Promise<{ success: true; migratedCount: number }> {
+    const from = fromUserId.trim();
+    const to = toUserId.trim();
+
+    if (!from || !to || from === to) {
+      return { success: true, migratedCount: 0 };
+    }
+
+    const migratedCount = await this.historyRepository.reassignOwner(from, to);
+    return { success: true, migratedCount };
+  }
+
+  public async saveHistory(body: unknown, actorId: string): Promise<{ success: true; migratedCount?: number }> {
     try {
       const bodyObj = body as Record<string, unknown>;
       
@@ -328,7 +343,10 @@ export class HistoryService {
         const items = bodyObj.items as Generation[];
         for (const item of items) {
           if (!item.id || !isValidId(item.id)) continue;
-          await GenerationModel.updateOne({ id: item.id }, {
+          const existing = await this.historyRepository.findOwnedById(item.id, actorId);
+          if (!existing) continue;
+
+          await this.historyRepository.updateOwned(item.id, actorId, {
             output_url: item.outputUrl,
             config: item.config as Record<string, unknown>,
             status: item.status,
@@ -345,33 +363,24 @@ export class HistoryService {
       }
 
       if (bodyObj.action === 'migrate-user-history') {
-        const fromUserId = typeof bodyObj.fromUserId === 'string' ? bodyObj.fromUserId.trim() : '';
-        const toUserId = typeof bodyObj.toUserId === 'string' ? bodyObj.toUserId.trim() : '';
-
-        if (!fromUserId || !toUserId || fromUserId === toUserId) {
-          return { success: true };
-        }
-
-        await GenerationModel.updateMany(
-          { user_id: fromUserId },
-          { user_id: toUserId }
-        );
-        return { success: true };
+        return { success: true, migratedCount: 0 };
       }
 
       // Default: create new generation record
       const gen = bodyObj as Record<string, unknown>;
       const id = (gen.id as string) || crypto.randomUUID();
-      
-      await GenerationModel.create({
+
+      const nextDoc = {
         id,
-        user_id: (gen.userId as string) || 'anonymous',
+        user_id: actorId,
         project_id: (gen.projectId as string) || 'default',
         output_url: gen.outputUrl as string,
         config: gen.config as Record<string, unknown>,
         status: (gen.status as 'pending' | 'completed' | 'failed') || 'completed',
         created_at: (gen.createdAt as string) || new Date().toISOString(),
-      });
+      };
+
+      await this.historyRepository.upsert(nextDoc);
 
       return { success: true };
     } catch (error) {
@@ -380,16 +389,12 @@ export class HistoryService {
     }
   }
 
-  public async deleteHistory(ids: string[]): Promise<{ success: true }> {
+  public async deleteHistory(ids: string[], actorId: string): Promise<{ success: true }> {
     if (!Array.isArray(ids) || ids.length === 0) {
       return { success: true };
     }
 
-    for (const id of ids) {
-      if (isValidId(id)) {
-        await GenerationModel.deleteOne({ id });
-      }
-    }
+    await this.historyRepository.deleteManyByOwner(actorId, ids.filter(isValidId));
 
     return { success: true };
   }

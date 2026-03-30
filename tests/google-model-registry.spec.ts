@@ -4,10 +4,13 @@ import { findProviderConfigForModel, getGoogleApiKey } from '@/lib/ai/modelRegis
 const googleProviders = [
   {
     id: 'provider-google',
+    name: 'Google',
     apiKey: 'stale-provider-key',
     baseURL: '',
     providerType: 'google-genai',
     isEnabled: true,
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
     models: [
       {
         modelId: 'gemini-3-pro-image-preview',

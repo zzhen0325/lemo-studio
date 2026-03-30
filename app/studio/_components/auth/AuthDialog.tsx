@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { observer } from "mobx-react-lite";
-import { userStore } from "@/lib/store/user-store";
 import {
     Dialog,
     DialogContent,
@@ -12,13 +10,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { useAuthStore } from "@/lib/store/auth-store";
 
 interface AuthDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
 
-export const AuthDialog = observer(({ open, onOpenChange }: AuthDialogProps) => {
+export const AuthDialog = ({ open, onOpenChange }: AuthDialogProps) => {
+    const login = useAuthStore((state) => state.login);
+    const register = useAuthStore((state) => state.register);
+    const authError = useAuthStore((state) => state.error);
     const [activeTab, setActiveTab] = useState("login");
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -33,9 +35,9 @@ export const AuthDialog = observer(({ open, onOpenChange }: AuthDialogProps) => 
         try {
             let success = false;
             if (activeTab === "login") {
-                success = await userStore.login(username, password);
+                success = await login(username, password);
             } else {
-                success = await userStore.register(username, password);
+                success = await register(username, password);
             }
 
             if (success) {
@@ -44,7 +46,7 @@ export const AuthDialog = observer(({ open, onOpenChange }: AuthDialogProps) => 
                 setUsername("");
                 setPassword("");
             } else {
-                setError(userStore.error || "Operation failed");
+                setError(authError || "Operation failed");
             }
         } catch {
             setError("An unexpected error occurred");
@@ -114,4 +116,4 @@ export const AuthDialog = observer(({ open, onOpenChange }: AuthDialogProps) => 
             </DialogContent>
         </Dialog>
     );
-});
+};

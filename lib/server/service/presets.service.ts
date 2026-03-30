@@ -2,22 +2,18 @@ import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import type { Preset } from '@/types/database';
-import { Inject, Injectable } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
+import { ImageAssetsRepository, PresetsRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
-import { Preset as PresetEntity, ImageAsset } from '../db';
 import { readJsonAsset } from '../../runtime-assets';
 import { tryNormalizeAssetUrlToCdn, uploadImageBufferToCdn } from '../utils/cdn-image-url';
 
 const PRESET_DIR = path.join(process.cwd(), 'public/preset');
 
-@Injectable()
 export class PresetsService {
-  @Inject(PresetEntity)
-  private presetModel!: ModelType<PresetEntity>;
-
-  @Inject(ImageAsset)
-  private imageAssetModel!: ModelType<ImageAsset>;
+  constructor(
+    private readonly presetsRepository: PresetsRepository,
+    private readonly imageAssetsRepository: ImageAssetsRepository,
+  ) {}
 
   private async normalizeStoredPresetCover(id: string, coverUrl?: string, coverData?: string): Promise<string> {
     const normalized = await tryNormalizeAssetUrlToCdn(coverUrl || coverData, {
@@ -33,10 +29,10 @@ export class PresetsService {
     }
 
     if (displayUrl !== coverUrl) {
-      await this.presetModel.updateOne(
-        { _id: id },
-        { $set: { coverUrl: normalized.storageKey || displayUrl, coverData: undefined } },
-      );
+      await this.presetsRepository.upsert(id, {
+        coverUrl: normalized.storageKey || displayUrl,
+        coverData: undefined,
+      });
     }
 
     return displayUrl;
@@ -44,12 +40,12 @@ export class PresetsService {
 
   public async listPresets(): Promise<Preset[]> {
     try {
-      let presets = await this.presetModel.find().sort({ createdAt: -1 }).lean();
+      let presets = await this.presetsRepository.list();
 
       // Migration check: if DB is empty, try to import from local files
       if (presets.length === 0) {
         await this.migrateFromFiles();
-        presets = await this.presetModel.find().sort({ createdAt: -1 }).lean();
+        presets = await this.presetsRepository.list();
       }
 
       return Promise.all(presets.map(async (p) => ({
@@ -141,21 +137,17 @@ export class PresetsService {
 
     const displayUrl = normalizedResult?.url || coverUrl;
 
-    await this.presetModel.updateOne(
-      { _id: id },
-      {
-        name: presetData.name,
-        coverUrl: normalizedResult?.storageKey || displayUrl,
-        coverData: undefined,
-        config: presetData.config,
-        editConfig: presetData.editConfig,
-        category: presetData.category,
-        projectId: presetData.projectId,
-        type: presetData.type,
-        createdAt: presetData.createdAt || new Date().toISOString(),
-      },
-      { upsert: true }
-    );
+    await this.presetsRepository.upsert(id, {
+      name: presetData.name,
+      coverUrl: normalizedResult?.storageKey || displayUrl,
+      coverData: undefined,
+      config: presetData.config,
+      editConfig: presetData.editConfig,
+      category: presetData.category,
+      projectId: presetData.projectId,
+      type: presetData.type,
+      createdAt: presetData.createdAt || new Date().toISOString(),
+    });
   }
 
   public async savePresetFromFormData(formData: FormData): Promise<Preset> {
@@ -201,21 +193,17 @@ export class PresetsService {
         presetData.coverUrl = normalizedResult.url;
       }
 
-      await this.presetModel.findOneAndUpdate(
-        { _id: presetData.id },
-        {
-          name: presetData.name,
-          coverUrl: normalizedResult?.storageKey || presetData.coverUrl,
-          coverData: undefined,
-          config: presetData.config,
-          editConfig: presetData.editConfig,
-          category: presetData.category,
-          projectId: presetData.projectId,
-          type: presetData.type,
-          createdAt: presetData.createdAt || new Date().toISOString(),
-        },
-        { upsert: true, new: true },
-      );
+      await this.presetsRepository.save(presetData.id, {
+        name: presetData.name,
+        coverUrl: normalizedResult?.storageKey || presetData.coverUrl,
+        coverData: undefined,
+        config: presetData.config,
+        editConfig: presetData.editConfig,
+        category: presetData.category,
+        projectId: presetData.projectId,
+        type: presetData.type,
+        createdAt: presetData.createdAt || new Date().toISOString(),
+      });
 
       return presetData;
     } catch (error) {
@@ -227,8 +215,8 @@ export class PresetsService {
 
   public async deletePreset(id: string): Promise<void> {
     try {
-      await this.presetModel.deleteOne({ _id: id });
-      await this.imageAssetModel.deleteMany({ 'meta.presetId': id });
+      await this.presetsRepository.delete(id);
+      await this.imageAssetsRepository.deleteMany({ 'meta.presetId': id });
     } catch (error) {
       console.error('Failed to delete preset', error);
       throw new HttpError(500, 'Failed to delete preset');

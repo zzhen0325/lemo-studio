@@ -1,4 +1,3 @@
-import { Injectable } from '../compat/gulux';
 import { File, FormData, Headers, fetch, Agent } from 'undici';
 import type { BodyInit } from 'undici';
 import type { ReadableStream } from 'stream/web';
@@ -31,7 +30,6 @@ export interface ComfyProxyResponse {
   body: ReadableStream<Uint8Array> | null;
 }
 
-@Injectable()
 export class ComfyProxyService {
   private buildBaseUrl() {
     let url = process.env.COMFYUI_API_URL || '127.0.0.1:8188';

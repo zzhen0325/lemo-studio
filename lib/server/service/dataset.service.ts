@@ -1,16 +1,10 @@
-import { Inject, Injectable } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
+import { DatasetRepository, ImageAssetsRepository } from '../repositories';
 import { datasetEvents, DATASET_SYNC_EVENT } from '../dataset-events';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 import { restoreMongoKeys } from '../utils/mongo';
 import { getFileUrl } from '@/src/storage/object-storage';
-import {
-  DatasetCollection,
-  DatasetEntry,
-  ImageAsset,
-} from '../db';
 
 export interface DatasetQuery {
   collection?: string | null;
@@ -148,16 +142,11 @@ function resolvePromptFromMap(
   );
 }
 
-@Injectable()
 export class DatasetService {
-  @Inject(DatasetCollection)
-  private datasetCollectionModel!: ModelType<DatasetCollection>;
-
-  @Inject(DatasetEntry)
-  private datasetEntryModel!: ModelType<DatasetEntry>;
-
-  @Inject(ImageAsset)
-  private imageAssetModel!: ModelType<ImageAsset>;
+  constructor(
+    private readonly datasetRepository: DatasetRepository,
+    private readonly imageAssetsRepository: ImageAssetsRepository,
+  ) {}
 
   private async normalizeEntryUrl(
     entry: { collectionName: string; fileName: string; url: string },
@@ -177,21 +166,19 @@ export class DatasetService {
     if (storageKey) {
       // Update database with storage key if needed
       if (storageKey !== entry.url) {
-        await this.datasetEntryModel.updateOne(
+        await this.datasetRepository.upsertEntry(
           { collection_name: entry.collectionName, file_name: entry.fileName },
-          { $set: { url: storageKey } },
+          { url: storageKey },
         );
-        await this.imageAssetModel.updateOne(
+        await this.imageAssetsRepository.upsert(
           { url: entry.url },
           {
-            $set: {
-              url: storageKey,
-              dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
-              fileName: entry.fileName,
-              region: 'SG',
-              type: 'dataset',
-              meta: { collection: entry.collectionName },
-            },
+            url: storageKey,
+            dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
+            fileName: entry.fileName,
+            region: 'SG',
+            type: 'dataset',
+            meta: { collection: entry.collectionName },
           },
           { upsert: true },
         );
@@ -216,21 +203,19 @@ export class DatasetService {
 
     // Update database with new storage key
     if (newStorageKey !== entry.url) {
-      await this.datasetEntryModel.updateOne(
+      await this.datasetRepository.upsertEntry(
         { collection_name: entry.collectionName, file_name: entry.fileName },
-        { $set: { url: newStorageKey } },
+        { url: newStorageKey },
       );
-      await this.imageAssetModel.updateOne(
+      await this.imageAssetsRepository.upsert(
         { url: entry.url },
         {
-          $set: {
-            url: newStorageKey,
-            dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
-            fileName: entry.fileName,
-            region: 'SG',
-            type: 'dataset',
-            meta: { collection: entry.collectionName },
-          },
+          url: newStorageKey,
+          dir: `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${entry.collectionName}`,
+          fileName: entry.fileName,
+          region: 'SG',
+          type: 'dataset',
+          meta: { collection: entry.collectionName },
         },
         { upsert: true },
       );
@@ -245,13 +230,13 @@ export class DatasetService {
 
     try {
       if (collectionName) {
-        const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collectionName }).lean();
+        const rawCollectionMeta = await this.datasetRepository.findCollection(collectionName);
         if (!rawCollectionMeta) {
           throw new HttpError(404, 'Collection not found');
         }
         const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown>;
 
-        const rawEntries = await this.datasetEntryModel.find({ collection_name: collectionName }).lean();
+        const rawEntries = await this.datasetRepository.listEntries({ collection_name: collectionName });
         const entries = restoreMongoKeys(rawEntries) as Array<Record<string, unknown>>;
         const orderMap = new Map(
           ((collectionMeta.orderArr || collectionMeta.order || []) as string[]).map((filename, index) => [filename, index]),
@@ -293,15 +278,14 @@ export class DatasetService {
         };
       }
 
-      const rawCollections = await this.datasetCollectionModel.find().lean();
+      const rawCollections = await this.datasetRepository.listCollections();
       const collections = restoreMongoKeys(rawCollections) as Array<Record<string, unknown>>;
       const result = await Promise.all(
         collections.map(async (c) => {
-          const rawPreviewEntries = await this.datasetEntryModel
-            .find({ collection_name: c.name })
-            .sort({ order_idx: 1 })
-            .limit(4)
-            .lean();
+          const rawPreviewEntries = await this.datasetRepository.listEntries(
+            { collection_name: c.name },
+            { sort: { order_idx: 1 }, limit: 4 },
+          );
           const previewEntries = restoreMongoKeys(rawPreviewEntries) as Array<Record<string, unknown>>;
           const previews = await Promise.all(
             previewEntries.map((entry) => this.normalizeEntryUrl({
@@ -313,7 +297,7 @@ export class DatasetService {
           return {
             id: c.name,
             name: c.name,
-            imageCount: await this.datasetEntryModel.countDocuments({ collection_name: c.name }),
+            imageCount: await this.datasetRepository.countEntries({ collection_name: c.name }),
             previews,
           };
         }),
@@ -344,12 +328,12 @@ export class DatasetService {
           throw new HttpError(400, 'New collection name is required');
         }
 
-        const exists = await this.datasetCollectionModel.findOne({ name: newName });
+        const exists = await this.datasetRepository.findCollection(newName);
         if (exists) {
           throw new HttpError(409, 'Collection already exists');
         }
 
-        const rawSourceEntries = await this.datasetEntryModel.find({ collection_name: collection }).lean();
+        const rawSourceEntries = await this.datasetRepository.listEntries({ collection_name: collection });
         const sourceEntries = restoreMongoKeys(rawSourceEntries) as Array<Record<string, unknown>>;
         const sessionData = sourceEntries.map((e) => ({
           collectionName: newName,
@@ -361,25 +345,25 @@ export class DatasetService {
           order: (e.orderIdx || e.order_idx || e.order) as number,
         }));
 
-        const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+        const rawCollectionMeta = await this.datasetRepository.findCollection(collection);
         const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown> | null;
         
-        await this.datasetCollectionModel.create({
+        await this.datasetRepository.createCollection({
           name: newName,
           systemPrompt: (collectionMeta?.systemPrompt || collectionMeta?.system_prompt) as string | undefined,
           order: sourceEntries.map((e) => (e.fileName || e.file_name) as string),
         });
         if (sessionData.length > 0) {
-          await this.datasetEntryModel.insertMany(sessionData as unknown as DatasetEntry[]);
+          await this.datasetRepository.insertEntries(sessionData);
         }
         datasetEvents.emit(DATASET_SYNC_EVENT);
         return { success: true, message: 'Collection duplicated' };
       }
 
       // Check if collection exists, create if not
-      const existingCollection = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+      const existingCollection = await this.datasetRepository.findCollection(collection);
       if (!existingCollection) {
-        await this.datasetCollectionModel.create({
+        await this.datasetRepository.createCollection({
           name: collection,
           order: [],
         });
@@ -395,8 +379,8 @@ export class DatasetService {
       }
 
       const dir = `ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/dataset/${collection}`;
-      let currentCount = await this.datasetEntryModel.countDocuments({ collection_name: collection });
-      const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+      let currentCount = await this.datasetRepository.countEntries({ collection_name: collection });
+      const rawCollectionMeta = await this.datasetRepository.findCollection(collection);
       const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown> | null;
       const existingOrder = new Set((collectionMeta?.orderArr || collectionMeta?.order || []) as string[]);
       const orderToAppend: string[] = [];
@@ -409,7 +393,7 @@ export class DatasetService {
         const cdn = await uploadBufferToCdn(buffer, { fileName: safeName, dir, region: 'SG', generateSignedUrl: true });
         const prompt = resolvePromptFromMap(promptMap, currentFile.name, cdn.fileName, index);
 
-        await this.imageAssetModel.create({
+        await this.imageAssetsRepository.create({
           url: cdn.url,
           dir: cdn.dir,
           fileName: cdn.fileName,
@@ -418,16 +402,16 @@ export class DatasetService {
           meta: { collection },
         });
 
-        const rawExistingEntry = await this.datasetEntryModel.findOne({
+        const rawExistingEntry = await this.datasetRepository.findEntry({
           collection_name: collection,
           file_name: cdn.fileName,
-        }).lean();
+        });
         const existingEntry = rawExistingEntry ? restoreMongoKeys(rawExistingEntry) as Record<string, unknown> : null;
 
         if (existingEntry) {
           const nextPromptZh = prompt || (existingEntry.promptZh || existingEntry.prompt_zh || existingEntry.prompt) as string || '';
           const nextPromptEn = (existingEntry.promptEn || existingEntry.prompt_en) as string || '';
-          await this.datasetEntryModel.updateOne(
+          await this.datasetRepository.upsertEntry(
             { collection_name: collection, file_name: cdn.fileName },
             {
               url: cdn.url,
@@ -437,7 +421,7 @@ export class DatasetService {
             },
           );
         } else {
-          await this.datasetEntryModel.create({
+          await this.datasetRepository.createEntry({
             collectionName: collection,
             fileName: cdn.fileName,
             url: cdn.url,
@@ -456,7 +440,7 @@ export class DatasetService {
 
         uploaded.push({
           filename: cdn.fileName,
-          url: cdn.url,
+          url: cdn.url || '',
           prompt,
         });
       }
@@ -464,7 +448,7 @@ export class DatasetService {
       if (orderToAppend.length > 0) {
         // Get current order and update with new items
         const currentOrder = [...((collectionMeta?.orderArr || collectionMeta?.order || []) as string[]), ...orderToAppend];
-        await this.datasetCollectionModel.updateOne(
+        await this.datasetRepository.upsertCollection(
           { name: collection },
           { order: currentOrder },
         );
@@ -480,7 +464,7 @@ export class DatasetService {
         };
       }
 
-      return { success: true, path: uploaded[0]?.url };
+      return { success: true, path: uploaded[0]?.url || '' };
     } catch (error) {
       console.error('Dataset Upload Error:', error);
       if (error instanceof HttpError) throw error;
@@ -504,8 +488,8 @@ export class DatasetService {
       }
 
       if (filenamesToDelete.length === 0 && !filename && !filenames) {
-        await this.datasetEntryModel.deleteMany({ collection_name: collection });
-        await this.datasetCollectionModel.deleteOne({ name: collection });
+        await this.datasetRepository.deleteEntries({ collection_name: collection });
+        await this.datasetRepository.deleteCollection(collection);
         datasetEvents.emit(DATASET_SYNC_EVENT);
         return { success: true, message: 'Collection deleted' };
       }
@@ -513,15 +497,15 @@ export class DatasetService {
       if (filenamesToDelete.length > 0) {
         // Delete entries matching filenames
         for (const fn of filenamesToDelete) {
-          await this.datasetEntryModel.deleteOne({ collection_name: collection, file_name: fn });
+          await this.datasetRepository.deleteEntry({ collection_name: collection, file_name: fn });
         }
         
         // Update collection order - remove deleted filenames
-        const rawCollectionMeta = await this.datasetCollectionModel.findOne({ name: collection }).lean();
+        const rawCollectionMeta = await this.datasetRepository.findCollection(collection);
         const collectionMeta = restoreMongoKeys(rawCollectionMeta) as Record<string, unknown> | null;
         const currentOrder = (collectionMeta?.orderArr || collectionMeta?.order || []) as string[];
         const newOrder = currentOrder.filter(fn => !filenamesToDelete.includes(fn));
-        await this.datasetCollectionModel.updateOne(
+        await this.datasetRepository.upsertCollection(
           { name: collection },
           { order: newOrder },
         );
@@ -557,7 +541,7 @@ export class DatasetService {
 
       if (filename) {
         const promptStr = typeof prompt === 'string' ? prompt : '';
-        await this.datasetEntryModel.updateOne(
+        await this.datasetRepository.upsertEntry(
           { collection_name: collection, file_name: filename },
           writePromptLang === 'en'
             ? { prompt: promptStr, promptEn: promptStr }
@@ -569,7 +553,7 @@ export class DatasetService {
         const updates = Object.entries(body.prompts);
         for (const [fileName, p] of updates) {
           const promptStr = typeof p === 'string' ? p : '';
-          await this.datasetEntryModel.updateOne(
+          await this.datasetRepository.upsertEntry(
             { collection_name: collection, file_name: fileName },
             writePromptLang === 'en'
               ? { prompt: promptStr, promptEn: promptStr }
@@ -579,15 +563,15 @@ export class DatasetService {
       }
 
       if (systemPrompt !== undefined) {
-        await this.datasetCollectionModel.updateOne({ name: collection }, { systemPrompt }, { upsert: true });
+        await this.datasetRepository.upsertCollection({ name: collection }, { systemPrompt }, { upsert: true });
       }
 
       if (order !== undefined && Array.isArray(order)) {
-        await this.datasetCollectionModel.updateOne({ name: collection }, { order }, { upsert: true });
+        await this.datasetRepository.upsertCollection({ name: collection }, { order }, { upsert: true });
         // Update order for each entry individually
         for (let idx = 0; idx < order.length; idx += 1) {
           const fileName = order[idx];
-          await this.datasetEntryModel.updateOne(
+          await this.datasetRepository.upsertEntry(
             { collection_name: collection, file_name: fileName },
             { order: idx },
           );
@@ -595,16 +579,16 @@ export class DatasetService {
       }
 
       if (body.newCollectionName && body.newCollectionName !== collection) {
-        const exists = await this.datasetCollectionModel.findOne({ name: body.newCollectionName });
+        const exists = await this.datasetRepository.findCollection(body.newCollectionName);
         if (exists) {
           throw new HttpError(409, 'Collection with this name already exists');
         }
-        await this.datasetCollectionModel.updateOne(
+        await this.datasetRepository.upsertCollection(
           { name: collection },
           { name: body.newCollectionName },
           { upsert: true },
         );
-        await this.datasetEntryModel.updateMany({ collection_name: collection }, { collectionName: body.newCollectionName });
+        await this.datasetRepository.updateEntries({ collection_name: collection }, { collectionName: body.newCollectionName });
         datasetEvents.emit(DATASET_SYNC_EVENT);
         return {
           success: true,

@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import { Generation } from '../../types/database';
 import { IViewComfy } from '../providers/view-comfy-provider';
 import type { PlaygroundState } from './playground-store.types';
-// import { userStore } from './user-store';
 import { getApiBase } from "../api-base";
 
 import { MODEL_ID_WORKFLOW } from '../constants/models';

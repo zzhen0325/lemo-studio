@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { observer } from 'mobx-react-lite';
 import { Image as ImageIcon, LayoutGrid, List, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Generation } from '@/types/database';
@@ -21,7 +20,7 @@ import {
   isPromptOptimizationHistoryItem,
 } from '@studio/playground/_lib/prompt-history';
 
-const HistoryList = observer(function HistoryList({
+const HistoryList = function HistoryList({
   history,
   onRegenerate,
   onDownload,
@@ -480,6 +479,6 @@ const HistoryList = observer(function HistoryList({
       </AnimatePresence>
     </div>
   );
-});
+};
 
 export default HistoryList;

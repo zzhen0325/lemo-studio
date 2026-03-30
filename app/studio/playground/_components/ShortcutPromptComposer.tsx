@@ -77,17 +77,6 @@ const ANALYSIS_SECTION_LABELS: Record<DesignAnalysisSectionKey, string> = {
   typography: '字体',
 };
 
-const QUICK_EDIT_ACTIONS: Array<{ label: string; instruction: string }> = [
-  { label: '换主体物', instruction: '请保持主题不变，换一个更有创意、更能表达主题的核心主体物，并让辅助元素围绕它形成故事。' },
-  { label: '换场景', instruction: '请保持主题和主体逻辑，但把场景改得更明确、更有空间感，并形成前景、中景、背景关系。' },
-  { label: '更有故事', instruction: '请加强主体与辅助元素的互动关系，让画面更有叙事感，不要只是元素罗列。' },
-  { label: '减少元素', instruction: '请减少无效元素，保留最关键的主体和辅助元素，让画面更聚焦。' },
-  { label: '更强标题', instruction: '请让主标题成为更强的第一视觉重点，并自然带动副标题和时间信息。' },
-  { label: '更商业海报', instruction: '请把整体方向调整得更像商业海报，强化主视觉、标题层级和信息抓取效率。' },
-  { label: '更生活方式', instruction: '请把整体方向调整得更像生活方式场景，画面更松弛、更真实、更有温度。' },
-  { label: '更简洁', instruction: '请保留核心概念，但让构图和元素更简洁，减少噪音，强化重点。' },
-];
-
 export const OPTIMIZATION_LOADING_MESSAGES = [
   'Thinking...',
   '正在分析主题...',
@@ -700,18 +689,12 @@ export function ShortcutPromptComposer({
   optimizationSession,
   onFieldChange,
   onRemoveField,
-  onOptimizeTemplate,
   onVariantSelect,
   onRegenerateVariants,
-  onGenerateCurrent,
   onAnalysisSectionChange,
   onPaletteChange,
-  onEditInstructionChange,
-  onPrefillInstruction,
   onApplyEdit,
-  onRestoreVariant,
   isOptimizing = false,
-  isGenerating = false,
   isExpanded = true,
   isHomeStructuredMode = false,
 }: ShortcutPromptComposerProps) {

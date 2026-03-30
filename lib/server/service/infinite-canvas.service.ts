@@ -1,9 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { Inject, Injectable } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
-import { InfiniteCanvasProject as InfiniteCanvasProjectEntity } from '../db';
+import { InfiniteCanvasRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
 import { restoreMongoKeys, sanitizeMongoKeys } from '../utils/mongo';
 import type {
@@ -161,9 +159,10 @@ function buildSummary(project: InfiniteCanvasProject): InfiniteCanvasProjectSumm
   };
 }
 
-function toEntityPayload(project: InfiniteCanvasProject): Record<string, unknown> {
+function toEntityPayload(project: InfiniteCanvasProject, ownerId?: string | null): Record<string, unknown> {
   return sanitizeMongoKeys({
     projectId: project.projectId,
+    userId: ownerId ?? null,
     projectName: project.projectName,
     coverUrl: project.coverUrl,
     createdAt: project.createdAt,
@@ -179,8 +178,12 @@ function toEntityPayload(project: InfiniteCanvasProject): Record<string, unknown
   }) as Record<string, unknown>;
 }
 
+function restoreProjectRecord(doc: unknown): Record<string, unknown> {
+  return restoreMongoKeys(doc) as Record<string, unknown>;
+}
+
 function fromEntityDoc(doc: unknown): InfiniteCanvasProject {
-  const restored = restoreMongoKeys(doc) as Record<string, unknown>;
+  const restored = restoreProjectRecord(doc);
 
   const project: InfiniteCanvasProject = {
     projectId: typeof restored.projectId === 'string' ? restored.projectId : randomUUID(),
@@ -205,14 +208,53 @@ function fromEntityDoc(doc: unknown): InfiniteCanvasProject {
   return normalizeProject(project);
 }
 
+function getProjectOwnerId(doc: unknown): string | null {
+  const restored = restoreProjectRecord(doc);
+  return typeof restored.userId === 'string' && restored.userId.trim()
+    ? restored.userId
+    : null;
+}
+
 const LEGACY_STORE_PATH = path.join(getWorkspaceRoot(), 'data', 'infinite-canvas', 'projects.json');
 
-@Injectable()
 export class InfiniteCanvasService {
-  @Inject(InfiniteCanvasProjectEntity)
-  private projectModel!: ModelType<InfiniteCanvasProjectEntity>;
+  constructor(private readonly infiniteCanvasRepository: InfiniteCanvasRepository) {}
 
   private migrationChecked = false;
+
+  private async claimProjectOwner(projectId: string, actorId: string): Promise<void> {
+    await this.infiniteCanvasRepository.claimOwner(projectId, actorId);
+  }
+
+  private async loadProjectRecord(projectId: string): Promise<{ project: InfiniteCanvasProject; ownerId: string | null } | null> {
+    await this.migrateFromLegacyJsonIfNeeded();
+    const doc = (await this.infiniteCanvasRepository.findByProjectId(projectId)) as unknown;
+    if (!doc) {
+      return null;
+    }
+
+    return {
+      project: fromEntityDoc(doc),
+      ownerId: getProjectOwnerId(doc),
+    };
+  }
+
+  private async loadOwnedProject(projectId: string, actorId: string): Promise<InfiniteCanvasProject | null> {
+    const record = await this.loadProjectRecord(projectId);
+    if (!record) {
+      return null;
+    }
+
+    if (record.ownerId && record.ownerId !== actorId) {
+      return null;
+    }
+
+    if (!record.ownerId) {
+      await this.claimProjectOwner(projectId, actorId);
+    }
+
+    return record.project;
+  }
 
   private async migrateFromLegacyJsonIfNeeded(): Promise<void> {
     if (this.migrationChecked) {
@@ -221,7 +263,7 @@ export class InfiniteCanvasService {
     this.migrationChecked = true;
 
     try {
-      const existingCount = await this.projectModel.estimatedDocumentCount();
+      const existingCount = await this.infiniteCanvasRepository.countProjects();
       if (existingCount > 0) {
         return;
       }
@@ -239,15 +281,11 @@ export class InfiniteCanvasService {
         return;
       }
 
-      await this.projectModel.bulkWrite(
+      await this.infiniteCanvasRepository.bulkUpsert(
         projects.map((project) => ({
-          updateOne: {
-            filter: { projectId: project.projectId },
-            update: { $set: toEntityPayload(project) },
-            upsert: true,
-          },
+          projectId: project.projectId,
+          payload: toEntityPayload(project),
         })),
-        { ordered: false },
       );
 
       console.info(`[InfiniteCanvasService] Migrated ${projects.length} project(s) from legacy JSON store.`);
@@ -256,34 +294,44 @@ export class InfiniteCanvasService {
     }
   }
 
-  private async loadProjectById(projectId: string): Promise<InfiniteCanvasProject | null> {
+  public async listProjects(actorId: string): Promise<{ projects: InfiniteCanvasProjectSummary[] }> {
     await this.migrateFromLegacyJsonIfNeeded();
-    const doc = (await this.projectModel.findOne({ projectId }).lean()) as unknown;
-    return doc ? fromEntityDoc(doc) : null;
-  }
+    const docs = (await this.infiniteCanvasRepository.listProjects()) as unknown[];
+    const projects: InfiniteCanvasProjectSummary[] = [];
+    const unownedProjectIds: string[] = [];
 
-  public async listProjects(): Promise<{ projects: InfiniteCanvasProjectSummary[] }> {
-    await this.migrateFromLegacyJsonIfNeeded();
-    const docs = (await this.projectModel.find().sort({ updatedAt: -1 }).lean()) as unknown[];
-    const projects = docs.map((doc) => fromEntityDoc(doc)).map(buildSummary);
+    for (const doc of docs) {
+      const ownerId = getProjectOwnerId(doc);
+      if (ownerId && ownerId !== actorId) {
+        continue;
+      }
+
+      const project = fromEntityDoc(doc);
+      projects.push(buildSummary(project));
+
+      if (!ownerId) {
+        unownedProjectIds.push(project.projectId);
+      }
+    }
+
+    if (unownedProjectIds.length > 0) {
+      await Promise.all(unownedProjectIds.map((projectId) => this.claimProjectOwner(projectId, actorId)));
+    }
+
     return { projects };
   }
 
-  public async createProject(payload: CreateProjectPayload): Promise<{ project: InfiniteCanvasProject }> {
+  public async createProject(actorId: string, payload: CreateProjectPayload): Promise<{ project: InfiniteCanvasProject }> {
     await this.migrateFromLegacyJsonIfNeeded();
     const project = createEmptyProject(payload.projectName);
 
-    await this.projectModel.updateOne(
-      { projectId: project.projectId },
-      { $set: toEntityPayload(project) },
-      { upsert: true },
-    );
+    await this.infiniteCanvasRepository.upsertOwned(project.projectId, actorId, toEntityPayload(project, actorId), { upsert: true });
 
     return { project };
   }
 
-  public async getProject(projectId: string): Promise<{ project: InfiniteCanvasProject }> {
-    const project = await this.loadProjectById(projectId);
+  public async getProject(actorId: string, projectId: string): Promise<{ project: InfiniteCanvasProject }> {
+    const project = await this.loadOwnedProject(projectId, actorId);
 
     if (!project) {
       throw new HttpError(404, 'Project not found');
@@ -292,12 +340,12 @@ export class InfiniteCanvasService {
     return { project };
   }
 
-  public async saveProject(projectId: string, payload: InfiniteCanvasProject): Promise<{ project: InfiniteCanvasProject }> {
+  public async saveProject(actorId: string, projectId: string, payload: InfiniteCanvasProject): Promise<{ project: InfiniteCanvasProject }> {
     if (!payload || typeof payload !== 'object') {
       throw new HttpError(400, 'Invalid project payload');
     }
 
-    const existing = await this.loadProjectById(projectId);
+    const existing = await this.loadOwnedProject(projectId, actorId);
     if (!existing) {
       throw new HttpError(404, 'Project not found');
     }
@@ -310,17 +358,13 @@ export class InfiniteCanvasService {
       projectName: trimProjectName(payload.projectName || existing.projectName),
     });
 
-    await this.projectModel.updateOne(
-      { projectId },
-      { $set: toEntityPayload(next) },
-      { upsert: false },
-    );
+    await this.infiniteCanvasRepository.upsertOwned(projectId, actorId, toEntityPayload(next, actorId), { upsert: false });
 
     return { project: next };
   }
 
-  public async renameProject(projectId: string, projectName: string): Promise<{ project: InfiniteCanvasProject }> {
-    const existing = await this.loadProjectById(projectId);
+  public async renameProject(actorId: string, projectId: string, projectName: string): Promise<{ project: InfiniteCanvasProject }> {
+    const existing = await this.loadOwnedProject(projectId, actorId);
 
     if (!existing) {
       throw new HttpError(404, 'Project not found');
@@ -332,17 +376,13 @@ export class InfiniteCanvasService {
       updatedAt: nowISO(),
     });
 
-    await this.projectModel.updateOne(
-      { projectId },
-      { $set: toEntityPayload(next) },
-      { upsert: false },
-    );
+    await this.infiniteCanvasRepository.upsertOwned(projectId, actorId, toEntityPayload(next, actorId), { upsert: false });
 
     return { project: next };
   }
 
-  public async duplicateProject(projectId: string): Promise<{ project: InfiniteCanvasProject }> {
-    const source = await this.loadProjectById(projectId);
+  public async duplicateProject(actorId: string, projectId: string): Promise<{ project: InfiniteCanvasProject }> {
+    const source = await this.loadOwnedProject(projectId, actorId);
 
     if (!source) {
       throw new HttpError(404, 'Project not found');
@@ -398,24 +438,37 @@ export class InfiniteCanvasService {
       lastOpenedPanel: null,
     });
 
-    await this.projectModel.updateOne(
-      { projectId: duplicated.projectId },
-      { $set: toEntityPayload(duplicated) },
+    await this.infiniteCanvasRepository.upsertOwned(
+      duplicated.projectId,
+      actorId,
+      toEntityPayload(duplicated, actorId),
       { upsert: true },
     );
 
     return { project: duplicated };
   }
 
-  public async deleteProject(projectId: string): Promise<{ success: true }> {
-    await this.migrateFromLegacyJsonIfNeeded();
-    const result = await this.projectModel.deleteOne({ projectId });
-    const deleteResult = result as unknown as { deletedCount?: number; result?: { n?: number } };
-    const deleted = deleteResult.deletedCount ?? deleteResult.result?.n ?? 0;
+  public async deleteProject(actorId: string, projectId: string): Promise<{ success: true }> {
+    const existing = await this.loadOwnedProject(projectId, actorId);
+    if (!existing) {
+      throw new HttpError(404, 'Project not found');
+    }
+
+    const deleted = await this.infiniteCanvasRepository.deleteOwned(projectId, actorId);
 
     if (!deleted) {
       throw new HttpError(404, 'Project not found');
     }
+
+    return { success: true };
+  }
+
+  public async reassignProjectOwner(fromUserId: string, toUserId: string): Promise<{ success: true }> {
+    if (!fromUserId.trim() || !toUserId.trim() || fromUserId === toUserId) {
+      return { success: true };
+    }
+
+    await this.infiniteCanvasRepository.reassignOwner(fromUserId, toUserId);
 
     return { success: true };
   }

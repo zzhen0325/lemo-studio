@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSignedUrlForStorageKey } from '@/lib/server/utils/cdn';
-import { ImageAssetModel } from '@/lib/server/db/models';
 import { getServerServices } from '@/lib/server/container';
 
 /**
@@ -16,6 +15,7 @@ import { getServerServices } from '@/lib/server/container';
  */
 export async function GET(request: NextRequest) {
   try {
+    const { imageAssetsRepository } = await getServerServices();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const storageKey = searchParams.get('storageKey');
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     // 如果提供了 ID，从数据库获取 storageKey
     if (id && !storageKey) {
-      const asset = await ImageAssetModel.findById(id);
+      const asset = await imageAssetsRepository.findById(id);
       if (!asset) {
         return NextResponse.json(
           { error: 'Image not found' },
@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const { imageAssetsRepository } = await getServerServices();
     const body = await request.json();
     const { ids, expireTime = 86400 } = body;
 
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     for (const id of ids) {
       try {
-        const asset = await ImageAssetModel.findById(id);
+        const asset = await imageAssetsRepository.findById(id);
         if (!asset) {
           results[id] = { error: 'Not found' };
           continue;

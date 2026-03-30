@@ -5,7 +5,9 @@
  * 记录用户交互行为（点赞、收藏到情绪板、下载、再次编辑）
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { attachSessionCookie, getOrCreateSession } from '@/lib/server/auth/session';
+import { errorResponse, jsonResponse, readJsonBody } from '@/lib/server/http';
 import { recordInteraction, getInteractionData, type InteractionAction } from '@/lib/server/service/interaction.service';
 
 interface RouteParams {
@@ -18,52 +20,37 @@ export async function POST(
 ) {
   try {
     const { id: generationId } = await params;
-    const body = await request.json();
+    const body = await readJsonBody<{ action?: InteractionAction; moodboardId?: string }>(request);
+    const resolution = await getOrCreateSession();
     
-    const { action, userId, moodboardId } = body as {
-      action: InteractionAction;
-      userId: string;
-      moodboardId?: string;
-    };
+    const { action, moodboardId } = body;
 
     if (!generationId) {
-      return NextResponse.json(
-        { error: 'Missing generation ID' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'Missing generation ID' }, { status: 400 });
     }
 
     if (!action || !['like', 'moodboard_add', 'download', 'edit'].includes(action)) {
-      return NextResponse.json(
-        { error: 'Invalid action. Must be one of: like, moodboard_add, download, edit' },
-        { status: 400 }
-      );
-    }
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Missing userId' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'Invalid action. Must be one of: like, moodboard_add, download, edit' }, { status: 400 });
     }
 
     const result = await recordInteraction({
       generationId,
       action,
-      userId,
+      userId: resolution.session.actorId,
       moodboardId
     });
 
-    return NextResponse.json({
+    const response = jsonResponse({
       success: true,
       ...result
     });
+    if (resolution.shouldSetCookie) {
+      attachSessionCookie(response, resolution.session);
+    }
+    return response;
   } catch (error) {
     console.error('Failed to record interaction:', error);
-    return NextResponse.json(
-      { error: 'Failed to record interaction', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }
 
@@ -73,27 +60,24 @@ export async function GET(
 ) {
   try {
     const { id: generationId } = await params;
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || undefined;
+    const resolution = await getOrCreateSession();
 
     if (!generationId) {
-      return NextResponse.json(
-        { error: 'Missing generation ID' },
-        { status: 400 }
-      );
+      return jsonResponse({ error: 'Missing generation ID' }, { status: 400 });
     }
 
-    const result = await getInteractionData(generationId, userId);
+    const result = await getInteractionData(generationId, resolution.session.actorId);
 
-    return NextResponse.json({
+    const response = jsonResponse({
       success: true,
       ...result
     });
+    if (resolution.shouldSetCookie) {
+      attachSessionCookie(response, resolution.session);
+    }
+    return response;
   } catch (error) {
     console.error('Failed to get interaction data:', error);
-    return NextResponse.json(
-      { error: 'Failed to get interaction data', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }

@@ -1,16 +1,12 @@
 import { randomUUID } from 'crypto';
 import type { StyleStack } from '@/types/database';
-import { Inject, Injectable } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
+import { StylesRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
-import { StyleStack as StyleStackEntity } from '../db';
 import { readJsonAsset } from '../../runtime-assets';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 
-@Injectable()
 export class StylesService {
-  @Inject(StyleStackEntity)
-  private styleStackModel!: ModelType<StyleStackEntity>;
+  constructor(private readonly stylesRepository: StylesRepository) {}
 
   private async normalizeStyleDocument(style: {
     _id?: string;
@@ -53,16 +49,11 @@ export class StylesService {
 
     const persistedId = String(styleWithId._id || styleWithId.id || '');
     if (changed && persistedId) {
-      await this.styleStackModel.updateOne(
-        { _id: persistedId },
-        {
-          $set: {
-            imagePaths: validImagePaths,
-            previewUrls: validImagePaths,
-            collageImageUrl: normalizedCollageImageUrl,
-          },
-        },
-      );
+      await this.stylesRepository.upsert(persistedId, {
+        imagePaths: validImagePaths,
+        previewUrls: validImagePaths,
+        collageImageUrl: normalizedCollageImageUrl,
+      });
     }
 
     return {
@@ -78,23 +69,28 @@ export class StylesService {
 
   public async listStyles(): Promise<StyleStack[]> {
     try {
-      let styles = await this.styleStackModel.find().sort({ updatedAt: -1 }).lean();
+      let styles = await this.stylesRepository.list();
       if (styles.length === 0) {
         await this.migrateFromCatalog();
-        styles = await this.styleStackModel.find().sort({ updatedAt: -1 }).lean();
+        styles = await this.stylesRepository.list();
       }
 
-      return Promise.all(styles.map((s: any) => this.normalizeStyleDocument({
-        _id: String(s.id || s._id),
-        name: s.name,
-        prompt: s.prompt,
-        imagePaths: (s.imagePaths && s.imagePaths.length > 0 ? s.imagePaths : s.image_paths || s.previewUrls || s.preview_urls || []) as string[],
-        previewUrls: (s.previewUrls || s.preview_urls) as string[] | undefined,
-        collageImageUrl: s.collageImageUrl || s.collage_image_url,
-        collageConfig: s.collageConfig || s.collage_config,
-        createdAt: s.createdAt || s.created_at,
-        updatedAt: s.updatedAt || s.updated_at,
-      })));
+      return Promise.all(styles.map((styleRecord) => {
+        const normalizedRecord = styleRecord as unknown as Record<string, unknown>;
+        return this.normalizeStyleDocument({
+          _id: String(normalizedRecord.id || normalizedRecord._id || ''),
+          name: String(normalizedRecord.name || ''),
+          prompt: String(normalizedRecord.prompt || ''),
+          imagePaths: (normalizedRecord.imagePaths && Array.isArray(normalizedRecord.imagePaths) && normalizedRecord.imagePaths.length > 0
+            ? normalizedRecord.imagePaths
+            : normalizedRecord.image_paths || normalizedRecord.previewUrls || normalizedRecord.preview_urls || []) as string[],
+          previewUrls: (normalizedRecord.previewUrls || normalizedRecord.preview_urls) as string[] | undefined,
+          collageImageUrl: (normalizedRecord.collageImageUrl || normalizedRecord.collage_image_url) as string | undefined,
+          collageConfig: (normalizedRecord.collageConfig || normalizedRecord.collage_config) as Record<string, unknown> | undefined,
+          createdAt: (normalizedRecord.createdAt || normalizedRecord.created_at) as string | Date | undefined,
+          updatedAt: (normalizedRecord.updatedAt || normalizedRecord.updated_at) as string | Date | undefined,
+        });
+      }));
     } catch (error) {
       console.error('Failed to fetch styles', error);
       throw new HttpError(500, 'Failed to fetch styles');
@@ -112,21 +108,15 @@ export class StylesService {
         catalog.map(async (style) => {
           const id = style.id || randomUUID();
           const updatedAt = style.updatedAt ? new Date(style.updatedAt) : new Date();
-          await this.styleStackModel.updateOne(
-            { _id: id },
-            {
-              $set: {
-                name: style.name || 'Untitled Style',
-                prompt: style.prompt || '',
-                imagePaths: style.imagePaths || [],
-                previewUrls: style.imagePaths || [],
-                collageImageUrl: style.collageImageUrl,
-                collageConfig: style.collageConfig,
-                updatedAt: updatedAt.toISOString(),
-              },
-            },
-            { upsert: true },
-          );
+          await this.stylesRepository.upsert(id, {
+            name: style.name || 'Untitled Style',
+            prompt: style.prompt || '',
+            imagePaths: style.imagePaths || [],
+            previewUrls: style.imagePaths || [],
+            collageImageUrl: style.collageImageUrl,
+            collageConfig: style.collageConfig,
+            updatedAt: updatedAt.toISOString(),
+          });
         }),
       );
     } catch (error) {
@@ -175,11 +165,7 @@ export class StylesService {
         doc.collageConfig = styleData.collageConfig;
       }
 
-      await this.styleStackModel.updateOne(
-        { _id: styleData.id },
-        { $set: doc },
-        { upsert: true },
-      );
+      await this.stylesRepository.upsert(styleData.id, doc);
 
       return {
         ...styleData,
@@ -196,7 +182,7 @@ export class StylesService {
 
   public async deleteStyle(id: string): Promise<void> {
     try {
-      await this.styleStackModel.deleteOne({ _id: id });
+      await this.stylesRepository.delete(id);
     } catch (error) {
       console.error('Failed to delete style', error);
       throw new HttpError(500, 'Failed to delete style');

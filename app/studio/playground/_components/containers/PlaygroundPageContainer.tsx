@@ -2,6 +2,7 @@
 
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import { useToast } from "@/hooks/common/use-toast";
 
@@ -15,12 +16,6 @@ import { useAIService as useAIServiceV1 } from "@/hooks/ai/useAIService";
 import { GoogleApiStatus } from "@studio/playground/_components/GoogleApiStatus";
 import SimpleImagePreview from "@studio/playground/_components/SimpleImagePreview";
 import HistoryList from "@studio/playground/_components/HistoryList";
-import ImagePreviewModal from "@studio/playground/_components/Dialogs/ImagePreviewModal";
-import FluxKleinConnectionHelpDialog from "@studio/playground/_components/Dialogs/FluxKleinConnectionHelpDialog";
-import WorkflowSelectorDialog from "@studio/playground/_components/Dialogs/WorkflowSelectorDialog";
-import BaseModelSelectorDialog from "@studio/playground/_components/Dialogs/BaseModelSelectorDialog";
-import LoraSelectorDialog from "@studio/playground/_components/Dialogs/LoraSelectorDialog";
-import { PresetManagerDialog } from "@studio/playground/_components/Dialogs/PresetManagerDialog";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
@@ -35,7 +30,7 @@ import {
 } from "@/lib/playground/types";
 import type { Generation } from "@/types/database";
 import { downloadImage } from '@/lib/utils/download';
-import { ImageEditDialog, type ImageEditConfirmPayload, type ImageEditorSessionSnapshot } from '@/components/image-editor';
+import type { ImageEditConfirmPayload, ImageEditorSessionSnapshot } from '@/components/image-editor';
 
 import { cn } from "@/lib/utils";
 import { getApiBase, formatImageUrl } from "@/lib/api-base";
@@ -107,8 +102,7 @@ import {
 import gsap from "gsap";
 import { Flip } from "gsap/all";
 import { useGSAP } from "@gsap/react";
-import { observer } from "mobx-react-lite";
-import { userStore } from "@/lib/store/user-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import {
   DndContext,
   DragOverlay,
@@ -117,6 +111,35 @@ import {
 import { snapCenterToCursor } from "@dnd-kit/modifiers";
 
 gsap.registerPlugin(Flip, useGSAP);
+
+const ImagePreviewModal = dynamic(
+  () => import("@studio/playground/_components/Dialogs/ImagePreviewModal"),
+  { ssr: false },
+);
+const FluxKleinConnectionHelpDialog = dynamic(
+  () => import("@studio/playground/_components/Dialogs/FluxKleinConnectionHelpDialog"),
+  { ssr: false },
+);
+const WorkflowSelectorDialog = dynamic(
+  () => import("@studio/playground/_components/Dialogs/WorkflowSelectorDialog"),
+  { ssr: false },
+);
+const BaseModelSelectorDialog = dynamic(
+  () => import("@studio/playground/_components/Dialogs/BaseModelSelectorDialog"),
+  { ssr: false },
+);
+const LoraSelectorDialog = dynamic(
+  () => import("@studio/playground/_components/Dialogs/LoraSelectorDialog"),
+  { ssr: false },
+);
+const PresetManagerDialog = dynamic(
+  () => import("@studio/playground/_components/Dialogs/PresetManagerDialog").then((module) => module.PresetManagerDialog),
+  { ssr: false },
+);
+const ImageEditDialog = dynamic(
+  () => import('@/components/image-editor').then((module) => module.ImageEditDialog),
+  { ssr: false },
+);
 
 export interface PlaygroundV2PageProps {
   onEditMapping?: (workflow: IViewComfy) => void;
@@ -519,7 +542,7 @@ function createShortcutOptimizationVariants(
 }
 
 
-export const PlaygroundV2Page = observer(function PlaygroundV2Page({
+export const PlaygroundV2Page = function PlaygroundV2Page({
   onEditMapping,
 }: PlaygroundV2PageProps) {
   const { toast } = useToast();
@@ -548,11 +571,10 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
   const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
-  const visitorId = usePlaygroundStore(s => s.visitorId);
-  const initVisitorId = usePlaygroundStore(s => s.initVisitorId);
-  const currentUserId = userStore.currentUser?.id;
-  const sessionUserId = typeof window !== "undefined" ? localStorage.getItem("CURRENT_USER_ID") : null;
-  const effectiveUserId = currentUserId || sessionUserId || visitorId || "anonymous";
+  const actorId = useAuthStore((state) => state.actorId);
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const ensureSession = useAuthStore((state) => state.ensureSession);
+  const effectiveUserId = actorId || "anonymous";
   const isHistoryDebug =
     typeof window !== "undefined" &&
     (process.env.NEXT_PUBLIC_HISTORY_DEBUG === "1" || window.localStorage.getItem("__DEBUG_HISTORY__") === "1");
@@ -585,9 +607,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   const describePanelRef = useRef<HTMLDivElement>(null);
 
   // Use SWR hook for history
-  const { history: swrHistory, size, setSize, isLoading: isHistoryLoading, hasMore: hasMoreHistory, mutate: mutateHistory } = useHistory();
+  const { history: swrHistory, size, setSize, isLoading: isHistoryLoading, hasMore: hasMoreHistory } = useHistory();
   const syncHistoryWithSWR = usePlaygroundStore(s => s.syncHistoryWithSWR);
-  const migrationInFlightRef = useRef<Set<string>>(new Set());
 
   // Sync SWR data to store whenever it changes
   useEffect(() => {
@@ -652,9 +673,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   useEffect(() => {
     if (!isHistoryDebug) return;
     console.info("[HistoryDebug][Front] page_state", {
-      currentUserId: currentUserId || null,
-      sessionUserId: sessionUserId || null,
-      visitorId: visitorId || null,
+      currentUserId: currentUser?.id || null,
+      actorId: actorId || null,
       effectiveUserId,
       swrHistoryCount: swrHistory?.length || 0,
       storeHistoryCount: generationHistory.length,
@@ -665,9 +685,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
     });
   }, [
     isHistoryDebug,
-    currentUserId,
-    sessionUserId,
-    visitorId,
+    currentUser?.id,
+    actorId,
     effectiveUserId,
     swrHistory,
     generationHistory.length,
@@ -795,52 +814,8 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
   }, []);
 
   useEffect(() => {
-    initVisitorId();
-  }, [initVisitorId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!currentUserId || !visitorId || currentUserId === visitorId) return;
-
-    const migrationKey = `HISTORY_MIGRATED_${currentUserId}_${visitorId}`;
-    if (localStorage.getItem(migrationKey) === "1") return;
-    if (migrationInFlightRef.current.has(migrationKey)) return;
-
-    migrationInFlightRef.current.add(migrationKey);
-
-    void (async () => {
-      try {
-        const res = await fetch(`${getApiBase()}/history`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "migrate-user-history",
-            fromUserId: visitorId,
-            toUserId: currentUserId,
-          }),
-        });
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const migrationResult = await res.json().catch(() => ({}));
-        if (isHistoryDebug) {
-          console.info("[HistoryDebug][Front] migrate_user_history", {
-            fromUserId: visitorId,
-            toUserId: currentUserId,
-            migrationResult,
-          });
-        }
-
-        localStorage.setItem(migrationKey, "1");
-        await mutateHistory();
-      } catch (error) {
-        console.error("Failed to migrate visitor history:", error);
-      } finally {
-        migrationInFlightRef.current.delete(migrationKey);
-      }
-    })();
-  }, [currentUserId, visitorId, mutateHistory, isHistoryDebug]);
+    void ensureSession().catch(() => undefined);
+  }, [ensureSession]);
 
   useEffect(() => {
     const path = uploadedImages[0]?.path;
@@ -3481,6 +3456,6 @@ export const PlaygroundV2Page = observer(function PlaygroundV2Page({
       </div >
     </DndContext >
   );
-});
+};
 
 export default PlaygroundV2Page;

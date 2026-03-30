@@ -1,5 +1,6 @@
+import { compare, hash } from 'bcryptjs';
 import { HttpError } from '../utils/http-error';
-import { UserModel, type UserDoc } from '../db/models';
+import { UsersRepository, type UserRecord } from '../repositories';
 import { tryNormalizeAssetUrlToCdn } from '../utils/cdn-image-url';
 import { getFileUrl } from '@/src/storage/object-storage';
 
@@ -25,6 +26,21 @@ async function getDisplayUrl(value: string | undefined): Promise<string | undefi
 }
 
 export class UsersService {
+  constructor(private readonly usersRepository: UsersRepository) {}
+
+  private toClientUser(user: UserRecord, avatar?: string): Record<string, unknown> {
+    return {
+      id: user.id,
+      name: user.display_name,
+      avatar,
+      createdAt: user.created_at,
+    };
+  }
+
+  private isHashedPassword(value?: string): boolean {
+    return typeof value === 'string' && /^\$2[aby]\$/.test(value);
+  }
+
   /**
    * Normalize avatar URL for storage and display
    * - Stores storage key (permanent)
@@ -51,147 +67,117 @@ export class UsersService {
 
     // Update database if storage key changed
     if (storageKey !== avatar) {
-      await UserModel.updateOne({ id: userId }, { avatar_url: storageKey });
+      await this.usersRepository.updateProfile(userId, { avatar_url: storageKey });
     }
 
     return { storageKey, displayUrl };
   }
 
-  public async getUsers(userId?: string | null): Promise<{ user?: Record<string, unknown>; users?: Record<string, unknown>[] }> {
+  public async getUserById(userId: string): Promise<Record<string, unknown> | null> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      return null;
+    }
+    const avatarResult = await this.normalizeAvatar(user.id, user.avatar_url);
+    return this.toClientUser(user, avatarResult.displayUrl);
+  }
+
+  public async register(body: unknown): Promise<Record<string, unknown>> {
     try {
-      if (userId) {
-        const user = await UserModel.findById(userId);
-        if (!user) {
-          throw new HttpError(404, 'User not found');
-        }
-        const avatarResult = await this.normalizeAvatar(user.id, user.avatar_url);
-        return {
-          user: {
-            id: user.id,
-            name: user.display_name,
-            avatar: avatarResult.displayUrl,
-            createdAt: user.created_at,
-          },
-        };
+      const { username, password } = body as { username?: string; password?: string };
+
+      if (!username || !password) {
+        throw new HttpError(400, 'Missing credentials');
+      }
+      const exists = await this.usersRepository.findByDisplayName(username);
+      if (exists) {
+        throw new HttpError(409, 'Username already exists');
       }
 
-      const users = await UserModel.find();
-      const safeUsers = await Promise.all(users.map(async (u: UserDoc) => {
-        const avatarResult = await this.normalizeAvatar(u.id, u.avatar_url);
-        return {
-          id: u.id,
-          name: u.display_name,
-          avatar: avatarResult.displayUrl,
-          createdAt: u.created_at,
-        };
-      }));
-      return { users: safeUsers as Record<string, unknown>[] };
+      const userId = crypto.randomUUID();
+      const newUser = await this.usersRepository.create({
+        id: userId,
+        display_name: username,
+        password: await hash(password, 12),
+        created_at: new Date().toISOString(),
+      });
+
+      return this.toClientUser(newUser);
     } catch (error) {
       if (error instanceof HttpError) throw error;
-      console.error('Failed to load users', error);
-      throw new HttpError(500, 'Failed to load users');
+      console.error('User registration failed', error);
+      throw new HttpError(500, 'Registration failed');
     }
   }
 
-  public async handlePost(body: unknown): Promise<{ user: Record<string, unknown> }> {
+  public async login(body: unknown): Promise<Record<string, unknown>> {
     try {
-      const { action } = body as { action?: string };
-
-      if (action === 'register') {
-        const { username, password } = body as { username?: string; password?: string };
-        console.log('[UsersService] Register attempt:', { username, hasPassword: !!password });
-        
-        if (!username || !password) {
-          throw new HttpError(400, 'Missing credentials');
-        }
-        const exists = await UserModel.findOne({ display_name: username });
-        console.log('[UsersService] Exists check:', { exists: !!exists });
-        
-        if (exists) {
-          throw new HttpError(409, 'Username already exists');
-        }
-
-        const userId = crypto.randomUUID();
-        console.log('[UsersService] Creating user with ID:', userId);
-        
-        const newUser = await UserModel.create({
-          id: userId,
-          display_name: username,
-          password: password,
-          created_at: new Date().toISOString(),
-        });
-        
-        console.log('[UsersService] User created:', { id: newUser.id, displayName: newUser.display_name });
-
-        return {
-          user: {
-            id: newUser.id,
-            name: newUser.display_name,
-            createdAt: newUser.created_at,
-          },
-        };
+      const { username, password } = body as { username?: string; password?: string };
+      if (!username || !password) {
+        throw new HttpError(400, 'Missing credentials');
       }
 
-      if (action === 'login') {
-        const { username, password } = body as { username?: string; password?: string };
-        const user = await UserModel.findOne({ display_name: username });
-        if (!user || user.password !== password) {
-          throw new HttpError(401, 'Invalid credentials');
-        }
-        return {
-          user: {
-            id: user.id,
-            name: user.display_name,
-            createdAt: user.created_at,
-          },
-        };
+      const user = await this.usersRepository.findByDisplayName(username);
+      if (!user || !user.password) {
+        throw new HttpError(401, 'Invalid credentials');
       }
 
-      throw new HttpError(400, 'Invalid action');
+      let passwordMatches = false;
+      if (this.isHashedPassword(user.password)) {
+        passwordMatches = await compare(password, user.password);
+      } else {
+        passwordMatches = user.password === password;
+        if (passwordMatches) {
+          await this.usersRepository.updateProfile(user.id, { password: await hash(password, 12) });
+        }
+      }
+
+      if (!passwordMatches) {
+        throw new HttpError(401, 'Invalid credentials');
+      }
+
+      const avatar = await getDisplayUrl(user.avatar_url);
+      return this.toClientUser(user, avatar);
     } catch (error) {
       if (error instanceof HttpError) throw error;
-      console.error('User POST operation failed', error);
-      throw new HttpError(500, 'Operation failed');
+      console.error('User login failed', error);
+      throw new HttpError(500, 'Login failed');
     }
   }
 
-  public async updateUser(body: unknown): Promise<{ user: Record<string, unknown> }> {
+  public async updateUser(userId: string, body: unknown): Promise<Record<string, unknown>> {
     try {
-      const { id, name, avatar } = body as {
-        id?: string;
+      const { name, avatar } = body as {
         name?: string;
         avatar?: string;
       };
 
-      if (!id) {
-        throw new HttpError(400, 'User ID required');
-      }
-
-      const user = await UserModel.findById(id);
+      const user = await this.usersRepository.findById(userId);
       if (!user) {
         throw new HttpError(404, 'User not found');
       }
 
-      const updates: Partial<UserDoc> = {};
+      const updates: Partial<UserRecord> = {};
       let avatarDisplayUrl: string | undefined;
       
       if (name) updates.display_name = name;
       if (avatar !== undefined) {
-        const avatarResult = await this.normalizeAvatar(id, avatar);
+        const avatarResult = await this.normalizeAvatar(userId, avatar);
         updates.avatar_url = avatarResult.storageKey;
         avatarDisplayUrl = avatarResult.displayUrl;
       }
 
-      await UserModel.updateOne({ id }, updates);
+      if (Object.keys(updates).length > 0) {
+        await this.usersRepository.updateProfile(userId, updates);
+      }
 
-      return {
-        user: {
-          id: user.id,
-          name: updates.display_name || user.display_name,
-          avatar: avatarDisplayUrl || await getDisplayUrl(user.avatar_url),
-          createdAt: user.created_at,
+      return this.toClientUser(
+        {
+          ...user,
+          ...updates,
         },
-      };
+        avatarDisplayUrl || await getDisplayUrl(updates.avatar_url || user.avatar_url),
+      );
     } catch (error) {
       if (error instanceof HttpError) throw error;
       console.error('Update user failed', error);

@@ -8,10 +8,10 @@
  * 注意：此接口仅供管理员使用，建议在生产环境中执行后删除
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/src/storage/database/supabase-client';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const supabase = getSupabaseClient();
     
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     
     // 1. 修复 generations 表 - 缺少前缀的 storage key
     // 使用 Supabase 的 update + filter 方式
-    const { error: genError1, count: genFixed1 } = await supabase
+    await supabase
       .from('generations')
       .update({ 
         output_url: 'ljhwZthlaukjlkulzlp/' 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // 由于 Supabase 客户端不支持 substring 操作，我们使用 fetch 直接调用数据库 API
     
     // 2. 修复 dataset_entries 表 - 缺少前缀
-    const { error: datasetError1 } = await supabase
+    await supabase
       .from('dataset_entries')
       .update({ url: 'ljhwZthlaukjlkulzlp/' })
       .not('url', 'like', 'ljhwZthlaukjlkulzlp/%')
@@ -125,7 +125,7 @@ async function getStats(supabase: ReturnType<typeof getSupabaseClient>) {
 }
 
 // GET 方法：只查看统计，不执行修复
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = getSupabaseClient();
     const stats = await getStats(supabase);

@@ -1,7 +1,4 @@
 import { datasetEvents, DATASET_SYNC_EVENT } from '../dataset-events';
-import { Injectable } from '../compat/gulux';
-
-@Injectable()
 export class DatasetSyncService {
   public createSyncStream(): ReadableStream<Uint8Array> {
     const encoder = new TextEncoder();

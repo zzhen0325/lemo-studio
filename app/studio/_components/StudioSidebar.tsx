@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { observer } from "mobx-react-lite";
 import { cn } from "@/lib/utils";
 import SplitText from "@/components/ui/split-text";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AuthDialog } from "./auth/AuthDialog";
 import { UserProfileDialog } from "./auth/UserProfileDialog";
-import { userStore } from "@/lib/store/user-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { STUDIO_NAV_ITEMS, STUDIO_ROUTES } from "../_lib/navigation";
 
@@ -29,13 +28,16 @@ function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export const StudioSidebar = observer(function StudioSidebar() {
+export const StudioSidebar = function StudioSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const { setViewMode } = usePlaygroundStore();
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const refreshSession = useAuthStore((state) => state.refreshSession);
+  const logout = useAuthStore((state) => state.logout);
   const prefetchRoute = useCallback((href: string) => {
     void router.prefetch(href);
   }, [router]);
@@ -45,12 +47,12 @@ export const StudioSidebar = observer(function StudioSidebar() {
     }
     router.push(href);
   }, [router, setViewMode]);
-  const currentUser = hasHydrated ? userStore.currentUser : null;
+  const hydratedUser = hasHydrated ? currentUser : null;
 
   useEffect(() => {
     setHasHydrated(true);
-    void userStore.init();
-  }, []);
+    void refreshSession();
+  }, [refreshSession]);
 
   return (
     <header className="fixed top-2 px-10 left-0 right-0 h-14 z-50 flex items-center justify-between select-none">
@@ -97,7 +99,7 @@ export const StudioSidebar = observer(function StudioSidebar() {
       </nav>
 
       <div className="flex items-center">
-        {currentUser ? (
+        {hydratedUser ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -105,28 +107,28 @@ export const StudioSidebar = observer(function StudioSidebar() {
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10 outline-none"
               >
                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden">
-                  {currentUser.avatar ? (
+                  {hydratedUser.avatar ? (
                     <Image
-                      src={currentUser.avatar}
-                      alt={currentUser.name || 'User'}
+                      src={hydratedUser.avatar}
+                      alt={hydratedUser.name || 'User'}
                       width={20}
                       height={20}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <span className="text-[10px] font-bold text-white">
-                      {(currentUser.name || 'U').charAt(0).toUpperCase()}
+                      {(hydratedUser.name || 'U').charAt(0).toUpperCase()}
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-white/80">{currentUser.name || 'User'}</span>
+                <span className="text-xs text-white/80">{hydratedUser.name || 'User'}</span>
                 <ChevronDown className="w-3 h-3 text-white/50" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-black/90 border-white/10 backdrop-blur-xl text-white">
               <div className="px-2 py-1.5 text-xs text-white/50 font-medium">
                 Signed in as <br />
-                <span className="text-white font-bold truncate block">{currentUser.name || 'User'}</span>
+                <span className="text-white font-bold truncate block">{hydratedUser.name || 'User'}</span>
               </div>
               <DropdownMenuSeparator className="bg-white/10" />
 
@@ -141,7 +143,9 @@ export const StudioSidebar = observer(function StudioSidebar() {
               <DropdownMenuSeparator className="bg-white/10" />
 
               <DropdownMenuItem
-                onClick={() => userStore.logout()}
+                onClick={() => {
+                  void logout();
+                }}
                 className="cursor-pointer focus:bg-white/10 focus:text-red-400 text-red-400"
               >
                 <LogOut className="w-4 h-4 mr-2" />
@@ -165,4 +169,4 @@ export const StudioSidebar = observer(function StudioSidebar() {
       <UserProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </header>
   );
-});
+};

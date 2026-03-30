@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Heart, HeartOff, BookmarkPlus, Download, Pencil } from 'lucide-react';
+import { Heart, BookmarkPlus, Download, Pencil } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { InteractionStats, ViewerState } from '@/types/database';
 import { likeGeneration, formatInteractionCount, formatLastTime } from '@/lib/interaction-tracking';
@@ -10,7 +10,6 @@ interface InteractionButtonsProps {
   generationId: string;
   interactionStats?: InteractionStats;
   viewerState?: ViewerState;
-  userId?: string;
   onInteractionUpdate?: (stats: InteractionStats, state: ViewerState) => void;
   onDownload?: () => void;
   onEdit?: () => void;
@@ -21,11 +20,7 @@ export function InteractionButtons({
   generationId,
   interactionStats,
   viewerState,
-  userId,
   onInteractionUpdate,
-  onDownload,
-  onEdit,
-  onAddToMoodboard,
 }: InteractionButtonsProps) {
   const [isLiking, setIsLiking] = useState(false);
   const [localStats, setLocalStats] = useState(interactionStats);
@@ -40,11 +35,11 @@ export function InteractionButtons({
   const viewer = localViewerState || viewerState || { hasLiked: false };
 
   const handleLike = useCallback(async () => {
-    if (!userId || isLiking) return;
+    if (isLiking) return;
     
     setIsLiking(true);
     try {
-      const result = await likeGeneration(generationId, userId);
+      const result = await likeGeneration(generationId);
       if (result.success && result.interactionStats && result.viewerState) {
         setLocalStats(result.interactionStats);
         setLocalViewerState(result.viewerState);
@@ -55,7 +50,7 @@ export function InteractionButtons({
     } finally {
       setIsLiking(false);
     }
-  }, [generationId, userId, isLiking, onInteractionUpdate]);
+  }, [generationId, isLiking, onInteractionUpdate]);
 
   return (
     <div className="flex items-center gap-1">
@@ -69,7 +64,7 @@ export function InteractionButtons({
             : 'hover:bg-white/10 text-white/70 hover:text-white'
         }`}
         onClick={handleLike}
-        disabled={!userId || isLiking || viewer.hasLiked}
+        disabled={isLiking || viewer.hasLiked}
       >
         {viewer.hasLiked ? (
           <Heart className="w-3.5 h-3.5 fill-current" />

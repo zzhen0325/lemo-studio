@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getSupabaseClient } from '@/src/storage/database/supabase-client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
@@ -17,6 +18,10 @@ function camelToSnake(str: string): string {
   return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 }
 
+function normalizeDbKey(key: string): string {
+  return key === '_id' ? 'id' : camelToSnake(key);
+}
+
 // Convert object keys from camelCase to snake_case
 function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
@@ -30,7 +35,8 @@ function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
 // Query Builder for Mongoose-like interface
 // ==========================================
 
-interface QueryBuilder<T> {
+interface QueryBuilder<T = unknown> {
+  _resultType?: T;
   _filter: Record<string, unknown>;
   _sort: Record<string, 1 | -1>;
   _skip?: number;
@@ -57,7 +63,7 @@ async function executeQuery<T>(qb: QueryBuilder<T>): Promise<T[]> {
   // Apply filters with camelCase to snake_case conversion
   for (const [key, value] of Object.entries(qb._filter)) {
     if (value !== undefined && value !== null) {
-      const dbKey = key === '_id' ? 'id' : camelToSnake(key);
+      const dbKey = normalizeDbKey(key);
       query = query.eq(dbKey, value);
     }
   }
@@ -85,7 +91,7 @@ async function executeSingle<T>(qb: QueryBuilder<T>): Promise<T | null> {
   
   for (const [key, value] of Object.entries(qb._filter)) {
     if (value !== undefined && value !== null) {
-      const dbKey = key === '_id' ? 'id' : camelToSnake(key);
+      const dbKey = normalizeDbKey(key);
       query = query.eq(dbKey, value);
     }
   }
@@ -130,6 +136,14 @@ function extractUpdateData(update: any): Record<string, unknown> {
   return update as Record<string, unknown>;
 }
 
+function normalizeFilter(filter: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(filter)) {
+    result[normalizeDbKey(key)] = value;
+  }
+  return result;
+}
+
 // ==========================================
 // Generations Model
 // ==========================================
@@ -161,13 +175,13 @@ export interface GenerationDoc {
 export const GenerationModel = {
   find(filter: Record<string, unknown> = {}): any {
     const qb = createQuery<GenerationDoc>('generations', getClient());
-    qb._filter = { ...filter };
+    qb._filter = normalizeFilter(filter);
     return createQueryable(qb);
   },
 
   findOne(filter: Record<string, unknown>): any {
     const qb = createQuery<GenerationDoc>('generations', getClient());
-    qb._filter = { ...filter };
+    qb._filter = normalizeFilter(filter);
     qb._single = true;
     return createQueryable(qb);
   },
@@ -183,9 +197,10 @@ export const GenerationModel = {
   },
 
   async create(doc: Partial<GenerationDoc>): Promise<GenerationDoc> {
+    const normalizedDoc = toSnakeCase(doc as Record<string, unknown>);
     const { data, error } = await getClient()
       .from('generations')
-      .insert(doc as Record<string, unknown>)
+      .insert(normalizedDoc)
       .select()
       .single();
     if (error) throw error;
@@ -193,12 +208,13 @@ export const GenerationModel = {
   },
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
-    const updateData = extractUpdateData(update);
-    const id = filter.id || filter._id;
+    const normalizedFilter = normalizeFilter(filter);
+    const updateData = toSnakeCase(extractUpdateData(update));
+    const id = normalizedFilter.id;
     
     if (options?.upsert) {
       // Try to find first
-      const existing = await this.findOne(filter);
+      const existing = await this.findOne(normalizedFilter);
       if (!existing) {
         await this.create({ ...updateData, id: id as string });
         return { modifiedCount: 1 };
@@ -209,8 +225,8 @@ export const GenerationModel = {
     if (id) {
       query = query.eq('id', id as string);
     } else {
-      for (const [key, value] of Object.entries(filter)) {
-        if (value !== undefined && value !== null && key !== '_id') {
+      for (const [key, value] of Object.entries(normalizedFilter)) {
+        if (value !== undefined && value !== null && key !== 'id') {
           query = query.eq(key, value);
         }
       }
@@ -221,9 +237,10 @@ export const GenerationModel = {
   },
 
   async updateMany(filter: Record<string, unknown>, update: any): Promise<void> {
-    const updateData = extractUpdateData(update);
+    const normalizedFilter = normalizeFilter(filter);
+    const updateData = toSnakeCase(extractUpdateData(update));
     let query = getClient().from('generations').update(updateData);
-    for (const [key, value] of Object.entries(filter)) {
+    for (const [key, value] of Object.entries(normalizedFilter)) {
       if (value !== undefined && value !== null) {
         query = query.eq(key, value);
       }
@@ -232,17 +249,25 @@ export const GenerationModel = {
     if (error) throw error;
   },
 
-  async deleteOne(filter: Record<string, unknown>): Promise<void> {
-    const id = filter.id || filter._id;
-    if (id) {
-      const { error } = await getClient().from('generations').delete().eq('id', id as string);
-      if (error) throw error;
+  async deleteOne(filter: Record<string, unknown>): Promise<{ deletedCount: number }> {
+    const normalizedFilter = normalizeFilter(filter);
+    let query = getClient().from('generations').delete();
+
+    for (const [key, value] of Object.entries(normalizedFilter)) {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
     }
+
+    const { data, error } = await query.select('id');
+    if (error) throw error;
+    return { deletedCount: data?.length || 0 };
   },
 
   async deleteMany(filter: Record<string, unknown>): Promise<void> {
+    const normalizedFilter = normalizeFilter(filter);
     let query = getClient().from('generations').delete();
-    for (const [key, value] of Object.entries(filter)) {
+    for (const [key, value] of Object.entries(normalizedFilter)) {
       if (value !== undefined && value !== null) {
         query = query.eq(key, value);
       }
@@ -252,8 +277,9 @@ export const GenerationModel = {
   },
 
   async countDocuments(filter: Record<string, unknown> = {}): Promise<number> {
+    const normalizedFilter = normalizeFilter(filter);
     let query = getClient().from('generations').select('*', { count: 'exact', head: true });
-    for (const [key, value] of Object.entries(filter)) {
+    for (const [key, value] of Object.entries(normalizedFilter)) {
       if (value !== undefined && value !== null) {
         query = query.eq(key, value);
       }
@@ -275,21 +301,18 @@ export const GenerationModel = {
     filter: Record<string, unknown>,
     options: { sort?: Record<string, 1 | -1>; skip?: number; limit?: number; select?: string }
   ): Promise<GenerationDoc[]> {
+    const normalizedFilter = normalizeFilter(filter);
     let query = getClient().from('generations').select(options.select || '*');
     
-    for (const [key, value] of Object.entries(filter)) {
+    for (const [key, value] of Object.entries(normalizedFilter)) {
       if (value !== undefined && value !== null) {
-        if (key === '_id') {
-          query = query.eq('id', value as string);
-        } else {
-          query = query.eq(key, value);
-        }
+        query = query.eq(key, value);
       }
     }
 
     if (options.sort) {
       for (const [field, order] of Object.entries(options.sort)) {
-        query = query.order(field, { ascending: order === 1 });
+        query = query.order(normalizeDbKey(field), { ascending: order === 1 });
       }
     }
 
@@ -314,11 +337,12 @@ export const GenerationModel = {
   },
 
   async findOneAndUpdate(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean; new?: boolean }): Promise<GenerationDoc | null> {
-    const updateData = extractUpdateData(update);
-    const id = filter.id || filter._id;
+    const normalizedFilter = normalizeFilter(filter);
+    const updateData = toSnakeCase(extractUpdateData(update));
+    const id = normalizedFilter.id;
     
     if (options?.upsert) {
-      const existing = await this.findOne(filter);
+      const existing = await this.findOne(normalizedFilter);
       if (!existing) {
         return await this.create({ ...updateData, id: id as string });
       }
@@ -328,8 +352,8 @@ export const GenerationModel = {
     if (id) {
       query = query.eq('id', id as string);
     } else {
-      for (const [key, value] of Object.entries(filter)) {
-        if (value !== undefined && value !== null && key !== '_id') {
+      for (const [key, value] of Object.entries(normalizedFilter)) {
+        if (value !== undefined && value !== null && key !== 'id') {
           query = query.eq(key, value);
         }
       }
@@ -491,16 +515,23 @@ export const ImageAssetModel = {
 // ==========================================
 export interface PresetDoc {
   id: string;
+  _id?: string;
   name: string;
   cover_url?: string;
+  coverUrl?: string;
   cover_data?: string;
+  coverData?: string;
   config?: Record<string, unknown>;
   edit_config?: Record<string, unknown>;
+  editConfig?: Record<string, unknown>;
   category?: string;
   project_id?: string;
+  projectId?: string;
   type?: 'generation' | 'edit';
   created_at?: string;
+  createdAt?: string;
   updated_at?: string;
+  updatedAt?: string;
 }
 
 export const PresetModel = {
@@ -728,13 +759,17 @@ export const StyleStackModel = {
 // ==========================================
 export interface ToolPresetDoc {
   id: string;
+  _id?: string;
   tool_id: string;
+  toolId?: string;
   name: string;
   values?: Record<string, unknown>;
   thumbnail?: string;
   timestamp?: number;
   created_at?: string;
+  createdAt?: string;
   updated_at?: string;
+  updatedAt?: string;
 }
 
 export const ToolPresetModel = {
@@ -1132,6 +1167,23 @@ export const DatasetCollectionModel = {
     return { modifiedCount: 1 };
   },
 
+  async deleteOne(filter: Record<string, unknown>): Promise<void> {
+    const id = filter.id || filter._id;
+    const name = filter.name;
+
+    let query = getClient().from('dataset_collections').delete();
+    if (id) {
+      query = query.eq('id', id as string);
+    } else if (name) {
+      query = query.eq('name', name as string);
+    } else {
+      throw new Error('DatasetCollection deleteOne requires id or name in filter');
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+  },
+
   collection: { name: 'dataset_collections' },
 };
 
@@ -1201,6 +1253,7 @@ export interface InfiniteCanvasProjectDoc {
   name?: string;
   projectId?: string; // camelCase alias
   user_id?: string;
+  userId?: string;
   data?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
@@ -1209,13 +1262,13 @@ export interface InfiniteCanvasProjectDoc {
 export const InfiniteCanvasProjectModel = {
   find(filter: Record<string, unknown> = {}): any {
     const qb = createQuery<InfiniteCanvasProjectDoc>('infinite_canvas_projects', getClient());
-    qb._filter = { ...filter };
+    qb._filter = normalizeFilter(filter);
     return createQueryable(qb);
   },
 
   findOne(filter: Record<string, unknown>): any {
     const qb = createQuery<InfiniteCanvasProjectDoc>('infinite_canvas_projects', getClient());
-    qb._filter = { ...filter };
+    qb._filter = normalizeFilter(filter);
     qb._single = true;
     return createQueryable(qb);
   },
@@ -1242,28 +1295,58 @@ export const InfiniteCanvasProjectModel = {
   },
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
+    const normalizedFilter = normalizeFilter(filter);
     const updateData = toSnakeCase(extractUpdateData(update));
-    const id = filter.id || filter._id || filter.projectId;
+    const id = normalizedFilter.id || normalizedFilter.project_id;
     
     if (options?.upsert) {
-      const existing = await this.findOne(filter);
+      const existing = await this.findOne(normalizedFilter);
       if (!existing) {
         await this.create({ ...updateData, id: id as string });
         return { modifiedCount: 1 };
       }
     }
     
-    const { error } = await getClient()
-      .from('infinite_canvas_projects')
-      .update(updateData)
-      .eq('id', id as string);
+    let query = getClient().from('infinite_canvas_projects').update(updateData);
+    if (normalizedFilter.project_id) {
+      query = query.eq('project_id', normalizedFilter.project_id as string);
+    } else if (normalizedFilter.id) {
+      query = query.eq('id', normalizedFilter.id as string);
+    } else {
+      for (const [key, value] of Object.entries(normalizedFilter)) {
+        if (value !== undefined && value !== null) {
+          query = query.eq(key, value);
+        }
+      }
+    }
+    const { error } = await query;
     if (error) throw error;
     return { modifiedCount: 1 };
   },
 
-  async deleteOne(filter: Record<string, unknown>): Promise<void> {
-    const id = filter.id || filter._id;
-    const { error } = await getClient().from('infinite_canvas_projects').delete().eq('id', id as string);
+  async deleteOne(filter: Record<string, unknown>): Promise<{ deletedCount: number }> {
+    const normalizedFilter = normalizeFilter(filter);
+    let query = getClient().from('infinite_canvas_projects').delete();
+    for (const [key, value] of Object.entries(normalizedFilter)) {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
+    }
+    const { data, error } = await query.select('id');
+    if (error) throw error;
+    return { deletedCount: data?.length || 0 };
+  },
+
+  async updateMany(filter: Record<string, unknown>, update: any): Promise<void> {
+    const normalizedFilter = normalizeFilter(filter);
+    const updateData = toSnakeCase(extractUpdateData(update));
+    let query = getClient().from('infinite_canvas_projects').update(updateData);
+    for (const [key, value] of Object.entries(normalizedFilter)) {
+      if (value !== undefined && value !== null) {
+        query = query.eq(key, value);
+      }
+    }
+    const { error } = await query;
     if (error) throw error;
   },
 
@@ -1275,7 +1358,7 @@ export const InfiniteCanvasProjectModel = {
     return count || 0;
   },
 
-  async bulkWrite(operations: any[], _options?: { ordered?: boolean }): Promise<{ modifiedCount?: number }> {
+  async bulkWrite(operations: any[]): Promise<{ modifiedCount?: number }> {
     for (const op of operations) {
       if (op.updateOne) {
         await this.updateOne(op.updateOne.filter, op.updateOne.update, { upsert: op.updateOne.upsert });

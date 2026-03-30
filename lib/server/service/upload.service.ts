@@ -1,10 +1,8 @@
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
-import { Injectable, Inject } from '../compat/gulux';
-import type { ModelType } from '../compat/typegoose';
+import { ImageAssetsRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
-import { ImageAsset } from '../db';
 
 const AllowedExt = ['png', 'jpg', 'jpeg'] as const;
 
@@ -26,10 +24,8 @@ export interface UploadedFileLike {
   arrayBuffer: () => Promise<ArrayBuffer>;
 }
 
-@Injectable()
 export class UploadService {
-  @Inject(ImageAsset)
-  private imageAssetModel!: ModelType<ImageAsset>;
+  constructor(private readonly imageAssetsRepository: ImageAssetsRepository) {}
 
   public async upload(file: UploadedFileLike): Promise<{ path: string; storageKey: string; url?: string }> {
     const infoParse = FileInfoSchema.safeParse({ name: file.name, type: file.type });
@@ -57,7 +53,7 @@ export class UploadService {
       generateSignedUrl: true, // 生成预签名 URL 供前端即时显示
     });
 
-    await this.imageAssetModel.create({
+    await this.imageAssetsRepository.create({
       storage_key: cdnRes.storageKey,
       url: '', // 不再存储预签名 URL
       dir: cdnRes.dir,

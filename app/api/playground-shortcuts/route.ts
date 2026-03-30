@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { handleRoute, queryValue } from '@/lib/server/http';
-import { HttpError } from '@/lib/server/utils/http-error';
 import { PlaygroundShortcutsService } from '@/lib/server/service/playground-shortcuts.service';
 
 export const runtime = 'nodejs';

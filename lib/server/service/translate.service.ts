@@ -1,4 +1,3 @@
-import { Inject, Injectable } from '../compat/gulux';
 import { HttpError } from '../utils/http-error';
 import { ApiConfigService } from './api-config.service';
 import { validateModelUsage } from '../../model-center';
@@ -134,10 +133,8 @@ async function mapWithConcurrency<T, R>(
   return result;
 }
 
-@Injectable()
 export class TranslateService {
-  @Inject()
-  private readonly apiConfigService!: ApiConfigService;
+  constructor(private readonly apiConfigService: ApiConfigService) {}
 
   private getProviderForModel(modelId: string, providers: APIProviderConfig[]): APIProviderConfig {
     const provider = providers

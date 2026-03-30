@@ -110,14 +110,6 @@ const serverExternalPackages = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Skip TypeScript errors during build (we have type mismatches from MongoDB to Supabase migration)
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Skip ESLint during build
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   // Allow cross-origin requests from coze.site domains
   allowedDevOrigins: [
     '.dev.coze.site',

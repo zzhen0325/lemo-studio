@@ -1,5 +1,4 @@
 import { ErrorResponseFactory } from '../../models/errors';
-import { Injectable } from '../compat/gulux';
 import { HttpError } from '../utils/http-error';
 import { readJsonAsset } from '../../runtime-assets';
 
@@ -12,7 +11,6 @@ export interface LoraMetadata {
   base_model?: string;
 }
 
-@Injectable()
 export class LorasService {
   public async listLoras(): Promise<LoraMetadata[]> {
     try {
