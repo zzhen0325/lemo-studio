@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Generation } from '@/types/database';
 import { useToast } from '@/hooks/common/use-toast';
 
-import { formatImageUrl } from '@/lib/api-base';
+import { resolveGalleryImageUrl } from '@/lib/gallery-asset';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useImageSource } from '@/hooks/common/use-image-source';
 import { downloadImage } from '@/lib/utils/download';
@@ -107,7 +107,7 @@ export default function ImagePreviewModal({
   if (!result) return null;
 
   // Modal always uses the original output URL to keep preview quality high.
-  const fullResImageUrl = formatImageUrl(result.outputUrl || "");
+  const fullResImageUrl = resolveGalleryImageUrl(result.outputUrl || "");
   const config = result.config;
   const prompt = config?.prompt || "";
   const modelDisplayName = availableModels.find((model) => model.id === config?.model)?.displayName || config?.model || "Standard";
@@ -572,7 +572,7 @@ function PreviewResultThumbnail({
   isActive: boolean;
   onSelect?: (result: Generation) => void;
 }) {
-  const imageUrl = formatImageUrl(result.outputUrl || '');
+  const imageUrl = resolveGalleryImageUrl(result.outputUrl || '');
 
   return (
     <button
@@ -620,7 +620,7 @@ function ReferenceImageItem({
 }) {
   const setPreviewImage = usePlaygroundStore(s => s.setPreviewImage);
   const sourceImage = useImageSource(url, localId);
-  const displayUrl = sourceImage || formatImageUrl(url);
+  const displayUrl = sourceImage || resolveGalleryImageUrl(url);
 
   return (
     <motion.div

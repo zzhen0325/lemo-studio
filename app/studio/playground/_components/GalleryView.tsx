@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
-import { formatImageUrl } from "@/lib/api-base";
+import { resolveGalleryImageUrl } from "@/lib/gallery-asset";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, ArrowUpDown, Heart, Star, DownloadIcon, Edit3 } from "lucide-react";
 import GradualBlur from "@/components/visual-effects/GradualBlur";
 import { TooltipButton } from "@/components/ui/tooltip-button";
@@ -385,6 +385,7 @@ export default function GalleryView({
                                         <GalleryCard
                                             key={`${item.id}-${index}`}
                                             item={item}
+                                            allItems={filteredGalleryItems}
                                             onSelectItem={handleSelectItem}
                                             onDownload={handleDownload}
                                             onGenerate={handleGenerate}
@@ -696,13 +697,14 @@ type HandleGenerateFn = ReturnType<typeof useGenerationService>['handleGenerate'
 
 interface GalleryCardProps {
     item: Generation;
+    allItems: Generation[];
     onSelectItem?: (item: Generation, items?: Generation[]) => void;
     onDownload: (e: React.MouseEvent, url: string, filename: string) => void;
     onGenerate: HandleGenerateFn;
     onUsePrompt?: (item: Generation) => void;
 }
 
-function GalleryCard({ item, onSelectItem, onDownload, onGenerate, onUsePrompt }: GalleryCardProps) {
+function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onUsePrompt }: GalleryCardProps) {
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const { ref, isInView } = useInView('200px');
@@ -712,17 +714,17 @@ function GalleryCard({ item, onSelectItem, onDownload, onGenerate, onUsePrompt }
     const sourceUrls = item.config?.sourceImageUrls || [];
     const firstSourceUrl = sourceUrls[0];
     const sourceImage = useMemo(
-        () => (firstSourceUrl ? formatImageUrl(firstSourceUrl) : undefined),
+        () => (firstSourceUrl ? resolveGalleryImageUrl(firstSourceUrl) : undefined),
         [firstSourceUrl]
     );
     const mainImageUrl = useMemo(
-        () => (item.outputUrl ? formatImageUrl(item.outputUrl) : ""),
+        () => (item.outputUrl ? resolveGalleryImageUrl(item.outputUrl) : ""),
         [item.outputUrl]
     );
 
     const handleCardClick = useCallback(() => {
-        onSelectItem?.(item);
-    }, [onSelectItem, item]);
+        onSelectItem?.(item, allItems);
+    }, [onSelectItem, item, allItems]);
 
     const performDownload = useCallback(() => {
         if (!item.outputUrl) return;
