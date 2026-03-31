@@ -37,14 +37,14 @@ export function HistoryLoadingSkeleton({ layoutMode = 'list', count = 3 }: Histo
                         <Skeleton className="h-4 w-24 rounded bg-white/5" />
                     </div>
 
-                    <div className="grid grid-cols-[minmax(0,1.8fr)_minmax(0,4fr)] gap-2">
+                    <div className="grid grid-cols-[minmax(0,1.8fr)_minmax(0,4fr)] gap-2 items-stretch">
                         {/* Source/Left Panel */}
-                        <div className="relative w-full aspect-square rounded-xl bg-white/5 border border-white/10 p-2">
+                        <div className="relative w-full h-full rounded-xl bg-white/5 border border-white/10 p-2">
                             <Skeleton className="w-full h-full rounded-lg bg-white/5" />
                         </div>
 
                         {/* Items Grid */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4 h-full">
                             {Array.from({ length: 4 }).map((_, j) => (
                                 <div key={j} className="flex flex-col gap-2 p-4 rounded-2xl border border-white/5">
                                     <div className="flex items-center gap-2 mb-2">

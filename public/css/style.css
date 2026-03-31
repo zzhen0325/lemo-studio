@@ -7,7 +7,7 @@ html {
     background-color: #050505;
     /* 深色背景适合 WebGL 效果 */
     overflow: hidden;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans), sans-serif;
 }
 
 /* 渲染容器：必须设置宽高 */

@@ -72,8 +72,8 @@ export const StudioSidebar = function StudioSidebar() {
           className="h-5 w-auto"
         />
       </div>
-
-      <nav className="flex items-center mx-auto space-x-1">
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center">
+ <nav className=" flex items-center mx-auto space-x-1">
         {STUDIO_NAV_ITEMS.map((item) => {
           const isActive = isActivePath(pathname, item.href);
 
@@ -105,6 +105,9 @@ export const StudioSidebar = function StudioSidebar() {
           );
         })}
       </nav>
+
+</div>
+     
 
       <div className="flex items-center">
         {hydratedUser ? (

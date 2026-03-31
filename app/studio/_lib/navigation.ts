@@ -22,7 +22,7 @@ export const STUDIO_NAV_ITEMS: StudioNavItem[] = [
   { label: "Infinite Canvas", href: STUDIO_ROUTES.infiniteCanvas, value: "infiniteCanvas" },
   { label: "Tools", href: STUDIO_ROUTES.tools, value: "tools" },
   { label: "Dataset", href: STUDIO_ROUTES.dataset, value: "dataset" },
-  { label: "Settings", href: STUDIO_ROUTES.settings, value: "settings" },
+  // { label: "Settings", href: STUDIO_ROUTES.settings, value: "settings" },
 ];
 
 export const STUDIO_BACKGROUND_PREFETCH_ROUTES: ReadonlyArray<StudioRoute> = STUDIO_NAV_ITEMS

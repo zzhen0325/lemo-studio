@@ -89,6 +89,7 @@ export interface AnimatedButtonProps
   loading?: boolean
   disableWhileLoading?: boolean
   className?: string
+  showShimmer?: boolean
 }
 
 const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
@@ -100,10 +101,11 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
       iconLeft,
       iconRight,
       loading = false,
-      disableWhileLoading = true,
+      disableWhileLoading = false,
       className,
       onClick,
       disabled,
+      showShimmer = false,
       ...props
     },
     ref
@@ -134,6 +136,12 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
         aria-busy={loading}
         {...props}
       >
+        {showShimmer && (
+          <>
+            <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full transition-transform duration-1000 ease-out group-hover:translate-x-full" />
+            <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#E3FF9C]/25 via-white/10 to-[#E3FF9C]/25 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          </>
+        )}
         <span className="relative z-10 flex items-center gap-2">
           {loading ? (
             <motion.svg

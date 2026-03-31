@@ -144,7 +144,7 @@ export default function InfiniteCanvasHome() {
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-studio-muted">AI Infinite Canvas</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight [font-family:var(--font-instrument)]">项目首页</h1>
+            <h1 className="mt-3 text-4xl font-serif font-semibold tracking-tight">项目首页</h1>
             <p className="mt-2 text-sm text-studio-muted">创建项目并进入独立无限画布编辑器，支持节点化工作流。</p>
           </div>
           <Button

@@ -17,7 +17,7 @@ export type PromptHistoryRecordType =
   | typeof PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE
   | typeof IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE;
 
-export type PromptOptimizationSourceKind = "plain_text" | "kv_structured";
+export type PromptOptimizationSourceKind = "plain_text" | "kv_structured" | "shortcut_inline";
 
 export type GalleryPromptCategory =
   | "standard_generation"
@@ -140,7 +140,11 @@ export function getPromptOptimizationSource(
 
   if (
     version !== 1
-    || (sourceKind !== "plain_text" && sourceKind !== "kv_structured")
+    || (
+      sourceKind !== "plain_text"
+      && sourceKind !== "kv_structured"
+      && sourceKind !== "shortcut_inline"
+    )
     || !taskId
     || !originalPrompt
     || !activeVariantId
@@ -299,4 +303,3 @@ export function withoutPromptOptimizationSource(
 
   return nextConfig;
 }
-

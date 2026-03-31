@@ -89,17 +89,17 @@ const ToolsView: React.FC = () => {
                         exit={{ opacity: 0, y: -20 }}
                         className="p-8 h-full overflow-y-auto"
                     >
-                        <div className="max-w-7xl mx-auto space-y-8 pt-20 ">
-                            <div className="flex items-center gap-3">
+                        <div className="max-w-8xl mx-10 space-y-8  ">
+                            <div className="flex items-center justify-center gap-3">
 
-                                <h2 className="text-3xl font-bold text-white font-instrument">WebGL Tools Studio</h2>
+                                <h2 className="text-3xl font-serif font-normal text-white">WebGL Tools Studio</h2>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0">
                                 {WEBGL_TOOLS.map((tool) => (
                                     <Card
                                         key={tool.id}
-                                        className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer group rounded-2xl overflow-hidden"
+                                        className="bg-black border-[#2e2e2e] hover:bg-black transition-colors cursor-pointer rounded-none group overflow-hidden"
                                         onClick={() => handleSelectTool(tool)}
                                     >
                                         <div className="aspect-video relative bg-black/40">
@@ -121,7 +121,7 @@ const ToolsView: React.FC = () => {
                                                 </div>
                                             )}
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <Button variant="outline" className="rounded-full border-white/40 text-white">Open Tool</Button>
+                                                <Button variant="outline" className="rounded-full border-white/40 bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white">Open Tool</Button>
                                             </div>
                                         </div>
                                         <CardContent className="p-4">
@@ -140,11 +140,11 @@ const ToolsView: React.FC = () => {
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 1.02 }}
-                        className="flex flex-1 h-full overflow-hidden"
+                        className="flex flex-1 h-full bg-[#0f1016] overflow-hidden"
                     >
                         {/* Left Main Canvas */}
                         <div className="flex-1 relative flex flex-col min-h-0">
-                            <div className="absolute top-6 left-6 z-20 flex gap-3">
+                            <div className="absolute top-8 left-8 z-20 flex gap-3">
                                 <Button
                                     variant="outline"
                                     size="icon"
@@ -158,14 +158,14 @@ const ToolsView: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div ref={canvasContainerRef} className="flex-1 bg-black overflow-hidden flex items-center justify-center relative">
+                            <div ref={canvasContainerRef} className="flex-1 bg-[#0f1016] overflow-hidden flex items-center justify-center relative  p-4">
                                 {selectedTool.type === 'shader' && selectedTool.fragmentShader && (
                                     <WebGLRenderer
                                         shader={selectedTool.fragmentShader}
                                         uniforms={paramValues as Record<string, number>}
                                         width={1920}
                                         height={1080}
-                                        className="max-w-full max-h-full aspect-video shadow-2xl"
+                                        className="max-w-full max-h-full aspect-video rounded-2xl "
                                     />
                                 )}
                                 {selectedTool.type === 'component' && selectedTool.component && (
@@ -179,15 +179,15 @@ const ToolsView: React.FC = () => {
                             {/* Bottom Actions */}
                             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-4">
                                 <Button
-                                    className="rounded-2xl bg-white/10 hover:bg-white/20 text-white border-white/20 gap-2 px-6"
+                                    className="rounded-2xl bg-white/10 border border-white/10 hover:bg-white/20 text-white gap-2 px-6"
                                     onClick={handleExportImage}
                                 >
                                     <Download className="w-4 h-4" />
                                     Capture PNG
                                 </Button>
                                 <Button
-                                    variant={isRecording ? "destructive" : "default"}
-                                    className={`rounded-2xl gap-2 px-6 ${!isRecording ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : ''}`}
+                                    variant={isRecording ? "default" : "destructive"}
+                                    className={`rounded-2xl gap-2 px-6 ${!isRecording ? 'bg-white/10 border border-white/10 hover:bg-white/20 text-white' : ''}`}
                                     onClick={handleToggleRecording}
                                 >
                                     <Video className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
@@ -197,7 +197,8 @@ const ToolsView: React.FC = () => {
                         </div>
 
                         {/* Right Panel */}
-                        <div className="w-80 bg-black/40 backdrop-blur-xl border-l border-white/10 flex flex-col h-full">
+                        <div className="w-80 h-full relative bg-[#0f1016] backdrop-blur-xl py-4 pr-4 ">
+                                <div className="w-full h-full  flex flex-col border border-white/10 rounded-xl">
                             <ParameterPanel
                                 config={selectedTool}
                                 values={paramValues}
@@ -209,14 +210,19 @@ const ToolsView: React.FC = () => {
                                     return canvas.toDataURL('image/png');
                                 }}
                             />
-                            <div className="mt-auto p-6 border-t border-white/10">
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                                    <h4 className="text-xs font-semibold text-white/40 uppercase mb-2">Export Info</h4>
+                            <div className=" p-4 bg-[#0f1016] backdrop-blur-xl rounded-xl ">
+                               
+                                    <h4 className="text-xs font-medium text-white/40 uppercase mb-2">Export Info</h4>
                                     <p className="text-xs text-white/60">Export Resolution: 1920x1080 (HD)</p>
                                     <p className="text-xs text-white/60">Format: PNG / WebM</p>
-                                </div>
+                                
                             </div>
                         </div>
+                            
+
+
+                        </div>
+                    
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from "@/lib/utils";
 import { resolveGalleryImageUrl } from "@/lib/gallery-asset";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, ArrowUpDown, Heart, Star, DownloadIcon, Edit3 } from "lucide-react";
@@ -50,6 +51,7 @@ export default function GalleryView({
     const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
     const [selectedPromptCategories, setSelectedPromptCategories] = useState<GalleryPromptCategory[]>([]);
     const [activeInnerTab, setActiveInnerTab] = useState<GalleryInnerTab>('gallery');
+    const [isGalleryFilterOpen, setIsGalleryFilterOpen] = useState(false);
 
     const galleryItems = usePlaygroundStore(s => s.galleryItems);
     const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
@@ -64,12 +66,12 @@ export default function GalleryView({
     const { handleGenerate } = useGenerationService(historyController);
 
     // Sort options configuration (excluding interactionPriority which is internal)
-    const sortOptions: { value: Exclude<SortBy, 'interactionPriority'>; label: string; icon: LucideIcon }[] = [
-        { value: 'recent', label: '最新', icon: RefreshCw },
-        { value: 'likes', label: '点赞最多', icon: Heart },
-        { value: 'favorites', label: '收藏最多', icon: Star },
-        { value: 'downloads', label: '下载最多', icon: DownloadIcon },
-        { value: 'edits', label: '编辑最多', icon: Edit3 },
+    const sortOptions: { value: Exclude<SortBy, 'interactionPriority'>; label: string }[] = [
+        { value: 'recent', label: '最新' },
+        { value: 'likes', label: '点赞最多' },
+        { value: 'favorites', label: '收藏最多' },
+        { value: 'downloads', label: '下载最多' },
+        { value: 'edits', label: '编辑最多' },
     ];
 
     const currentSortOption = sortOptions.find(opt => opt.value === gallerySortBy) || sortOptions[0];
@@ -298,18 +300,17 @@ export default function GalleryView({
 
 
 
-            <div className="flex flex-1 overflow-hidden min-h-0">
+            <div className="flex w-full overflow-hidden min-h-0 relative">
 
 
-                <div className=" w-full min-w-0 flex flex-col flex-1 overflow-hidden">
+                <div className=" w-full  flex flex-col  overflow-hidden">
 
 
 
                     <div className="flex flex-col space-y-4  overflow-hidden">
 
                         <div className="flex flex-row items-center h-14 mt-4 justify-between gap-4">
-                            <div className="flex mb-0 items-center gap-5 "
-                            style={{ fontFamily: "'InstrumentSerif', serif" }}>
+                            <div className="flex mb-0 items-center gap-5 font-serif">
                                 <GalleryHeaderTab
                                     label="Gallery"
                                     isActive={activeInnerTab === 'gallery'}
@@ -323,14 +324,37 @@ export default function GalleryView({
                             </div>
 
                             <div className="flex items-center gap-3">
-                                {/* Sort Dropdown */}
-                                <DropdownMenu>
+                               
+                             
+
+                                {/* Search Input */}
+                                <div className="relative flex items-center group w-80  ">
+                                    <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white  group-focus-within:text-white/60 " />
+                                    <input
+                                        type="text"
+                                        placeholder={searchPlaceholder}
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full h-10 bg-white/5  border border-white/10 rounded-xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 focus:bg-black/80 "
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery("")}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                    {/* Sort Dropdown */}
+                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button 
                                             variant="outline" 
                                             className="h-10 bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white gap-2"
                                         >
-                                            <currentSortOption.icon className="w-4 h-4" />
+                                           
                                             <span className="text-sm">{currentSortOption.label}</span>
                                             <ArrowUpDown className="w-3 h-3 opacity-50" />
                                         </Button>
@@ -345,37 +369,32 @@ export default function GalleryView({
                                                     gallerySortBy === option.value && "bg-white/10 text-white"
                                                 )}
                                             >
-                                                <option.icon className="w-4 h-4" />
                                                 <span>{option.label}</span>
                                             </DropdownMenuItem>
                                         ))}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
 
-                                {/* Search Input */}
-                                <div className="relative flex items-center group w-64  ">
-                                    <Search className=" absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30  group-focus-within:text-white/60 " />
-                                    <input
-                                        type="text"
-                                        placeholder={searchPlaceholder}
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full h-12 bg-white/5  border border-white/10 rounded-2xl pl-10 pr-10 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 focus:bg-black/80 "
-                                    />
-                                    {searchQuery && (
-                                        <button
-                                            onClick={() => setSearchQuery("")}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 text-white/30 hover:text-white/60 transition-all"
-                                        >
-                                            <X className="w-3.5 h-3.5" />
-                                        </button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsGalleryFilterOpen(!isGalleryFilterOpen)}
+                                    className={cn(
+                                        "h-10 bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white gap-2 px-3",
+                                        isGalleryFilterOpen && "bg-white/10 text-white border-white/20"
                                     )}
-                                </div>
+                                >
+                                    <SlidersHorizontal className="w-4 h-4" />
+                                    <span className="text-sm">Filters</span>
+                                    {(selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0) && (
+                                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                    )}
+                                </Button>
                             </div>
                         </div>
 
 
-                        <div ref={galleryScrollRef} className="flex-1 w-full min-h-0 overflow-y-auto rounded-t-xl">
+                        <div className="flex-1 min-h-0 rounded-t-xl overflow-hidden flex flex-col">
+                            <div ref={galleryScrollRef} className="flex-1 flex flex-col w-full min-h-0 overflow-y-auto">
 
                             {isInitialLoading ? (
                                 <GallerySkeletonGrid columnsCount={columnsCount} />
@@ -423,114 +442,132 @@ export default function GalleryView({
                                 )}
                             </div>
                         </div>
-
                     </div>
 
                 </div>
-                {/* Sidebar Filters - Only visible in full gallery mode */}
-                <div className="w-0 flex-none  pb-2 pl-6 flex flex-col min-h-0">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
-                        <GradualBlur
-                            target="parent"
-                            position="top"
-                            height="100px"
-                            strength={6}
-                            divCount={5}
-                            curve="bezier"
-                            exponential={true}
-                            zIndex={10}
-                            opacity={1}
-                            borderRadius="1.5rem"
-                            animate={{
-                                type: 'scroll',
-                                targetRef: scrollRef,
-                                startOffset: 0,
-                                endOffset: 80
-                            }}
-                        />
-                        <div className="p-2 pt-4 flex flex-col gap-4 flex-1 min-h-0">
-                            {/* Header */}
-                            <div className="flex items-center px-2 justify-between z-20 shrink-0">
-                                <span className="text-xl text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Filters</span>
-                                {(selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0) && (
-                                    <button
-                                        onClick={() => {
-                                            setSelectedModels([]);
-                                            setSelectedPresets([]);
-                                            setSelectedPromptCategories([]);
-                                        }}
-                                        className="h-7 w-7 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                                        title="Clear Filters"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
 
-                            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                                <div className="flex flex-col gap-6">
-                                    {/* Models Section */}
-                                    {availableModels.length > 0 && (
-                                        <div className="space-y-2">
-                                            <div className="text-sm  text-white/40  ">Models</div>
-                                            <div className="space-y-1">
-                                                {availableModels.map((model, idx) => (
-                                                    <FilterItem
-                                                        key={`filter-model-${model}-${idx}`}
-                                                        label={model}
-                                                        isSelected={selectedModels.includes(model)}
-                                                        onClick={() => toggleModel(model)}
-                                                        icon={Box}
-                                                    />
-                                                ))}
-                                            </div>
+                </div>
+                {/* Sidebar Filters - Floating version */}
+                <AnimatePresence>
+                    {isGalleryFilterOpen && (
+                        <motion.div 
+                            initial={{ x: "100%", opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: "100%", opacity: 0 }}
+                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            className="absolute right-0 top-0 bottom-0 z-50 w-80 flex flex-col min-h-0 pointer-events-auto"
+                        >
+                            <div className="bg-black/80 backdrop-blur-2xl  rounded-2xl border border-white/10  flex flex-col min-h-0 h-[84vh]  overflow-y-auto overflow-hidden shadow-2xl">
+                                {/* <GradualBlur
+                                    target="parent"
+                                    position="top"
+                                    height="100px"
+                                    strength={6}
+                                    divCount={5}
+                                    curve="bezier"
+                                    exponential={true}
+                                    zIndex={10}
+                                    opacity={1}
+                                    animate={{
+                                        type: 'scroll',
+                                        targetRef: scrollRef,
+                                        startOffset: 0,
+                                        endOffset: 80
+                                    }}
+                                /> */}
+                                <div className="p-4 pt-6 flex flex-col gap-4 flex-1 min-h-0 ">
+                                    {/* Header */}
+                                    <div className="flex items-center px-2 justify-between z-20 shrink-0">
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={() => setIsGalleryFilterOpen(false)}
+                                                className="h-8 w-8 flex items-center justify-center rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                                                title="Close Filters"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                            <span className="font-serif text-xl text-white">Filters</span>
                                         </div>
-                                    )}
+                                        
+                                        {(selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0) && (
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedModels([]);
+                                                    setSelectedPresets([]);
+                                                    setSelectedPromptCategories([]);
+                                                }}
+                                                className="h-7 w-7 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                                                title="Clear Filters"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
 
-                                    {availablePromptCategories.length > 0 && (
-                                        <div className="space-y-2">
-                                            <div className="text-sm text-white/40">Prompt Categories</div>
-                                            <div className="space-y-1">
-                                                {availablePromptCategories.map((category) => (
-                                                    <FilterItem
-                                                        key={`filter-prompt-category-${category}`}
-                                                        label={getGalleryPromptCategoryLabel(category)}
-                                                        isSelected={selectedPromptCategories.includes(category)}
-                                                        onClick={() => togglePromptCategory(category)}
-                                                        icon={Type}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                    <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-2">
+                                        <div className="flex flex-col gap-6">
+                                            {/* Models Section */}
+                                            {availableModels.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <div className="text-sm  text-white/40  ">Models</div>
+                                                    <div className="space-y-1">
+                                                        {availableModels.map((model, idx) => (
+                                                            <FilterItem
+                                                                key={`filter-model-${model}-${idx}`}
+                                                                label={model}
+                                                                isSelected={selectedModels.includes(model)}
+                                                                onClick={() => toggleModel(model)}
+                                                                icon={Box}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                    {/* Presets Section */}
-                                    {availablePresets.length > 0 && (
-                                        <div className="space-y-2">
-                                            <div className="text-sm  text-white/40 ">Presets</div>
-                                            <div className="space-y-1">
-                                                {availablePresets.map((preset, idx) => (
-                                                    <FilterItem
-                                                        key={`filter-preset-${preset}-${idx}`}
-                                                        label={preset}
-                                                        isSelected={selectedPresets.includes(preset)}
-                                                        onClick={() => togglePreset(preset)}
-                                                        icon={SlidersHorizontal}
-                                                    />
-                                                ))}
-                                            </div>
+                                            {availablePromptCategories.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <div className="text-sm text-white/40">Prompt Categories</div>
+                                                    <div className="space-y-1">
+                                                        {availablePromptCategories.map((category) => (
+                                                            <FilterItem
+                                                                key={`filter-prompt-category-${category}`}
+                                                                label={getGalleryPromptCategoryLabel(category)}
+                                                                isSelected={selectedPromptCategories.includes(category)}
+                                                                onClick={() => togglePromptCategory(category)}
+                                                                icon={Type}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Presets Section */}
+                                            {availablePresets.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <div className="text-sm  text-white/40 ">Presets</div>
+                                                    <div className="space-y-1">
+                                                        {availablePresets.map((preset, idx) => (
+                                                            <FilterItem
+                                                                key={`filter-preset-${preset}-${idx}`}
+                                                                label={preset}
+                                                                isSelected={selectedPresets.includes(preset)}
+                                                                onClick={() => togglePreset(preset)}
+                                                                icon={SlidersHorizontal}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
             </div>
-
-
-        </div >
+        </div>
     );
 }
 
@@ -805,7 +842,7 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
 
 
                 {/* Floating Actions - consistent with HistoryList */}
-                <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1  bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+                <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex shrink-0 items-center gap-1  bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
                     <AddToMoodboardMenu imagePath={item.outputUrl} />
 
                     <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
@@ -839,19 +876,7 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
                             }
                         }}
                     />
-                    {/* <TooltipButton
-                        icon={<Box className="w-4 h-4" />}
-                        label="Use Model"
-                        tooltipContent="Use Model"
-                        tooltipSide="top"
-                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                        onClick={() => {
-                            if (item.config) {
-                                applyModel(item.config.model, item.config);
-                                toast({ title: "Model Selected", description: `已切换模型为: ${item.config.model}` });
-                            }
-                        }}
-                    /> */}
+                    
                     <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
                     <TooltipButton
                         icon={<RefreshCw className="w-4 h-4" />}
@@ -943,7 +968,7 @@ function GalleryHeaderTab({
                 text={label}
                 tag="span"
                 textAlign="left"
-                className="text-3xl font-instrument-sans text-white flex items-center"
+                className="flex items-center text-3xl font-serif text-white"
                 from={{ opacity: 1, y: 0 }}
                 to={{ opacity: 1, y: 0 }}
                 hoverFrom={{ opacity: 0.45, y: 10 }}

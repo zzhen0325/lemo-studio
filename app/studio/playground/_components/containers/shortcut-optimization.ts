@@ -3,6 +3,7 @@ import {
   type PlaygroundShortcut,
   type ShortcutPromptValues,
 } from "@/config/playground-shortcuts";
+import type { ShortcutEditorDocument } from "@/app/studio/playground/_lib/shortcut-editor-document";
 import {
   assembleDesignStructuredShortcutPrompt,
   derivePaletteFromVariantContent,
@@ -62,6 +63,7 @@ export interface ActiveShortcutTemplate {
   values: ShortcutPromptValues;
   removedFieldIds: string[];
   appliedPrompt: string;
+  editorDocument?: ShortcutEditorDocument;
   optimizationSession?: ShortcutOptimizationSession;
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
 
+import { sansFontFamily } from '@/lib/fonts';
 import { AnnotationInfo } from '@/types/database';
 
 export type EditorTool = 'select' | 'brush' | 'text' | 'rect' | 'circle' | 'arrow' | 'eraser' | 'annotate';
@@ -882,7 +883,7 @@ export const useImageEditor = (imageUrl: string) => {
     const addText = useCallback(() => {
         const c = fabricCanvasRef.current, t = imageObj || canvasBackgroundRef.current;
         if (!c || !t) return;
-        const text = new fabric.IText('Double click', { left: t.left, top: t.top, fontFamily: 'sans-serif', fontSize: editorState.fontSize, fill: editorState.brushColor, originX: 'center', originY: 'center', editable: false });
+        const text = new fabric.IText('Double click', { left: t.left, top: t.top, fontFamily: sansFontFamily, fontSize: editorState.fontSize, fill: editorState.brushColor, originX: 'center', originY: 'center', editable: false });
         c.add(text); c.setActiveObject(text); setTool('select');
     }, [editorState.brushColor, editorState.fontSize, setTool, imageObj]);
 
@@ -1000,7 +1001,7 @@ export const useImageEditor = (imageUrl: string) => {
             id: `name-${generateId()}`,
             left: rl,
             top: rt - 22,
-            fontFamily: 'sans-serif',
+            fontFamily: sansFontFamily,
             fontSize: 12,
             fill: '#ffffff',
             backgroundColor: col,

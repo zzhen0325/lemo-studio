@@ -73,4 +73,28 @@ describe('prompt history helpers', () => {
       },
     })).toBe('optimized_generation');
   });
+
+  it('parses inline shortcut optimization metadata', () => {
+    const source = getPromptOptimizationSource({
+      prompt: 'optimized shortcut prompt',
+      width: 1024,
+      height: 1024,
+      model: 'coze_seedream4_5',
+      optimizationSource: {
+        version: 1,
+        sourceKind: 'shortcut_inline',
+        taskId: 'opt-inline-1',
+        originalPrompt: 'original shortcut prompt',
+        activeVariantId: 'v1',
+        activeVariantLabel: '方案 A',
+        shortcutId: 'lemo',
+      },
+    });
+
+    expect(source).toMatchObject({
+      sourceKind: 'shortcut_inline',
+      taskId: 'opt-inline-1',
+      shortcutId: 'lemo',
+    });
+  });
 });

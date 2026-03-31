@@ -104,9 +104,18 @@ import {
   getPromptOptimizationSource,
   IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
   PROMPT_OPTIMIZATION_VARIANT_COUNT,
+  type PromptOptimizationSourcePayload,
   withPromptOptimizationSource,
   withoutPromptOptimizationSource,
 } from "@/app/studio/playground/_lib/prompt-history";
+import {
+  buildPromptFromShortcutEditorDocument,
+  createShortcutEditorDocumentFromParts,
+  createShortcutEditorDocumentFromText,
+  getRemovedFieldIdsFromShortcutEditorDocument,
+  removeFieldFromShortcutEditorDocument,
+  type ShortcutEditorDocument,
+} from "@/app/studio/playground/_lib/shortcut-editor-document";
 
 
 import gsap from "gsap";
@@ -950,6 +959,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       values,
       removedFieldIds: [],
       appliedPrompt: prompt,
+      editorDocument: createShortcutEditorDocumentFromParts(shortcut.promptParts),
     });
 
     applyModel(shortcut.model, withoutPromptOptimizationSource({
@@ -1110,12 +1120,54 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return;
     }
 
+    if (
+      optimizationSource?.sourceKind === "shortcut_inline"
+      && optimizationSource.shortcutId
+    ) {
+      const shortcut = shortcutByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
+        || getShortcutById(optimizationSource.shortcutId);
+      if (!shortcut) {
+        applyPrompt(result.config?.prompt || "");
+        return;
+      }
+
+      const restoredPrompt = result.config?.prompt || "";
+      const restoredDocument = createShortcutEditorDocumentFromText(restoredPrompt);
+      const restoredConfig = withPromptOptimizationSource(
+        {
+          ...withoutPromptOptimizationSource(usePlaygroundStore.getState().config),
+          prompt: restoredPrompt,
+        },
+        {
+          ...optimizationSource,
+          shortcutId: shortcut.id,
+        },
+      );
+
+      setSelectedPresetName(undefined);
+      setSelectedWorkflowConfig(undefined);
+      setActiveShortcutTemplate({
+        shortcut,
+        values: createShortcutPromptValues(shortcut),
+        removedFieldIds: getRemovedFieldIdsFromShortcutEditorDocument(shortcut, restoredDocument),
+        appliedPrompt: restoredPrompt,
+        editorDocument: restoredDocument,
+      });
+      updateConfig(restoredConfig);
+
+      toast({
+        title: "优化方案已回填",
+        description: "已恢复为可继续编辑的快捷模版提示词。",
+      });
+      return;
+    }
+
     applyPrompt(result.config?.prompt || "");
     toast({
       title: "提示词已应用",
       description: "已将此条提示词填充到输入框",
     });
-  }, [applyModel, applyPrompt, setSelectedPresetName, setSelectedWorkflowConfig, shortcutByCode, toast]);
+  }, [applyModel, applyPrompt, setSelectedPresetName, setSelectedWorkflowConfig, shortcutByCode, toast, updateConfig]);
 
   const handleShortcutTemplateFieldChange = useCallback((fieldId: string, value: string) => {
     const current = activeShortcutTemplateRef.current;
@@ -1147,9 +1199,16 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         activeVariant.analysis,
         nextPalette || activeVariant.palette,
       )
-      : buildShortcutPrompt(current.shortcut, nextValues, {
-        removedFieldIds: current.removedFieldIds,
-      });
+      : current.editorDocument
+        ? buildPromptFromShortcutEditorDocument(
+          current.editorDocument,
+          current.shortcut,
+          nextValues,
+          { removedFieldIds: current.removedFieldIds },
+        )
+        : buildShortcutPrompt(current.shortcut, nextValues, {
+          removedFieldIds: current.removedFieldIds,
+        });
 
     const nextOptimizationSession = current.optimizationSession
       ? {
@@ -1172,7 +1231,37 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       values: nextValues,
       removedFieldIds: current.removedFieldIds,
       appliedPrompt: nextPrompt,
+      editorDocument: current.editorDocument,
       optimizationSession: nextOptimizationSession,
+    });
+    updateConfig({ prompt: nextPrompt });
+  }, [updateConfig]);
+
+  const handleShortcutTemplateDocumentChange = useCallback((nextDocument: ShortcutEditorDocument) => {
+    const current = activeShortcutTemplateRef.current;
+    if (!current || current.optimizationSession) {
+      return;
+    }
+
+    const normalizedRemovedFieldIds = getRemovedFieldIdsFromShortcutEditorDocument(
+      current.shortcut,
+      nextDocument,
+    );
+    const nextPrompt = buildPromptFromShortcutEditorDocument(
+      nextDocument,
+      current.shortcut,
+      current.values,
+      {
+        removedFieldIds: normalizedRemovedFieldIds,
+      },
+    );
+
+    setActiveShortcutTemplate({
+      shortcut: current.shortcut,
+      values: current.values,
+      removedFieldIds: normalizedRemovedFieldIds,
+      appliedPrompt: nextPrompt,
+      editorDocument: nextDocument,
     });
     updateConfig({ prompt: nextPrompt });
   }, [updateConfig]);
@@ -1183,7 +1272,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return;
     }
 
-    const nextRemovedFieldIds = [...current.removedFieldIds, fieldId];
+    const nextDocument = current.editorDocument && !current.optimizationSession
+      ? removeFieldFromShortcutEditorDocument(current.editorDocument, fieldId)
+      : current.editorDocument;
+    const nextRemovedFieldIds = nextDocument && !current.optimizationSession
+      ? getRemovedFieldIdsFromShortcutEditorDocument(current.shortcut, nextDocument)
+      : [...current.removedFieldIds, fieldId];
     const activeVariant = current.optimizationSession
       ? findShortcutVariant(current.optimizationSession, current.optimizationSession.activeVariantId)
       : null;
@@ -1204,9 +1298,16 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         activeVariant.analysis,
         nextPalette || activeVariant.palette,
       )
-      : buildShortcutPrompt(current.shortcut, current.values, {
-        removedFieldIds: nextRemovedFieldIds,
-      });
+      : nextDocument
+        ? buildPromptFromShortcutEditorDocument(
+          nextDocument,
+          current.shortcut,
+          current.values,
+          { removedFieldIds: nextRemovedFieldIds },
+        )
+        : buildShortcutPrompt(current.shortcut, current.values, {
+          removedFieldIds: nextRemovedFieldIds,
+        });
 
     const nextOptimizationSession = current.optimizationSession
       ? {
@@ -1229,6 +1330,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       values: current.values,
       removedFieldIds: nextRemovedFieldIds,
       appliedPrompt: nextPrompt,
+      editorDocument: nextDocument,
       optimizationSession: nextOptimizationSession,
     });
     updateConfig({ prompt: nextPrompt });
@@ -2049,8 +2151,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
   const handleOptimizePrompt = React.useCallback(async () => {
     const shortcutTemplateSnapshot = activeShortcutTemplateRef.current;
+    const inlineShortcutTemplateSnapshot = shortcutTemplateSnapshot && !isKvShortcutId(shortcutTemplateSnapshot.shortcut.id)
+      ? shortcutTemplateSnapshot
+      : null;
 
-    if (shortcutTemplateSnapshot) {
+    if (shortcutTemplateSnapshot && !inlineShortcutTemplateSnapshot) {
       setActiveShortcutTemplate(null);
     }
 
@@ -2109,7 +2214,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       createdAt,
       userId: effectiveUserId,
       originalPrompt: config.prompt,
-      sourceKind: "plain_text",
+      sourceKind: inlineShortcutTemplateSnapshot ? "shortcut_inline" : "plain_text",
       variants: promptVariants,
       configBase: {
         model: config.model,
@@ -2117,23 +2222,42 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         width: config.width,
         height: config.height,
       },
+      shortcutId: inlineShortcutTemplateSnapshot?.shortcut.id,
     }));
 
     if (firstVariant) {
+      const optimizationSource: PromptOptimizationSourcePayload = {
+        version: 1,
+        sourceKind: inlineShortcutTemplateSnapshot ? "shortcut_inline" : "plain_text",
+        taskId: optimizationTaskId,
+        originalPrompt: config.prompt,
+        activeVariantId: firstVariant.id,
+        activeVariantLabel: firstVariant.label,
+        shortcutId: inlineShortcutTemplateSnapshot?.shortcut.id,
+      };
+
       setConfig((prev) => withPromptOptimizationSource(
         {
           ...withoutPromptOptimizationSource(prev),
           prompt: firstVariant.prompt,
         },
-        {
-          version: 1,
-          sourceKind: "plain_text",
-          taskId: optimizationTaskId,
-          originalPrompt: config.prompt,
-          activeVariantId: firstVariant.id,
-          activeVariantLabel: firstVariant.label,
-        },
+        optimizationSource,
       ));
+
+      if (inlineShortcutTemplateSnapshot) {
+        const nextDocument = createShortcutEditorDocumentFromText(firstVariant.prompt);
+
+        setActiveShortcutTemplate({
+          shortcut: inlineShortcutTemplateSnapshot.shortcut,
+          values: cloneShortcutValues(inlineShortcutTemplateSnapshot.values),
+          removedFieldIds: getRemovedFieldIdsFromShortcutEditorDocument(
+            inlineShortcutTemplateSnapshot.shortcut,
+            nextDocument,
+          ),
+          appliedPrompt: firstVariant.prompt,
+          editorDocument: nextDocument,
+        });
+      }
     }
 
     toast({
@@ -2601,6 +2725,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         shortcut: activeShortcutTemplate.shortcut,
         values: activeShortcutTemplate.values,
         removedFieldIds: activeShortcutTemplate.removedFieldIds,
+        editorDocument: activeShortcutTemplate.editorDocument,
         optimizationSession: activeShortcutTemplate.optimizationSession
           ? {
             originPrompt: buildShortcutPrompt(
@@ -2629,6 +2754,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       : null,
     onShortcutTemplateFieldChange: handleShortcutTemplateFieldChange,
     onShortcutTemplateFieldRemove: handleShortcutTemplateFieldRemove,
+    onShortcutTemplateDocumentChange: handleShortcutTemplateDocumentChange,
     onExitShortcutTemplate: handleExitShortcutTemplate,
     onShortcutTemplateOptimize: handleOptimizePrompt,
     onShortcutTemplateVariantSelect: handleShortcutOptimizationVariantSelect,
@@ -2655,7 +2781,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     setIsPresetGridOpen, setDescribeImages, setIsDraggingOver,
     setIsDraggingOverPanel, setViewMode, setSelectedPresetName, setActiveTab, applyModel, updateConfig,
     setUploadedImages, activeShortcutTemplate, handleShortcutTemplateFieldChange,
-    handleShortcutTemplateFieldRemove, handleExitShortcutTemplate, handleClearShortcutTemplate,
+    handleShortcutTemplateFieldRemove, handleShortcutTemplateDocumentChange, handleExitShortcutTemplate, handleClearShortcutTemplate,
     handleShortcutOptimizationAnalysisSectionChange, handleShortcutOptimizationPaletteChange,
     handleShortcutOptimizationEditInstructionChange, handleShortcutOptimizationPrefillInstruction,
     handleShortcutOptimizationApplyEdit, handleShortcutOptimizationRestoreVariant,
@@ -2759,13 +2885,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                   uploadedImagesCount={uploadedImages.length}
                   onDescribeToggle={() => activeTab === 'describe' ? setActiveTab('history') : setActiveTab('describe')}
                   onEdit={handleEditUploadedImage}
-                  onBannerToggle={() => {
-                    if (activeTab === 'banner') {
-                      setActiveTab('history');
-                      return;
-                    }
-                    enterBannerMode();
-                  }}
                   onHistory={() => setActiveTab('history')}
                   onGallery={() => setActiveTab('gallery')}
                   onStyle={() => setActiveTab('style')}
@@ -2906,8 +3025,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                   <button
                     onClick={() => { setViewMode('dock'); setActiveTab('style'); }}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
-                      "bg-black/10 border-white/20 text-white hover:bg-white/10 hover:text-white"
+                     "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-sm transition-all bg-black/20",
+          "border-white/20 text-white/90 hover:bg-white/10 hover:text-white"
                     )}
                   >
                     

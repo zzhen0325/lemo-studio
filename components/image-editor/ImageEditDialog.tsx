@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, type ComponentType } from 'react';
-import { Crop, Eraser, MousePointer2, Pencil, Square } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
+import { Crop, Eraser, MousePointer2, Pencil, Square, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/common/use-toast';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+import { AutosizeTextarea } from '@/components/ui/autosize-text-area';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import type { ImageEditConfirmPayload, ImageEditDialogProps, ImageEditorTool } from './types';
+import type {
+  ImageEditConfirmPayload,
+  ImageEditDialogProps,
+  ImageEditorSessionSnapshot,
+  ImageEditorTool,
+} from './types';
 import { IMAGE_EDITOR_THEME } from './theme';
 import { buildImageEditPrompt } from './utils/build-image-edit-prompt';
 import { migrateTldrawSnapshot } from './utils/migrate-tldraw-snapshot';
@@ -46,12 +50,18 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
 
   const [plainPrompt, setPlainPrompt] = useState((initialPrompt || '').trim());
   const [submitting, setSubmitting] = useState(false);
+  const [activeImageUrl, setActiveImageUrl] = useState((imageUrl || '').trim());
+  const [editorSession, setEditorSession] = useState<ImageEditorSessionSnapshot | undefined>(migratedSession);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setActiveImageUrl((imageUrl || '').trim());
+    setEditorSession(migratedSession);
     const sessionPrompt = migratedSession?.plainPrompt;
     setPlainPrompt((sessionPrompt || initialPrompt || '').trim());
-  }, [initialPrompt, migratedSession?.plainPrompt, open]);
+  }, [imageUrl, initialPrompt, migratedSession, open]);
 
   const {
     setCanvasRef,
@@ -73,9 +83,14 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     exportMergedImageDataUrl,
   } = useFabricImageEditor({
     enabled: open,
-    imageUrl,
-    initialSession: migratedSession,
+    imageUrl: activeImageUrl,
+    initialSession: editorSession,
   });
+
+  useEffect(() => {
+    if (!open) return;
+    setTool('annotate');
+  }, [open, setTool]);
 
   const promptPreview = useMemo(() => {
     try {
@@ -86,6 +101,66 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
   }, [annotations, plainPrompt]);
 
   const missingDescription = annotations.some((annotation) => !annotation.description.trim());
+  const showUploadPlaceholder = !activeImageUrl || Boolean(loadError);
+
+  const readFileAsDataUrl = useCallback((file: File): Promise<string> => (
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.readAsDataURL(file);
+    })
+  ), []);
+
+  const replaceImageByFile = useCallback(async (file: File, fromDrop: boolean) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: '上传失败',
+        description: '仅支持图片文件',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (fromDrop && activeImageUrl) {
+      const confirmed = window.confirm('拖拽替换将清空当前标注、画笔和裁剪，确认继续吗？');
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setActiveImageUrl(dataUrl);
+      setEditorSession(undefined);
+      setTool('annotate');
+    } catch (error) {
+      toast({
+        title: '处理失败',
+        description: error instanceof Error ? error.message : '无法处理选中的图片',
+        variant: 'destructive',
+      });
+    }
+  }, [activeImageUrl, readFileAsDataUrl, setTool, toast]);
+
+  const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      void replaceImageByFile(file, false);
+    }
+    event.target.value = '';
+  }, [replaceImageByFile]);
+
+  const handleCanvasDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingFile(false);
+
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      void replaceImageByFile(file, true);
+    }
+  }, [replaceImageByFile]);
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -128,21 +203,27 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[92vh] w-[96vw] max-w-[1440px] overflow-hidden rounded-2xl border p-0"
-        style={{
-          backgroundColor: IMAGE_EDITOR_THEME.background,
-          borderColor: IMAGE_EDITOR_THEME.border,
-        }}
+        
+        className="max-h-[80vh] w-[80vw] max-w-[1840px] overflow-hidden bg-[#1C1C1C]/80  text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl   border-white/10 rounded-3xl border p-4"
+      
       >
         <DialogTitle className="sr-only">图像编辑</DialogTitle>
         <DialogDescription className="sr-only">标注、画笔、橡皮擦、裁剪</DialogDescription>
 
-        <div className="flex h-[84vh] min-h-[640px] w-full flex-col">
+        <div className="flex h-full min-h-[640px] w-full flex-col">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileInputChange}
+          />
+
           <div
-            className="flex items-center justify-between border-b px-5 py-3"
-            style={{ borderColor: IMAGE_EDITOR_THEME.border, backgroundColor: IMAGE_EDITOR_THEME.background }}
+            className="flex flex-wrap items-center justify-between gap-3 border-none px-2 py-2"
+           
           >
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {TOOL_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const isActive = tool === item.id;
@@ -166,10 +247,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                   </button>
                 );
               })}
-            </div>
-
-            <div className="flex items-center gap-2 text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
-              <span>{imageSize.width} x {imageSize.height}</span>
               {crop ? (
                 <button
                   type="button"
@@ -180,47 +257,196 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                   清除裁剪
                 </button>
               ) : null}
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-medium bg-white/5 hover:bg-white/10 transition-colors hover:text-white transition-colors"
+                style={{
+                  borderColor: IMAGE_EDITOR_THEME.border,
+                  
+                  color: IMAGE_EDITOR_THEME.textPrimary,
+                }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                替换图片
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="rounded-xl border"
+                style={{
+                  borderColor: IMAGE_EDITOR_THEME.border,
+                  backgroundColor: IMAGE_EDITOR_THEME.card,
+                  color: IMAGE_EDITOR_THEME.textPrimary,
+                }}
+                onClick={() => onOpenChange(false)}
+                disabled={submitting}
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                className="rounded-xl border-0 font-semibold"
+                style={{
+                  backgroundColor: IMAGE_EDITOR_THEME.action,
+                  color: IMAGE_EDITOR_THEME.actionText,
+                }}
+                onClick={handleConfirm}
+                disabled={!isReady || submitting}
+              >
+                {submitting ? '处理中...' : '确认编辑'}
+              </Button>
             </div>
           </div>
 
-          <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden px-5 py-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className=" flex flex-1 min-h-0 pb-2 overflow-hidden px-2 py-2 ">
             <div
-              className="relative flex min-h-0 items-center justify-center overflow-auto rounded-2xl border"
-              style={{ backgroundColor: IMAGE_EDITOR_THEME.card, borderColor: IMAGE_EDITOR_THEME.border }}
+              className="relative flex flex-1 min-h-0 items-center justify-center overflow-auto rounded-2xl h-full"
+           
+              onDragEnter={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsDraggingFile(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!isDraggingFile) {
+                  setIsDraggingFile(true);
+                }
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsDraggingFile(false);
+              }}
+              onDrop={handleCanvasDrop}
             >
-              {isReady ? null : (
-                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
-                  {loadError || 'Thinking...'}
+              {showUploadPlaceholder ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm border border-white/10 rounded-2xl bg-black/80" >
+                  <button
+                    type="button"
+                    className={cn(
+                      'inline-flex min-h-[120px] min-w-[280px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-colors',
+                      isDraggingFile && 'scale-[1.01]',
+                    )}
+                    style={{
+                      borderColor: isDraggingFile ? IMAGE_EDITOR_THEME.action : IMAGE_EDITOR_THEME.border,
+                      backgroundColor: isDraggingFile ? IMAGE_EDITOR_THEME.actionSurface : IMAGE_EDITOR_THEME.background,
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-5 w-5" style={{ color: IMAGE_EDITOR_THEME.textSecondary }} />
+                    <span style={{ color: IMAGE_EDITOR_THEME.textPrimary }}>点击或拖拽上传图片</span>
+                    {loadError && activeImageUrl ? (
+                      <span className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textMuted }}>{loadError}</span>
+                    ) : null}
+                  </button>
                 </div>
-              )}
+              ) : null}
+              {!showUploadPlaceholder && !isReady ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
+                  Thinking...
+                </div>
+              ) : null}
               <canvas ref={setCanvasRef} className="block max-h-full max-w-full" />
+
+              <div
+                className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-lg border px-2 py-1 text-[11px]"
+                style={{
+                  borderColor: IMAGE_EDITOR_THEME.border,
+                  backgroundColor: `${IMAGE_EDITOR_THEME.background}CC`,
+                  color: IMAGE_EDITOR_THEME.textSecondary,
+                }}
+              >
+                {imageSize.width} x {imageSize.height}
+              </div>
             </div>
 
             <div
-              className="flex min-h-0 flex-col overflow-hidden rounded-2xl border"
-              style={{ backgroundColor: IMAGE_EDITOR_THEME.card, borderColor: IMAGE_EDITOR_THEME.border }}
+              className="ml-2 flex h-full w-[400px] min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black p-2"
+              
             >
-              <div className="border-b px-4 py-3" style={{ borderColor: IMAGE_EDITOR_THEME.border }}>
+              <div className="b px-4 py-3" >
                 <p className="text-sm font-semibold" style={{ color: IMAGE_EDITOR_THEME.textPrimary }}>编辑指令</p>
                 <p className="mt-1 text-xs" style={{ color: IMAGE_EDITOR_THEME.textMuted }}>
                   在左侧拖拽可框选；标注模式下可直接拖动框体并拖动四角调整大小。若存在标注，确认前每条说明必填。
                 </p>
               </div>
 
-              <div className="space-y-4 overflow-y-auto p-4">
-                <div className="space-y-2">
-                  <label className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>Prompt</label>
-                  <Textarea
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 ">
+                <div
+                  className="rounded-2xl border border-white/10 px-3 py-3 bg-[#1c1c1c]"
+                 
+                >
+                  <AutosizeTextarea
                     value={plainPrompt}
                     onChange={(event) => setPlainPrompt(event.target.value)}
                     placeholder="输入基础编辑指令..."
-                    className="min-h-[110px] resize-none rounded-xl border text-sm"
+                    minHeight={320}
+                    maxHeight={400}
+                    className="w-full border-none bg-transparent p-2 text-sm leading-relaxed tracking-wide placeholder:text-white/40 focus-visible:ring-0 focus-visible:ring-offset-0"
                     style={{
-                      borderColor: IMAGE_EDITOR_THEME.border,
-                      backgroundColor: IMAGE_EDITOR_THEME.background,
                       color: IMAGE_EDITOR_THEME.textPrimary,
                     }}
                   />
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
+                      标注（{annotations.length}）
+                    </p>
+                    {missingDescription ? (
+                      <span className="text-[11px]" style={{ color: '#fca5a5' }}>存在未填写说明</span>
+                    ) : null}
+                  </div>
+
+                  {annotations.length === 0 ? (
+                    <p className="mt-2 rounded-xl border px-3 py-2 text-xs" style={{ color: IMAGE_EDITOR_THEME.textMuted, borderColor: IMAGE_EDITOR_THEME.border }}>
+                      使用“标注”工具框选区域后，标注 token 会嵌入到此输入区。
+                    </p>
+                  ) : (
+                    <div className="mt-2 flex flex-col gap-2">
+                      {annotations.map((annotation) => (
+                        <div
+                          key={annotation.id}
+                          className="inline-flex items-center gap-2 rounded-full border px-2 py-1.5"
+                          style={{
+                            borderColor: IMAGE_EDITOR_THEME.border,
+                            backgroundColor: IMAGE_EDITOR_THEME.card,
+                          }}
+                        >
+                          <span
+                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                            style={{
+                              borderColor: IMAGE_EDITOR_THEME.border,
+                              backgroundColor: `${IMAGE_EDITOR_THEME.action}1A`,
+                              color: IMAGE_EDITOR_THEME.textPrimary,
+                            }}
+                          >
+                            {annotation.label}
+                          </span>
+                          <input
+                            value={annotation.description}
+                            onChange={(event) => setAnnotationDescription(annotation.id, event.target.value)}
+                            placeholder="输入该区域编辑指令..."
+                            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-white/35"
+                            style={{ color: IMAGE_EDITOR_THEME.textPrimary }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeAnnotation(annotation.id)}
+                            className="shrink-0 text-[11px]"
+                            style={{ color: IMAGE_EDITOR_THEME.textMuted }}
+                          >
+                            删除
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {tool === 'brush' ? (
@@ -249,56 +475,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                   </div>
                 ) : null}
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
-                      标注区域（{annotations.length}）
-                    </p>
-                    {missingDescription ? (
-                      <span className="text-[11px]" style={{ color: '#fca5a5' }}>存在未填写说明</span>
-                    ) : null}
-                  </div>
-
-                  <ScrollArea className="h-[260px] rounded-xl border px-3 py-2" style={{ borderColor: IMAGE_EDITOR_THEME.border, backgroundColor: IMAGE_EDITOR_THEME.background }}>
-                    {annotations.length === 0 ? (
-                      <p className="py-3 text-xs" style={{ color: IMAGE_EDITOR_THEME.textMuted }}>
-                        使用“标注”工具在画布上框选区域后，在这里填写每个区域的描述。
-                      </p>
-                    ) : (
-                      <div className="space-y-3 py-2">
-                        {annotations.map((annotation) => (
-                          <div key={annotation.id} className="rounded-xl border p-2" style={{ borderColor: IMAGE_EDITOR_THEME.border, backgroundColor: IMAGE_EDITOR_THEME.card }}>
-                            <div className="mb-1 flex items-center justify-between">
-                              <span className="text-xs font-semibold" style={{ color: IMAGE_EDITOR_THEME.textPrimary }}>
-                                [{annotation.label}]
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeAnnotation(annotation.id)}
-                                className="text-[11px]"
-                                style={{ color: IMAGE_EDITOR_THEME.textMuted }}
-                              >
-                                删除
-                              </button>
-                            </div>
-                            <Textarea
-                              value={annotation.description}
-                              onChange={(event) => setAnnotationDescription(annotation.id, event.target.value)}
-                              placeholder="填写该区域编辑指令..."
-                              className="min-h-[80px] resize-none rounded-lg border text-xs"
-                              style={{
-                                borderColor: IMAGE_EDITOR_THEME.border,
-                                backgroundColor: IMAGE_EDITOR_THEME.background,
-                                color: IMAGE_EDITOR_THEME.textPrimary,
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </div>
-
                 {promptPreview?.regionInstructions ? (
                   <div className="rounded-xl border p-3" style={{ borderColor: IMAGE_EDITOR_THEME.border, backgroundColor: IMAGE_EDITOR_THEME.background }}>
                     <p className="mb-2 text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>Region Instructions 预览</p>
@@ -309,35 +485,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                 ) : null}
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 border-t px-5 py-3" style={{ borderColor: IMAGE_EDITOR_THEME.border }}>
-            <Button
-              type="button"
-              variant="secondary"
-              className="rounded-xl border"
-              style={{
-                borderColor: IMAGE_EDITOR_THEME.border,
-                backgroundColor: IMAGE_EDITOR_THEME.card,
-                color: IMAGE_EDITOR_THEME.textPrimary,
-              }}
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              取消
-            </Button>
-            <Button
-              type="button"
-              className="rounded-xl border-0 font-semibold"
-              style={{
-                backgroundColor: IMAGE_EDITOR_THEME.action,
-                color: IMAGE_EDITOR_THEME.actionText,
-              }}
-              onClick={handleConfirm}
-              disabled={!isReady || submitting}
-            >
-              {submitting ? '处理中...' : '确认编辑'}
-            </Button>
           </div>
         </div>
       </DialogContent>

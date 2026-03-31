@@ -3,8 +3,6 @@
 import React from 'react';
 import NextImage from 'next/image';
 import {
-  ChevronDown,
-  Copy,
   Download,
   ImagePlus,
   PencilLine,
@@ -16,6 +14,9 @@ import {
 
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import ShinyText from '@/components/ui/ShinyText';
+
+
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipButton } from '@/components/ui/tooltip-button';
@@ -42,7 +43,17 @@ import {
   type ShortcutPromptFieldDefinition,
   type ShortcutPromptValues,
 } from '@/config/playground-shortcuts';
+import {
+  createShortcutEditorDocumentFromParts,
+  getShortcutEditorDocumentFieldIds,
+  serializeShortcutEditorDocumentToTemplate,
+  type ShortcutEditorDocument,
+} from '@/app/studio/playground/_lib/shortcut-editor-document';
 import type { Generation, StyleStack } from '@/types/database';
+import {
+  ShortcutSlateEditor,
+  type ShortcutSlateInsertTokenRequest,
+} from './ShortcutSlateEditor';
 
 interface MoodboardDetailDialogProps {
   open: boolean;
@@ -67,6 +78,23 @@ function buildNewFieldDraft(index: number): ShortcutPromptFieldDefinition {
   };
 }
 
+function buildUniqueNewFieldDraft(
+  fields: ShortcutPromptFieldDefinition[],
+): ShortcutPromptFieldDefinition {
+  const existingKeys = new Set(
+    fields.map((field) => field.key.trim()).filter(Boolean),
+  );
+  let candidateIndex = fields.length;
+  let draft = buildNewFieldDraft(candidateIndex);
+
+  while (existingKeys.has(draft.key)) {
+    candidateIndex += 1;
+    draft = buildNewFieldDraft(candidateIndex);
+  }
+
+  return draft;
+}
+
 function normalizePromptFieldDrafts(fields: ShortcutPromptFieldDefinition[]): ShortcutPromptFieldDefinition[] {
   return fields.map((field, index) => ({
     key: (field.key || '').trim(),
@@ -82,28 +110,6 @@ function normalizePromptFieldDrafts(fields: ShortcutPromptFieldDefinition[]): Sh
   }));
 }
 
-async function copyText(text: string) {
-  if (!text) {
-    return;
-  }
-
-  if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textArea = document.createElement('textarea');
-  textArea.value = text;
-  textArea.style.position = 'fixed';
-  textArea.style.left = '-999999px';
-  textArea.style.top = '-999999px';
-  document.body.appendChild(textArea);
-  textArea.focus();
-  textArea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textArea);
-}
-
 function InlinePromptPreview({
   shortcut,
   values,
@@ -114,9 +120,13 @@ function InlinePromptPreview({
   onValueChange: (key: string, value: string) => void;
 }) {
   const parts = shortcut.promptParts;
+  const tokenContainerClassName =
+    'mx- inline-flex h-7 min-w-[2rem] items-center gap-2 rounded-md border border-none bg-white/10 px-2 text-white transition-colors focus-within:border-[#E8FFB7]/20 focus-within:bg-[#E8FFB7]/18';
+  const tokenLabelClassName = 'shrink-0 whitespace-nowrap text-[10px] font-normal text-[#F4FFCE]';
+  const tokenInputClassName = 'min-w-[5rem] flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35';
 
   return (
-    <div className="text-[14px] font-medium leading-[48px] text-white/80 ">
+    <div className=" break-words text-sm leading-10 text-white">
       {parts.map((part, index) => {
         if (part.type === 'text') {
           return <span key={index}>{part.value}</span>;
@@ -133,12 +143,13 @@ function InlinePromptPreview({
             <Select key={index} value={value} onValueChange={(v) => onValueChange(field.id, v)}>
               <SelectTrigger
                 className={cn(
-                  "mx-1 inline-flex h-auto w-auto items-center  rounded-sm border px-1 text-[10px]  transition-all duration-200 focus:ring-0 ",
-                  value
-                    ? "border-[#E8FFB7]/30 bg-[#E8FFB7]/10 text-[#E8FFB7] hover:bg-[#E8FFB7]/20"
-                    : "border-white/10 bg-white/5 text-white/30 hover:border-white/20 hover:bg-white/10"
+                  tokenContainerClassName,
+                  'focus:ring-0 focus:ring-offset-0 data-[state=open]:border-[#E8FFB7]/20 data-[state=open]:bg-[#E8FFB7]/18'
                 )}
               >
+                <span className={tokenLabelClassName}>
+                  {field.label}
+                </span>
                 <SelectValue placeholder={field.label} />
               </SelectTrigger>
               <SelectContent className="border-white/10 bg-[#0b0d12] text-white">
@@ -156,22 +167,20 @@ function InlinePromptPreview({
           return (
             <span
               key={index}
-              className={cn(
-                "mx-1 inline-flex items-center rounded-sm h-8 border px-1 text-[12px] font-bold transition-all duration-200",
-                value
-                  ? "border-[#E8FFB7]/30 bg-[#E8FFB7]/10 text-[#E8FFB7] hover:bg-[#E8FFB7]/20"
-                  : "border-white/10 bg-white/5 text-white/30 hover:border-white/20 hover:bg-white/10"
-              )}
+              className={tokenContainerClassName}
             >
+              <span className={tokenLabelClassName}>
+                {field.label}
+              </span>
               <div
-                className="h-4 w-4 rounded-full border border-white/20 ml-2 mr-2"
+                className="h-4 w-4 shrink-0 rounded-sm border border-white/30 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
                 style={{ backgroundColor: value || 'transparent' }}
               />
               <input
                 type="text"
                 value={value}
                 onChange={(e) => onValueChange(field.id, e.target.value)}
-                className="w-[60px] bg-transparent outline-none placeholder:text-white/20 md:w-[70px]"
+                className={cn(tokenInputClassName, 'uppercase')}
                 placeholder="#HEX"
               />
             </span>
@@ -181,18 +190,16 @@ function InlinePromptPreview({
         return (
           <span
             key={index}
-            className={cn(
-              "mx-1 inline-flex items-center rounded-sm h-8 border px-2  py-0.5 text-[12px] font-bold transition-all duration-200 ",
-              value
-                ? "border-[#E8FFB7]/30 bg-[#E8FFB7]/10 text-[#E8FFB7] hover:bg-[#E8FFB7]/20"
-                : "border-white/10 bg-white/5 text-white/30 hover:border-white/20 hover:bg-white/10"
-            )}
+            className={tokenContainerClassName}
           >
+            <span className={tokenLabelClassName}>
+              {field.label}
+            </span>
             <input
               value={value}
               onChange={(e) => onValueChange(field.id, e.target.value)}
-              className="min-w-[40px] bg-transparent outline-none placeholder:text-white/20"
-              style={{ width: `${Math.max(displayValue.length * (value ? 9 : 8), 60)}px` }}
+              className={tokenInputClassName}
+              style={{ width: `${Math.max(displayValue.length * 8, 80)}px` }}
               placeholder={field.label}
             />
           </span>
@@ -226,11 +233,11 @@ export function MoodboardDetailDialog({
   const [draftPromptTemplate, setDraftPromptTemplate] = React.useState('');
   const [draftModelId, setDraftModelId] = React.useState('');
   const [draftPromptFields, setDraftPromptFields] = React.useState<ShortcutPromptFieldDefinition[]>([]);
+  const [draftEditorDocument, setDraftEditorDocument] = React.useState<ShortcutEditorDocument | null>(null);
+  const [pendingInsertTokenRequest, setPendingInsertTokenRequest] = React.useState<ShortcutSlateInsertTokenRequest | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
-  const [isMetadataExpanded, setIsMetadataExpanded] = React.useState(false);
-  const [showCollageTools, setShowCollageTools] = React.useState(false);
   const [isCollageEditorOpen, setIsCollageEditorOpen] = React.useState(false);
   const [selectedGalleryPreviewResult, setSelectedGalleryPreviewResult] = React.useState<Generation | undefined>(undefined);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -241,6 +248,49 @@ export function MoodboardDetailDialog({
       prev.map((field) => (field.key === key ? { ...field, defaultValue: value } : field))
     );
   }, []);
+
+  const handleShortcutDocumentChange = React.useCallback((nextDocument: ShortcutEditorDocument) => {
+    setDraftEditorDocument(nextDocument);
+    setDraftPromptTemplate(serializeShortcutEditorDocumentToTemplate(nextDocument));
+
+    const nextFieldIds = getShortcutEditorDocumentFieldIds(nextDocument);
+    setDraftPromptFields((prev) => {
+      const normalizedPrevFields = normalizePromptFieldDrafts(prev);
+      const previousFieldsByKey = new Map(
+        normalizedPrevFields.map((field) => [field.key, field]),
+      );
+
+      return nextFieldIds.map((fieldId, index) => {
+        const existingField = previousFieldsByKey.get(fieldId);
+        if (existingField) {
+          return {
+            ...existingField,
+            order: index,
+          };
+        }
+
+        return {
+          key: fieldId,
+          label: fieldId,
+          placeholder: fieldId,
+          type: 'text',
+          defaultValue: '',
+          required: false,
+          options: [],
+          order: index,
+        } satisfies ShortcutPromptFieldDefinition;
+      });
+    });
+  }, []);
+
+  const handleAddPromptToken = React.useCallback(() => {
+    const nextField = buildUniqueNewFieldDraft(draftPromptFields);
+    setDraftPromptFields((prev) => [...prev, nextField]);
+    setPendingInsertTokenRequest({
+      requestId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      fieldId: nextField.key,
+    });
+  }, [draftPromptFields]);
 
   React.useEffect(() => {
     if (!open || !moodboard) {
@@ -253,8 +303,18 @@ export function MoodboardDetailDialog({
     setDraftPromptTemplate(shortcut?.promptTemplate || '');
     setDraftModelId(shortcut?.model || availableModels[0]?.id || '');
     setDraftPromptFields(shortcut?.promptFields?.map((field) => ({ ...field })) || []);
-    setShowCollageTools(false);
+    setDraftEditorDocument(
+      shortcut ? createShortcutEditorDocumentFromParts(shortcut.promptParts) : null,
+    );
+    setPendingInsertTokenRequest(null);
   }, [availableModels, moodboard, open, shortcut]);
+
+  const draftPromptValues = React.useMemo(
+    () => Object.fromEntries(
+      draftPromptFields.map((field) => [field.key, String(field.defaultValue || '')]),
+    ),
+    [draftPromptFields],
+  );
 
   const modelLabelById = React.useMemo(() => {
     return new Map(availableModels.map((model) => [model.id, model.displayName]));
@@ -281,11 +341,14 @@ export function MoodboardDetailDialog({
       return '';
     }
 
-    return buildShortcutPrompt(draftShortcut, createShortcutPromptValues(draftShortcut));
-  }, [draftShortcut]);
+    return buildShortcutPrompt(
+      draftShortcut,
+      Object.keys(draftPromptValues).length > 0 ? draftPromptValues : createShortcutPromptValues(draftShortcut),
+    );
+  }, [draftPromptValues, draftShortcut]);
 
   const galleryImages = React.useMemo(() => moodboard?.imagePaths || [], [moodboard]);
-  const dialogTitle = shortcut ? `${draftName || shortcut.name} Moodboard` : (draftName || moodboard?.name || 'Moodboard');
+  const dialogTitle = shortcut ? `${draftName || shortcut.name} ` : (draftName || moodboard?.name || '');
   const moodboardPreviewPrompt = React.useMemo(() => {
     if (draftShortcut) {
       return promptPreview;
@@ -561,6 +624,8 @@ export function MoodboardDetailDialog({
     await handleCustomMoodboardSave();
   }, [handleCustomMoodboardSave, handleShortcutSave, shortcut]);
 
+  const [isHoveringApply, setIsHoveringApply] = React.useState(false);
+
   const handleQuickApply = React.useCallback(() => {
     if (draftShortcut) {
       if (onShortcutQuickApply) {
@@ -690,77 +755,28 @@ export function MoodboardDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="h-[80vh] max-w-[1240px] overflow-hidden rounded-3xl border border-white/10 bg-[#07090d]/95 p-0 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-          <div className="flex h-full min-h-0 flex-col">
-            {/* Unified top bar: close + gallery count | title | actions */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-5 lg:px-8">
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 rounded-full border border-white/10 bg-white/5 text-white/55"
-                  onClick={() => onOpenChange(false)}
-                >
-                  <Plus className="h-4 w-4 rotate-45" />
-                </Button>
-               
-              </div>
-              <div className="order-last flex min-w-0 flex-[1_1_220px] items-center justify-center gap-3 sm:order-none sm:flex-1 sm:justify-start">
-                <h2 className="truncate text-lg font-semibold text-white/90">{dialogTitle}</h2>
-                {shortcut ? (
-                  <span className="rounded-sm border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55">{draftShortcut?.modelLabel}</span>
-                ) : null}
-                 <span className="rounded-sm border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/55">
-                  {galleryImages.length} images
-                </span>
-              </div>
-             
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 rounded-md border border-white/10 bg-white/5 px-4 text-sm text-white/60 hover:bg-white/10"
-                  onClick={() => {
-                    if (isEditMode) {
-                      setIsEditMode(false);
-                    } else {
-                      setIsEditMode(true);
-                      setIsMetadataExpanded(true);
-                    }
-                  }}
-                >
+        <DialogContent className="h-[70vh] max-w-[1200px] overflow-hidden rounded-3xl border border-white/10 bg-[#1C1C1C]/80 p-0 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl">
 
-                  <PencilLine className="mr-2 h-4 w-4" />
-                  {isEditMode ? 'Cancel' : 'Edit Template'}
-                </Button>
-                
-                <Button
-                  type="button"
-                  className="h-9 rounded-md bg-[#E8FFB7] px-6 text-sm font-medium text-black hover:bg-[#d9f2a0]"
-                  onClick={handleQuickApply}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Quick Apply
-                </Button>
-              </div>
-            </div>
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[3fr_2fr]">
+
+
+          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_500px]">
             {/* Left Column: Gallery */}
-            <div className="flex min-h-0 flex-col border-white/10 lg:border-r">
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="text-xs font-medium uppercase tracking-wider text-white/30">Gallery</div>
+            <div className="flex min-h-0 min-w-0 flex-col ">
+              <div className="h-full flex-1 overflow-y-auto px-4 py-8 custom-scrollbar">
+                <div className="mb-6 flex items-center justify-between">
+                  <span className="rounded-full  bg-white/5 px-3 py-1 text-xs text-white/60">
+                    {galleryImages.length} images
+                  </span>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="light"
                     size="sm"
-                    className="h-8 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/60 hover:bg-white/10 hover:text-white"
+                    className="h-8 text-sm border border-white/10 bg-white/5"
                     onClick={handleUploadClick}
                     disabled={isUploading}
                   >
-                    <Upload className="mr-1.5 h-3 w-3" />
+                    <Upload className=" h-3 w-3" />
                     {isUploading ? 'Uploading...' : 'Add Image'}
                   </Button>
                   <input
@@ -779,7 +795,7 @@ export function MoodboardDetailDialog({
                       return (
                         <div
                           key={`${imagePath}-${index}`}
-                          className="group relative overflow-hidden rounded-xl border border-white/5 bg-white/[0.02]"
+                          className="group relative overflow-hidden  h-full rounded-xl border border-white/5 bg-white/[0.02]"
                         >
                           <button
                             type="button"
@@ -848,13 +864,103 @@ export function MoodboardDetailDialog({
             </div>
 
             {/* Right Column: Main Content */}
-            <div className="flex min-h-0 flex-col bg-[#0b0e14]/50">
-              <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8 custom-scrollbar">
-                <div className="mx-auto max-w-xl space-y-5">
+            <div className="flex h-full w-full max-w-[500px] flex-col rounded-3xl bg-black/50">
+              <div className="relative overflow-y-auto h-full  w-full px-4 pt-8 pb-24 custom-scrollbar">
+                <div className=" w-full space-y-8">
                   {/* Collapsible Metadata (Name, Description, Model) */}
+                  <div className="flex  h-10 w-full items-center justify-between px-0">
+                    <div className="flex items-center gap-3">
+                      {isEditMode ? (
+                        <>
+                          <Input
+                            value={draftName}
+                            onChange={(e) => setDraftName(e.target.value)}
+                            className="h-10 w-36 rounded-xl border-white/10 bg-white/5 text-base text-white placeholder:text-white/30 focus:border-[#E8FFB7]/30"
+                            placeholder="Name your moodboard"
+                          />
+                          {shortcut && (
+                            <Select value={draftModelId} onValueChange={setDraftModelId}>
+                              <SelectTrigger className="h-10 w-30 rounded-xl border-white/10 bg-white/5 text-xs text-white">
+                                <SelectValue placeholder="Select model" />
+                              </SelectTrigger>
+                              <SelectContent className="border-white/10 bg-[#0b0d12] text-white">
+                                {availableModels.map((model) => (
+                                  <SelectItem key={model.id} value={model.id} className="text-white">
+                                    {model.displayName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <h2 className="text-2xl font-normal text-white">{dialogTitle}</h2>
+                          {shortcut ? (
+                            <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
+                              {draftShortcut?.modelLabel}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="light"
+                      className="h-8 rounded-md mb-2 border border-white/10 bg-white/10 px-2 text-sm text-white hover:bg-white/10"
+                      onClick={() => {
+                        setIsEditMode((prev) => !prev);
+                      }}
+                    >
 
-                     {/* Main Prompt Area */}
-                     <div className="space-y-4">
+                      <PencilLine className=" h-4 w-4" />
+                      {isEditMode ? 'Cancel' : 'Edit'}
+                    </Button>
+
+
+
+
+
+
+
+                    {/* <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full border border-white/10 bg-white/5 text-white/55"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <Plus className="h-4 w-4 rotate-45" />
+                </Button>
+                */}
+
+
+
+
+                  </div>
+
+                  {shortcut ? (
+                    isEditMode ? (
+                      <Textarea
+                        value={draftDescription}
+                        onChange={(e) => setDraftDescription(e.target.value)}
+                        className="min-h-[60px] mt-2 w-full rounded-xl border-white/10  bg-white/5 text-xs text-white placeholder:text-white/30 focus:border-[#E8FFB7]/30"
+                        placeholder="Add a description for this moodboard"
+                      />
+                    ) : (
+                      <span className="w-full text-xs  text-white/40 ">
+                        {draftDescription || 'No description provided'}
+                      </span>
+                    )
+                  ) : (
+                    <span className="w-full  text-xs text-white/60 ">
+                      {draftDescription || 'No description provided'}
+                    </span>
+                  )}
+
+
+                  {/* Main Prompt Area */}
+                  <div className="space-y-4 mt-4">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-medium  text-white/70">Prompt Template</div>
                       <div className="flex items-center gap-2">
@@ -864,92 +970,51 @@ export function MoodboardDetailDialog({
                             variant="light"
                             size="sm"
                             className="h-8 rounded-full border border-[#E8FFB7]/10 bg-[#E8FFB7]/5 text-[11px] text-[#E8FFB7] hover:bg-white/10"
-                            onClick={() => {
-                              const nextField = buildNewFieldDraft(draftPromptFields.length);
-                              setDraftPromptFields((prev) => [...prev, nextField]);
-                              setDraftPromptTemplate((prev) => (
-                                prev.includes(`{{${nextField.key}}}`) ? prev : `${prev}${prev ? ' ' : ''}{{${nextField.key}}}`
-                              ));
-                            }}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={handleAddPromptToken}
                           >
                             <Plus className="mr-1.5 h-3.5 w-3.5" />
                             Add Token
                           </Button>
                         )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 rounded-full border border-white/10 bg-white/5 text-[12px] text-white/70 hover:text-white"
-                          onClick={() => void copyText(shortcut ? draftPromptTemplate : draftPrompt).then(() => {
-                            toast({ title: 'Copied', description: 'Template copied to clipboard' });
-                          })}
-                        >
-                          <Copy className=" h-3 w-3" />
-                          Copy
-                        </Button>
+                       
                       </div>
                     </div>
 
-                    <div className={cn(
-                      "group relative overflow-hidden rounded-2xl border min-h-[200px] transition-all duration-500",
-                      isEditMode
-                        ? "border-[#E8FFB7]/20 bg-[#E8FFB7]/[0.02]"
-                        : "border-white/10 bg-white/10 p-4"
-                    )}>
+                    <div className="group relative min-h-[300px]  overflow-hidden rounded-2xl bg-[#2C2D2F]/50 border border-white/10 transition-colors focus-within:border-[#E8FFB7]/20">
                       {isEditMode ? (
-                        <div className="flex flex-col h-full">
+                        shortcut && draftShortcut && draftEditorDocument ? (
+                          <ShortcutSlateEditor
+                            shortcut={draftShortcut}
+                            values={draftPromptValues}
+                            document={draftEditorDocument}
+                            onFieldChange={handleFieldChange}
+                            onDocumentChange={handleShortcutDocumentChange}
+                            insertTokenRequest={pendingInsertTokenRequest}
+                            onInsertTokenRequestHandled={(requestId) => {
+                              setPendingInsertTokenRequest((current) => (
+                                current?.requestId === requestId ? null : current
+                              ));
+                            }}
+                          />
+                        ) : (
                           <Textarea
                             value={shortcut ? draftPromptTemplate : draftPrompt}
                             onChange={(e) => shortcut ? setDraftPromptTemplate(e.target.value) : setDraftPrompt(e.target.value)}
-                            className="flex-1 border-0 bg-transparent p-8 font-mono text-base leading-relaxed text-white outline-none placeholder:text-white/10"
+                            className="min-h-[200px] border-0 bg-transparent p-4  text-sm leading-10 text-white/80 outline-none placeholder:text-white/20"
                             placeholder={shortcut ? "Use {{token}} syntax to define dynamic fields" : "Enter prompt here..."}
                           />
-                          {shortcut && (
-                            <div className="border-t border-white/5 bg-white/[0.02] p-6">
-                              <div className="mb-4 text-[10px] font-medium uppercase tracking-widest text-white/20">Tokens Configuration</div>
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                {draftPromptFields.map((field, index) => (
-                                  <div key={index} className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/5 p-2 pl-3">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="truncate text-[10px] font-mono text-[#E8FFB7]/60">{field.key}</div>
-                                      <input
-                                        value={field.label}
-                                        onChange={(e) => {
-                                          const next = [...draftPromptFields];
-                                          next[index] = { ...field, label: e.target.value };
-                                          setDraftPromptFields(next);
-                                        }}
-                                        className="w-full bg-transparent text-xs text-white outline-none"
-                                        placeholder="Display Label"
-                                      />
-                                    </div>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-8 w-8 rounded-lg text-white/20 hover:bg-red-500/10 hover:text-red-400"
-                                      onClick={() => {
-                                        setDraftPromptFields(prev => prev.filter((_, i) => i !== index));
-                                      }}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        )
                       ) : (
-                        <div className="prose prose-invert max-w-none">
+                        <div className=" p-4">
                           {shortcut ? (
                             <InlinePromptPreview
                               shortcut={draftShortcut!}
-                              values={Object.fromEntries(draftPromptFields.map(f => [f.key, String(f.defaultValue || '')]))}
+                              values={draftPromptValues}
                               onValueChange={handleFieldChange}
                             />
                           ) : (
-                            <p className="whitespace-pre-wrap text-lg font-medium leading-relaxed text-white/90">
+                            <p className="whitespace-pre-wrap text-sm leading-10 text-white/80">
                               {draftPrompt || 'No prompt content'}
                             </p>
                           )}
@@ -958,79 +1023,35 @@ export function MoodboardDetailDialog({
                     </div>
                   </div>
 
-
-
-                  <div className={cn(
-                    "rounded-2xl border border-white/10 bg-white/[0.03] transition-all duration-300",
-                    isMetadataExpanded ? "p-6" : "p-3"
-                  )}>
-                    <div
-                      className="flex cursor-pointer items-center justify-between"
-                      onClick={() => setIsMetadataExpanded(!isMetadataExpanded)}
-                    >
-                      <div className="flex items-center gap-3 px-3">
-                        <div className="rounded-full bg-white/5 p-1.5">
-                          <ChevronDown className={cn("h-4 w-4 text-white/40 transition-transform", !isMetadataExpanded && "-rotate-90")} />
-                        </div>
-                        <span className="text-xs font-medium  text-white/40">Moodboard Details</span>
-                      </div>
-                      {!isMetadataExpanded && (
-                        <span className="max-w-[300px] truncate pr-3 text-xs text-white/20">
-                          {draftDescription || 'No description provided'}
-                        </span>
+                  <Button
+                    type="button"
+                    className="group absolute bottom-10 left-4 right-4 h-12 overflow-hidden rounded-2xl  bg-gradient-to-r from-white/45 via-[#E3FF9C] to-white/45 px-6 text-sm font-semibold text-black  transition-all duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.01]  active:scale-[0.99]"
+                    onClick={handleQuickApply}
+                    onMouseEnter={() => setIsHoveringApply(true)}
+                    onMouseLeave={() => setIsHoveringApply(false)}
+                  >
+                    <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full transition-transform duration-1000 ease-out group-hover:translate-x-full" />
+                    <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#E3FF9C]/25 via-white/10 to-[#E3FF9C]/25 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                    <span className="relative z-10 inline-flex items-center">
+                      {isHoveringApply ? (
+                        <ShinyText
+                          text="Quick Apply"
+                          speed={1.8}
+                          color="#111111"
+                          shineColor="#BCE2FF"
+                          spread={135}
+                          className="font-inherit"
+                        />
+                      ) : (
+                        "Quick Apply"
                       )}
-                    </div>
+                    </span>
+                  </Button>
 
-                    {isMetadataExpanded && (
-                      <div className="mt-6 grid gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                          <div className="space-y-2">
-                            <label className="text-[11px] font-medium  text-white/30">Name</label>
-                            <Input
-                              value={draftName}
-                              onChange={(e) => setDraftName(e.target.value)}
-                              disabled={!isEditMode}
-                              className="h-11 rounded-xl border-white/5 bg-white/5 text-sm text-white placeholder:text-white/20 focus:border-[#E8FFB7]/30"
-                              placeholder="Name your moodboard"
-                            />
-                          </div>
-                          {shortcut && (
-                            <div className="space-y-2">
-                              <label className="text-[11px] font-medium  text-white/30">Default Model</label>
-                              <Select value={draftModelId} onValueChange={setDraftModelId} disabled={!isEditMode}>
-                                <SelectTrigger className="h-11 rounded-xl border-white/5 bg-white/5 text-sm text-white">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="border-white/10 bg-[#0b0d12] text-white">
-                                  {availableModels.map((model) => (
-                                    <SelectItem key={model.id} value={model.id} className="text-white">
-                                      {model.displayName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        </div>
-                        {shortcut && (
-                          <div className="space-y-2">
-                            <label className="text-[11px] font-medium text-white/30">Description</label>
-                            <Textarea
-                              value={draftDescription}
-                              onChange={(e) => setDraftDescription(e.target.value)}
-                              disabled={!isEditMode}
-                              className="min-h-[80px] rounded-xl border-white/5 bg-white/5 text-sm leading-relaxed text-white placeholder:text-white/20 focus:border-[#E8FFB7]/30"
-                              placeholder="What is this collection about?"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
 
-               
+
                   {/* Collage Tool - Minimalist Collapsible */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03]">
+                  {/* <div className="rounded-2xl border border-white/10 bg-white/[0.03]">
                     <div
                       className="flex cursor-pointer items-center justify-between p-4 px-6"
                       onClick={() => setShowCollageTools(!showCollageTools)}
@@ -1085,7 +1106,7 @@ export function MoodboardDetailDialog({
                         )}
                       </div>
                     )}
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
@@ -1114,8 +1135,8 @@ export function MoodboardDetailDialog({
                 </div>
               )}
             </div>
-            </div>
           </div>
+
         </DialogContent>
       </Dialog>
 

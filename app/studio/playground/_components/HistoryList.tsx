@@ -134,9 +134,7 @@ const HistoryList = function HistoryList({
 
 
         <div className="flex z-20">
-          <span className="text-white text-2xl"
-            style={{ fontFamily: "'InstrumentSerif', serif" }}
-          >History</span>
+          <span className="text-white text-2xl font-serif">History</span>
         </div>
 
         <div className="flex items-center gap-3 z-20">

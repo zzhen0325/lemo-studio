@@ -117,6 +117,51 @@ describe('playground shortcut prompt builder', () => {
     expect(buildShortcutPrompt(shortcut!, { hero: 'toy bear', accent: '#FFAA00' })).toContain('toy bear');
   });
 
+  it('includes published custom shortcuts outside the builtin shortcut set', () => {
+    const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
+      persistedShortcuts: [
+        {
+          id: 'shortcut-row-custom',
+          code: 'maorong',
+          name: '毛绒',
+          cover_subtitle: '毛绒玩偶风格',
+          coverUrlResolved: 'https://example.com/covers/maorong.webp',
+          galleryUrls: [
+            'https://example.com/gallery/maorong-1.webp',
+            'https://example.com/gallery/maorong-2.webp',
+          ],
+          model_id: 'seed4_v2_0226lemo',
+          default_aspect_ratio: '3:4',
+          default_width: 1792,
+          default_height: 2400,
+          prompt_template: 'Create a plush toy scene with {{subject}} and {{style}}',
+          prompt_fields: [
+            { key: 'subject', label: '主体', placeholder: '毛绒主角', type: 'text', order: 0 },
+            { key: 'style', label: '风格', placeholder: '可爱治愈', type: 'text', order: 1 },
+          ],
+          moodboard_description: '毛绒质感定制模板',
+        },
+      ],
+      modelLabelById: new Map([['seed4_v2_0226lemo', 'Seed 4.2 Lemo']]),
+    });
+
+    const shortcut = runtimeShortcuts.find((item) => item.id === 'maorong');
+    expect(shortcut?.persistedId).toBe('shortcut-row-custom');
+    expect(shortcut?.name).toBe('毛绒');
+    expect(shortcut?.description).toBe('毛绒玩偶风格');
+    expect(shortcut?.detailDescription).toBe('毛绒质感定制模板');
+    expect(shortcut?.aspectRatio).toBe('3:4');
+    expect(shortcut?.imageSize).toBe('2K');
+    expect(shortcut?.imagePaths).toEqual([
+      'https://example.com/gallery/maorong-1.webp',
+      'https://example.com/gallery/maorong-2.webp',
+    ]);
+    expect(buildShortcutPrompt(shortcut!, {
+      subject: 'cream bear mascot',
+      style: 'soft studio lighting',
+    })).toContain('cream bear mascot');
+  });
+
   it('preserves an explicit empty shortcut overlay image list', () => {
     const mergedMoodboards = mergeShortcutMoodboards([
       {

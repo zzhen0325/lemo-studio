@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { sansFontFamily } from '@/lib/fonts';
 import { compareAnnotationLabels, formatAnnotationLabel, parseAnnotationLabelIndex } from '@/lib/utils/annotation-label';
 import { IMAGE_EDITOR_ANNOTATION_LABEL, IMAGE_EDITOR_THEME } from '../theme';
 import type {
@@ -74,7 +75,7 @@ const DEFAULT_BRUSH_WIDTH = 4;
 const BANNER_ANNOTATION_BORDER_COLOR = IMAGE_EDITOR_THEME.annotation.border;
 const BANNER_ANNOTATION_LABEL_BACKGROUND = IMAGE_EDITOR_THEME.annotation.labelBackground;
 const BANNER_ANNOTATION_LABEL_TEXT_COLOR = IMAGE_EDITOR_THEME.annotation.labelText;
-const BANNER_ANNOTATION_LABEL_FONT = '400 10px sans-serif';
+const BANNER_ANNOTATION_LABEL_FONT = `400 10px ${sansFontFamily}`;
 const BANNER_ANNOTATION_LABEL_OFFSET_Y = 20;
 const MIN_DRAW_SIZE = 8;
 const HANDLE_HIT_SIZE = 10;

@@ -425,7 +425,7 @@ export default function ImagePreviewModal({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
-                    <h3 className="text-lg text-white" style={{ fontFamily: "'InstrumentSerif', serif" }}>Details</h3>
+                    <h3 className="font-serif text-lg text-white">Details</h3>
                     <div className="flex items-center gap-2">
                       {isLoadingDetails && (
                         <span className="inline-flex items-center gap-1.5 text-[10px] text-white/40 font-mono uppercase tracking-widest">

@@ -29,10 +29,10 @@ const AestheticSlider: React.FC<{
 }> = ({ label, value, min, max, step, onChange }) => (
     <div className="space-y-2.5 group">
         <div className="flex items-center justify-between">
-            <label className="text-[10px] text-white/30 uppercase font-bold tracking-wider group-hover:text-white/50 transition-colors">
+            <label className="text-xs font-sans text-white/60  font-medium  group-hover:text-white transition-colors">
                 {label}
             </label>
-            <span className="text-[10px] font-mono text-blue-400/80 tabular-nums">
+            <span className="text-xs font-sans text-primary tabular-nums">
                 {Number(value) % 1 === 0 ? value : Number(value).toFixed(2)}
             </span>
         </div>
@@ -317,7 +317,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
     }, [config.parameters]);
 
     return (
-        <div className="flex flex-col h-full bg-[#0a0a0c]/85 backdrop-blur-xl border-l border-white/10 select-none font-mono">
+        <div className="flex flex-col h-full bg-[#0a0a0c]/0   border-white/10 select-none font-sans">
             <style jsx global>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 3px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -342,30 +342,30 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
             `}</style>
 
             {/* Header */}
-            <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02] shrink-0">
+            <div className="px-4 py-4  flex justify-between items-center bg-transparent rounded-xl shrink-0">
                 <div className="flex flex-col">
-                    <h1 className="text-[11px] font-black uppercase tracking-[0.3em] text-white">
+                    <h1 className=" font-medium  font-sans text-lg text-white">
                         {config.name}
                     </h1>
-                    <span className="text-[8px] text-white/30 uppercase mt-0.5 tracking-widest truncate max-w-[200px]">
+                    <span className="text-xs text-white/60 font-sans mt-2 mb-4">
                         {config.description}
                     </span>
                 </div>
-                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+               
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4 space-y-8">
                 {/* Presets Section */}
                 <section className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <Bookmark className="w-3 h-3 text-blue-500" />
-                            <h3 className="text-[10px] uppercase tracking-widest font-bold text-white/40">Presets</h3>
+                        <div className="flex items-center gap-1">
+                            <Bookmark className="w-4 h-4 text-primary" />
+                            <h3 className="text-sm  font-bold text-white">Presets</h3>
                         </div>
                         <button
                             onClick={() => setIsSaving(!isSaving)}
-                            className="text-[9px] uppercase font-bold text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
+                            className="text-xs font-sans font-medium py-1  px-3 border border-white/10  bg-white/5 rounded-sm text-primary hover:text-white transition-colors flex items-center gap-1"
                         >
                             <Plus className="w-3 h-3" />
                             {isSaving ? 'Cancel' : 'New'}
@@ -373,7 +373,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
                     </div>
 
                     {isSaving && (
-                        <div className="p-3 bg-white/[0.03] border border-blue-500/30 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="p-3 bg-white/10 border border-blue-500/30 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
                             <input
                                 autoFocus
                                 type="text"
@@ -388,7 +388,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
                                     size="sm"
                                     disabled={isUploading}
                                     onClick={handleSaveCurrent}
-                                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] h-8 rounded-lg font-bold"
+                                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-md h-8 rounded-lg font-bold"
                                 >
                                     {isUploading ? 'Saving...' : 'Save Current'}
                                 </Button>
@@ -446,13 +446,13 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
                 {groups.map((group, groupIndex) => (
                     <section key={group.name} className="space-y-4">
                         <div className="flex items-center gap-3">
-                            <span className="text-[9px] text-blue-500 font-bold">
+                            <span className="text-md text-blue-500 font-medium font-sans">
                                 {String(groupIndex + 1).padStart(2, '0')}
                             </span>
-                            <h3 className="text-[10px] uppercase tracking-widest font-bold text-white/40">
+                            <h3 className="text-md font-bold font-sans text-white">
                                 {group.name}
                             </h3>
-                            <div className="h-px flex-1 bg-white/5" />
+                            
                         </div>
 
                         <div className={`space-y-4 px-1 ${group.name === 'Palette' ? 'grid grid-cols-1 gap-2.5 space-y-0' : ''}`}>

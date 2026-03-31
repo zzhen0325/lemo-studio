@@ -1,5 +1,6 @@
 import { Edit2, History, Image as ImageIcon, Sparkles, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface PlaygroundHomeActionsProps {
   onOpenDescribe: () => void;
@@ -16,28 +17,28 @@ export function PlaygroundHomeActions({
   onOpenHistory,
   onOpenGallery,
 }: PlaygroundHomeActionsProps) {
+  const ActionButtonToken = cn(
+    "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-sm transition-all bg-black/20",
+    "border-white/20 text-white/90 hover:bg-white/10 hover:text-white"
+  );
+
   return (
     <div className="flex justify-center mt-4 gap-4">
-      <button
+      <Button
         onClick={onOpenDescribe}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all bg-black/20",
-          "border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
-        )}
+        className={ActionButtonToken}
       >
         <Sparkles className="w-4 h-4" />
         <span className="text-sm font-medium">Describe</span>
-      </button>
-      <button
+      </Button>
+      <Button
         onClick={onEdit}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
-        )}
+        className={ActionButtonToken}
       >
         <Edit2 className="w-4 h-4" />
         <span className="text-sm font-medium">Edit</span>
-      </button>
-      <button
+      </Button>
+      {/* <button
         onClick={onOpenBanner}
         className={cn(
           "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
@@ -45,26 +46,21 @@ export function PlaygroundHomeActions({
       >
         <Square className="w-4 h-4" />
         <span className="text-sm font-medium">Banner</span>
-      </button>
-      <button
+      </button> */}
+      <Button
         onClick={onOpenHistory}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 backdrop-blur-md transition-all bg-black/10 text-white/80 hover:bg-white/10 hover:text-white"
-        )}
+        className={ActionButtonToken}
       >
         <History className="w-4 h-4" />
         <span className="text-sm font-medium">History</span>
-      </button>
-      <button
+      </Button>
+      <Button
         onClick={onOpenGallery}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-md transition-all",
-          "bg-black/10 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
-        )}
+        className={ActionButtonToken}
       >
         <ImageIcon className="w-4 h-4" />
         <span className="text-sm font-medium">Gallery</span>
-      </button>
+      </Button>
     </div>
   );
 }

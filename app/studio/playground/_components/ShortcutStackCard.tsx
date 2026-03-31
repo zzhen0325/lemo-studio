@@ -40,7 +40,10 @@ export function ShortcutStackCard({
   const displayImages = galleryImages.slice(-3).reverse();
   const collapsedOffset = isSmall ? 24 : 50;
   const expandedOffset = isSmall ? 72 : 160;
-
+ const ActionButtonToken = cn(
+    "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-sm transition-all bg-black/20",
+    "border-white/20 text-white/90 hover:bg-white/10 hover:text-white"
+  );
   return (
     <div
       className={cn(
@@ -54,24 +57,24 @@ export function ShortcutStackCard({
       <div className="absolute -top-12 left-1/2 z-[30] flex -translate-x-1/2 gap-2 opacity-0 transition-all duration-300 group-hover:-translate-y-2 group-hover:opacity-100">
         <Button
           size="sm"
-          className="h-9 rounded-full border border-white/10 bg-black/40 backdrop-blur-md px-4 text-white shadow-2xl transition-all hover:bg-[#15181C] hover:border-[#E8FFB7]/50"
+          className={ActionButtonToken}
           onClick={(event) => {
             event.stopPropagation();
             onQuickApply(shortcut);
           }}
         >
-          <Sparkles size={14} className="mr-1.5 text-white" />
+          <Sparkles size={14} className=" text-white" />
           快速应用
         </Button>
         <Button
           size="sm"
-          className="h-9 rounded-full border border-white/10 bg-black/40  backdrop-blur-md px-4 text-white shadow-2xl transition-all hover:border-white/20 hover:bg-neutral-800"
+          className={ActionButtonToken}
           onClick={(event) => {
             event.stopPropagation();
             onViewDetail(shortcut);
           }}
         >
-          <PanelsTopLeft size={14} className="mr-1.5 text-white/70" />
+          <PanelsTopLeft size={14} className=" text-white" />
           查看详情
         </Button>
       </div>

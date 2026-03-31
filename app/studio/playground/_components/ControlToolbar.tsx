@@ -94,6 +94,7 @@ export default function ControlToolbar({
   onImageSizeChange,
 
   isSelectorExpanded = false,
+  onSelectorExpandedChange,
   isPresetGridOpen = false,
   onTogglePresetGrid,
   batchSize = 4,
@@ -219,7 +220,7 @@ export default function ControlToolbar({
     }
   };
 
-  const Inputbutton2 = "h-8 px-3 text-white rounded-xl bg-white/5 border border-white/10  hover:bg-white/5 hover:border-white/10 hover:border hover:text-primary    transition-colors duration-200";
+  const Inputbutton2 = "h-8 px-3 text-white rounded-xl bg-white/5 border border-white/10  hover:bg-white/5 hover:border-white/10 hover:border hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)] hover:text-white    transition-colors duration-200";
 
   // 使用统一配置获取显示标签
   const modelTriggerLabel = (() => {
@@ -239,107 +240,33 @@ export default function ControlToolbar({
     onConfigChange?.({ model: modelName });
   };
 
-  const BaseModelDropdown = () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          className={cn(Inputbutton2)}
-        >
-          {selectedBaseModelName || 'Base Model'}
-          <ChevronDown className="h-4 w-4 opacity-50" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[180px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
-        {BASE_MODEL_LIST.map((model) => (
-          <DropdownMenuItem
-            key={model.name}
-            className="text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 py-2"
-            onClick={() => handleBaseModelSelect(model.name)}
-          >
-            <span className={`w-2 h-2 rounded-full ${selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
-            <span className="truncate">{model.name}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
   // 模型信息映射：包含 logo 和描述
   const MODEL_INFO: Record<string, { logo: string; description: string }> = {
     'gemini-3-pro-image-preview': {
       logo: '/images/logos/google.png',
-      description: 'Google 最强图像生成模型 pro版 谷歌老挂'
+      description: '暂不能用'
     },
     'gemini-3.1-flash-image-preview': {
       logo: '/images/logos/google.png',
-      description: 'Google 图像生成模型 Nano banana 2'
+      description: '暂不能用'
     },
     'gemini-2.5-flash-image': {
       logo: '/images/logos/google.png',
-      description: '普通版，pro版备胎'
+      description: '暂不能用'
     },
     'coze_seedream4_5': {
       logo: '/images/logos/seed.png',
-      description: '扣子工作流版 Seedream 4.5'
+      description: 'Seedream 4.5'
     },
     'seed4_v2_0226lemo': {
       logo: '/images/logos/seed.png',
-      description: 'Seed 4.2 高质量生成模型'
+      description: '生成lemo选这个'
     },
     [MODEL_ID_FLUX_KLEIN]: {
       logo: '/images/logos/flux.png',
       description: 'ComfyUI Flux.2 Klein'
     }
   };
-
-  const ModelDropdown = () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          className={cn(Inputbutton2, isSelectorExpanded && activeTab === 'model' && "bg-white/10")}
-        >
-          {modelTriggerLabel}
-          <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[280px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl p-1" align="start">
-        {selectableModels.map((model) => {
-          const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
-          return (
-            <DropdownMenuItem
-              key={model.id}
-              className="text-white hover:bg-primary/20 rounded-lg cursor-pointer flex items-center gap-3 py-3 px-3"
-              onClick={() => handleUnifiedSelectChange(model.id)}
-            >
-              {/* 选中指示器 */}
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${selectValue === model.id ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-              {/* 模型 Logo */}
-              <div className="relative w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                <Image
-                  src={info.logo}
-                  alt={model.displayName}
-                  fill
-                  sizes="32px"
-                  className="object-cover"
-                  onError={(e) => {
-                    // 如果图片加载失败，使用首字母作为占位
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    target.parentElement!.innerHTML = `<span class="text-white/60 text-sm font-medium">${model.displayName.charAt(0)}</span>`;
-                  }}
-                />
-              </div>
-              {/* 模型名称和描述 */}
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="text-sm font-medium text-white truncate">{model.displayName}</span>
-                <span className="text-xs text-white/50 truncate">{info.description}</span>
-              </div>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 
   const hasBaseModelMapping = React.useMemo(() => {
     if (!selectedPresetName || !workflows) return true;
@@ -416,8 +343,78 @@ export default function ControlToolbar({
             )}
             {!disableModelSelection && (
               <>
-                {(!isWorkflowModel(selectedModel) || !selectedPresetName) && <ModelDropdown />}
-                {isWorkflowModel(selectedModel) && selectedPresetName && hasBaseModelMapping && <BaseModelDropdown />}
+                {(!isWorkflowModel(selectedModel) || !selectedPresetName) && (
+                  <DropdownMenu onOpenChange={(open) => onSelectorExpandedChange?.(open)}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        className={cn(Inputbutton2, isSelectorExpanded && activeTab === 'model' && "bg-white/10")}
+                      >
+                        {modelTriggerLabel}
+                        <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[280px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl " align="start">
+                      {selectableModels.map((model) => {
+                        const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
+                        return (
+                          <DropdownMenuItem
+                            key={model.id}
+                            className="text-white hover:bg-primary/20 rounded-lg cursor-pointer flex items-center gap-3 py-3 px-3"
+                            onClick={() => handleUnifiedSelectChange(model.id)}
+                          >
+                            {/* 选中指示器 */}
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${selectValue === model.id ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
+                            {/* 模型 Logo */}
+                            <div className="relative w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              <Image
+                                src={info.logo}
+                                alt={model.displayName}
+                                fill
+                                sizes="32px"
+                                className="object-cover"
+                                onError={(e) => {
+                                  // 如果图片加载失败，使用首字母作为占位
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.parentElement!.innerHTML = `<span class="text-white/60 text-sm font-medium">${model.displayName.charAt(0)}</span>`;
+                                }}
+                              />
+                            </div>
+                            {/* 模型名称和描述 */}
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className="text-sm font-medium text-white truncate">{model.displayName}</span>
+                              <span className="text-xs text-white/50 truncate">{info.description}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {isWorkflowModel(selectedModel) && selectedPresetName && hasBaseModelMapping && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        className={cn(Inputbutton2)}
+                      >
+                        {selectedBaseModelName || 'Base Model'}
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[180px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+                      {BASE_MODEL_LIST.map((model) => (
+                        <DropdownMenuItem
+                          key={model.name}
+                          className="text-white hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 py-2"
+                          onClick={() => handleBaseModelSelect(model.name)}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${selectedBaseModelName === model.name ? 'bg-emerald-400' : 'bg-transparent border border-white/30'}`} />
+                          <span className="truncate">{model.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </>
             )}
             {isWorkflowModel(selectedModel) && selectedPresetName && hasLoraMapping && (
@@ -459,7 +456,7 @@ export default function ControlToolbar({
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[320px] p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+            <DropdownMenuContent className="w-[320px]  p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
               <div className="space-y-4">
                 {selectedSupportsImageSize && (
                   <div className="space-y-4">
@@ -553,14 +550,14 @@ export default function ControlToolbar({
         </div>
 
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end h-8 gap-2">
           {/* Batch Size Selector */}
           {selectedSupportsBatch && (
-            <div className="flex items-center bg-black/30 rounded-2xl border border-white/5 h-10 px-1">
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl h-9 px-1">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
+                className="h-6 w-6   p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
                 onClick={() => onBatchSizeChange?.(Math.max(1, batchSize - 1))}
                 disabled={batchSize <= 1 || shouldLockGenerateControls}
               >
@@ -572,7 +569,7 @@ export default function ControlToolbar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
+                className="h-6 w-6 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
                 onClick={() => onBatchSizeChange?.(Math.min(selectedMaxBatchSize, batchSize + 1))}
                 disabled={batchSize >= selectedMaxBatchSize || shouldLockGenerateControls}
               >
@@ -588,9 +585,9 @@ export default function ControlToolbar({
               loading={isGenerating}
               disableWhileLoading={!allowsContinuousGenerate}
               label={generateButtonLabel}
-              size="md"
               variant="default"
-              className="relative z-10 rounded-2xl px-6 font-semibold text-black"
+              showShimmer={true}
+              className="z-10 h-9 rounded-xl bg-white px-6 text-sm font-medium text-black ]"
             />
           </div>
         </div>

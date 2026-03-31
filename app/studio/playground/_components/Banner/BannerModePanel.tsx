@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/common/use-toast';
+import { sansFontFamily } from '@/lib/fonts';
 import {
     Select,
     SelectContent,
@@ -324,7 +325,7 @@ export function BannerModePanel({ isGenerating, onGenerate, sessionHistory }: Ba
                 ctx.strokeRect(region.x, region.y, region.width, region.height);
 
                 const label = region.label || '?';
-                ctx.font = `${regionFontSize}px sans-serif`;
+                ctx.font = `${regionFontSize}px ${sansFontFamily}`;
                 ctx.textBaseline = 'middle';
                 const textWidth = Math.ceil(ctx.measureText(label).width);
                 const labelPaddingX = 6;

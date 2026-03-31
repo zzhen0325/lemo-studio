@@ -1,6 +1,7 @@
 import type { AspectRatio, ImageSize, StyleStack } from "@/types/database";
 
 export type BuiltinShortcutId = "lemo" | "us-kv" | "sea-kv" | "jp-kv";
+export type PlaygroundShortcutId = string;
 export type ShortcutFieldType = "text" | "textarea" | "select" | "number" | "color";
 
 export interface ShortcutPromptFieldDefinition {
@@ -30,7 +31,7 @@ export type ShortcutPromptPart =
   | { type: "field"; fieldId: string };
 
 export interface PlaygroundShortcut {
-  id: BuiltinShortcutId;
+  id: PlaygroundShortcutId;
   persistedId?: string;
   name: string;
   description: string;
@@ -51,10 +52,19 @@ export interface PersistedPlaygroundShortcutRecord {
   id: string;
   code: string;
   name?: string;
+  cover_title?: string;
+  cover_subtitle?: string;
+  cover_url?: string;
+  coverUrlResolved?: string;
   model_id?: string;
+  default_aspect_ratio?: string;
+  default_width?: number;
+  default_height?: number;
   prompt_template?: string;
   prompt_fields?: ShortcutPromptFieldDefinition[];
   moodboard_description?: string;
+  gallery_order?: string[];
+  galleryUrls?: string[];
   is_enabled?: boolean;
   publish_status?: "draft" | "published" | "archived";
 }
@@ -84,12 +94,36 @@ interface ShortcutFieldEntry {
   fieldOrder: number;
 }
 
-interface StaticShortcutSeed extends Omit<PlaygroundShortcut, "persistedId" | "promptTemplate" | "promptFields"> {}
+type StaticShortcutSeed = Omit<PlaygroundShortcut, "persistedId" | "promptTemplate" | "promptFields">;
 
 const LEADING_CLOSERS_PATTERN = /^[\s"'`’”)\]\}）】]+/;
 const LEADING_SEPARATORS_PATTERN = /^[\s,;:，、]+/;
 const HEX_COLOR_PATTERN = /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i;
 const TEMPLATE_TOKEN_PATTERN = /{{\s*([a-zA-Z0-9_-]+)\s*}}/g;
+const SHORTCUT_ASPECT_RATIOS: AspectRatio[] = [
+  "1:1",
+  "2:3",
+  "3:2",
+  "3:4",
+  "4:3",
+  "4:5",
+  "5:4",
+  "9:16",
+  "16:9",
+  "21:9",
+];
+const SHORTCUT_ASPECT_RATIO_VALUES = new Map<AspectRatio, number>([
+  ["1:1", 1],
+  ["2:3", 2 / 3],
+  ["3:2", 3 / 2],
+  ["3:4", 3 / 4],
+  ["4:3", 4 / 3],
+  ["4:5", 4 / 5],
+  ["5:4", 5 / 4],
+  ["9:16", 9 / 16],
+  ["16:9", 16 / 9],
+  ["21:9", 21 / 9],
+]);
 
 const buildFields = (...fields: ShortcutPromptField[]) => fields;
 
@@ -309,6 +343,75 @@ function normalizePromptFieldDefinitions(
   return normalized.sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
 }
 
+function inferAspectRatioFromDimensions(width?: number, height?: number): AspectRatio {
+  if (!width || !height || width <= 0 || height <= 0) {
+    return "1:1";
+  }
+
+  const targetRatio = width / height;
+  let bestMatch: AspectRatio = "1:1";
+  let bestDiff = Number.POSITIVE_INFINITY;
+
+  SHORTCUT_ASPECT_RATIOS.forEach((aspectRatio) => {
+    const ratio = SHORTCUT_ASPECT_RATIO_VALUES.get(aspectRatio);
+    if (!ratio) {
+      return;
+    }
+
+    const diff = Math.abs(ratio - targetRatio);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestMatch = aspectRatio;
+    }
+  });
+
+  return bestMatch;
+}
+
+function resolveShortcutAspectRatio(record?: Pick<PersistedPlaygroundShortcutRecord, "default_aspect_ratio" | "default_width" | "default_height">): AspectRatio {
+  const aspectRatio = record?.default_aspect_ratio?.trim() as AspectRatio | undefined;
+  if (aspectRatio && SHORTCUT_ASPECT_RATIOS.includes(aspectRatio)) {
+    return aspectRatio;
+  }
+
+  return inferAspectRatioFromDimensions(record?.default_width, record?.default_height);
+}
+
+function resolveShortcutImageSize(record?: Pick<PersistedPlaygroundShortcutRecord, "default_width" | "default_height">): ImageSize {
+  const longestSide = Math.max(record?.default_width || 0, record?.default_height || 0);
+
+  if (longestSide >= 4096) {
+    return "4K";
+  }
+  if (longestSide >= 1536) {
+    return "2K";
+  }
+  if (longestSide > 0) {
+    return "1K";
+  }
+
+  return "2K";
+}
+
+function resolveShortcutImagePaths(
+  record?: Pick<PersistedPlaygroundShortcutRecord, "galleryUrls" | "coverUrlResolved" | "cover_url">,
+  fallbackImagePaths: string[] = [],
+) {
+  if (Array.isArray(record?.galleryUrls) && record.galleryUrls.length > 0) {
+    return record.galleryUrls;
+  }
+
+  if (record?.coverUrlResolved?.trim()) {
+    return [record.coverUrlResolved.trim()];
+  }
+
+  if (record?.cover_url?.trim()) {
+    return [record.cover_url.trim()];
+  }
+
+  return fallbackImagePaths;
+}
+
 function finalizeShortcut(seed: StaticShortcutSeed): PlaygroundShortcut {
   const promptTemplate = serializeShortcutPromptTemplate(seed.promptParts);
   const promptFields = seed.fields.map((field, index) => buildPromptFieldDefinition(field, index));
@@ -337,12 +440,12 @@ const PLAYGROUND_SHORTCUT_SEEDS: StaticShortcutSeed[] = [
       "/loras/lemopin1_v1.webp",
     ],
     fields: buildFields(
-      { id: "action", label: "动作", placeholder: "在做什么", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "outfit", label: "穿搭", placeholder: "服装或配饰", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "scene", label: "场景", placeholder: "具体场景", required: true, widthClassName: "min-w-[8rem]" },
-      { id: "mood", label: "氛围", placeholder: "情绪和画面感", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "background", label: "背景", placeholder: "背景颜色或元素", defaultValue: "soft pastel backdrop", required: true, widthClassName: "min-w-[9rem]" },
-      { id: "extra", label: "补充要求", placeholder: "额外细节", defaultValue: "brand-ready illustration finish", required: true, widthClassName: "min-w-[9rem]" },
+      { id: "action", label: "动作", placeholder: "在做什么", required: true, widthClassName: "min-w-[5rem]" },
+      { id: "outfit", label: "穿搭", placeholder: "服装或配饰", required: true, widthClassName: "min-w-[5rem]" },
+      { id: "scene", label: "场景", placeholder: "具体场景", required: true, widthClassName: "min-w-[5rem]" },
+      { id: "mood", label: "氛围", placeholder: "情绪和画面感", required: true, widthClassName: "min-w-[5rem]" },
+      { id: "background", label: "背景", placeholder: "背景颜色或元素", defaultValue: "soft pastel backdrop", required: true, widthClassName: "min-w-[5rem]" },
+      { id: "extra", label: "补充要求", placeholder: "额外细节", defaultValue: "brand-ready illustration finish", required: true, widthClassName: "min-w-[5rem]" },
     ),
     promptParts: [
       { type: "text", value: "A polished Lemo campaign visual, Lemo is " },
@@ -729,6 +832,67 @@ function buildShortcutFromRecord(options: {
   };
 }
 
+function buildCustomShortcutFromRecord(options: {
+  record: PersistedPlaygroundShortcutRecord;
+  modelLabels?: Map<string, string>;
+}): PlaygroundShortcut | null {
+  const { record, modelLabels } = options;
+  const shortcutCode = record.code?.trim();
+
+  if (!shortcutCode) {
+    return null;
+  }
+
+  const promptFields = normalizePromptFieldDefinitions(record.prompt_fields, []);
+  const runtimeFields = promptFields.map((fieldDefinition) => buildRuntimeField(fieldDefinition));
+  const promptTemplate = typeof record.prompt_template === "string" && record.prompt_template.trim()
+    ? record.prompt_template.trim()
+    : "";
+  const runtimeFieldsById = new Map(runtimeFields.map((field) => [field.id, field]));
+
+  extractShortcutTemplateTokens(promptTemplate).forEach((token) => {
+    if (runtimeFieldsById.has(token)) {
+      return;
+    }
+
+    const definition: ShortcutPromptFieldDefinition = {
+      key: token,
+      label: token,
+      placeholder: token,
+      type: "text",
+      defaultValue: "",
+      required: false,
+      order: promptFields.length,
+    };
+
+    promptFields.push(definition);
+    runtimeFields.push(buildRuntimeField(definition));
+    runtimeFieldsById.set(token, runtimeFields[runtimeFields.length - 1]);
+  });
+
+  const model = record.model_id?.trim() || SHORTCUT_DEFAULT_MODEL;
+  const name = record.name?.trim() || record.cover_title?.trim() || shortcutCode;
+  const description = record.cover_subtitle?.trim() || record.moodboard_description?.trim() || "自定义快捷入口";
+  const detailDescription = record.moodboard_description?.trim() || description;
+
+  return {
+    id: shortcutCode,
+    persistedId: record.id,
+    name,
+    description,
+    detailDescription,
+    model,
+    modelLabel: modelLabels?.get(model) || model,
+    aspectRatio: resolveShortcutAspectRatio(record),
+    imageSize: resolveShortcutImageSize(record),
+    imagePaths: resolveShortcutImagePaths(record),
+    promptTemplate,
+    promptFields,
+    fields: runtimeFields,
+    promptParts: parseShortcutPromptTemplate(promptTemplate, runtimeFields),
+  };
+}
+
 export function buildShortcutFromDraft(options: {
   baseShortcut: PlaygroundShortcut;
   name?: string;
@@ -746,7 +910,9 @@ export function buildShortcutFromDraft(options: {
       baseShortcut.fields.find((field) => field.id === fieldDefinition.key),
     )
   ));
-  const promptTemplate = options.promptTemplate?.trim() || baseShortcut.promptTemplate;
+  const promptTemplate = options.promptTemplate === undefined
+    ? baseShortcut.promptTemplate
+    : options.promptTemplate.trim();
   const runtimeFieldsById = new Map(runtimeFields.map((field) => [field.id, field]));
 
   extractShortcutTemplateTokens(promptTemplate).forEach((token) => {
@@ -797,12 +963,23 @@ export function buildRuntimePlaygroundShortcuts(options?: {
     (options?.legacyStyles || []).map((style) => [style.id, style]),
   );
 
-  return PLAYGROUND_SHORTCUTS.map((fallbackShortcut) => buildShortcutFromRecord({
+  const builtinShortcuts = PLAYGROUND_SHORTCUTS.map((fallbackShortcut) => buildShortcutFromRecord({
     fallbackShortcut,
     record: persistedShortcutsByCode.get(fallbackShortcut.id),
     legacyStyle: legacyStylesById.get(getShortcutMoodboardId(fallbackShortcut.id)),
     modelLabels: options?.modelLabelById,
   }));
+
+  const builtinShortcutIds = new Set(builtinShortcuts.map((shortcut) => shortcut.id));
+  const customShortcuts = (options?.persistedShortcuts || [])
+    .filter((shortcut) => !builtinShortcutIds.has(shortcut.code))
+    .map((record) => buildCustomShortcutFromRecord({
+      record,
+      modelLabels: options?.modelLabelById,
+    }))
+    .filter((shortcut): shortcut is PlaygroundShortcut => Boolean(shortcut));
+
+  return [...builtinShortcuts, ...customShortcuts];
 }
 
 export function buildShortcutMoodboard(shortcut: PlaygroundShortcut): StyleStack {

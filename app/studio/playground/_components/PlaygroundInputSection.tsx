@@ -53,6 +53,7 @@ import type {
     DesignVariantEditScope,
     DesignStructuredVariantId,
 } from "@/app/studio/playground/_lib/kv-structured-optimization";
+import type { ShortcutEditorDocument } from "@/app/studio/playground/_lib/shortcut-editor-document";
 
 export interface PlaygroundInputSectionProps {
     // 状态
@@ -120,6 +121,7 @@ export interface PlaygroundInputSectionProps {
         shortcut: PlaygroundShortcut;
         values: ShortcutPromptValues;
         removedFieldIds: string[];
+        editorDocument?: ShortcutEditorDocument;
         optimizationSession?: {
             originPrompt: string;
             activeVariantId: DesignStructuredVariantId;
@@ -138,6 +140,7 @@ export interface PlaygroundInputSectionProps {
     } | null;
     onShortcutTemplateFieldChange?: (fieldId: string, value: string) => void;
     onShortcutTemplateFieldRemove?: (fieldId: string) => void;
+    onShortcutTemplateDocumentChange?: (nextDocument: ShortcutEditorDocument) => void;
     onExitShortcutTemplate?: () => void;
     onShortcutTemplateOptimize?: () => void;
     onShortcutTemplateVariantSelect?: (variantId: DesignStructuredVariantId) => void;
@@ -214,6 +217,7 @@ export function PlaygroundInputSection({
     shortcutTemplate,
     onShortcutTemplateFieldChange,
     onShortcutTemplateFieldRemove,
+    onShortcutTemplateDocumentChange,
     onExitShortcutTemplate,
     onShortcutTemplateOptimize,
     onShortcutTemplateVariantSelect,
@@ -345,7 +349,7 @@ export function PlaygroundInputSection({
             isDescribeMode && showHistory && "h-full"
         )}>
             {!showHistory && !hideTitle && (
-                <div style={{ fontFamily: "'InstrumentSerif', serif" }}>
+                <div className="font-serif">
                     <SplitText
                         text="✨Turn any idea into a stunning image"
                         tag="h1"
@@ -578,6 +582,7 @@ export function PlaygroundInputSection({
                                     shortcutTemplate={shortcutTemplate}
                                     onShortcutTemplateFieldChange={onShortcutTemplateFieldChange}
                                     onShortcutTemplateFieldRemove={onShortcutTemplateFieldRemove}
+                                    onShortcutTemplateDocumentChange={onShortcutTemplateDocumentChange}
                                     onExitShortcutTemplate={onExitShortcutTemplate}
                                     onShortcutTemplateOptimize={onShortcutTemplateOptimize}
                                     onShortcutTemplateVariantSelect={onShortcutTemplateVariantSelect}

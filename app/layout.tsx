@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/common/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { instrumentSerif, poppins } from "@/lib/fonts";
 import { ViewComfyProvider } from "@/lib/providers/view-comfy-provider";
 import { cn } from "@/lib/utils";
 import ScrollbarVisibility from "@/components/common/scrollbar-visibility";
 import { AppToaster } from "@/components/ui/AppToaster";
-
-const instrument = localFont({
-  src: "../public/Font/InstrumentSerif-Regular.ttf",
-  variable: "--font-instrument",
-});
 
 export const metadata: Metadata = {
   title: "Lemostudio",
@@ -39,9 +34,8 @@ const runtimePublicEnvScript = `window.__LEMO_RUNTIME_ENV__ = ${JSON.stringify(r
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${instrument.variable}`}>
+    <html lang="en" suppressHydrationWarning className={cn(poppins.variable, instrumentSerif.variable)}>
       <head>
-        <link rel="preload" href="/Font/InstrumentSerif-Regular.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/images/studiologo.svg" as="image" />
         <link rel="preload" href="/assets/loading-icon.svg" as="image" />
       </head>

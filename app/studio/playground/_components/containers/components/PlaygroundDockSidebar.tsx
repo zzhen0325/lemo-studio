@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit2, History, Image as ImageIcon, Palette, Sparkles, Square } from "lucide-react";
+import { Edit2, History, Image as ImageIcon, Palette, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipButton } from "@/components/ui/tooltip-button";
 
@@ -12,7 +12,6 @@ interface PlaygroundDockSidebarProps {
   uploadedImagesCount: number;
   onDescribeToggle: () => void;
   onEdit: () => void;
-  onBannerToggle: () => void;
   onHistory: () => void;
   onGallery: () => void;
   onStyle: () => void;
@@ -22,7 +21,7 @@ function getButtonStyle(isActive: boolean) {
   return cn(
     "w-10 h-10 rounded-2xl transition-all duration-200",
     isActive
-      ? "bg-primary/20 text-white border border-white/40 hover:bg-primary/30 hover:border-white/60 hover:scale-105"
+      ? "bg-primary text-black border border-white/40 hover:bg-primary/10 hover:border-white/60 hover:scale-105"
       : "bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 hover:scale-110"
   );
 }
@@ -65,7 +64,6 @@ export function PlaygroundDockSidebar({
   uploadedImagesCount,
   onDescribeToggle,
   onEdit,
-  onBannerToggle,
   onHistory,
   onGallery,
   onStyle,
@@ -98,15 +96,6 @@ export function PlaygroundDockSidebar({
         className={getButtonStyle(false)}
         onClick={onEdit}
         caption="Edit"
-      />
-      <SidebarItem
-        icon={<Square className="w-5 h-5" />}
-        label="Banner"
-        tooltipContent="Banner mode"
-        tooltipSide={tooltipSide}
-        className={getButtonStyle(activeTab === "banner")}
-        onClick={onBannerToggle}
-        caption="Banner"
       />
       <SidebarItem
         icon={<History className="w-5 h-5" />}

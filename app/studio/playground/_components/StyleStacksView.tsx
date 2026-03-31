@@ -103,8 +103,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
               <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div>
                   <span
-                    className="flex items-center gap-3 text-3xl text-white"
-                    style={{ fontFamily: "'InstrumentSerif', serif" }}
+                    className="flex items-center gap-3 font-serif text-3xl text-white"
                   >
                     Moodboards
                   </span>
