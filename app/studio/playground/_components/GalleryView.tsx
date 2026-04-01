@@ -842,10 +842,10 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
 
 
                 {/* Floating Actions - consistent with HistoryList */}
-                <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex shrink-0 items-center gap-1  bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+                <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex shrink-0 items-center gap-1 max-w-[calc(100%-24px)] overflow-hidden bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
                     <AddToMoodboardMenu imagePath={item.outputUrl} />
 
-                    <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+                    {/* <div className="w-[1px] h-4 bg-white/10 mx-0.5" /> */}
                     <TooltipButton
                         icon={<Type className="w-4 h-4" />}
                         label="Use Prompt"
@@ -877,7 +877,7 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
                         }}
                     />
                     
-                    <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+                    {/* <div className="w-[1px] h-4 bg-white/10 mx-0.5" /> */}
                     <TooltipButton
                         icon={<RefreshCw className="w-4 h-4" />}
                         label="Rerun"

@@ -14,6 +14,8 @@ interface BuildEditedImageNodeOptions {
   inputAssetId: string;
   prompt: string;
   position: { x: number; y: number };
+  modelId?: string;
+  params?: Partial<NonNullable<InfiniteCanvasNode['params']>>;
 }
 
 export interface BuildEditedImageNodeResult {
@@ -39,8 +41,11 @@ export function buildEditedImageNode(options: BuildEditedImageNodeOptions): Buil
   node.title = sourceNode ? `${sourceNode.title} Edit` : 'Edited Image';
   node.prompt = options.prompt;
   node.inputAssetId = options.inputAssetId;
-  node.modelId = inheritedModel;
-  node.params = inheritedParams;
+  node.modelId = options.modelId || inheritedModel;
+  node.params = {
+    ...inheritedParams,
+    ...(options.params || {}),
+  };
 
   return {
     node,

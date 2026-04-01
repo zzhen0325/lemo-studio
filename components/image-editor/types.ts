@@ -45,6 +45,10 @@ export interface ImageEditConfirmPayload {
   plainPrompt: string;
   finalPrompt: string;
   regionInstructions: string;
+  modelId: string;
+  imageSize: string;
+  aspectRatio?: string;
+  batchSize: number;
   sessionSnapshot: ImageEditorSessionSnapshot;
 }
 
@@ -54,6 +58,11 @@ export interface ImageEditDialogProps {
   initialPrompt?: string;
   initialSession?: ImageEditorSessionSnapshot;
   legacyTldrawSnapshot?: Record<string, unknown>;
+  generationContext?: 'playground' | 'infinite-canvas';
+  initialModelId?: string;
+  initialImageSize?: string;
+  initialAspectRatio?: string;
+  initialBatchSize?: number;
   onOpenChange: (open: boolean) => void;
   onConfirm: (payload: ImageEditConfirmPayload) => void | Promise<void>;
 }

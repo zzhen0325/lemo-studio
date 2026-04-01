@@ -19,6 +19,8 @@ describe('prompt history helpers', () => {
       variants: [
         { id: 'v1', label: '方案 A', prompt: '优化方案 A' },
         { id: 'v2', label: '方案 B', prompt: '优化方案 B' },
+        { id: 'v3', label: '方案 C', prompt: '优化方案 C' },
+        { id: 'v4', label: '方案 D', prompt: '优化方案 D' },
       ],
       configBase: {
         model: 'coze_seedream4_5',
@@ -27,7 +29,7 @@ describe('prompt history helpers', () => {
       },
     });
 
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(4);
     expect(items[0].config.historyRecordType).toBe('prompt_optimization');
     expect(items[0].config.promptCategory).toBe('prompt_optimization');
 

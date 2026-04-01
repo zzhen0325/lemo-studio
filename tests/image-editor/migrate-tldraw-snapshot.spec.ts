@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { migrateTldrawSnapshot } from '@/components/image-editor';
+import { migrateTldrawSnapshot } from '@/components/image-editor/utils/migrate-tldraw-snapshot';
 
 describe('migrateTldrawSnapshot', () => {
   it('migrates valid annotation records into image editor session', () => {
@@ -41,9 +41,9 @@ describe('migrateTldrawSnapshot', () => {
     expect(session).toBeDefined();
     expect(session?.plainPrompt).toBe('保留主体构图');
     expect(session?.annotations).toHaveLength(2);
-    expect(session?.annotations[0].label).toBe('区域01');
+    expect(session?.annotations[0].label).toBe('标注01');
     expect(session?.annotations[0].description).toBe('增强人物光影');
-    expect(session?.annotations[1].label).toBe('区域02');
+    expect(session?.annotations[1].label).toBe('标注02');
   });
 
   it('is tolerant to missing fields and returns undefined when no valid annotation', () => {

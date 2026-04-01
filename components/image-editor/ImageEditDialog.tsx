@@ -6,8 +6,14 @@ import { useToast } from '@/hooks/common/use-toast';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { AutosizeTextarea } from '@/components/ui/autosize-text-area';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type {
   ImageEditConfirmPayload,
   ImageEditDialogProps,
@@ -16,8 +22,21 @@ import type {
 } from './types';
 import { IMAGE_EDITOR_THEME } from './theme';
 import { buildImageEditPrompt } from './utils/build-image-edit-prompt';
+import ImageEditPromptEditor from './ImageEditPromptEditor';
 import { migrateTldrawSnapshot } from './utils/migrate-tldraw-snapshot';
 import { useFabricImageEditor } from './hooks/use-fabric-image-editor';
+import { useAPIConfigStore } from '@/lib/store/api-config-store';
+import { getContextModelOptions } from '@/lib/model-center-ui';
+import { normalizeImageSizeToken } from '@/lib/model-center';
+import {
+  DEFAULT_INFINITE_CANVAS_MODEL_ID,
+  INFINITE_CANVAS_MODELS,
+  INFINITE_IMAGE_SIZES,
+} from '@/app/infinite-canvas/_lib/constants';
+import {
+  buildPromptTokenLabelByAnnotationId,
+  mergePromptWithAnnotationDescriptions,
+} from './utils/image-edit-prompt-tokens';
 
 const TOOL_ITEMS: Array<{ id: ImageEditorTool; label: string; icon: ComponentType<{ className?: string }> }> = [
   { id: 'select', label: '选择', icon: MousePointer2 },
@@ -27,6 +46,16 @@ const TOOL_ITEMS: Array<{ id: ImageEditorTool; label: string; icon: ComponentTyp
   { id: 'crop', label: '裁剪', icon: Crop },
 ];
 
+const PLAYGROUND_IMAGE_SIZE_OPTIONS = ['1K', '2K', '4K'] as const;
+const PLAYGROUND_FALLBACK_MODEL_ID = 'gemini-3-pro-image-preview';
+const INFINITE_IMAGE_SIZE_ASPECT_RATIO_MAP: Record<string, string> = {
+  '1024x1024': '1:1',
+  '896x1152': '3:4',
+  '1152x896': '4:3',
+  '768x1344': '9:16',
+  '1344x768': '16:9',
+};
+
 export default function ImageEditDialog(props: ImageEditDialogProps) {
   const {
     open,
@@ -34,11 +63,18 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     initialPrompt,
     initialSession,
     legacyTldrawSnapshot,
+    generationContext = 'playground',
+    initialModelId,
+    initialImageSize,
+    initialAspectRatio,
+    initialBatchSize,
     onOpenChange,
     onConfirm,
   } = props;
 
   const { toast } = useToast();
+  const providers = useAPIConfigStore((state) => state.providers);
+  const getModelEntryById = useAPIConfigStore((state) => state.getModelEntryById);
 
   const migratedSession = useMemo(() => {
     if (initialSession) return initialSession;
@@ -48,20 +84,96 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     });
   }, [initialPrompt, initialSession, legacyTldrawSnapshot]);
 
-  const [plainPrompt, setPlainPrompt] = useState((initialPrompt || '').trim());
+  const fallbackModelId = useMemo(() => {
+    if (initialModelId) {
+      return initialModelId;
+    }
+    if (generationContext === 'infinite-canvas') {
+      return DEFAULT_INFINITE_CANVAS_MODEL_ID;
+    }
+    return PLAYGROUND_FALLBACK_MODEL_ID;
+  }, [generationContext, initialModelId]);
+  const contextModels = useMemo(
+    () => getContextModelOptions(providers, generationContext, 'image'),
+    [generationContext, providers],
+  );
+  const modelOptions = useMemo(
+    () => (contextModels.length > 0
+      ? contextModels
+      : (generationContext === 'infinite-canvas'
+        ? INFINITE_CANVAS_MODELS.map((item) => ({ id: item.id, displayName: item.label }))
+        : [{ id: fallbackModelId, displayName: fallbackModelId }])),
+    [contextModels, fallbackModelId, generationContext],
+  );
+  const [plainPrompt, setPlainPrompt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [activeImageUrl, setActiveImageUrl] = useState((imageUrl || '').trim());
   const [editorSession, setEditorSession] = useState<ImageEditorSessionSnapshot | undefined>(migratedSession);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [pendingInsertTokenQueue, setPendingInsertTokenQueue] = useState<Array<{ requestId: string; annotationId: string }>>([]);
+  const [reportedTokenAnnotationIds, setReportedTokenAnnotationIds] = useState<string[] | null>(null);
+  const [selectedModelId, setSelectedModelId] = useState(fallbackModelId);
+  const [selectedImageSize, setSelectedImageSize] = useState(initialImageSize || '');
+  const [selectedBatchSize, setSelectedBatchSize] = useState(Math.max(1, initialBatchSize ?? 4));
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const knownAnnotationIdsRef = useRef<string[]>([]);
+  const lastReportedTokenAnnotationIdsRef = useRef<Set<string>>(new Set());
+  const didInitializeAnnotationsRef = useRef(false);
+  const selectedModelMeta = getModelEntryById(selectedModelId || fallbackModelId);
+  const supportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize ?? true;
+  const supportsBatch = selectedModelMeta?.capabilities?.supportsBatch ?? true;
+  const allowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
+    ? selectedModelMeta.capabilities.allowedImageSizes
+    : PLAYGROUND_IMAGE_SIZE_OPTIONS;
+  const imageSizeOptions = useMemo<string[]>(() => {
+    if (generationContext === 'infinite-canvas') {
+      const filtered = INFINITE_IMAGE_SIZES.filter((size) => {
+        const normalized = normalizeImageSizeToken(size);
+        return normalized ? allowedImageSizes.includes(normalized as typeof PLAYGROUND_IMAGE_SIZE_OPTIONS[number]) : false;
+      });
+      return filtered.length > 0 ? [...filtered] : [...INFINITE_IMAGE_SIZES];
+    }
+
+    const filtered = PLAYGROUND_IMAGE_SIZE_OPTIONS.filter((size) => allowedImageSizes.includes(size));
+    return filtered.length > 0 ? [...filtered] : [...PLAYGROUND_IMAGE_SIZE_OPTIONS];
+  }, [allowedImageSizes, generationContext]);
+  const maxBatchSize = Math.max(1, supportsBatch ? (selectedModelMeta?.capabilities?.maxBatchSize || 4) : 1);
+  const resolvedAspectRatio = generationContext === 'infinite-canvas'
+    ? (INFINITE_IMAGE_SIZE_ASPECT_RATIO_MAP[selectedImageSize] || initialAspectRatio || '1:1')
+    : (initialAspectRatio || '1:1');
 
   useEffect(() => {
     if (!open) return;
     setActiveImageUrl((imageUrl || '').trim());
     setEditorSession(migratedSession);
     const sessionPrompt = migratedSession?.plainPrompt;
-    setPlainPrompt((sessionPrompt || initialPrompt || '').trim());
-  }, [imageUrl, initialPrompt, migratedSession, open]);
+    setPlainPrompt(sessionPrompt ? mergePromptWithAnnotationDescriptions(sessionPrompt, migratedSession?.annotations) : '');
+    setSelectedModelId(initialModelId || fallbackModelId);
+    setSelectedImageSize(initialImageSize || '');
+    setSelectedBatchSize(Math.max(1, initialBatchSize ?? 4));
+    knownAnnotationIdsRef.current = (migratedSession?.annotations || []).map((annotation) => annotation.id);
+    lastReportedTokenAnnotationIdsRef.current = new Set();
+    didInitializeAnnotationsRef.current = false;
+    setPendingInsertTokenQueue([]);
+    setReportedTokenAnnotationIds(null);
+  }, [fallbackModelId, imageUrl, initialBatchSize, initialImageSize, initialModelId, migratedSession, open]);
+
+  useEffect(() => {
+    if (!imageSizeOptions.includes(selectedImageSize as string)) {
+      setSelectedImageSize(imageSizeOptions[0] || '');
+    }
+  }, [imageSizeOptions, selectedImageSize]);
+
+  useEffect(() => {
+    if (selectedBatchSize > maxBatchSize) {
+      setSelectedBatchSize(maxBatchSize);
+      return;
+    }
+
+    if (selectedBatchSize < 1) {
+      setSelectedBatchSize(1);
+    }
+  }, [maxBatchSize, selectedBatchSize]);
 
   const {
     setCanvasRef,
@@ -76,7 +188,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     setBrushWidth,
     annotations,
     crop,
-    setAnnotationDescription,
     removeAnnotation,
     clearCrop,
     buildSessionSnapshot,
@@ -92,16 +203,71 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     setTool('annotate');
   }, [open, setTool]);
 
-  const promptPreview = useMemo(() => {
+  const promptValidationError = useMemo(() => {
     try {
-      return buildImageEditPrompt(plainPrompt, annotations);
-    } catch {
-      return null;
+      buildImageEditPrompt(plainPrompt, annotations);
+      return '';
+    } catch (error) {
+      return error instanceof Error ? error.message : '编辑指令解析失败';
     }
   }, [annotations, plainPrompt]);
 
-  const missingDescription = annotations.some((annotation) => !annotation.description.trim());
+  const annotationTokenLabelById = useMemo(
+    () => buildPromptTokenLabelByAnnotationId(annotations),
+    [annotations],
+  );
   const showUploadPlaceholder = !activeImageUrl || Boolean(loadError);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const currentAnnotationIds = annotations.map((annotation) => annotation.id);
+
+    if (!didInitializeAnnotationsRef.current) {
+      knownAnnotationIdsRef.current = currentAnnotationIds;
+      didInitializeAnnotationsRef.current = true;
+      return;
+    }
+
+    const knownAnnotationIds = knownAnnotationIdsRef.current;
+    const newAnnotationIds = currentAnnotationIds.filter((annotationId) => !knownAnnotationIds.includes(annotationId));
+
+    if (newAnnotationIds.length > 0) {
+      setPendingInsertTokenQueue((current) => [
+        ...current,
+        ...newAnnotationIds.map((annotationId) => ({
+          requestId: `${annotationId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          annotationId,
+        })),
+      ]);
+    }
+
+    knownAnnotationIdsRef.current = currentAnnotationIds;
+  }, [annotations, open]);
+
+  useEffect(() => {
+    if (!open || !reportedTokenAnnotationIds) {
+      return;
+    }
+
+    const previousTokenAnnotationIdSet = lastReportedTokenAnnotationIdsRef.current;
+    const tokenAnnotationIdSet = new Set(reportedTokenAnnotationIds);
+    const pendingAnnotationIdSet = new Set(pendingInsertTokenQueue.map((item) => item.annotationId));
+    const removedTokenAnnotationIds = Array.from(previousTokenAnnotationIdSet)
+      .filter((annotationId) => !tokenAnnotationIdSet.has(annotationId) && !pendingAnnotationIdSet.has(annotationId));
+
+    lastReportedTokenAnnotationIdsRef.current = tokenAnnotationIdSet;
+
+    if (removedTokenAnnotationIds.length === 0) {
+      return;
+    }
+
+    removedTokenAnnotationIds.forEach((annotationId) => {
+      removeAnnotation(annotationId);
+    });
+  }, [annotations, open, pendingInsertTokenQueue, removeAnnotation, reportedTokenAnnotationIds]);
 
   const readFileAsDataUrl = useCallback((file: File): Promise<string> => (
     new Promise((resolve, reject) => {
@@ -176,6 +342,10 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
         plainPrompt: promptPayload.plainPrompt,
         finalPrompt: promptPayload.finalPrompt,
         regionInstructions: promptPayload.regionInstructions,
+        modelId: selectedModelId || fallbackModelId,
+        imageSize: selectedImageSize || imageSizeOptions[0] || '',
+        aspectRatio: resolvedAspectRatio,
+        batchSize: Math.min(selectedBatchSize, maxBatchSize),
         sessionSnapshot: {
           ...sessionSnapshot,
           plainPrompt: promptPayload.plainPrompt,
@@ -204,7 +374,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         
-        className="max-h-[80vh] w-[80vw] max-w-[1840px] overflow-hidden bg-[#1C1C1C]/80  text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl   border-white/10 rounded-3xl border p-4"
+        className="max-h-[80vh] w-[80vw] max-w-[1840px] overflow-hidden bg-[#1C1C1C]/80  text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl  ring-none focus:ring-0 border-white/10 rounded-3xl border p-0"
       
       >
         <DialogTitle className="sr-only">图像编辑</DialogTitle>
@@ -220,7 +390,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
           />
 
           <div
-            className="flex flex-wrap items-center justify-between gap-3 border-none px-2 py-2"
+            className="flex flex-wrap items-center justify-between gap-1 border-none px-2 py-2  mt-2 mx-2 bg-[#0F1017] p-2 rounded-2xl"
            
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -228,60 +398,53 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                 const Icon = item.icon;
                 const isActive = tool === item.id;
                 return (
-                  <button
+                  <Button
                     key={item.id}
                     type="button"
+                    variant="ghost"
                     onClick={() => setTool(item.id)}
                     className={cn(
-                      'inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs transition-colors',
-                      isActive ? 'font-semibold' : 'font-medium',
+                      'inline-flex h-9 items-center gap-1 rounded-xl border px-3 text-xs transition-colors',
+                      isActive 
+                        ? 'font-medium border-white/20 bg-[#E3FF9C] text-black' 
+                        : 'font-medium border-none bg-[#2c2d2f] text-white/50',
                     )}
-                    style={{
-                      borderColor: isActive ? IMAGE_EDITOR_THEME.action : IMAGE_EDITOR_THEME.border,
-                      backgroundColor: isActive ? `${IMAGE_EDITOR_THEME.action}22` : IMAGE_EDITOR_THEME.card,
-                      color: isActive ? IMAGE_EDITOR_THEME.action : IMAGE_EDITOR_THEME.textPrimary,
-                    }}
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-2 w-2" />
                     {item.label}
-                  </button>
+                  </Button>
                 );
               })}
               {crop ? (
-                <button
+                <Button
                   type="button"
-                  className="rounded-lg border px-2 py-1 transition-colors"
-                  style={{ borderColor: IMAGE_EDITOR_THEME.border, color: IMAGE_EDITOR_THEME.textPrimary }}
+                  variant="light"
+                  className="rounded-lg border px-2 py-1 transition-colors border-[#4A4C4D] text-[#D9D9D9]"
                   onClick={clearCrop}
                 >
                   清除裁剪
-                </button>
+                </Button>
               ) : null}
-              <button
+              <div className='w-px h-6 mx-1 border border-white/10'>
+
+              </div>
+            
+              <Button
                 type="button"
-                className="inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-medium bg-white/5 hover:bg-white/10 transition-colors hover:text-white transition-colors"
-                style={{
-                  borderColor: IMAGE_EDITOR_THEME.border,
-                  
-                  color: IMAGE_EDITOR_THEME.textPrimary,
-                }}
+                variant="light"
+                className="inline-flex  w-9 h-9 items-center gap-2 rounded-xl px-3 text-xs font-medium bg-white/10 hover:bg-white/15 transition-colors hover:text-white border-[#4A4C4D] text-[#D9D9D9]"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="h-3.5 w-3.5" />
-                替换图片
-              </button>
+                <Upload className="h-2 w-3" />
+                
+              </Button>
             </div>
 
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant="secondary"
-                className="rounded-xl border"
-                style={{
-                  borderColor: IMAGE_EDITOR_THEME.border,
-                  backgroundColor: IMAGE_EDITOR_THEME.card,
-                  color: IMAGE_EDITOR_THEME.textPrimary,
-                }}
+                variant="light"
+                className="rounded-xl  h-9 text-sm  bg-white/10 text-white"
                 onClick={() => onOpenChange(false)}
                 disabled={submitting}
               >
@@ -289,11 +452,8 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
               </Button>
               <Button
                 type="button"
-                className="rounded-xl border-0 font-semibold"
-                style={{
-                  backgroundColor: IMAGE_EDITOR_THEME.action,
-                  color: IMAGE_EDITOR_THEME.actionText,
-                }}
+                variant="light"
+                className="rounded-xl h-9 border-0 text-sm bg-white text-[#000000]"
                 onClick={handleConfirm}
                 disabled={!isReady || submitting}
               >
@@ -305,6 +465,14 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
           <div className=" flex flex-1 min-h-0 pb-2 overflow-hidden px-2 py-2 ">
             <div
               className="relative flex flex-1 min-h-0 items-center justify-center overflow-auto rounded-2xl h-full"
+              style={{
+                backgroundImage: `
+                  linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+                `,
+                backgroundSize: '24px 24px',
+                backgroundColor: '#0F1017'
+              }}
            
               onDragEnter={(event) => {
                 event.preventDefault();
@@ -326,85 +494,84 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
               onDrop={handleCanvasDrop}
             >
               {showUploadPlaceholder ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm border border-white/10 rounded-2xl bg-black/80" >
-                  <button
+                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm border-none rounded-2xl" >
+                  <Button
                     type="button"
+                    variant="ghost"
                     className={cn(
                       'inline-flex min-h-[120px] min-w-[280px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-colors',
-                      isDraggingFile && 'scale-[1.01]',
+                      isDraggingFile 
+                        ? 'scale-[1.01] border-[#DAFFAC] bg-[#DAFFAC]/[0.05]' 
+                        : 'border-[#4A4C4D] bg-[#0F1017]/50 backdrop-blur-sm',
                     )}
-                    style={{
-                      borderColor: isDraggingFile ? IMAGE_EDITOR_THEME.action : IMAGE_EDITOR_THEME.border,
-                      backgroundColor: isDraggingFile ? IMAGE_EDITOR_THEME.actionSurface : IMAGE_EDITOR_THEME.background,
-                    }}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <Upload className="h-5 w-5" style={{ color: IMAGE_EDITOR_THEME.textSecondary }} />
-                    <span style={{ color: IMAGE_EDITOR_THEME.textPrimary }}>点击或拖拽上传图片</span>
+                    <Upload className="h-5 w-5 text-[#A3A3A3]" />
+                    <span className="text-[#D9D9D9]">点击或拖拽上传图片</span>
                     {loadError && activeImageUrl ? (
-                      <span className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textMuted }}>{loadError}</span>
+                      <span className="text-xs text-[#737373]">{loadError}</span>
                     ) : null}
-                  </button>
+                  </Button> 
                 </div>
               ) : null}
               {!showUploadPlaceholder && !isReady ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
+                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm text-[#A3A3A3]">
                   Thinking...
                 </div>
               ) : null}
               <canvas ref={setCanvasRef} className="block max-h-full max-w-full" />
 
               <div
-                className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-lg border px-2 py-1 text-[11px]"
-                style={{
-                  borderColor: IMAGE_EDITOR_THEME.border,
-                  backgroundColor: `${IMAGE_EDITOR_THEME.background}CC`,
-                  color: IMAGE_EDITOR_THEME.textSecondary,
-                }}
+                className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-lg border px-2 py-1 text-[11px] border-[#4A4C4D] bg-[#0F1017] text-[#A3A3A3]"
               >
                 {imageSize.width} x {imageSize.height}
               </div>
             </div>
 
             <div
-              className="ml-2 flex h-full w-[400px] min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black p-2"
+              className="ml-2 flex h-full w-[400px] min-h-0 flex-col overflow-hidden rounded-2xl border-none bg-[#0F1017] p-2"
               
             >
-              <div className="b px-4 py-3" >
-                <p className="text-sm font-semibold" style={{ color: IMAGE_EDITOR_THEME.textPrimary }}>编辑指令</p>
-                <p className="mt-1 text-xs" style={{ color: IMAGE_EDITOR_THEME.textMuted }}>
-                  在左侧拖拽可框选；标注模式下可直接拖动框体并拖动四角调整大小。若存在标注，确认前每条说明必填。
+              <div className=" px-4 py-3" >
+                <p className="text-md font-semibold text-[#D9D9D9]">Prompt Editor</p>
+                <p className="mt-1 text-xs text-[#737373]">
+                  在左侧拖拽可框选；标注模式下可直接拖动框体并拖动四角调整大小。
                 </p>
               </div>
 
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 ">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pt-0 pb-4">
+                
+
                 <div
-                  className="rounded-2xl border border-white/10 px-3 py-3 bg-[#1c1c1c]"
+                  className="rounded-2xl border h-full border-none px-3 py-3 bg-[#2c2d2f]"
                  
                 >
-                  <AutosizeTextarea
-                    value={plainPrompt}
-                    onChange={(event) => setPlainPrompt(event.target.value)}
-                    placeholder="输入基础编辑指令..."
-                    minHeight={320}
-                    maxHeight={400}
-                    className="w-full border-none bg-transparent p-2 text-sm leading-relaxed tracking-wide placeholder:text-white/40 focus-visible:ring-0 focus-visible:ring-offset-0"
-                    style={{
-                      color: IMAGE_EDITOR_THEME.textPrimary,
+                  <ImageEditPromptEditor
+                    prompt={plainPrompt}
+                    annotations={annotations}
+                    onPromptChange={setPlainPrompt}
+                    onTokenIdsChange={setReportedTokenAnnotationIds}
+                    insertTokenRequest={pendingInsertTokenQueue[0] || null}
+                    onInsertTokenRequestHandled={(requestId) => {
+                      setPendingInsertTokenQueue((current) => (
+                        current.length > 0 && current[0]?.requestId === requestId
+                          ? current.slice(1)
+                          : current.filter((item) => item.requestId !== requestId)
+                      ));
                     }}
                   />
 
-                  <div className="mt-3 flex items-center justify-between">
+                  {/* <div className="mt-3 flex items-center justify-between">
                     <p className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
                       标注（{annotations.length}）
                     </p>
-                    {missingDescription ? (
-                      <span className="text-[11px]" style={{ color: '#fca5a5' }}>存在未填写说明</span>
+                    {promptValidationError ? (
+                      <span className="text-[11px]" style={{ color: '#fca5a5' }}>存在未补充说明</span>
                     ) : null}
-                  </div>
+                  </div> */}
 
-                  {annotations.length === 0 ? (
-                    <p className="mt-2 rounded-xl border px-3 py-2 text-xs" style={{ color: IMAGE_EDITOR_THEME.textMuted, borderColor: IMAGE_EDITOR_THEME.border }}>
+                  {/* {annotations.length === 0 ? (
+                    <p className="mt-2 rounded-xl border px-3 py-2 text-xs text-[#737373] border-[#4A4C4D]">
                       使用“标注”工具框选区域后，标注 token 会嵌入到此输入区。
                     </p>
                   ) : (
@@ -412,57 +579,40 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                       {annotations.map((annotation) => (
                         <div
                           key={annotation.id}
-                          className="inline-flex items-center gap-2 rounded-full border px-2 py-1.5"
-                          style={{
-                            borderColor: IMAGE_EDITOR_THEME.border,
-                            backgroundColor: IMAGE_EDITOR_THEME.card,
-                          }}
+                          className="inline-flex items-center gap-2 rounded-full border px-2 py-1.5 border-[#4A4C4D] bg-[#2C2D2F]"
                         >
                           <span
-                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                            style={{
-                              borderColor: IMAGE_EDITOR_THEME.border,
-                              backgroundColor: `${IMAGE_EDITOR_THEME.action}1A`,
-                              color: IMAGE_EDITOR_THEME.textPrimary,
-                            }}
+                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium border-[#4A4C4D] bg-[#DAFFAC]/[0.1] text-[#D9D9D9]"
                           >
-                            {annotation.label}
+                            {annotationTokenLabelById.get(annotation.id) || annotation.label}
                           </span>
-                          <input
-                            value={annotation.description}
-                            onChange={(event) => setAnnotationDescription(annotation.id, event.target.value)}
-                            placeholder="输入该区域编辑指令..."
-                            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-white/35"
-                            style={{ color: IMAGE_EDITOR_THEME.textPrimary }}
-                          />
-                          <button
+                          <Button
                             type="button"
                             onClick={() => removeAnnotation(annotation.id)}
-                            className="shrink-0 text-[11px]"
-                            style={{ color: IMAGE_EDITOR_THEME.textMuted }}
+                            className="shrink-0 text-[11px] text-[#737373]"
                           >
                             删除
-                          </button>
+                          </Button> 
                         </div>
                       ))}
                     </div>
-                  )}
+                  )} */}
                 </div>
+                
 
-                {tool === 'brush' ? (
-                  <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: IMAGE_EDITOR_THEME.border, backgroundColor: IMAGE_EDITOR_THEME.background }}>
+                {/* {tool === 'brush' ? (
+                  <div className="space-y-3 rounded-xl border p-3 border-[#4A4C4D] bg-[#161616]">
                     <div className="flex items-center gap-2">
-                      <label className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>画笔颜色</label>
+                      <label className="text-xs text-[#A3A3A3]">画笔颜色</label>
                       <Input
                         type="color"
                         value={brushColor}
                         onChange={(event) => setBrushColor(event.target.value)}
-                        className="h-8 w-12 rounded-lg border p-1"
-                        style={{ borderColor: IMAGE_EDITOR_THEME.border, backgroundColor: IMAGE_EDITOR_THEME.background }}
+                        className="h-8 w-12 rounded-lg border p-1 border-[#4A4C4D] bg-[#161616]"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>画笔粗细：{brushWidth}px</label>
+                      <label className="text-xs text-[#A3A3A3]">画笔粗细：{brushWidth}px</label>
                       <input
                         type="range"
                         min={1}
@@ -473,17 +623,57 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                       />
                     </div>
                   </div>
-                ) : null}
-
-                {promptPreview?.regionInstructions ? (
-                  <div className="rounded-xl border p-3" style={{ borderColor: IMAGE_EDITOR_THEME.border, backgroundColor: IMAGE_EDITOR_THEME.background }}>
-                    <p className="mb-2 text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>Region Instructions 预览</p>
-                    <pre className="whitespace-pre-wrap text-[11px] leading-relaxed" style={{ color: IMAGE_EDITOR_THEME.textMuted }}>
-                      {promptPreview.regionInstructions}
-                    </pre>
-                  </div>
-                ) : null}
+                ) : null} */}
               </div>
+
+                <div className="grid grid-cols-2 gap-3 px-4 pb-4">
+                    <div className="space-y-1.5">
+                      
+                      <Select value={selectedModelId} onValueChange={setSelectedModelId}>
+                        <SelectTrigger
+                          className="h-9 border text-xs border-none bg-[#2c2d2f] text-white"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#2c2d2f] border-none text-white">
+                          {modelOptions.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.displayName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {supportsImageSize ? (
+                      <div className="space-y-1.5">
+                        
+                        <Select value={selectedImageSize || imageSizeOptions[0]} onValueChange={setSelectedImageSize}>
+                          <SelectTrigger
+                            className="h-9 border text-xs border-none bg-[#2c2d2f] text-white"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#2c2d2f] border-none text-white">
+                            {imageSizeOptions.map((size) => (
+                              <SelectItem key={size} value={size}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-white">尺寸</p>
+                        <div
+                          className="flex h-9 items-center rounded-md border px-3 text-xs border-none bg-white/20 text-white"
+                        >
+                          当前模型不支持尺寸切换
+                        </div>
+                      </div>
+                    )}
+                  </div>
             </div>
           </div>
         </div>

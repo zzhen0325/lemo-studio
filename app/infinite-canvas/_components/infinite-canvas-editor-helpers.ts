@@ -73,6 +73,10 @@ export interface InfiniteImageEditDialogState {
   imageUrl: string;
   initialPrompt: string;
   initialSession?: ImageEditorSessionSnapshot;
+  initialModelId?: string;
+  initialImageSize?: string;
+  initialAspectRatio?: string;
+  initialBatchSize?: number;
 }
 
 export interface CanvasViewport {

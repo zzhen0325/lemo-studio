@@ -10,7 +10,7 @@ import type {
 
 export const PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE = "prompt_optimization";
 export const IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE = "image_description";
-export const PROMPT_OPTIMIZATION_VARIANT_COUNT = 2;
+export const PROMPT_OPTIMIZATION_VARIANT_COUNT = 4;
 
 export type PromptHistoryRecordType =
   | "generation"

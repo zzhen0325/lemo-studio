@@ -1,1 +1,0 @@
-export { CozeChatVisionProvider } from './legacy';

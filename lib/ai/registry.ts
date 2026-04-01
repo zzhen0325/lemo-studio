@@ -131,16 +131,5 @@ export const REGISTRY: RegistryItem[] = [
             apiKey: process.env.LEMO_COZE_PROMPT_API_TOKEN || process.env.LEMO_COZE_API_TOKEN,
             baseURL: process.env.LEMO_COZE_PROMPT_RUN_URL || 'https://m5385m4ryw.coze.site/run'
         }
-    },
-    {
-        id: 'coze-professional-describe',
-        providerType: 'coze-vision',
-        task: ['vision'],
-        defaultConfig: {
-            providerId: 'coze',
-            modelId: '7597298278341804086',
-            apiKey: process.env.LEMO_COZE_API_TOKEN,
-            baseURL: 'https://bot-open-api.bytedance.net/v3/chat'
-        }
     }
 ];

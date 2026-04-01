@@ -5,7 +5,6 @@ import {
     BytedanceAfrProvider,
     DoubaoVisionProvider,
     CozeImageProvider,
-    CozeChatVisionProvider,
     CozePromptProvider,
     CozeWorkflowImageProvider,
 } from './providers';
@@ -186,8 +185,6 @@ export function getProvider(
         return new CozeWorkflowImageProvider(config);
     } else if (entry.providerType === 'coze-image') {
         return new CozeImageProvider(config);
-    } else if (entry.providerType === 'coze-vision') {
-        return new CozeChatVisionProvider(config);
     } else {
         // 检查是否是豆包视觉模型
         if (DOUBAO_VISION_MODELS.some(vm => modelId.includes(vm))) {

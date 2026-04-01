@@ -527,6 +527,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     initialPrompt: string;
     initialSession?: ImageEditorSessionSnapshot;
     legacySnapshot?: Record<string, unknown>;
+    initialModelId?: string;
+    initialImageSize?: string;
+    initialAspectRatio?: string;
+    initialBatchSize?: number;
     parentId?: string;
   }>({
     open: false,
@@ -534,6 +538,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     initialPrompt: '',
     initialSession: undefined,
     legacySnapshot: undefined,
+    initialModelId: undefined,
+    initialImageSize: undefined,
+    initialAspectRatio: undefined,
+    initialBatchSize: 4,
     parentId: undefined,
   });
 
@@ -1977,6 +1985,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         initialPrompt: effectiveConfig.prompt || '',
         initialSession,
         legacySnapshot,
+        initialModelId: String(effectiveConfig.model || selectedModel || defaultImageModelId),
+        initialImageSize: String(effectiveConfig.imageSize || '1K'),
+        initialAspectRatio: String(effectiveConfig.aspectRatio || '1:1'),
+        initialBatchSize: 4,
         parentId: undefined,
       });
       setSelectedPresetName(undefined);
@@ -2261,12 +2273,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
 
     toast({
-      title: "AI 已生成 2 个方案",
+      title: `AI 已生成 ${promptVariants.length} 个方案`,
       description: "结果已写入历史记录，当前输入框已回填方案 A。",
     });
   }, [config.baseModel, config.height, config.model, config.prompt, config.width, effectiveUserId, optimizePrompt, prependHistoryItems, runKvStructuredOptimization, selectedAIModel, setConfig, toast]);
 
-  const handleDescribe = React.useCallback(async (mode: 'short' | 'json' = 'short') => {
+  const handleDescribe = React.useCallback(async () => {
     if (describeImages.length === 0) {
       toast({ title: "错误", description: "请先上传图片", variant: "destructive" });
       return;
@@ -2326,33 +2338,15 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         throw new Error("无法获取图片数据");
       }
 
-      // 2. Call unified Vision service
-      const describeServiceModelId = getServiceConfig('describe').modelId;
-      const modelId = mode === 'json' ? 'coze-professional-describe' : (describeServiceModelId || 'gemini-3-pro-image-preview');
-      const systemPrompt = mode === 'json' ? "" : VISION_DESCRIBE_SYSTEM_PROMPT;
-
+      const modelId = 'coze-prompt';
       const result = await callVision({
         image: `data:image/png;base64,${base64}`,
         model: modelId,
-        systemPrompt: systemPrompt
+        prompt: VISION_DESCRIBE_SYSTEM_PROMPT,
       });
 
       const text = result?.text || "";
-      let results: string[] = [];
-
-      if (mode === 'json') {
-        try {
-          const parsed = parseDesignStructuredOptimizationResponse(text);
-          results = parsed.variants
-            .map((variant) => variant.promptPreview.trim())
-            .filter(Boolean);
-        } catch (parseError) {
-          console.warn("[Describe][json] failed to parse structured response, falling back to raw text", parseError);
-          results = [text.trim()].filter(Boolean);
-        }
-      } else {
-        results = text.split('|||').map((s: string) => s.trim()).filter(Boolean);
-      }
+      const results = text.split('|||').map((s: string) => s.trim()).filter(Boolean);
 
       if (results.length > 0) {
         // Create history cards for each description result
@@ -2397,17 +2391,37 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setHistory, callVision, getServiceConfig, toast, effectiveUserId, saveHistoryToBackend]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setHistory, callVision, toast, effectiveUserId, saveHistoryToBackend]);
 
-  const handleBatchUse = async (results: Generation[]) => {
+  const handleBatchUse = useCallback(async (results: Generation[]) => {
     if (!results || results.length === 0) return;
     toast({ title: "批量生成中", description: `即将开始 ${results.length} 个生成任务...` });
+    
+    // 我们需要用每个结果项自己的配置作为基础（特别是提示词和参考图），
+    // 但也要混入当前的全局配置（比如模型、尺寸等）
     for (const result of results) {
-      const newConfig = { ...config, prompt: result.config?.prompt || "" };
-      await handleGenerate({ configOverride: newConfig });
-      await new Promise(r => setTimeout(r, 200));
+      const originalConfig = result.config || {};
+      const currentStoreConfig = usePlaygroundStore.getState().config;
+
+      const fullConfig = {
+        ...currentStoreConfig,
+        ...originalConfig,
+        prompt: originalConfig.prompt || '',
+        // 显式确保 taskId 为空，让 handleGenerate 生成一个全新的 ID
+        taskId: undefined,
+      };
+
+      const sourceImageUrls = originalConfig.sourceImageUrls || [];
+      const localSourceIds = originalConfig.localSourceIds || [];
+
+      await handleGenerate({ 
+        configOverride: fullConfig,
+        sourceImageUrls,
+        localSourceIds
+      });
+      await new Promise(r => setTimeout(r, 300));
     }
-  };
+  }, [handleGenerate, toast]);
 
 
   const handleRegenerate = async (result: Generation) => {
@@ -2536,6 +2550,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       initialPrompt: historyItem.config.prompt || '',
       initialSession,
       legacySnapshot,
+      initialModelId: String(historyItem.config.model || historyItem.config.baseModel || selectedModel || defaultImageModelId),
+      initialImageSize: String(historyItem.config.imageSize || config.imageSize || '1K'),
+      initialAspectRatio: String(historyItem.config.aspectRatio || config.aspectRatio || '1:1'),
+      initialBatchSize: 4,
       parentId: historyItem.id,
     });
 
@@ -2564,6 +2582,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       initialPrompt: currentConfig.prompt || config.prompt || '',
       initialSession: currentConfig.imageEditorSession as ImageEditorSessionSnapshot | undefined,
       legacySnapshot: currentConfig.tldrawSnapshot as Record<string, unknown> | undefined,
+      initialModelId: String(currentConfig.model || selectedModel || defaultImageModelId),
+      initialImageSize: String(currentConfig.imageSize || '1K'),
+      initialAspectRatio: String(currentConfig.aspectRatio || '1:1'),
+      initialBatchSize: 4,
       parentId: currentConfig.parentId,
     });
 
@@ -2602,6 +2624,9 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
       updateConfig({
         prompt: payload.finalPrompt,
+        model: payload.modelId,
+        imageSize: payload.imageSize as GenerationConfig['imageSize'],
+        aspectRatio: payload.aspectRatio as GenerationConfig['aspectRatio'],
         isEdit: true,
         isPreset: false,
         presetName: undefined,
@@ -2610,6 +2635,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         imageEditorSession: payload.sessionSnapshot,
         editConfig: nextEditConfig,
       });
+      setSelectedModel(payload.modelId);
+      setBatchSize(payload.batchSize);
 
       if (imageEditState.parentId) {
         syncHistoryConfig({
@@ -2627,7 +2654,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         legacySnapshot: undefined,
       }));
 
-      await handleGenerate();
+      await handleGenerate({ batchSizeOverride: payload.batchSize });
 
       toast({
         title: '已开始生成',
@@ -2641,7 +2668,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         variant: 'destructive',
       });
     }
-  }, [handleFilesUpload, handleGenerate, imageEditState.imageUrl, imageEditState.parentId, setSelectedPresetName, setUploadedImages, syncHistoryConfig, toast, updateConfig]);
+  }, [defaultImageModelId, handleFilesUpload, handleGenerate, imageEditState.imageUrl, imageEditState.parentId, selectedModel, setSelectedModel, setSelectedPresetName, setUploadedImages, syncHistoryConfig, toast, updateConfig]);
 
 
 

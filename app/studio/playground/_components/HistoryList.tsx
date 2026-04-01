@@ -27,6 +27,7 @@ const HistoryList = function HistoryList({
   onEdit,
   onImageClick,
   onUsePrompt,
+  onBatchUse,
   variant = 'default',
   onLayoutModeChange,
   layoutMode = 'list',
@@ -318,49 +319,71 @@ const HistoryList = function HistoryList({
                       </DraggableHistoryCard>
                     </div>
                   ) : group.type === 'text' ? (
-                    <div className="flex flex-col gap-6 group/card">
-                      <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase ">
+                    <div className="flex flex-col gap-4 group/card">
+                      <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono tracking-tight px-1">
                         <div className="flex items-center gap-4">
-                          <span>{new Date(group.startAt).toLocaleString()}</span>
+                           <span className="text-white/40">Image Analysis</span>
+                        
                           <span className="opacity-40">/</span>
-                          <span className="text-white/40">Image Analysis</span>
+                            <span>{new Date(group.startAt).toLocaleString()}</span>
+                         
                         </div>
                       </div>
 
-                      <div className="relative bg-transparent grid grid-cols-[minmax(0,1.8fr)_minmax(0,4fr)] gap-2 items-stretch content-start">
-                        <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
-                          {group.sourceImage ? (
-                            <DescribeSourceImage
-                              sourceImage={group.sourceImage}
-                              generationId={group.items[0].id}
-                              onPreview={setPreviewImage}
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                              <ImageIcon className="w-6 h-6 text-white/10" />
-                            </div>
-                          )}
+                      <div className="space-y-2">
+                        <div className="relative h-full bg-transparent grid grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))] gap-4 items-stretch content-start">
+                          <div className="relative w-full h-[220px] overflow-hidden rounded-xl border border-white/10 bg-white/5 group/img">
+                            {group.sourceImage ? (
+                              <DescribeSourceImage
+                                sourceImage={group.sourceImage}
+                                generationId={group.items[0].id}
+                                onPreview={setPreviewImage}
+                              />
+                            ) : (
+                              <div className="w-full h-[220px] bg-white/5 flex items-center justify-center">
+                                <ImageIcon className="w-6 h-6 text-white/10" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="col-span-4 grid grid-cols-4 gap-2">
+                            {group.items.map((item, itemIdx) => (
+                              <DraggableHistoryCard
+                                key={`${item.id}-${itemIdx}`}
+                                result={item}
+                                selectedIds={selectedIds}
+                                isSelectionMode={isSelectionMode}
+                              >
+                                <TextHistoryCard
+                                  result={item}
+                                  title="Image Analysis"
+                                  onUsePrompt={onUsePrompt}
+                                  isSelectionMode={isSelectionMode}
+                                  isSelected={selectedIds.has(item.id)}
+                                  onToggleSelect={() => toggleSelection(item.id)}
+                                />
+                              </DraggableHistoryCard>
+                            ))}
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          {group.items.map((item, itemIdx) => (
-                            <DraggableHistoryCard
-                              key={`${item.id}-${itemIdx}`}
-                              result={item}
-                              selectedIds={selectedIds}
-                              isSelectionMode={isSelectionMode}
+                        {group.items.length > 0 && !isSelectionMode && (
+                          <div className="flex gap-2 px-1 pt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 rounded-sm border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white gap-1.5 px-3"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (onBatchUse) {
+                                  onBatchUse(group.items, group.sourceImage);
+                                }
+                              }}
                             >
-                              <TextHistoryCard
-                                result={item}
-                                title="Image Analysis"
-                                onUsePrompt={onUsePrompt}
-                                isSelectionMode={isSelectionMode}
-                                isSelected={selectedIds.has(item.id)}
-                                onToggleSelect={() => toggleSelection(item.id)}
-                              />
-                            </DraggableHistoryCard>
-                          ))}
-                        </div>
+                              <span className="text-md hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]">Use ALL</span>
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -373,38 +396,56 @@ const HistoryList = function HistoryList({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-[minmax(0,1.7fr)_minmax(0,4fr)] gap-4 items-stretch content-start">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col gap-4">
+                      <div className="grid grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))] gap-4 items-start content-start">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col gap-4 overflow-hidden h-[220px]">
                           <div className="flex items-center gap-2 text-[10px] text-white/30 font-mono uppercase tracking-[0.2em]">
                             <span className="block w-1 h-1 rounded-full bg-white/20" />
                             Original Prompt
                           </div>
-                          <p className="text-[12px] leading-relaxed text-white/85 whitespace-pre-wrap break-words">
-                            {group.originalPrompt || group.items[0]?.config?.prompt || 'Untitled prompt'}
-                          </p>
+                          <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                            <p className="text-[12px] leading-relaxed text-white/85 whitespace-pre-wrap break-words">
+                              {group.originalPrompt || group.items[0]?.config?.prompt || 'Untitled prompt'}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          {group.items.map((item, itemIdx) => (
-                            <DraggableHistoryCard
-                              key={`${item.id}-${itemIdx}`}
+                        {group.items.map((item, itemIdx) => (
+                          <DraggableHistoryCard
+                            key={`${item.id}-${itemIdx}`}
+                            result={item}
+                            selectedIds={selectedIds}
+                            isSelectionMode={isSelectionMode}
+                          >
+                            <TextHistoryCard
                               result={item}
-                              selectedIds={selectedIds}
+                              title={getPromptOptimizationSource(item.config)?.activeVariantLabel || `Optimized Prompt ${itemIdx + 1}`}
+                              actionLabel="Use Variant"
+                              onUsePrompt={onUsePrompt}
                               isSelectionMode={isSelectionMode}
-                            >
-                              <TextHistoryCard
-                                result={item}
-                                title={getPromptOptimizationSource(item.config)?.activeVariantLabel || `Optimized Prompt ${itemIdx + 1}`}
-                                actionLabel="Use Variant"
-                                onUsePrompt={onUsePrompt}
-                                isSelectionMode={isSelectionMode}
-                                isSelected={selectedIds.has(item.id)}
-                                onToggleSelect={() => toggleSelection(item.id)}
-                              />
-                            </DraggableHistoryCard>
-                          ))}
-                        </div>
+                              isSelected={selectedIds.has(item.id)}
+                              onToggleSelect={() => toggleSelection(item.id)}
+                            />
+                          </DraggableHistoryCard>
+                        ))}
                       </div>
+
+                      {group.items.length > 0 && !isSelectionMode && (
+                        <div className="flex gap-2 px-1 pt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 rounded-sm border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white gap-1.5 px-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onBatchUse) {
+                                onBatchUse(group.items);
+                              }
+                            }}
+                          >
+                            <span className="text-md hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]">Use ALL</span>
+                          </Button>
+                          </div>
+                      )}
                     </div>
                   )}
                 </div>

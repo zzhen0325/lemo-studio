@@ -526,18 +526,18 @@ export default function ImagePreviewModal({
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 24, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="relative z-10 h-full w-[112px] shrink-0 overflow-hidden border-l border-white/10 bg-black/40 backdrop-blur-2xl flex flex-col"
+                className="relative z-10 h-full w-20 shrink-0 overflow-hidden border-l border-white/10 bg-black/40 backdrop-blur-2xl flex flex-col"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-3 py-4 border-b border-white/10 shrink-0">
-                  <div className="text-[10px] text-white/30 uppercase font-mono tracking-[0.24em]">Images</div>
-                  <div className="mt-2 text-sm text-white/80 tabular-nums">
+                <div className="mx-auto py-4 border-none items-center justify-center shrink-0">
+                  {/* <div className="text-[10px] text-white/30 uppercase font-mono tracking-[0.24em]">Images</div> */}
+                  <div className=" text-sm items-center justify-center text-white/80 tabular-nums">
                     {currentIndex >= 0 ? `${currentIndex + 1} / ${previewResults.length}` : `${previewResults.length}`}
                   </div>
                 </div>
 
                 <ScrollArea className="flex-1 min-h-0">
-                  <div className="p-3 space-y-3">
+                  <div className="p-3 pt-2 space-y-3">
                     {previewResults.map((item, index) => (
                       <PreviewResultThumbnail
                         key={`preview-result-${getResultIdentity(item)}-${index}`}
@@ -582,7 +582,7 @@ function PreviewResultThumbnail({
       }}
     >
       <div
-        className={`relative aspect-square overflow-hidden rounded-2xl border shadow-2xl transition-all ${
+        className={`relative aspect-square overflow-hidden rounded-2xl border  transition-all ${
           isActive
             ? 'border-white/70 ring-2 ring-white/30'
             : 'border-white/10 hover:border-white/30'
@@ -597,9 +597,9 @@ function PreviewResultThumbnail({
           unoptimized
         />
         <div className={`absolute inset-0 transition-colors ${isActive ? 'bg-transparent' : 'bg-black/15 group-hover/result:bg-black/0'}`} />
-        <div className="absolute left-2 top-2 rounded-full border border-white/10 bg-black/65 px-2 py-1 text-[10px] font-mono text-white/90 shadow-lg">
+        {/* <div className="absolute left-2 top-2 rounded-full border border-white/10 bg-black/65 px-2 py-1 text-[10px] font-mono text-white/90 shadow-lg">
           {index + 1}
-        </div>
+        </div> */}
       </div>
     </button>
   );

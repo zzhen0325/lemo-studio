@@ -30,6 +30,10 @@ export interface PlaygroundModalImageEditState {
   initialPrompt: string;
   initialSession?: ImageEditorSessionSnapshot;
   legacySnapshot?: Record<string, unknown>;
+  initialModelId?: string;
+  initialImageSize?: string;
+  initialAspectRatio?: string;
+  initialBatchSize?: number;
 }
 
 interface PlaygroundModalStackProps {
@@ -147,6 +151,11 @@ export function PlaygroundModalStack({
         initialPrompt={imageEditState.initialPrompt}
         initialSession={imageEditState.initialSession}
         legacyTldrawSnapshot={imageEditState.legacySnapshot}
+        generationContext="playground"
+        initialModelId={imageEditState.initialModelId}
+        initialImageSize={imageEditState.initialImageSize}
+        initialAspectRatio={imageEditState.initialAspectRatio}
+        initialBatchSize={imageEditState.initialBatchSize}
         onOpenChange={onImageEditOpenChange}
         onConfirm={onImageEditConfirm}
       />

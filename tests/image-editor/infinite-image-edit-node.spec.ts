@@ -50,4 +50,25 @@ describe('buildEditedImageNode', () => {
     expect(result.node.modelId).toBe(INFINITE_DEFAULT_IMAGE_MODEL);
     expect(result.node.params).toEqual(INFINITE_DEFAULT_IMAGE_PARAMS);
   });
+
+  it('applies explicit model and params overrides from image edit confirmation', () => {
+    const result = buildEditedImageNode({
+      inputAssetId: 'asset-4',
+      prompt: 'edited prompt',
+      position: { x: 80, y: 110 },
+      modelId: 'gemini-3-pro-image-preview',
+      params: {
+        aspectRatio: '16:9',
+        imageSize: '1344x768',
+        batchSize: 4,
+      },
+    });
+
+    expect(result.node.modelId).toBe('gemini-3-pro-image-preview');
+    expect(result.node.params).toMatchObject({
+      aspectRatio: '16:9',
+      imageSize: '1344x768',
+      batchSize: 4,
+    });
+  });
 });

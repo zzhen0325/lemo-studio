@@ -39,15 +39,6 @@ export const SYSTEM_PROMPT_PROFILES: Record<string, SystemPromptProfile> = {
     },
     'optimization-with-image': {
         defaultPrompt: `You are an expert prompt engineer. Based on the provided image and the user's initial prompt, generate an optimized text prompt that describes the image features while incorporating the user's intent. The output should be ready for an image generation model. Output ONLY the optimized prompt.`
-    },
-    'describe-short': {
-        defaultPrompt: `Describe this image concisely. Focus on the main subject and key elements.`,
-    },
-    'describe-detailed': {
-        defaultPrompt: `Describe this image in detail. Include information about the subject, lighting, colors, composition, style, and mood.`,
-        perProviderOverride: {
-            'doubao': `请详细描述这张图片的内容，包括主体、光影、色彩、构图、风格和氛围。`
-        }
     }
 };
 

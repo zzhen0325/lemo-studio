@@ -126,7 +126,7 @@ const ToolsView: React.FC = () => {
                                         </div>
                                         <CardContent className="p-4">
                                             <h3 className="text-lg font-semibold text-white">{tool.name}</h3>
-                                            <p className="text-sm text-white/50">{tool.description}</p>
+                                            <p className="text-xs text-white/50">{tool.description}</p>
                                         </CardContent>
                                     </Card>
                                 ))}

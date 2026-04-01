@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { X, Upload, Sparkles, Plus } from "lucide-react";
+import { X, Upload } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { RefObject } from "react";
 import type { UploadedImage } from "@/lib/playground/types";
@@ -22,7 +22,7 @@ export interface DescribePanelProps {
   onRemoveImage: (index: number) => void;
   isDescribing: boolean;
   isGenerating: boolean;
-  onDescribe: (mode: 'short' | 'json') => void;
+  onDescribe: () => void;
 }
 
 export function DescribePanel({
@@ -47,9 +47,9 @@ export function DescribePanel({
         <motion.div
           ref={panelRef}
           initial={{ opacity: 0, scale: 0.98, flexGrow: 0, height: 0 }}
-          animate={{ opacity: 1, scale: 1, flexGrow: 1, height: "auto" }}
+          animate={{ opacity: 1, scale: 1, flexGrow: 1, height: "100%" }}
           exit={{ opacity: 0, scale: 0.98, flexGrow: 0, height: 0 }}
-          className="flex w-full z-20 py-2 overflow-hidden mt-2 mb-20"
+          className="flex w-full h-full z-20 py-2 overflow-hidden mt-2 mb-20"
         >
           <div className="w-full h-full flex flex-col items-center p-2 bg-white/10 border border-white/20 rounded-[30px]">
             <div
@@ -111,48 +111,25 @@ export function DescribePanel({
                   </div>
                 </div>
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-between gap-4 py-2">
-                  <div className="flex-1 flex flex-wrap justify-center overflow-y-auto gap-4 scrollbar-hide p-2">
-                    {describeImages.map((img, idx) => (
+                <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-between gap-4 py-2">
+                  <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden p-2">
+                    {describeImages[0] && (
                       <DescribeImageItem
-                        key={img.id || idx}
-                        img={img}
-                        idx={idx}
+                        key={describeImages[0].id || 0}
+                        img={describeImages[0]}
+                        idx={0}
                         onRemove={onRemoveImage}
                         onPreview={setPreviewImage}
+                        className="w-full h-full"
                       />
-                    ))}
-                    <div className="w-20 h-20 rounded-xl border border-dashed border-white/10 flex items-center justify-center hover:border-primary transition-all">
-                      <Plus className="w-5 h-5 text-white/20" />
-                    </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3">
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDescribe('short');
-                      }}
-                      disabled={isDescribing || isGenerating}
-                      className="h-10 px-6 rounded-xl bg-white/10 text-white font-normal hover:bg-white/20 transition-all border border-white/10 active:scale-95 disabled:opacity-50 shrink-0"
-                    >
-                      {isDescribing ? (
-                        <div className="flex items-center gap-2">
-                          <LoadingSpinner size={14} />
-                          <span className="text-sm">描述中...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5 opacity-60" />
-                          <span className="text-sm">简短描述</span>
-                        </div>
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDescribe('json');
+                        onDescribe();
                       }}
                       disabled={isDescribing || isGenerating}
                       className="h-10 px-8 rounded-xl bg-primary text-black font-normal hover:bg-primary/90 transition-all shadow-[0_0_20px_oklch(var(--primary)/0.3)] active:scale-95 disabled:opacity-50 shrink-0"
@@ -160,12 +137,12 @@ export function DescribePanel({
                       {isDescribing ? (
                         <div className="flex items-center gap-2">
                           <LoadingSpinner size={14} />
-                          <span className="text-sm">Thinking...</span>
+                          <span className="text-sm">Describeing...</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span className="text-sm">专业 JSON</span>
+                          
+                          <span className="text-sm">Describe</span>
                         </div>
                       )}
                     </Button>
@@ -184,20 +161,29 @@ function DescribeImageItem({
   img,
   idx,
   onRemove,
-  onPreview
+  onPreview,
+  className
 }: {
   img: UploadedImage;
   idx: number;
   onRemove: (index: number) => void;
-  onPreview: (url: string, layoutId?: string) => void;
+  onPreview: (url: string | null, layoutId?: string | null) => void;
+  className?: string;
 }) {
   const src = useImageSource(img.path || img.previewUrl);
+  const imageWidth = img.width || 1920;
+  const imageHeight = img.height || 1080;
 
   return (
-    <div className="relative group/img shrink-0">
+    <div
+      className={cn(
+        "relative flex w-full h-full min-h-0 min-w-0 items-center justify-center",
+        className
+      )}
+    >
       <motion.div
         layoutId={`img-input-${img.id || idx}`}
-        className="relative cursor-pointer"
+        className="relative inline-flex max-h-full max-w-full cursor-pointer rounded-2xl border-none transition-all hover:border-white/20"
         onClick={(e) => {
           e.stopPropagation();
           if (src) {
@@ -205,34 +191,44 @@ function DescribeImageItem({
           }
         }}
       >
-        <Image
-          src={src || img.previewUrl}
-          alt="Preview"
-          width={80}
-          height={80}
-          className={cn(
-            "w-20 h-20 object-cover rounded-xl border-2 border-white/20 transition-all",
-            img.isUploading && "opacity-50 grayscale blur-[px]"
-          )}
-          unoptimized
-        />
+        <div className="relative items-center justify-center overflow-hidden rounded-2xl">
+            {/* {!img.isUploading && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(idx);
+            }}
+            className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white  transition-all hover:bg-red-500/80 hover:scale-110"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )} */}
+          <div className="relative h-full w-full shadow-md">
+             <Image
+            src={src || img.previewUrl}
+            alt="Preview"
+            width={imageWidth}
+            height={imageHeight}
+            unoptimized
+            className={cn(
+              "block max-h-full max-w-full h-auto w-auto mx-auto object-contain rounded-2xl",
+              img.isUploading && "opacity-50 grayscale blur-[2px]"
+            )}
+          />
+         
+
+          </div>
+         
+        </div>
+
         {img.isUploading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <LoadingSpinner size={24} className="text-white" />
           </div>
         )}
+
+       
       </motion.div>
-      {!img.isUploading && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(idx);
-          }}
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white text-black flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-500 shadow-lg"
-        >
-          <X className="w-2.5 h-2.5" />
-        </button>
-      )}
     </div>
   );
 }

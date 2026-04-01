@@ -7,9 +7,11 @@ import type {
   ImageProvider,
   TextProvider,
 } from '../../ai/types';
+import { callCozeRunApi } from '../ai/coze-run';
 import { Logger } from '../utils/logger';
 import { HttpError } from '../utils/http-error';
 import { ApiConfigService } from './api-config.service';
+import { DEFAULT_DATASET_LABEL_SYSTEM_PROMPT } from '../../constants/dataset-prompts';
 import { normalizeImageSizeToken, validateModelUsage } from '../../model-center';
 import { serviceSupportsSystemPrompt } from '../../api-config/types';
 
@@ -44,11 +46,80 @@ export interface TextRequestBody {
   options?: Record<string, unknown>;
 }
 
+function stripCodeFence(text: string): string {
+  const value = text.trim();
+  if (!value.startsWith('```') || !value.endsWith('```')) {
+    return value;
+  }
+  return value.replace(/^```[\w-]*\n?/, '').replace(/\n?```$/, '').trim();
+}
+
+function normalizeDatasetLabelText(text: string): string {
+  const normalized = stripCodeFence(text).trim();
+  if (!normalized) return '';
+
+  try {
+    const parsed = JSON.parse(normalized) as { text?: unknown; label?: unknown };
+    if (typeof parsed.text === 'string' && parsed.text.trim()) {
+      return parsed.text.trim();
+    }
+    if (typeof parsed.label === 'string' && parsed.label.trim()) {
+      return parsed.label.trim();
+    }
+  } catch {
+    // Ignore parse error and use raw text fallback.
+  }
+
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"'))
+    || (normalized.startsWith('\'') && normalized.endsWith('\''))
+  ) {
+    return normalized.slice(1, -1).trim();
+  }
+
+  return normalized;
+}
+
 export class AiService {
   constructor(
     private readonly apiConfigService: ApiConfigService,
     private readonly logger: Logger,
   ) {}
+
+  private async describeDatasetLabelViaCoze(params: {
+    image: string;
+    prompt?: string;
+    systemPrompt?: string;
+  }): Promise<{ text: string }> {
+    const runUrl = process.env.LEMO_COZE_EDIT_RUN_URL?.trim();
+    const apiToken = process.env.LEMO_COZE_EDIT_API_TOKEN?.trim();
+    if (!runUrl) {
+      throw new HttpError(500, 'LEMO_COZE_EDIT_RUN_URL is not set');
+    }
+    if (!apiToken) {
+      throw new HttpError(500, 'LEMO_COZE_EDIT_API_TOKEN is not set');
+    }
+
+    const userInput = JSON.stringify({
+      task: 'dataset_image_label',
+      prompt: params.prompt?.trim() || '请描述这张图片',
+      image: params.image,
+      output: 'plain_text',
+    });
+
+    const systemPrompt = (params.systemPrompt || '').trim() || DEFAULT_DATASET_LABEL_SYSTEM_PROMPT;
+    const rawText = await callCozeRunApi({
+      runUrl,
+      apiToken,
+      userInput,
+      systemPrompt,
+    });
+    const text = normalizeDatasetLabelText(rawText);
+    if (!text) {
+      throw new HttpError(502, 'Model returned empty text (dataset label)');
+    }
+    return { text };
+  }
 
   public async describe(body: DescribeRequestBody): Promise<{ text: string }> {
     const { image, model, profileId, systemPrompt: explicitSystemPrompt, prompt, options } = body;
@@ -60,6 +131,14 @@ export class AiService {
 
     if (!model) {
       throw new HttpError(400, 'Missing model ID');
+    }
+
+    if (describeContext === 'service:datasetLabel') {
+      return this.describeDatasetLabelViaCoze({
+        image,
+        prompt,
+        systemPrompt: explicitSystemPrompt,
+      });
     }
 
     const providers = await this.apiConfigService.getRuntimeProviders();
@@ -80,8 +159,7 @@ export class AiService {
       throw new HttpError(400, `Model ${model} does not support vision tasks`);
     }
 
-    const describeService = describeContext === 'service:datasetLabel' ? 'datasetLabel' : 'describe';
-    const canUseSystemPrompt = serviceSupportsSystemPrompt(describeService, { providerId: '', modelId: model });
+    const canUseSystemPrompt = serviceSupportsSystemPrompt('describe', { providerId: '', modelId: model });
 
     let resolvedSystemPrompt = canUseSystemPrompt ? explicitSystemPrompt : undefined;
     if (canUseSystemPrompt && resolvedSystemPrompt === undefined && profileId) {

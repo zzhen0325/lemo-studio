@@ -45,14 +45,14 @@ export function DescribeSourceImage({
   return (
     <motion.div
       layoutId={`img-ref-${generationId}`}
-      className="w-full"
+      className="w-full h-full"
     >
       <Image
         src={src}
         alt="Source for describe"
         width={1024}
         height={1024}
-        className="w-full h-auto cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
+        className="w-full h-full object-cover cursor-pointer transition-transform duration-500 rounded-xl group-hover/img:scale-[1.05]"
         onClick={(e) => {
           e.stopPropagation();
           onPreview(src, `img-ref-${generationId}`);
@@ -303,7 +303,7 @@ export function HistoryCard({
           >
             <motion.div className="relative h-full bg-transparent grid grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))] gap-4 items-stretch content-start">
               <motion.div
-                className="relative w-full h-full overflow-hidden rounded-2xl border border-white/5 bg-white/10  p-4 flex flex-col justify-start"
+                className="relative w-full h-full overflow-hidden rounded-xl border border-white/10 bg-gradient-to-b from-[#1079BB]/10  to-white/5 p-4 flex flex-col justify-start"
               >
                 <div className="flex items-center justify-between text-[10px] text-white/20 uppercase font-medium mb-3">
                   <div className="flex items-center gap-1.5">
@@ -759,7 +759,7 @@ export function TextHistoryCard({
   return (
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-xl border bg-black/5 p-4 flex flex-col justify-start group/card transition-all",
+        "relative w-full h-[220px] overflow-hidden rounded-xl border bg-black/5 p-4 flex flex-col justify-start group/card transition-all",
         isSelectionMode && "cursor-pointer",
         isSelectionMode && isSelected ? "border-emerald-500/50 bg-emerald-500/5" : (isSelectionMode ? "border-white/5 hover:border-white/10" : "border-white/10")
       )}
@@ -781,24 +781,26 @@ export function TextHistoryCard({
             <LoadingSpinner size={20} className="text-white/10" />
           </div>
         ) : (
-          <p
-            className="text-[11px] text-white/90 leading-relaxed line-clamp-[10] cursor-pointer hover:drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] transition-all"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isSelectionMode) {
-                if (onUsePrompt) {
-                  onUsePrompt(result);
+          <div className="w-full h-full overflow-y-auto pr-1 custom-scrollbar">
+            <p
+              className="text-[11px] text-white/90 leading-relaxed cursor-pointer hover:drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] transition-all whitespace-pre-wrap break-words"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isSelectionMode) {
+                  if (onUsePrompt) {
+                    onUsePrompt(result);
+                  } else {
+                    applyPrompt(prompt);
+                  }
+                  toast({ title: "提示词已应用", description: "已将内容填充到输入框" });
                 } else {
-                  applyPrompt(prompt);
+                  onToggleSelect?.();
                 }
-                toast({ title: "提示词已应用", description: "已将内容填充到输入框" });
-              } else {
-                onToggleSelect?.();
-              }
-            }}
-          >
-            {prompt}
-          </p>
+              }}
+            >
+              {prompt}
+            </p>
+          </div>
         )}
       </div>
 
@@ -807,7 +809,7 @@ export function TextHistoryCard({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 rounded-lg border-white/10 bg-white/5 text-primary hover:bg-white/20 hover:border-primary/40 gap-1.5 px-3"
+            className="h-7 rounded-lg border-white/10 bg-white/15 backdrop-blur-md text-white  hover:bg-white/20 hover:border-primary/40 gap-1.5 px-3"
             onClick={handleApply}
           >
             <Type className="w-3 h-3" />

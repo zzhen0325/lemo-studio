@@ -94,7 +94,7 @@ export interface PlaygroundInputSectionProps {
     handleFilesUpload: (files: File[] | FileList, target?: 'reference' | 'describe') => void;
     handleOptimizePrompt: () => void;
     handleGenerate: () => void;
-    handleDescribe: (mode: 'short' | 'json') => void;
+    handleDescribe: () => void;
     setSelectedAIModel: (model: AIModel) => void;
     setSelectedModel: (model: string) => void;
     setIsAspectRatioLocked: (val: boolean) => void;

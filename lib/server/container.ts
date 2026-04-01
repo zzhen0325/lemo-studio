@@ -27,7 +27,6 @@ import { PresetsService } from './service/presets.service';
 import { SaveImageService } from './service/save-image.service';
 import { StylesService } from './service/styles.service';
 import { ToolsPresetsService } from './service/tools-presets.service';
-import { TranslateService } from './service/translate.service';
 import { UploadService } from './service/upload.service';
 import { UsersService } from './service/users.service';
 import { ViewComfyConfigService } from './service/view-comfy.service';
@@ -76,7 +75,6 @@ let servicesPromise: Promise<{
   saveImageService: SaveImageService;
   stylesService: StylesService;
   toolsPresetsService: ToolsPresetsService;
-  translateService: TranslateService;
   uploadService: UploadService;
   usersService: UsersService;
   viewComfyConfigService: ViewComfyConfigService;
@@ -103,7 +101,6 @@ async function createServerServices() {
   const saveImageService = new SaveImageService(repositories.imageAssetsRepository);
   const stylesService = new StylesService(repositories.stylesRepository);
   const toolsPresetsService = new ToolsPresetsService(repositories.toolPresetsRepository, repositories.imageAssetsRepository);
-  const translateService = new TranslateService(apiConfigService);
   const uploadService = new UploadService(repositories.imageAssetsRepository);
   const usersService = new UsersService(repositories.usersRepository);
   const viewComfyConfigService = new ViewComfyConfigService();
@@ -128,7 +125,6 @@ async function createServerServices() {
     saveImageService,
     stylesService,
     toolsPresetsService,
-    translateService,
     uploadService,
     usersService,
     viewComfyConfigService,

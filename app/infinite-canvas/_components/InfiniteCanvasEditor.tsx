@@ -1498,6 +1498,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       imageUrl,
       initialPrompt: node.prompt || '',
       initialSession: node.imageEditorSession,
+      initialModelId: node.modelId || DEFAULT_INFINITE_CANVAS_MODEL_ID,
+      initialImageSize: node.params?.imageSize || '1024x1024',
+      initialAspectRatio: node.params?.aspectRatio || '1:1',
+      initialBatchSize: 4,
     });
   }, [project, toast]);
 
@@ -1536,6 +1540,12 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         inputAssetId: assetId,
         prompt: payload.finalPrompt,
         position,
+        modelId: payload.modelId,
+        params: {
+          aspectRatio: payload.aspectRatio,
+          imageSize: payload.imageSize,
+          batchSize: payload.batchSize,
+        },
       });
 
       editedNode.imageEditorSession = payload.sessionSnapshot;
@@ -2481,6 +2491,11 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         imageUrl={imageEditDialogState.imageUrl}
         initialPrompt={imageEditDialogState.initialPrompt}
         initialSession={imageEditDialogState.initialSession}
+        generationContext="infinite-canvas"
+        initialModelId={imageEditDialogState.initialModelId}
+        initialImageSize={imageEditDialogState.initialImageSize}
+        initialAspectRatio={imageEditDialogState.initialAspectRatio}
+        initialBatchSize={imageEditDialogState.initialBatchSize}
         onOpenChange={(open) => {
           setImageEditDialogState((previous) => ({
             ...previous,

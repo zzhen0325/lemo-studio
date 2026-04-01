@@ -33,7 +33,6 @@ interface UseFabricImageEditorResult {
   setBrushWidth: (width: number) => void;
   annotations: ImageEditorAnnotation[];
   crop?: ImageEditorCrop;
-  setAnnotationDescription: (annotationId: string, description: string) => void;
   removeAnnotation: (annotationId: string) => void;
   clearCrop: () => void;
   buildSessionSnapshot: (plainPrompt: string) => ImageEditorSessionSnapshot;
@@ -95,8 +94,32 @@ function normalizeDimension(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
 }
 
+function getCanvasPixelRatio(): number {
+  if (typeof window === 'undefined') {
+    return 1;
+  }
+
+  return Math.max(1, window.devicePixelRatio || 1);
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
+    return true;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  return Boolean(target.closest('[contenteditable="true"], [data-slate-editor="true"], [role="textbox"]'));
 }
 
 function parseAnnotationOrder(label: string): number {
@@ -224,14 +247,45 @@ function resizeRectFromHandle(
   }, boundsWidth, boundsHeight);
 }
 
-function getPointFromEvent(canvas: HTMLCanvasElement, event: PointerEvent): Point {
-  const bounds = canvas.getBoundingClientRect();
-  const scaleX = bounds.width ? (canvas.width / bounds.width) : 1;
-  const scaleY = bounds.height ? (canvas.height / bounds.height) : 1;
+function getCanvasDisplaySize(
+  canvas: HTMLCanvasElement,
+  logicalWidth: number,
+  logicalHeight: number,
+): { width: number; height: number } {
+  const parent = canvas.parentElement;
+  if (!parent) {
+    return { width: logicalWidth, height: logicalHeight };
+  }
+
+  const bounds = parent.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) {
+    return { width: logicalWidth, height: logicalHeight };
+  }
+
+  const scale = Math.min(bounds.width / logicalWidth, bounds.height / logicalHeight, 1);
+  if (!Number.isFinite(scale) || scale <= 0) {
+    return { width: logicalWidth, height: logicalHeight };
+  }
 
   return {
-    x: clamp((event.clientX - bounds.left) * scaleX, 0, canvas.width),
-    y: clamp((event.clientY - bounds.top) * scaleY, 0, canvas.height),
+    width: Math.max(1, Math.floor(logicalWidth * scale)),
+    height: Math.max(1, Math.floor(logicalHeight * scale)),
+  };
+}
+
+function getPointFromEvent(
+  canvas: HTMLCanvasElement,
+  event: PointerEvent,
+  logicalWidth: number,
+  logicalHeight: number,
+): Point {
+  const bounds = canvas.getBoundingClientRect();
+  const scaleX = bounds.width ? (logicalWidth / bounds.width) : 1;
+  const scaleY = bounds.height ? (logicalHeight / bounds.height) : 1;
+
+  return {
+    x: clamp((event.clientX - bounds.left) * scaleX, 0, logicalWidth),
+    y: clamp((event.clientY - bounds.top) * scaleY, 0, logicalHeight),
   };
 }
 
@@ -391,6 +445,10 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
   const interactionRef = useRef<Interaction>(null);
   const selectionRef = useRef<Selection>(null);
   const pointerIdRef = useRef<number | null>(null);
+  const imageSizeRef = useRef({
+    width: initialSession?.imageWidth || 1024,
+    height: initialSession?.imageHeight || 1024,
+  });
 
   const [isReady, setIsReady] = useState(false);
   const [loadError, setLoadError] = useState<string | undefined>(undefined);
@@ -424,6 +482,10 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     isReadyRef.current = isReady;
   }, [isReady]);
 
+  useEffect(() => {
+    imageSizeRef.current = imageSize;
+  }, [imageSize]);
+
   const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const backgroundImage = backgroundImageRef.current;
@@ -437,10 +499,35 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       return;
     }
 
+    const logicalWidth = imageSizeRef.current.width;
+    const logicalHeight = imageSizeRef.current.height;
+    const displaySize = getCanvasDisplaySize(canvas, logicalWidth, logicalHeight);
+    const pixelRatio = getCanvasPixelRatio();
+    const pixelWidth = Math.max(1, Math.round(displaySize.width * pixelRatio));
+    const pixelHeight = Math.max(1, Math.round(displaySize.height * pixelRatio));
+
+    if (canvas.width !== pixelWidth) {
+      canvas.width = pixelWidth;
+    }
+    if (canvas.height !== pixelHeight) {
+      canvas.height = pixelHeight;
+    }
+
+    const cssWidth = `${displaySize.width}px`;
+    const cssHeight = `${displaySize.height}px`;
+    if (canvas.style.width !== cssWidth) {
+      canvas.style.width = cssWidth;
+    }
+    if (canvas.style.height !== cssHeight) {
+      canvas.style.height = cssHeight;
+    }
+
+    context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, canvas.width, canvas.height);
+    context.setTransform(pixelWidth / logicalWidth, 0, 0, pixelHeight / logicalHeight, 0, 0);
     context.fillStyle = IMAGE_EDITOR_THEME.background;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+    context.fillRect(0, 0, logicalWidth, logicalHeight);
+    context.drawImage(backgroundImage, 0, 0, logicalWidth, logicalHeight);
 
     strokesRef.current.forEach((stroke) => {
       drawStrokePath(context, stroke);
@@ -495,7 +582,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
 
     const interaction = interactionRef.current;
     if (interaction && (interaction.type === 'draw-annotation' || interaction.type === 'draw-crop')) {
-      const draftRect = rectFromPoints(interaction.start, interaction.current, canvas.width, canvas.height);
+      const draftRect = rectFromPoints(interaction.start, interaction.current, logicalWidth, logicalHeight);
       context.save();
       context.lineWidth = 2;
       context.strokeStyle = interaction.type === 'draw-crop' ? IMAGE_EDITOR_THEME.action : BANNER_ANNOTATION_BORDER_COLOR;
@@ -592,9 +679,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
 
         const width = normalizeDimension(image.naturalWidth || image.width || initialSession?.imageWidth || 1024, 1024);
         const height = normalizeDimension(image.naturalHeight || image.height || initialSession?.imageHeight || 1024, 1024);
-
-        canvas.width = width;
-        canvas.height = height;
+        imageSizeRef.current = { width, height };
 
         const session = initialSession;
         const scaleX = session ? (width / Math.max(1, session.imageWidth)) : 1;
@@ -708,7 +793,8 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       if (!enabled || !isReadyRef.current) return;
       if (pointerIdRef.current !== null) return;
 
-      const point = getPointFromEvent(canvas, event);
+      const { width: logicalWidth, height: logicalHeight } = imageSizeRef.current;
+      const point = getPointFromEvent(canvas, event, logicalWidth, logicalHeight);
       const activeTool = toolRef.current;
       const currentCrop = cropRef.current;
 
@@ -864,9 +950,8 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       const interaction = interactionRef.current;
       if (!interaction) return;
 
-      const point = getPointFromEvent(canvas, event);
-      const width = canvas.width;
-      const height = canvas.height;
+      const { width, height } = imageSizeRef.current;
+      const point = getPointFromEvent(canvas, event, width, height);
 
       if (interaction.type === 'draw-annotation' || interaction.type === 'draw-crop') {
         interaction.current = point;
@@ -984,7 +1069,8 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       }
 
       if (interaction.type === 'draw-annotation') {
-        const draft = rectFromPoints(interaction.start, interaction.current, canvas.width, canvas.height);
+        const { width, height } = imageSizeRef.current;
+        const draft = rectFromPoints(interaction.start, interaction.current, width, height);
         if (draft.width >= MIN_DRAW_SIZE && draft.height >= MIN_DRAW_SIZE) {
           const maxLabelIndex = annotationsRef.current.reduce((max, annotation) => {
             const parsed = parseAnnotationLabelIndex(annotation.label, IMAGE_EDITOR_ANNOTATION_LABEL);
@@ -1014,9 +1100,10 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       }
 
       if (interaction.type === 'draw-crop') {
-        const draft = rectFromPoints(interaction.start, interaction.current, canvas.width, canvas.height);
+        const { width, height } = imageSizeRef.current;
+        const draft = rectFromPoints(interaction.start, interaction.current, width, height);
         if (draft.width >= MIN_DRAW_SIZE && draft.height >= MIN_DRAW_SIZE) {
-          const normalized = normalizeRect(draft, canvas.width, canvas.height);
+          const normalized = normalizeRect(draft, width, height);
           applyCrop(normalized);
           selectionRef.current = { kind: 'crop' };
         } else {
@@ -1099,8 +1186,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Backspace' && event.key !== 'Delete') return;
 
-      const target = event.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) {
+      if (isEditableKeyboardTarget(event.target)) {
         return;
       }
 
@@ -1137,16 +1223,30 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     };
   }, [applyAnnotations, applyCrop, enabled, renderCanvas]);
 
-  const setAnnotationDescription = useCallback((annotationId: string, description: string) => {
-    const nextAnnotations = annotationsRef.current.map((annotation) => (
-      annotation.id === annotationId
-        ? { ...annotation, description }
-        : annotation
-    ));
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
 
-    applyAnnotations(nextAnnotations);
-    renderCanvas();
-  }, [applyAnnotations, renderCanvas]);
+    const canvas = canvasRef.current;
+    const parent = canvas?.parentElement;
+    if (!canvas || !parent || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (!isReadyRef.current) {
+        return;
+      }
+      renderCanvas();
+    });
+
+    observer.observe(parent);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [canvasMountVersion, enabled, renderCanvas]);
 
   const removeAnnotation = useCallback((annotationId: string) => {
     const filtered = annotationsRef.current.filter((annotation) => annotation.id !== annotationId);
@@ -1302,7 +1402,6 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     setBrushWidth,
     annotations,
     crop,
-    setAnnotationDescription,
     removeAnnotation,
     clearCrop,
     buildSessionSnapshot,
@@ -1319,7 +1418,6 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     isReady,
     loadError,
     removeAnnotation,
-    setAnnotationDescription,
     setCanvasRef,
     tool,
   ]);
