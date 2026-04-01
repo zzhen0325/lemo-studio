@@ -22,6 +22,7 @@ interface PlaygroundDockPanelsProps {
   activeTab: 'gallery' | 'describe' | 'style' | 'banner' | 'history';
   onImageClick: (result: import("@/types/database").Generation) => void;
   onUsePrompt?: (result: import("@/types/database").Generation) => void;
+  onUseImage?: (result: import("@/types/database").Generation) => void | Promise<void>;
   onShortcutQuickApply?: (shortcut: PlaygroundShortcut) => void;
   isGenerating: boolean;
   onGenerateBanner: (options?: unknown) => void;
@@ -35,6 +36,7 @@ export function PlaygroundDockPanels({
   activeTab,
   onImageClick,
   onUsePrompt,
+  onUseImage,
   onShortcutQuickApply,
   isGenerating,
   onGenerateBanner,
@@ -48,7 +50,12 @@ export function PlaygroundDockPanels({
         <div className="w-full h-full relative flex overflow-hidden z-30 animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-28">
           <div className="h-full w-full  overflow-hidden relative">
             <Suspense fallback={<div className="flex w-[90%] items-center justify-center h-full text-white">Thinking...</div>}>
-              <GalleryView onSelectItem={onImageClick} onUsePrompt={onUsePrompt} historyController={historyController} />
+              <GalleryView
+                onSelectItem={onImageClick}
+                onUsePrompt={onUsePrompt}
+                onUseImage={onUseImage}
+                historyController={historyController}
+              />
             </Suspense>
           </div>
         </div>

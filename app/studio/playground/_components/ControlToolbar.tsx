@@ -66,6 +66,7 @@ interface ControlToolbarProps {
   selectedWorkflowName?: string;
   activeShortcutName?: string;
   onClearShortcutTemplate?: () => void;
+  isFloatingOverlay?: boolean;
 }
 
 
@@ -106,6 +107,7 @@ export default function ControlToolbar({
   disableModelSelection = false,
   activeShortcutName,
   onClearShortcutTemplate,
+  isFloatingOverlay = false,
 }: ControlToolbarProps) {
 
 
@@ -221,6 +223,10 @@ export default function ControlToolbar({
   };
 
   const Inputbutton2 = "h-8 px-3 text-white rounded-xl bg-white/5 border border-white/10  hover:bg-white/5 hover:border-white/10 hover:border hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)] hover:text-white    transition-colors duration-200";
+  const floatingDropdownClassName = isFloatingOverlay
+    ? "!z-[2000] scale-75 origin-top-left"
+    : "";
+  const floatingDropdownSideOffset = isFloatingOverlay ? -80 : 4;
 
   // 使用统一配置获取显示标签
   const modelTriggerLabel = (() => {
@@ -353,7 +359,11 @@ export default function ControlToolbar({
                         <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-[280px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl " align="start">
+                    <DropdownMenuContent
+                      className={cn("w-[280px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl", floatingDropdownClassName)}
+                      align="start"
+                      sideOffset={floatingDropdownSideOffset}
+                    >
                       {selectableModels.map((model) => {
                         const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
                         return (
@@ -401,7 +411,11 @@ export default function ControlToolbar({
                         <ChevronDown className="h-4 w-4 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-[180px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+                    <DropdownMenuContent
+                      className={cn("w-[180px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl", floatingDropdownClassName)}
+                      align="start"
+                      sideOffset={floatingDropdownSideOffset}
+                    >
                       {BASE_MODEL_LIST.map((model) => (
                         <DropdownMenuItem
                           key={model.name}
@@ -456,7 +470,11 @@ export default function ControlToolbar({
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[320px]  p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl" align="start">
+            <DropdownMenuContent
+              className={cn("w-[320px]  p-4 bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl", floatingDropdownClassName)}
+              align="start"
+              sideOffset={floatingDropdownSideOffset}
+            >
               <div className="space-y-4">
                 {selectedSupportsImageSize && (
                   <div className="space-y-4">

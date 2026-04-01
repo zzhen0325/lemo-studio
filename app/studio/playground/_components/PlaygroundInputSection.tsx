@@ -156,6 +156,7 @@ export interface PlaygroundInputSectionProps {
     onShortcutTemplatePrefillInstruction?: (instruction: string, scope?: DesignVariantEditScope) => void;
     onShortcutTemplateApplyEdit?: (scope: DesignVariantEditScope, instructionOverride?: string) => void;
     onShortcutTemplateRestoreVariant?: () => void;
+    isFloatingOverlay?: boolean;
 }
 
 export function PlaygroundInputSection({
@@ -230,6 +231,7 @@ export function PlaygroundInputSection({
     onShortcutTemplatePrefillInstruction,
     onShortcutTemplateApplyEdit,
     onShortcutTemplateRestoreVariant,
+    isFloatingOverlay = false,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -533,7 +535,7 @@ export function PlaygroundInputSection({
                                                 className={cn("flex w-auto min-w-8 shrink-0 items-center justify-center overflow-hidden", isOptimizing ? "gap-1.5 px-1.5" : "gap-1 px-2")}
                                             >
                                                 <Sparkles className="h-1.5 w-1.5 shrink-0 hover:drop-shadow-[0_0_18px_#ffffff]" />
-                                                <span className="shrink-0 text-[14px]">AI</span>
+                                                {/* <span className="shrink-0 text-[14px]">AI</span> */}
                                                 <AnimatePresence initial={false} mode="wait">
                                                     {isOptimizing ? (
                                                         <motion.span
@@ -702,6 +704,7 @@ export function PlaygroundInputSection({
                         disableModelSelection={disableModelSelection}
                         activeShortcutName={activeShortcutName}
                         onClearShortcutTemplate={onClearShortcutTemplate}
+                        isFloatingOverlay={isFloatingOverlay}
                     />
                 </div>
             </div>

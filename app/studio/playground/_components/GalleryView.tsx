@@ -40,10 +40,12 @@ type GalleryInnerTab = 'gallery' | 'prompt';
 export default function GalleryView({
     onSelectItem,
     onUsePrompt,
+    onUseImage,
     historyController,
 }: {
     onSelectItem?: (item: Generation, items?: Generation[]) => void;
     onUsePrompt?: (item: Generation) => void;
+    onUseImage?: (item: Generation) => void | Promise<void>;
     historyController?: Pick<PlaygroundHistoryController, 'setHistory' | 'getHistoryItem'>;
 }) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -412,6 +414,7 @@ export default function GalleryView({
                                             onDownload={handleDownload}
                                             onGenerate={handleGenerate}
                                             onUsePrompt={onUsePrompt}
+                                            onUseImage={onUseImage}
                                         />
                                     )}
                                 />
@@ -742,9 +745,10 @@ interface GalleryCardProps {
     onDownload: (e: React.MouseEvent, url: string, filename: string) => void;
     onGenerate: HandleGenerateFn;
     onUsePrompt?: (item: Generation) => void;
+    onUseImage?: (item: Generation) => void | Promise<void>;
 }
 
-function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onUsePrompt }: GalleryCardProps) {
+function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onUsePrompt, onUseImage }: GalleryCardProps) {
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const { ref, isInView } = useInView('200px');
@@ -871,7 +875,11 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
                         className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                         onClick={() => {
                             if (item.outputUrl) {
-                                usePlaygroundStore.getState().applyImage(item.outputUrl);
+                                if (onUseImage) {
+                                    void onUseImage(item);
+                                } else {
+                                    usePlaygroundStore.getState().applyImage(item.outputUrl);
+                                }
                                 toast({ title: "Image Added", description: "图片已添加为参考图" });
                             }
                         }}

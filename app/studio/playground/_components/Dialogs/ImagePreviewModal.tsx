@@ -32,6 +32,8 @@ interface ImagePreviewModalProps {
   hasNext?: boolean;
   hasPrev?: boolean;
   onRegenerate?: (result: Generation) => void;
+  onApplyPrompt?: (result: Generation) => void;
+  onApplyImage?: (result: Generation) => void | Promise<void>;
 }
 
 function getResultIdentity(result?: Generation) {
@@ -52,7 +54,9 @@ export default function ImagePreviewModal({
   onPrev,
   hasNext,
   hasPrev,
-  onRegenerate
+  onRegenerate,
+  onApplyPrompt,
+  onApplyImage,
 }: ImagePreviewModalProps) {
   const [scale, setScale] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -173,6 +177,10 @@ export default function ImagePreviewModal({
   const handleApplyPrompt = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (!prompt) return;
+    if (onApplyPrompt) {
+      onApplyPrompt(result);
+      return;
+    }
     applyPrompt(prompt);
     toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
   };
@@ -180,7 +188,11 @@ export default function ImagePreviewModal({
   const handleApplyImage = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     if (!result.outputUrl) return;
-    await applyImage(result.outputUrl);
+    if (onApplyImage) {
+      await onApplyImage(result);
+    } else {
+      await applyImage(result.outputUrl);
+    }
     toast({ title: "Image Added", description: "图片已添加为参考图" });
   };
 

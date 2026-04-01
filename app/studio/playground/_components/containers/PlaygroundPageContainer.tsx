@@ -159,6 +159,20 @@ interface BannerSessionHistoryItem {
   templateId: string;
 }
 
+type PromptOptimizationRequestPrefix = "[Event kv]" | "[Text]";
+
+function prependPromptOptimizationRequestPrefix(
+  input: string,
+  prefix: PromptOptimizationRequestPrefix,
+) {
+  const trimmedInput = input.trim();
+  if (!trimmedInput) {
+    return "";
+  }
+
+  return `${prefix}\n${trimmedInput}`;
+}
+
 export const PlaygroundV2Page = function PlaygroundV2Page({
   onEditMapping,
 }: PlaygroundV2PageProps) {
@@ -250,6 +264,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   // const [isDescribeMode, setIsDescribeMode] = useState(false); // Refactored to viewMode
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
+  const [isFloatingInputVisible, setIsFloatingInputVisible] = useState(false);
+  const [floatingInputAnimationKey, setFloatingInputAnimationKey] = useState(0);
   const [historyLayoutMode, setHistoryLayoutMode] = useState<'grid' | 'list'>('list');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [batchSize, setBatchSize] = useState(4); // Default batch size
@@ -372,6 +388,16 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   // Removed click outside listener for Describe panel as it is now a persistent tab in Dock Mode.
 
   const promptWrapperRef = useRef<HTMLDivElement | null>(null);
+  const triggerFloatingPlaygroundInput = useCallback(() => {
+    setIsFloatingInputVisible(true);
+    setFloatingInputAnimationKey((prev) => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'gallery' && isFloatingInputVisible) {
+      setIsFloatingInputVisible(false);
+    }
+  }, [activeTab, isFloatingInputVisible]);
 
   useEffect(() => {
     initPresets();
@@ -1176,6 +1202,28 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       description: "已将此条提示词填充到输入框",
     });
   }, [applyModel, applyPrompt, setSelectedPresetName, setSelectedWorkflowConfig, shortcutByCode, toast, updateConfig]);
+
+  const handleUseGalleryPrompt = useCallback((result: Generation) => {
+    handleUseHistoryPrompt(result);
+    triggerFloatingPlaygroundInput();
+  }, [handleUseHistoryPrompt, triggerFloatingPlaygroundInput]);
+
+  const handleUseGalleryImage = useCallback(async (result: Generation) => {
+    if (!result.outputUrl) return;
+    triggerFloatingPlaygroundInput();
+    await usePlaygroundStore.getState().applyImage(result.outputUrl);
+  }, [triggerFloatingPlaygroundInput]);
+
+  const handleModalApplyPrompt = useCallback((result: Generation) => {
+    handleUseHistoryPrompt(result);
+    triggerFloatingPlaygroundInput();
+  }, [handleUseHistoryPrompt, triggerFloatingPlaygroundInput]);
+
+  const handleModalApplyImage = useCallback(async (result: Generation) => {
+    if (!result.outputUrl) return;
+    triggerFloatingPlaygroundInput();
+    await usePlaygroundStore.getState().applyImage(result.outputUrl);
+  }, [triggerFloatingPlaygroundInput]);
 
   const handleShortcutTemplateFieldChange = useCallback((fieldId: string, value: string) => {
     const current = activeShortcutTemplateRef.current;
@@ -2068,8 +2116,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       sourceValues,
       sourceRemovedFieldIds,
     );
+    const taggedOptimizationInput = prependPromptOptimizationRequestPrefix(
+      optimizationInput,
+      "[Event kv]",
+    );
 
-    const optimizedText = await optimizePrompt(optimizationInput, selectedAIModel);
+    const optimizedText = await optimizePrompt(taggedOptimizationInput, selectedAIModel);
     console.info("[KV structured optimization] raw_response", optimizedText);
 
     if (!optimizedText) {
@@ -2180,8 +2232,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       config.prompt,
       PROMPT_OPTIMIZATION_VARIANT_COUNT,
     );
-    const optimizedText = await optimizePrompt(
+    const taggedOptimizationInput = prependPromptOptimizationRequestPrefix(
       optimizationInput,
+      "[Text]",
+    );
+    const optimizedText = await optimizePrompt(
+      taggedOptimizationInput,
       selectedAIModel,
       undefined,
       {
@@ -3026,7 +3082,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                   viewMode={viewMode}
                   activeTab={activeTab}
                   onImageClick={openImageModal}
-                  onUsePrompt={handleUseHistoryPrompt}
+                  onUsePrompt={handleUseGalleryPrompt}
+                  onUseImage={handleUseGalleryImage}
                   onShortcutQuickApply={handleShortcutQuickApply}
                   isGenerating={isGenerating}
                   onGenerateBanner={(options) => handleGenerate((options as GenerateOptions) || {})}
@@ -3097,6 +3154,17 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           </main>
         </div>
 
+        {viewMode === 'dock' && activeTab === 'gallery' && isFloatingInputVisible && (
+          <div className="pointer-events-none fixed left-1/2 bottom-8 z-[1370] w-[50vw] max-w-[1200px] scale-75 -translate-x-1/2">
+            <div
+              key={floatingInputAnimationKey}
+              className="pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300"
+            >
+              <PlaygroundInputSection {...inputSectionProps} hideTitle isFloatingOverlay />
+            </div>
+          </div>
+        )}
+
         <PlaygroundModalStack
           selectedResultPreviewKey={selectedResultPreviewKey}
           isImageModalOpen={isImageModalOpen}
@@ -3112,6 +3180,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           hasNext={hasNext}
           hasPrev={hasPrev}
           onRegenerate={handleRegenerate}
+          onApplyPrompt={handleModalApplyPrompt}
+          onApplyImage={handleModalApplyImage}
           selectedShortcutPreviewKey={selectedShortcutPreviewKey}
           selectedShortcutPreviewResult={selectedShortcutPreviewResult}
           onCloseShortcutPreview={handleShortcutPreviewClose}
