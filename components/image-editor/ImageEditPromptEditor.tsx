@@ -22,7 +22,6 @@ import {
 } from 'slate-react';
 import { cn } from '@/lib/utils';
 import type { ImageEditorAnnotation } from './types';
-import { IMAGE_EDITOR_THEME } from './theme';
 import {
   buildPromptTokenLabelByAnnotationId,
   parseImageEditPromptParts,
@@ -429,7 +428,7 @@ export default function ImageEditPromptEditor({
       Transforms.delete(editor);
     }
 
-    Transforms.insertNodes(editor, tokenNode as any);
+    Transforms.insertNodes(editor, tokenNode as unknown as Descendant);
     lastSelectionRef.current = editor.selection;
   }, [editor]);
 

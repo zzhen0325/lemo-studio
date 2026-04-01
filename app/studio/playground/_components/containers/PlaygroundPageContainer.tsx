@@ -291,7 +291,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     selectedHistoryIds
   } = usePlaygroundStore();
   const apiConfigSettings = useAPIConfigStore(s => s.settings);
-  const enterBannerMode = usePlaygroundStore(s => s.enterBannerMode);
   const defaultImageModelId = apiConfigSettings.services?.imageGeneration?.binding?.modelId
     || apiConfigSettings.defaults?.image?.textToImage?.binding?.modelId
     || "gemini-3-pro-image-preview";
@@ -794,7 +793,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   }, [batchSize, singleGenerate, executeGeneration, setViewMode, setActiveTab, setShowHistory]);
 
   const { optimizePrompt, isOptimizing } = usePromptOptimization();
-  const { callVision, getServiceConfig } = useAIServiceV1();
+  const { callVision } = useAIServiceV1();
 
   const requestDesignVariantEdit = useCallback(async (params: {
     instruction: string;
@@ -2624,7 +2623,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       imageEditorSession: initialSession,
     });
     setSelectedPresetName(undefined);
-  }, [getHistoryItem, setSelectedPresetName, updateConfig]);
+  }, [config.aspectRatio, config.imageSize, defaultImageModelId, getHistoryItem, selectedModel, setSelectedPresetName, updateConfig]);
 
   const handleEditUploadedImage = useCallback(() => {
     const imageToEdit = usePlaygroundStore.getState().uploadedImages[0];
@@ -2654,7 +2653,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       presetName: undefined,
     });
     setSelectedPresetName(undefined);
-  }, [config.prompt, setSelectedPresetName, updateConfig]);
+  }, [config.prompt, defaultImageModelId, selectedModel, setSelectedPresetName, updateConfig]);
 
   const handleImageEditConfirm = useCallback(async (payload: ImageEditConfirmPayload) => {
     try {
@@ -2725,7 +2724,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         variant: 'destructive',
       });
     }
-  }, [defaultImageModelId, handleFilesUpload, handleGenerate, imageEditState.imageUrl, imageEditState.parentId, selectedModel, setSelectedModel, setSelectedPresetName, setUploadedImages, syncHistoryConfig, toast, updateConfig]);
+  }, [handleFilesUpload, handleGenerate, imageEditState.imageUrl, imageEditState.parentId, setSelectedModel, setSelectedPresetName, setUploadedImages, syncHistoryConfig, toast, updateConfig]);
 
 
 
@@ -3043,7 +3042,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                       <PlaygroundHomeActions
                         onOpenDescribe={() => { setViewMode('dock'); setActiveTab('describe'); }}
                         onEdit={handleEditUploadedImage}
-                        onOpenBanner={() => enterBannerMode()}
                         onOpenHistory={() => { setViewMode('dock'); setActiveTab('history'); }}
                         onOpenGallery={() => { setViewMode('dock'); setActiveTab('gallery'); }}
                       />

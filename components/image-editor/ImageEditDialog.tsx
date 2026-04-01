@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/common/use-toast';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -20,7 +19,6 @@ import type {
   ImageEditorSessionSnapshot,
   ImageEditorTool,
 } from './types';
-import { IMAGE_EDITOR_THEME } from './theme';
 import { buildImageEditPrompt } from './utils/build-image-edit-prompt';
 import ImageEditPromptEditor from './ImageEditPromptEditor';
 import { migrateTldrawSnapshot } from './utils/migrate-tldraw-snapshot';
@@ -34,7 +32,6 @@ import {
   INFINITE_IMAGE_SIZES,
 } from '@/app/infinite-canvas/_lib/constants';
 import {
-  buildPromptTokenLabelByAnnotationId,
   mergePromptWithAnnotationDescriptions,
 } from './utils/image-edit-prompt-tokens';
 
@@ -182,10 +179,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     imageSize,
     tool,
     setTool,
-    brushColor,
-    setBrushColor,
-    brushWidth,
-    setBrushWidth,
     annotations,
     crop,
     removeAnnotation,
@@ -203,19 +196,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     setTool('annotate');
   }, [open, setTool]);
 
-  const promptValidationError = useMemo(() => {
-    try {
-      buildImageEditPrompt(plainPrompt, annotations);
-      return '';
-    } catch (error) {
-      return error instanceof Error ? error.message : '编辑指令解析失败';
-    }
-  }, [annotations, plainPrompt]);
-
-  const annotationTokenLabelById = useMemo(
-    () => buildPromptTokenLabelByAnnotationId(annotations),
-    [annotations],
-  );
   const showUploadPlaceholder = !activeImageUrl || Boolean(loadError);
 
   useEffect(() => {

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { StyleStack } from './types';
-import { Plus, Sparkles, Trash2, Edit3, Settings2 } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 import NextImage from 'next/image';
 import { cn } from '@/lib/utils';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -17,12 +17,6 @@ import {
   getShortcutByMoodboardId,
   type PlaygroundShortcut,
 } from '@/config/playground-shortcuts';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
     SMALL_STACK_CARD_LAYOUT_CLASS,
     SMALL_STACK_DESCRIPTION_CLASS,
@@ -62,7 +56,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     onMoodboardApply,
     size = 'md'
 }) => {
-    const { applyPrompt, deleteStyle } = usePlaygroundStore();
+    const { applyPrompt } = usePlaygroundStore();
     const { toast } = useToast();
     const isSmall = size === 'sm';
     const isGridLg = size === 'grid-lg';

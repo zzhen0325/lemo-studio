@@ -19,7 +19,7 @@ export interface DescribePanelProps {
   onUploadClick: () => void;
   onDropFiles: (files: File[]) => void;
   onClose: () => void;
-  onRemoveImage: (index: number) => void;
+  onRemoveImage?: (index: number) => void;
   isDescribing: boolean;
   isGenerating: boolean;
   onDescribe: () => void;
@@ -35,7 +35,6 @@ export function DescribePanel({
   onUploadClick,
   onDropFiles,
   onClose,
-  onRemoveImage,
   isDescribing,
   isGenerating,
   onDescribe,
@@ -118,7 +117,6 @@ export function DescribePanel({
                         key={describeImages[0].id || 0}
                         img={describeImages[0]}
                         idx={0}
-                        onRemove={onRemoveImage}
                         onPreview={setPreviewImage}
                         className="w-full h-full"
                       />
@@ -160,13 +158,11 @@ export function DescribePanel({
 function DescribeImageItem({
   img,
   idx,
-  onRemove,
   onPreview,
   className
 }: {
   img: UploadedImage;
   idx: number;
-  onRemove: (index: number) => void;
   onPreview: (url: string | null, layoutId?: string | null) => void;
   className?: string;
 }) {

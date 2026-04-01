@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Layers, Plus, Upload, X, BookmarkPlus } from 'lucide-react';
+import { Plus, X, BookmarkPlus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   DropdownMenu,

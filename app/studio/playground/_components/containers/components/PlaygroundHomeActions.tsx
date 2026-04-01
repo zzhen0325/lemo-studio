@@ -1,11 +1,10 @@
-import { Edit2, History, Image as ImageIcon, Sparkles, Square } from "lucide-react";
+import { Edit2, History, Image as ImageIcon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 interface PlaygroundHomeActionsProps {
   onOpenDescribe: () => void;
   onEdit: () => void;
-  onOpenBanner: () => void;
   onOpenHistory: () => void;
   onOpenGallery: () => void;
 }
@@ -13,7 +12,6 @@ interface PlaygroundHomeActionsProps {
 export function PlaygroundHomeActions({
   onOpenDescribe,
   onEdit,
-  onOpenBanner,
   onOpenHistory,
   onOpenGallery,
 }: PlaygroundHomeActionsProps) {

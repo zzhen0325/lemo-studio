@@ -7,7 +7,6 @@ import {
   ImagePlus,
   PencilLine,
   Plus,
-  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react';
