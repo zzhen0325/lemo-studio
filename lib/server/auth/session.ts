@@ -23,7 +23,6 @@ function getSessionSecret(): string {
   return (
     process.env.AUTH_SESSION_SECRET?.trim()
     || process.env.API_CONFIG_ENCRYPTION_KEY?.trim()
-    || process.env.COZE_SUPABASE_ANON_KEY?.trim()
     || 'lemo-studio-development-session-secret'
   );
 }

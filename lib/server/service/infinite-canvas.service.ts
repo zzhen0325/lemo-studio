@@ -216,11 +216,260 @@ function getProjectOwnerId(doc: unknown): string | null {
 }
 
 const LEGACY_STORE_PATH = path.join(getWorkspaceRoot(), 'data', 'infinite-canvas', 'projects.json');
+type ProjectStoreMode = 'auto' | 'supabase' | 'json';
+const PRIMARY_STORE_TIMEOUT_MS = 8000;
+
+function readErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : '';
+  }
+
+  return '';
+}
+
+function shouldFallbackToLocalStore(error: unknown): boolean {
+  const message = readErrorMessage(error).trim().toLowerCase();
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes('unauthorized')
+    || message.includes('jwt')
+    || message.includes('timeout')
+    || message.includes('timed out')
+    || message.includes('coze_supabase_url is not set')
+    || message.includes('db_password or coze_supabase_anon_key is not set')
+  );
+}
 
 export class InfiniteCanvasService {
   constructor(private readonly infiniteCanvasRepository: InfiniteCanvasRepository) {}
 
   private migrationChecked = false;
+  private projectStoreMode: ProjectStoreMode = 'auto';
+
+  private async withProjectStoreFallback<T>(
+    primary: () => Promise<T>,
+    fallback: () => Promise<T>,
+  ): Promise<T> {
+    if (this.projectStoreMode === 'json') {
+      return fallback();
+    }
+
+    try {
+      const primaryPromise = primary();
+      // If timeout wins the race, avoid later unhandled rejections from the primary branch.
+      primaryPromise.catch(() => {});
+      const result = await this.withTimeout(
+        primaryPromise,
+        PRIMARY_STORE_TIMEOUT_MS,
+        'Infinite canvas Supabase request timeout',
+      );
+      this.projectStoreMode = 'supabase';
+      return result;
+    } catch (error) {
+      if (!shouldFallbackToLocalStore(error)) {
+        throw error;
+      }
+
+      console.warn('[InfiniteCanvasService] Supabase unavailable, using local JSON store.');
+      this.projectStoreMode = 'json';
+      return fallback();
+    }
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(`${message} (${timeoutMs}ms)`));
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
+  private async readLocalStore(): Promise<InfiniteCanvasStore> {
+    try {
+      const raw = await fs.readFile(LEGACY_STORE_PATH, 'utf-8');
+      const parsed = JSON.parse(raw) as Partial<InfiniteCanvasStore>;
+      return {
+        version: 1,
+        projects: ensureArray<InfiniteCanvasProject>(parsed.projects).map(normalizeProject),
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException | null)?.code === 'ENOENT') {
+        return { version: 1, projects: [] };
+      }
+      throw error;
+    }
+  }
+
+  private async writeLocalStore(store: InfiniteCanvasStore): Promise<void> {
+    await fs.mkdir(path.dirname(LEGACY_STORE_PATH), { recursive: true });
+    await fs.writeFile(
+      LEGACY_STORE_PATH,
+      JSON.stringify(
+        {
+          version: 1,
+          projects: store.projects.map(normalizeProject),
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
+  }
+
+  private async getLocalProjectEntry(projectId: string) {
+    const store = await this.readLocalStore();
+    const index = store.projects.findIndex((project) => project.projectId === projectId);
+    if (index < 0) {
+      throw new HttpError(404, 'Project not found');
+    }
+
+    return {
+      store,
+      index,
+      project: normalizeProject(store.projects[index]),
+    };
+  }
+
+  private async listProjectsFromLocalStore(): Promise<{ projects: InfiniteCanvasProjectSummary[] }> {
+    const store = await this.readLocalStore();
+    const projects = [...store.projects]
+      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+      .map(buildSummary);
+
+    return { projects };
+  }
+
+  private async createProjectInLocalStore(payload: CreateProjectPayload): Promise<{ project: InfiniteCanvasProject }> {
+    const store = await this.readLocalStore();
+    const project = createEmptyProject(payload.projectName);
+    store.projects.unshift(project);
+    await this.writeLocalStore(store);
+    return { project };
+  }
+
+  private async getProjectFromLocalStore(projectId: string): Promise<{ project: InfiniteCanvasProject }> {
+    const entry = await this.getLocalProjectEntry(projectId);
+    return { project: entry.project };
+  }
+
+  private async saveProjectInLocalStore(projectId: string, payload: InfiniteCanvasProject): Promise<{ project: InfiniteCanvasProject }> {
+    if (!payload || typeof payload !== 'object') {
+      throw new HttpError(400, 'Invalid project payload');
+    }
+
+    const entry = await this.getLocalProjectEntry(projectId);
+    const next = normalizeProject({
+      ...payload,
+      projectId,
+      createdAt: entry.project.createdAt,
+      updatedAt: nowISO(),
+      projectName: trimProjectName(payload.projectName || entry.project.projectName),
+    });
+
+    entry.store.projects[entry.index] = next;
+    await this.writeLocalStore(entry.store);
+    return { project: next };
+  }
+
+  private async renameProjectInLocalStore(projectId: string, projectName: string): Promise<{ project: InfiniteCanvasProject }> {
+    const entry = await this.getLocalProjectEntry(projectId);
+    const next = normalizeProject({
+      ...entry.project,
+      projectName: trimProjectName(projectName),
+      updatedAt: nowISO(),
+    });
+
+    entry.store.projects[entry.index] = next;
+    await this.writeLocalStore(entry.store);
+    return { project: next };
+  }
+
+  private async duplicateProjectInLocalStore(projectId: string): Promise<{ project: InfiniteCanvasProject }> {
+    const entry = await this.getLocalProjectEntry(projectId);
+    const source = entry.project;
+    const copied = clone(source);
+    const nodeIdMap = new Map<string, string>();
+
+    const now = nowISO();
+    const duplicatedNodes = copied.nodes.map((node) => {
+      const nextNodeId = randomUUID();
+      nodeIdMap.set(node.nodeId, nextNodeId);
+      return {
+        ...node,
+        nodeId: nextNodeId,
+        outputs: ensureArray<InfiniteCanvasNode['outputs'][number]>(node.outputs).map((output) => ({
+          ...output,
+          outputId: randomUUID(),
+        })),
+        createdAt: now,
+        updatedAt: now,
+      };
+    });
+
+    const duplicated = normalizeProject({
+      ...copied,
+      projectId: randomUUID(),
+      projectName: `${source.projectName} 副本`,
+      createdAt: now,
+      updatedAt: now,
+      nodes: duplicatedNodes,
+      edges: copied.edges
+        .map((edge) => {
+          const sourceNodeId = nodeIdMap.get(edge.sourceNodeId);
+          const targetNodeId = nodeIdMap.get(edge.targetNodeId);
+          if (!sourceNodeId || !targetNodeId) return null;
+          return {
+            ...edge,
+            edgeId: randomUUID(),
+            sourceNodeId,
+            targetNodeId,
+            createdAt: now,
+          };
+        })
+        .filter(Boolean) as InfiniteCanvasEdge[],
+      history: copied.history.map((item) => ({
+        ...item,
+        historyId: randomUUID(),
+        nodeId: nodeIdMap.get(item.nodeId) || item.nodeId,
+        createdAt: now,
+      })),
+      runQueue: [],
+      lastOpenedPanel: null,
+    });
+
+    entry.store.projects.unshift(duplicated);
+    await this.writeLocalStore(entry.store);
+    return { project: duplicated };
+  }
+
+  private async deleteProjectInLocalStore(projectId: string): Promise<{ success: true }> {
+    const store = await this.readLocalStore();
+    const nextProjects = store.projects.filter((project) => project.projectId !== projectId);
+    if (nextProjects.length === store.projects.length) {
+      throw new HttpError(404, 'Project not found');
+    }
+
+    store.projects = nextProjects;
+    await this.writeLocalStore(store);
+    return { success: true };
+  }
 
   private async claimProjectOwner(projectId: string, actorId: string): Promise<void> {
     await this.infiniteCanvasRepository.claimOwner(projectId, actorId);
@@ -290,177 +539,217 @@ export class InfiniteCanvasService {
 
       console.info(`[InfiniteCanvasService] Migrated ${projects.length} project(s) from legacy JSON store.`);
     } catch (error) {
+      if (shouldFallbackToLocalStore(error)) {
+        this.projectStoreMode = 'json';
+        console.warn('[InfiniteCanvasService] Skipping Supabase migration check, local JSON store mode enabled.');
+        return;
+      }
       console.error('[InfiniteCanvasService] Legacy migration failed:', error);
     }
   }
 
   public async listProjects(actorId: string): Promise<{ projects: InfiniteCanvasProjectSummary[] }> {
     await this.migrateFromLegacyJsonIfNeeded();
-    const docs = (await this.infiniteCanvasRepository.listProjects()) as unknown[];
-    const projects: InfiniteCanvasProjectSummary[] = [];
-    const unownedProjectIds: string[] = [];
+    return this.withProjectStoreFallback(
+      async () => {
+        const docs = (await this.infiniteCanvasRepository.listProjects()) as unknown[];
+        const projects: InfiniteCanvasProjectSummary[] = [];
+        const unownedProjectIds: string[] = [];
 
-    for (const doc of docs) {
-      const ownerId = getProjectOwnerId(doc);
-      if (ownerId && ownerId !== actorId) {
-        continue;
-      }
+        for (const doc of docs) {
+          const ownerId = getProjectOwnerId(doc);
+          if (ownerId && ownerId !== actorId) {
+            continue;
+          }
 
-      const project = fromEntityDoc(doc);
-      projects.push(buildSummary(project));
+          const project = fromEntityDoc(doc);
+          projects.push(buildSummary(project));
 
-      if (!ownerId) {
-        unownedProjectIds.push(project.projectId);
-      }
-    }
+          if (!ownerId) {
+            unownedProjectIds.push(project.projectId);
+          }
+        }
 
-    if (unownedProjectIds.length > 0) {
-      await Promise.all(unownedProjectIds.map((projectId) => this.claimProjectOwner(projectId, actorId)));
-    }
+        if (unownedProjectIds.length > 0) {
+          await Promise.all(unownedProjectIds.map((projectId) => this.claimProjectOwner(projectId, actorId)));
+        }
 
-    return { projects };
+        return { projects };
+      },
+      () => this.listProjectsFromLocalStore(),
+    );
   }
 
   public async createProject(actorId: string, payload: CreateProjectPayload): Promise<{ project: InfiniteCanvasProject }> {
     await this.migrateFromLegacyJsonIfNeeded();
-    const project = createEmptyProject(payload.projectName);
+    return this.withProjectStoreFallback(
+      async () => {
+        const project = createEmptyProject(payload.projectName);
 
-    await this.infiniteCanvasRepository.upsertOwned(project.projectId, actorId, toEntityPayload(project, actorId), { upsert: true });
+        await this.infiniteCanvasRepository.upsertOwned(project.projectId, actorId, toEntityPayload(project, actorId), { upsert: true });
 
-    return { project };
+        return { project };
+      },
+      () => this.createProjectInLocalStore(payload),
+    );
   }
 
   public async getProject(actorId: string, projectId: string): Promise<{ project: InfiniteCanvasProject }> {
-    const project = await this.loadOwnedProject(projectId, actorId);
+    return this.withProjectStoreFallback(
+      async () => {
+        const project = await this.loadOwnedProject(projectId, actorId);
 
-    if (!project) {
-      throw new HttpError(404, 'Project not found');
-    }
+        if (!project) {
+          throw new HttpError(404, 'Project not found');
+        }
 
-    return { project };
+        return { project };
+      },
+      () => this.getProjectFromLocalStore(projectId),
+    );
   }
 
   public async saveProject(actorId: string, projectId: string, payload: InfiniteCanvasProject): Promise<{ project: InfiniteCanvasProject }> {
-    if (!payload || typeof payload !== 'object') {
-      throw new HttpError(400, 'Invalid project payload');
-    }
+    return this.withProjectStoreFallback(
+      async () => {
+        if (!payload || typeof payload !== 'object') {
+          throw new HttpError(400, 'Invalid project payload');
+        }
 
-    const existing = await this.loadOwnedProject(projectId, actorId);
-    if (!existing) {
-      throw new HttpError(404, 'Project not found');
-    }
+        const existing = await this.loadOwnedProject(projectId, actorId);
+        if (!existing) {
+          throw new HttpError(404, 'Project not found');
+        }
 
-    const next = normalizeProject({
-      ...payload,
-      projectId,
-      createdAt: existing.createdAt,
-      updatedAt: nowISO(),
-      projectName: trimProjectName(payload.projectName || existing.projectName),
-    });
+        const next = normalizeProject({
+          ...payload,
+          projectId,
+          createdAt: existing.createdAt,
+          updatedAt: nowISO(),
+          projectName: trimProjectName(payload.projectName || existing.projectName),
+        });
 
-    await this.infiniteCanvasRepository.upsertOwned(projectId, actorId, toEntityPayload(next, actorId), { upsert: false });
+        await this.infiniteCanvasRepository.upsertOwned(projectId, actorId, toEntityPayload(next, actorId), { upsert: false });
 
-    return { project: next };
+        return { project: next };
+      },
+      () => this.saveProjectInLocalStore(projectId, payload),
+    );
   }
 
   public async renameProject(actorId: string, projectId: string, projectName: string): Promise<{ project: InfiniteCanvasProject }> {
-    const existing = await this.loadOwnedProject(projectId, actorId);
+    return this.withProjectStoreFallback(
+      async () => {
+        const existing = await this.loadOwnedProject(projectId, actorId);
 
-    if (!existing) {
-      throw new HttpError(404, 'Project not found');
-    }
+        if (!existing) {
+          throw new HttpError(404, 'Project not found');
+        }
 
-    const next = normalizeProject({
-      ...existing,
-      projectName: trimProjectName(projectName),
-      updatedAt: nowISO(),
-    });
+        const next = normalizeProject({
+          ...existing,
+          projectName: trimProjectName(projectName),
+          updatedAt: nowISO(),
+        });
 
-    await this.infiniteCanvasRepository.upsertOwned(projectId, actorId, toEntityPayload(next, actorId), { upsert: false });
+        await this.infiniteCanvasRepository.upsertOwned(projectId, actorId, toEntityPayload(next, actorId), { upsert: false });
 
-    return { project: next };
+        return { project: next };
+      },
+      () => this.renameProjectInLocalStore(projectId, projectName),
+    );
   }
 
   public async duplicateProject(actorId: string, projectId: string): Promise<{ project: InfiniteCanvasProject }> {
-    const source = await this.loadOwnedProject(projectId, actorId);
+    return this.withProjectStoreFallback(
+      async () => {
+        const source = await this.loadOwnedProject(projectId, actorId);
 
-    if (!source) {
-      throw new HttpError(404, 'Project not found');
-    }
+        if (!source) {
+          throw new HttpError(404, 'Project not found');
+        }
 
-    const copied = clone(source);
-    const nodeIdMap = new Map<string, string>();
+        const copied = clone(source);
+        const nodeIdMap = new Map<string, string>();
 
-    const now = nowISO();
-    const duplicatedNodes = copied.nodes.map((node) => {
-      const nextNodeId = randomUUID();
-      nodeIdMap.set(node.nodeId, nextNodeId);
-      return {
-        ...node,
-        nodeId: nextNodeId,
-        outputs: ensureArray<InfiniteCanvasNode['outputs'][number]>(node.outputs).map((output) => ({
-          ...output,
-          outputId: randomUUID(),
-        })),
-        createdAt: now,
-        updatedAt: now,
-      };
-    });
-
-    const duplicated = normalizeProject({
-      ...copied,
-      projectId: randomUUID(),
-      projectName: `${source.projectName} 副本`,
-      createdAt: now,
-      updatedAt: now,
-      nodes: duplicatedNodes,
-      edges: copied.edges
-        .map((edge) => {
-          const sourceNodeId = nodeIdMap.get(edge.sourceNodeId);
-          const targetNodeId = nodeIdMap.get(edge.targetNodeId);
-          if (!sourceNodeId || !targetNodeId) return null;
+        const now = nowISO();
+        const duplicatedNodes = copied.nodes.map((node) => {
+          const nextNodeId = randomUUID();
+          nodeIdMap.set(node.nodeId, nextNodeId);
           return {
-            ...edge,
-            edgeId: randomUUID(),
-            sourceNodeId,
-            targetNodeId,
+            ...node,
+            nodeId: nextNodeId,
+            outputs: ensureArray<InfiniteCanvasNode['outputs'][number]>(node.outputs).map((output) => ({
+              ...output,
+              outputId: randomUUID(),
+            })),
             createdAt: now,
+            updatedAt: now,
           };
-        })
-        .filter(Boolean) as InfiniteCanvasEdge[],
-      history: copied.history.map((item) => ({
-        ...item,
-        historyId: randomUUID(),
-        nodeId: nodeIdMap.get(item.nodeId) || item.nodeId,
-        createdAt: now,
-      })),
-      runQueue: [],
-      lastOpenedPanel: null,
-    });
+        });
 
-    await this.infiniteCanvasRepository.upsertOwned(
-      duplicated.projectId,
-      actorId,
-      toEntityPayload(duplicated, actorId),
-      { upsert: true },
+        const duplicated = normalizeProject({
+          ...copied,
+          projectId: randomUUID(),
+          projectName: `${source.projectName} 副本`,
+          createdAt: now,
+          updatedAt: now,
+          nodes: duplicatedNodes,
+          edges: copied.edges
+            .map((edge) => {
+              const sourceNodeId = nodeIdMap.get(edge.sourceNodeId);
+              const targetNodeId = nodeIdMap.get(edge.targetNodeId);
+              if (!sourceNodeId || !targetNodeId) return null;
+              return {
+                ...edge,
+                edgeId: randomUUID(),
+                sourceNodeId,
+                targetNodeId,
+                createdAt: now,
+              };
+            })
+            .filter(Boolean) as InfiniteCanvasEdge[],
+          history: copied.history.map((item) => ({
+            ...item,
+            historyId: randomUUID(),
+            nodeId: nodeIdMap.get(item.nodeId) || item.nodeId,
+            createdAt: now,
+          })),
+          runQueue: [],
+          lastOpenedPanel: null,
+        });
+
+        await this.infiniteCanvasRepository.upsertOwned(
+          duplicated.projectId,
+          actorId,
+          toEntityPayload(duplicated, actorId),
+          { upsert: true },
+        );
+
+        return { project: duplicated };
+      },
+      () => this.duplicateProjectInLocalStore(projectId),
     );
-
-    return { project: duplicated };
   }
 
   public async deleteProject(actorId: string, projectId: string): Promise<{ success: true }> {
-    const existing = await this.loadOwnedProject(projectId, actorId);
-    if (!existing) {
-      throw new HttpError(404, 'Project not found');
-    }
+    return this.withProjectStoreFallback(
+      async () => {
+        const existing = await this.loadOwnedProject(projectId, actorId);
+        if (!existing) {
+          throw new HttpError(404, 'Project not found');
+        }
 
-    const deleted = await this.infiniteCanvasRepository.deleteOwned(projectId, actorId);
+        const deleted = await this.infiniteCanvasRepository.deleteOwned(projectId, actorId);
 
-    if (!deleted) {
-      throw new HttpError(404, 'Project not found');
-    }
+        if (!deleted) {
+          throw new HttpError(404, 'Project not found');
+        }
 
-    return { success: true };
+        return { success: true };
+      },
+      () => this.deleteProjectInLocalStore(projectId),
+    );
   }
 
   public async reassignProjectOwner(fromUserId: string, toUserId: string): Promise<{ success: true }> {

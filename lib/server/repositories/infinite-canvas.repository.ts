@@ -8,11 +8,16 @@ export class InfiniteCanvasRepository {
   }
 
   public async listProjects(): Promise<InfiniteCanvasProjectRecord[]> {
-    return InfiniteCanvasProjectModel.find().sort({ updatedAt: -1 }).lean();
+    const records = await InfiniteCanvasProjectModel.find({});
+    return [...records].sort((left, right) => {
+      const leftTime = new Date(left.updatedAt || left.updated_at || 0).getTime();
+      const rightTime = new Date(right.updatedAt || right.updated_at || 0).getTime();
+      return rightTime - leftTime;
+    });
   }
 
   public async findByProjectId(projectId: string): Promise<InfiniteCanvasProjectRecord | null> {
-    return InfiniteCanvasProjectModel.findOne({ project_id: projectId }).lean();
+    return InfiniteCanvasProjectModel.findOne({ project_id: projectId });
   }
 
   public async claimOwner(projectId: string, ownerId: string): Promise<void> {

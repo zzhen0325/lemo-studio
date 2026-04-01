@@ -4,6 +4,8 @@ import type {
 } from '@/types/infinite-canvas';
 import { apiBase, cleanupUndefined, requestJSON } from './api/shared';
 
+const inflightProjectReads = new Map<string, Promise<{ project: InfiniteCanvasProject }>>();
+
 export function listProjects() {
   return requestJSON<{ projects: InfiniteCanvasProjectSummary[] }>(`${apiBase}/infinite-canvas/projects`);
 }
@@ -16,7 +18,18 @@ export function createProject(projectName?: string) {
 }
 
 export function getProject(projectId: string) {
-  return requestJSON<{ project: InfiniteCanvasProject }>(`${apiBase}/infinite-canvas/projects/${projectId}`);
+  const cacheKey = projectId.trim();
+  const existing = inflightProjectReads.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
+  const request = requestJSON<{ project: InfiniteCanvasProject }>(`${apiBase}/infinite-canvas/projects/${projectId}`)
+    .finally(() => {
+      inflightProjectReads.delete(cacheKey);
+    });
+  inflightProjectReads.set(cacheKey, request);
+  return request;
 }
 
 export function saveProject(projectId: string, project: InfiniteCanvasProject) {

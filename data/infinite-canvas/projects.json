@@ -5,12 +5,12 @@
       "projectId": "d9023f27-96f9-4a02-bba0-5abb2ffca953",
       "projectName": "未命名项目",
       "createdAt": "2026-02-27T03:20:30.735Z",
-      "updatedAt": "2026-02-27T03:24:51.115Z",
+      "updatedAt": "2026-04-01T13:32:05.597Z",
       "nodeCount": 8,
       "canvasViewport": {
-        "x": 258.6529479528622,
-        "y": 171.6866424745449,
-        "scale": 0.6674849377790841
+        "x": 1043.7047648236385,
+        "y": 410.89112529004115,
+        "scale": 0.6179355962014356
       },
       "lastOpenedPanel": null,
       "nodes": [
@@ -19,8 +19,8 @@
           "nodeType": "text",
           "title": "Text Block",
           "position": {
-            "x": -137.9921875,
-            "y": -236.109375
+            "x": 455.6360609357371,
+            "y": -477.59288412182735
           },
           "width": 340,
           "height": 240,
@@ -30,15 +30,15 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:20:45.271Z",
-          "updatedAt": "2026-02-27T03:20:53.072Z"
+          "updatedAt": "2026-04-01T13:30:49.066Z"
         },
         {
           "nodeId": "776a585f-19d8-4e9a-917c-6212ac97ff4c",
           "nodeType": "image",
           "title": "Image Block",
           "position": {
-            "x": 336.75390625,
-            "y": -185.27734375
+            "x": -773.5365714722816,
+            "y": -524.7825207591288
           },
           "width": 340,
           "height": 320,
@@ -64,15 +64,15 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:20:48.152Z",
-          "updatedAt": "2026-02-27T03:21:31.826Z"
+          "updatedAt": "2026-04-01T13:30:53.489Z"
         },
         {
           "nodeId": "0b22c11a-5dce-4bbd-a0db-ad09a143d866",
           "nodeType": "image",
           "title": "Image Block Output 1",
           "position": {
-            "x": 861.0305367196972,
-            "y": -347.4984492262223
+            "x": 59.63606093573708,
+            "y": -477.59288412182735
           },
           "width": 340,
           "height": 320,
@@ -98,15 +98,15 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:21:31.826Z",
-          "updatedAt": "2026-02-27T03:21:53.053Z"
+          "updatedAt": "2026-04-01T13:30:49.066Z"
         },
         {
           "nodeId": "a99bdeb3-c080-44ab-b40d-c34a44154f1a",
           "nodeType": "image",
           "title": "Image Block",
           "position": {
-            "x": 1523.3327270911554,
-            "y": 82.32738566863006
+            "x": 59.63606093573708,
+            "y": -101.59288412182735
           },
           "width": 340,
           "height": 320,
@@ -122,15 +122,15 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:21:54.104Z",
-          "updatedAt": "2026-02-27T03:23:04.894Z"
+          "updatedAt": "2026-04-01T13:30:49.066Z"
         },
         {
           "nodeId": "eabd886f-46f5-4d93-864d-18aca7933b02",
           "nodeType": "image",
           "title": "Image Block",
           "position": {
-            "x": -43.792495919774794,
-            "y": 202.61940689966468
+            "x": 455.6360609357371,
+            "y": -101.59288412182735
           },
           "width": 340,
           "height": 320,
@@ -146,15 +146,15 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:22:05.298Z",
-          "updatedAt": "2026-02-27T03:22:06.644Z"
+          "updatedAt": "2026-04-01T13:30:49.066Z"
         },
         {
           "nodeId": "291c1db5-6f7d-4305-9f37-040d714d3e3d",
           "nodeType": "image",
           "title": "e2694aa4-c563-4493-aa5b-77bb46529452_sS6ifgeWP.jpeg",
           "position": {
-            "x": 417.9161669369964,
-            "y": 434.71616772590716
+            "x": -897.3674880279544,
+            "y": 45.14702854729349
           },
           "width": 340,
           "height": 320,
@@ -180,7 +180,7 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:22:22.102Z",
-          "updatedAt": "2026-02-27T03:23:02.987Z",
+          "updatedAt": "2026-04-01T13:30:58.291Z",
           "inputAssetId": "38f6a08e-7d4c-4861-94b3-f5d2db2afd1f"
         },
         {
@@ -188,8 +188,8 @@
           "nodeType": "image",
           "title": "e2694aa4-c563-4493-aa5b-77bb46529452_sS6ifgeWP.jpeg Output 1",
           "position": {
-            "x": 1207.8861595675953,
-            "y": 75.91827739918318
+            "x": -441.61610919300637,
+            "y": 62.83439499040962
           },
           "width": 340,
           "height": 320,
@@ -215,15 +215,15 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:22:51.281Z",
-          "updatedAt": "2026-02-27T03:23:06.517Z"
+          "updatedAt": "2026-04-01T13:30:59.249Z"
         },
         {
           "nodeId": "e5ce6ee7-45eb-4751-ac52-c6224b0319e0",
           "nodeType": "image",
           "title": "Image Block",
           "position": {
-            "x": 1574.927981157321,
-            "y": 486.73621278373173
+            "x": 639.5913219742619,
+            "y": 218.22837498122712
           },
           "width": 340,
           "height": 320,
@@ -239,7 +239,7 @@
           "isLocked": false,
           "isSelected": false,
           "createdAt": "2026-02-27T03:22:55.639Z",
-          "updatedAt": "2026-02-27T03:22:59.103Z"
+          "updatedAt": "2026-04-01T13:30:52.110Z"
         }
       ],
       "edges": [

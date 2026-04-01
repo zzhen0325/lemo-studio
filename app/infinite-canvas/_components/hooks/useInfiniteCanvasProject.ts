@@ -22,6 +22,9 @@ export function useInfiniteCanvasProject({
   const projectRef = useRef<InfiniteCanvasProject | null>(null);
   const viewportRef = useRef(INITIAL_VIEWPORT);
   const isMountedRef = useRef(true);
+  const onLoadErrorRef = useRef(onLoadError);
+  const onAutoSaveErrorRef = useRef(onAutoSaveError);
+  const onProjectRouteChangeRef = useRef(onProjectRouteChange);
 
   const [project, setProject] = useState<InfiniteCanvasProject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +49,18 @@ export function useInfiniteCanvasProject({
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    onLoadErrorRef.current = onLoadError;
+  }, [onLoadError]);
+
+  useEffect(() => {
+    onAutoSaveErrorRef.current = onAutoSaveError;
+  }, [onAutoSaveError]);
+
+  useEffect(() => {
+    onProjectRouteChangeRef.current = onProjectRouteChange;
+  }, [onProjectRouteChange]);
 
   const markDirty = useCallback(() => {
     setDirtyVersion((value) => value + 1);
@@ -97,11 +112,11 @@ export function useInfiniteCanvasProject({
       setUndoStack([]);
       setRedoStack([]);
     } catch (error) {
-      onLoadError(error);
+      onLoadErrorRef.current(error);
     } finally {
       setLoading(false);
     }
-  }, [onLoadError, projectId]);
+  }, [projectId]);
 
   useEffect(() => {
     loadProject();
@@ -112,9 +127,9 @@ export function useInfiniteCanvasProject({
       if (!nextProjectId || nextProjectId === projectId) {
         return;
       }
-      onProjectRouteChange(nextProjectId);
+      onProjectRouteChangeRef.current(nextProjectId);
     },
-    [onProjectRouteChange, projectId],
+    [projectId],
   );
 
   useEffect(() => {
@@ -132,7 +147,7 @@ export function useInfiniteCanvasProject({
         if (!isMountedRef.current) return;
         setLastSavedAt(nowISO());
       } catch (error) {
-        onAutoSaveError(error);
+        onAutoSaveErrorRef.current(error);
       } finally {
         if (isMountedRef.current) {
           setSaving(false);
@@ -143,7 +158,7 @@ export function useInfiniteCanvasProject({
     return () => {
       window.clearTimeout(timer);
     };
-  }, [dirtyVersion, loading, onAutoSaveError, project, viewport]);
+  }, [dirtyVersion, loading, project, viewport]);
 
   return {
     project,
