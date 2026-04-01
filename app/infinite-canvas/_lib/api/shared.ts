@@ -1,8 +1,6 @@
 import { getApiBase } from '@/lib/api-base';
 import { parseErrorPayload, toDisplayError } from '@/lib/error-message';
 
-export const apiBase = getApiBase();
-
 export type RequestConfig = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -14,7 +12,10 @@ export function cleanupUndefined<T extends Record<string, unknown>>(value: T): T
 }
 
 export async function requestJSON<T>(url: string, config: RequestConfig = {}): Promise<T> {
-  const response = await fetch(url, {
+  const apiBase = getApiBase();
+  const fullUrl = url.startsWith('/') ? url : `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+  
+  const response = await fetch(fullUrl, {
     method: config.method || 'GET',
     headers: {
       'Content-Type': 'application/json',
