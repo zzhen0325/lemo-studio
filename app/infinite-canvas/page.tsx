@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createProject, listProjects } from "./_lib/api";
 
 export default function InfiniteCanvasPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,7 +20,7 @@ export default function InfiniteCanvasPage() {
 
         const latestProject = response.projects?.[0];
         if (latestProject) {
-          router.replace(`/infinite-canvas/editor/${latestProject.projectId}`);
+          window.location.href = `/infinite-canvas/editor/${latestProject.projectId}`;
           return;
         }
 
@@ -30,7 +28,7 @@ export default function InfiniteCanvasPage() {
         if (cancelled) {
           return;
         }
-        router.replace(`/infinite-canvas/editor/${created.project.projectId}`);
+        window.location.href = `/infinite-canvas/editor/${created.project.projectId}`;
       } catch (e) {
         if (cancelled) {
           return;
@@ -43,7 +41,7 @@ export default function InfiniteCanvasPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, []);
 
   if (!error) {
     return (

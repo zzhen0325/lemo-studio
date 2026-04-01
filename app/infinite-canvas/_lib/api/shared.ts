@@ -21,6 +21,7 @@ export async function requestJSON<T>(url: string, config: RequestConfig = {}): P
     },
     body: config.body !== undefined ? JSON.stringify(config.body) : undefined,
     signal: config.signal,
+    credentials: 'include',
   });
 
   if (!response.ok) {
