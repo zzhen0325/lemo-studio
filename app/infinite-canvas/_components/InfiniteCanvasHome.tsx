@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Plus, Search, FolderOpen, Copy, Edit3, Trash2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,6 @@ function formatDate(value: string) {
 }
 
 export default function InfiniteCanvasHome() {
-  const router = useRouter();
   const { toast } = useToast();
 
   const [projects, setProjects] = useState<InfiniteCanvasProjectSummary[]>([]);
@@ -65,7 +63,7 @@ export default function InfiniteCanvasHome() {
     setCreating(true);
     try {
       const response = await createProject('未命名项目');
-      router.push(`/infinite-canvas/editor/${response.project.projectId}`);
+      window.location.href = `/infinite-canvas/editor/${response.project.projectId}`;
     } catch (error) {
       toast({
         title: '新建失败',
@@ -75,7 +73,7 @@ export default function InfiniteCanvasHome() {
     } finally {
       setCreating(false);
     }
-  }, [router, toast]);
+  }, [toast]);
 
   const handleRename = useCallback(
     async (project: InfiniteCanvasProjectSummary) => {
@@ -189,7 +187,7 @@ export default function InfiniteCanvasHome() {
                 >
                   <button
                     type="button"
-                    onClick={() => router.push(`/infinite-canvas/editor/${project.projectId}`)}
+                    onClick={() => window.location.href = `/infinite-canvas/editor/${project.projectId}`}
                     className="w-full text-left"
                   >
                     <div className="relative h-28 w-full border-b border-studio-surface-muted bg-studio-surface-strong dark:border-studio-canvas dark:bg-studio-surface-muted">
@@ -219,7 +217,7 @@ export default function InfiniteCanvasHome() {
                         size="sm"
                         variant="secondary"
                         className="studio-secondary-button h-8 rounded-lg text-xs"
-                        onClick={() => router.push(`/infinite-canvas/editor/${project.projectId}`)}
+                        onClick={() => window.location.href = `/infinite-canvas/editor/${project.projectId}`}
                       >
                         <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
                         打开

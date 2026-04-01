@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Check,
   CircleDashed,
@@ -91,7 +90,6 @@ interface InfiniteCanvasEditorProps {
 }
 
 export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditorProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const optimizeSystemPrompt = useAPIConfigStore((state) => state.settings.services.optimize.systemPrompt);
   const { optimizePrompt } = usePromptOptimization({
@@ -134,7 +132,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
         description: error instanceof Error ? error.message : '未知错误',
         variant: 'destructive',
       });
-      router.push('/infinite-canvas');
+      window.location.href = '/infinite-canvas';
     },
     onAutoSaveError: (error) => {
       toast({
@@ -144,7 +142,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       });
     },
     onProjectRouteChange: (nextProjectId) => {
-      router.push(`/infinite-canvas/editor/${nextProjectId}`);
+      window.location.href = `/infinite-canvas/editor/${nextProjectId}`;
     },
   });
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -2054,7 +2052,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
           size="icon"
           variant="ghost"
           className={EDITOR_ICON_BUTTON_CLASS}
-          onClick={() => router.push('/playground')}
+          onClick={() => window.location.href = '/playground'}
           title="返回主页"
         >
           <Home className="h-4 w-4" />

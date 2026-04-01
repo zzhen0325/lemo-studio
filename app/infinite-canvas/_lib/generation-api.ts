@@ -2,7 +2,7 @@ import { buildFluxKleinWorkflow } from '@/lib/api/fluxklein-workflow';
 import { runDirectComfyWorkflow } from '@/lib/comfyui/browser-client';
 import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from '@/lib/comfyui/direct-config';
 import { parseSize } from './helpers';
-import { apiBase, cleanupUndefined, requestJSON } from './api/shared';
+import { cleanupUndefined, requestJSON } from './api/shared';
 
 interface FluxKleinPayload {
   prompt: string;
@@ -77,7 +77,7 @@ async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string
     return { images: images.filter(Boolean) };
   }
 
-  const response = await fetch(`${apiBase}/comfy-fluxklein`, {
+  const response = await fetch('/api/comfy-fluxklein', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -91,6 +91,7 @@ async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string
       referenceImages: payload.referenceImages?.length ? payload.referenceImages : undefined,
     })),
     signal: payload.signal,
+    credentials: 'include',
   });
 
   if (!response.ok || !response.body) {
@@ -148,7 +149,7 @@ async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string
 }
 
 export async function saveImageAsset(imageBase64OrUrl: string, subdir: string): Promise<string> {
-  const response = await requestJSON<{ path: string }>(`${apiBase}/save-image`, {
+  const response = await requestJSON<{ path: string }>('/save-image', {
     method: 'POST',
     body: {
       imageBase64: imageBase64OrUrl,
@@ -200,7 +201,7 @@ export async function generateCanvasImage(payload: GenerateImagePayload): Promis
     }),
   });
 
-  const result = await requestJSON<{ images?: string[] }>(`${apiBase}/ai/image`, {
+  const result = await requestJSON<{ images?: string[] }>('/ai/image', {
     method: 'POST',
     body,
     signal: payload.signal,
