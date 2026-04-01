@@ -7,8 +7,10 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import {
   buildRuntimePlaygroundShortcuts,
+  extractShortcutMoodboardEntries,
   getShortcutMoodboardId,
   mergeShortcutMoodboards,
+  type ShortcutMoodboardEntry,
   type PersistedPlaygroundShortcutRecord,
 } from '@/config/playground-shortcuts';
 import type { StyleStack } from '@/types/database';
@@ -115,10 +117,15 @@ export function usePlaygroundMoodboards(options: UsePlaygroundMoodboardsOptions 
     return new Map(shortcuts.map((shortcut) => [shortcut.id, shortcut]));
   }, [shortcuts]);
 
+  const shortcutMoodboardEntries = React.useMemo<ShortcutMoodboardEntry[]>(() => {
+    return extractShortcutMoodboardEntries(moodboards, shortcuts);
+  }, [moodboards, shortcuts]);
+
   return {
     rawStyles: styles,
     shortcuts,
     moodboards,
+    shortcutMoodboardEntries,
     shortcutMoodboardsByCode,
     shortcutByCode,
     refreshShortcuts: invalidateAndRefreshShortcuts,

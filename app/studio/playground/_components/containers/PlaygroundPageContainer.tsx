@@ -225,8 +225,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const isSelectorExpanded = usePlaygroundStore(s => s.isSelectorExpanded);
   const setIsSelectorExpanded = usePlaygroundStore(s => s.setSelectorExpanded);
   const {
-    shortcuts: runtimeShortcuts,
-    shortcutMoodboardsByCode,
+    shortcutMoodboardEntries,
     shortcutByCode,
     refreshShortcuts,
   } = usePlaygroundMoodboards();
@@ -1022,11 +1021,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     //   });
     // }
 
+    setViewMode('home');
+
     toast({
       title: `已应用 ${shortcut.name}`,
       description: `模型已切换到 ${shortcut.modelLabel}，请补全高亮字段后再生成。`,
     });
-  }, [applyModel, config.height, config.width, setSelectedPresetName, setSelectedWorkflowConfig, toast]);
+  }, [applyModel, config.height, config.width, setSelectedPresetName, setSelectedWorkflowConfig, toast, setViewMode]);
 
   const buildShortcutPreviewResults = useCallback((shortcut: PlaygroundShortcut): Generation[] => {
     const shortcutMoodboard = styles.find((style) => style.id === getShortcutMoodboardId(shortcut.id));
@@ -3085,6 +3086,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                   onUsePrompt={handleUseGalleryPrompt}
                   onUseImage={handleUseGalleryImage}
                   onShortcutQuickApply={handleShortcutQuickApply}
+                  onMoodboardApply={() => setViewMode('home')}
                   isGenerating={isGenerating}
                   onGenerateBanner={(options) => handleGenerate((options as GenerateOptions) || {})}
                   bannerSessionHistory={bannerSessionHistory}
@@ -3099,8 +3101,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
             {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && !hasStructuredShortcutSession && (
               <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none flex flex-col items-center">
                 <StylesMarquee
-                  shortcuts={runtimeShortcuts}
-                  shortcutMoodboards={shortcutMoodboardsByCode}
+                  items={shortcutMoodboardEntries}
                   onQuickApply={handleShortcutQuickApply}
                   onPreviewImage={handleShortcutPreviewOpen}
                   onShortcutsChange={refreshShortcuts}

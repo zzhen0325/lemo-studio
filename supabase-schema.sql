@@ -155,14 +155,25 @@ CREATE TABLE IF NOT EXISTS dataset_collections (
 -- ==========================================
 CREATE TABLE IF NOT EXISTS infinite_canvas_projects (
   id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255),
+  project_id VARCHAR(36) NOT NULL,
   user_id VARCHAR(36),
-  data JSONB,
+  project_name VARCHAR(255) NOT NULL,
+  cover_url TEXT,
+  node_count INTEGER NOT NULL DEFAULT 0,
+  canvas_viewport JSONB NOT NULL DEFAULT '{"x": 0, "y": 0, "scale": 1}'::jsonb,
+  last_opened_panel VARCHAR(32),
+  nodes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  edges JSONB NOT NULL DEFAULT '[]'::jsonb,
+  assets JSONB NOT NULL DEFAULT '[]'::jsonb,
+  history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  run_queue JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS infinite_canvas_projects_project_id_uidx ON infinite_canvas_projects(project_id);
 CREATE INDEX IF NOT EXISTS infinite_canvas_projects_user_id_idx ON infinite_canvas_projects(user_id);
+CREATE INDEX IF NOT EXISTS infinite_canvas_projects_updated_at_idx ON infinite_canvas_projects(updated_at DESC);
 
 -- ==========================================
 -- 11. 启用 Row Level Security (RLS)

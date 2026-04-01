@@ -24,6 +24,7 @@ interface PlaygroundDockPanelsProps {
   onUsePrompt?: (result: import("@/types/database").Generation) => void;
   onUseImage?: (result: import("@/types/database").Generation) => void | Promise<void>;
   onShortcutQuickApply?: (shortcut: PlaygroundShortcut) => void;
+  onMoodboardApply?: () => void;
   isGenerating: boolean;
   onGenerateBanner: (options?: unknown) => void;
   bannerSessionHistory: BannerSessionHistoryItem[];
@@ -38,6 +39,7 @@ export function PlaygroundDockPanels({
   onUsePrompt,
   onUseImage,
   onShortcutQuickApply,
+  onMoodboardApply,
   isGenerating,
   onGenerateBanner,
   bannerSessionHistory,
@@ -68,6 +70,7 @@ export function PlaygroundDockPanels({
               <StyleStacksView
                 isDragging={isDraggingOver}
                 onShortcutQuickApply={onShortcutQuickApply}
+                onMoodboardApply={onMoodboardApply}
               />
             </Suspense>
           </div>

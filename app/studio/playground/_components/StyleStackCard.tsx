@@ -37,6 +37,7 @@ interface StyleStackCardProps {
     shortcut?: PlaygroundShortcut | null;
     onClick?: () => void;
     onQuickApplyShortcut?: (shortcut: PlaygroundShortcut) => void;
+    onMoodboardApply?: () => void;
     size?: 'sm' | 'md' | 'grid-lg';
 }
 
@@ -58,6 +59,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     shortcut,
     onClick,
     onQuickApplyShortcut,
+    onMoodboardApply,
     size = 'md'
 }) => {
     const { applyPrompt, deleteStyle } = usePlaygroundStore();
@@ -106,54 +108,15 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
                             title: "已快速应用",
                             description: `${style.name} 的 prompt 已应用到输入框`,
                         });
+                        onMoodboardApply?.();
                     }}
                 >
-                    <Sparkles size={14} className="text-[#E8FFB7] group-hover/btn:animate-pulse" />
-                    <span className="text-[11px] font-bold tracking-wider">快速应用</span>
+                    <Sparkles size={10} className="text-white group-hover/btn:animate-pulse" />
+                    <span className="text-[11px] font-bold ">快速应用</span>
                 </Button>
             </div>
 
-            {/* Management Menu */}
-            <div className="absolute top-4 right-4 z-[40] opacity-0 group-hover:opacity-100 transition-opacity">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-full bg-neutral-900/50 backdrop-blur-md border border-white/10 text-white/40 hover:text-white hover:bg-neutral-800"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <Settings2 size={16} />
-                        </Button>
-                    </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-32 bg-neutral-900/90 border-white/10 backdrop-blur-xl rounded-xl">
-                            <DropdownMenuItem
-                                className="gap-2 text-white/70 focus:text-white focus:bg-white/10 rounded-lg cursor-pointer"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onClick?.(); // Open detail which serves as edit
-                            }}
-                            >
-                                <Edit3 size={14} />
-                                管理
-                            </DropdownMenuItem>
-                            {!linkedShortcut && (
-                                <DropdownMenuItem
-                                    className="gap-2 text-red-400 focus:text-red-300 focus:bg-red-400/10 rounded-lg cursor-pointer"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (confirm('确定要删除这个情绪板吗？')) {
-                                            deleteStyle(style.id);
-                                        }
-                                    }}
-                                >
-                                    <Trash2 size={14} />
-                                    删除
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+          
 
             {/* Image Stack Container */}
             <div className={cn(

@@ -61,6 +61,7 @@ interface MoodboardDetailDialogProps {
   moodboard: StyleStack | null;
   shortcut?: PlaygroundShortcut | null;
   onShortcutQuickApply?: (shortcut: PlaygroundShortcut) => void;
+  onMoodboardApply?: () => void;
   onShortcutPreviewImage?: (shortcut: PlaygroundShortcut, imageIndex: number) => void;
   onShortcutsChange?: () => Promise<void> | void;
 }
@@ -216,6 +217,7 @@ export function MoodboardDetailDialog({
   moodboard,
   shortcut,
   onShortcutQuickApply,
+  onMoodboardApply,
   onShortcutPreviewImage,
   onShortcutsChange,
 }: MoodboardDetailDialogProps) {
@@ -638,6 +640,8 @@ export function MoodboardDetailDialog({
         title: '已快速应用',
         description: `已应用 ${draftShortcut.name} 的模型和模板。`,
       });
+      onOpenChange(false);
+      onMoodboardApply?.();
       return;
     }
 
@@ -646,7 +650,9 @@ export function MoodboardDetailDialog({
       title: '已快速应用',
       description: `${draftName || moodboard?.name || 'Moodboard'} 的 prompt 已应用到输入框。`,
     });
-  }, [applyPrompt, draftName, draftPrompt, draftShortcut, moodboard?.name, onShortcutQuickApply, promptPreview, toast]);
+    onOpenChange(false);
+    onMoodboardApply?.();
+  }, [applyPrompt, draftName, draftPrompt, draftShortcut, moodboard?.name, onShortcutQuickApply, promptPreview, toast, onOpenChange, onMoodboardApply]);
 
   const handleUseImage = React.useCallback(async (path: string) => {
     try {
@@ -864,79 +870,58 @@ export function MoodboardDetailDialog({
             </div>
 
             {/* Right Column: Main Content */}
-            <div className="flex h-full w-full max-w-[500px] flex-col rounded-3xl bg-black/50">
-              <div className="relative overflow-y-auto h-full  w-full px-4 pt-8 pb-24 custom-scrollbar">
-                <div className=" w-full space-y-8">
-                  {/* Collapsible Metadata (Name, Description, Model) */}
-                  <div className="flex  h-10 w-full items-center justify-between px-0">
-                    <div className="flex items-center gap-3">
-                      {isEditMode ? (
-                        <>
-                          <Input
-                            value={draftName}
-                            onChange={(e) => setDraftName(e.target.value)}
-                            className="h-10 w-36 rounded-xl border-white/10 bg-white/5 text-base text-white placeholder:text-white/30 focus:border-[#E8FFB7]/30"
-                            placeholder="Name your moodboard"
-                          />
-                          {shortcut && (
-                            <Select value={draftModelId} onValueChange={setDraftModelId}>
-                              <SelectTrigger className="h-10 w-30 rounded-xl border-white/10 bg-white/5 text-xs text-white">
-                                <SelectValue placeholder="Select model" />
-                              </SelectTrigger>
-                              <SelectContent className="border-white/10 bg-[#0b0d12] text-white">
-                                {availableModels.map((model) => (
-                                  <SelectItem key={model.id} value={model.id} className="text-white">
-                                    {model.displayName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </>
-                      ) : (
-                        <>
+            <div className="flex h-full w-full max-w-[500px] flex-col rounded-3xl bg-black/50 overflow-hidden">
+              <div className="flex-1 overflow-y-auto w-full px-4 pt-8 pb-4 custom-scrollbar flex flex-col">
+                {/* Collapsible Metadata (Name, Description, Model) */}
+                <div className={`flex w-full shrink-0 flex-col ${isEditMode ? 'gap-3' : ''}`}>
+                    <div className={`flex w-full items-center ${isEditMode ? 'justify-end' : 'h-10 justify-between'} px-0`}>
+                      {!isEditMode && (
+                        <div className="flex items-center gap-3">
                           <h2 className="text-2xl font-normal text-white">{dialogTitle}</h2>
                           {shortcut ? (
                             <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/60">
                               {draftShortcut?.modelLabel}
                             </span>
                           ) : null}
-                        </>
+                        </div>
                       )}
+                      <Button
+                        type="button"
+                        variant="light"
+                        className={`h-8 rounded-md border border-white/10 bg-white/10 px-2 text-sm text-white hover:bg-white/10 ${!isEditMode ? 'mb-2' : ''}`}
+                        onClick={() => {
+                          setIsEditMode((prev) => !prev);
+                        }}
+                      >
+                        <PencilLine className="mr-1 h-4 w-4" />
+                        {isEditMode ? 'Cancel' : 'Edit'}
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="light"
-                      className="h-8 rounded-md mb-2 border border-white/10 bg-white/10 px-2 text-sm text-white hover:bg-white/10"
-                      onClick={() => {
-                        setIsEditMode((prev) => !prev);
-                      }}
-                    >
 
-                      <PencilLine className=" h-4 w-4" />
-                      {isEditMode ? 'Cancel' : 'Edit'}
-                    </Button>
-
-
-
-
-
-
-
-                    {/* <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 rounded-full border border-white/10 bg-white/5 text-white/55"
-                  onClick={() => onOpenChange(false)}
-                >
-                  <Plus className="h-4 w-4 rotate-45" />
-                </Button>
-                */}
-
-
-
-
+                    {isEditMode && (
+                      <div className="flex w-full flex-col gap-3">
+                        <Input
+                          value={draftName}
+                          onChange={(e) => setDraftName(e.target.value)}
+                          className="h-10 w-full rounded-xl border-white/10 bg-white/5 text-base text-white placeholder:text-white/30 focus:border-[#E8FFB7]/30"
+                          placeholder="Name your moodboard"
+                        />
+                        {shortcut && (
+                          <Select value={draftModelId} onValueChange={setDraftModelId}>
+                            <SelectTrigger className="h-10 w-full rounded-xl border-white/10 bg-white/5 text-xs text-white">
+                              <SelectValue placeholder="Select model" />
+                            </SelectTrigger>
+                            <SelectContent className="border-white/10 bg-[#0b0d12] text-white">
+                              {availableModels.map((model) => (
+                                <SelectItem key={model.id} value={model.id} className="text-white">
+                                  {model.displayName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {shortcut ? (
@@ -944,24 +929,24 @@ export function MoodboardDetailDialog({
                       <Textarea
                         value={draftDescription}
                         onChange={(e) => setDraftDescription(e.target.value)}
-                        className="min-h-[60px] mt-2 w-full rounded-xl border-white/10  bg-white/5 text-xs text-white placeholder:text-white/30 focus:border-[#E8FFB7]/30"
+                        className="min-h-[60px] shrink-0 mt-2 w-full rounded-xl border-white/10  bg-white/5 text-xs text-white placeholder:text-white/30 focus:border-[#E8FFB7]/30"
                         placeholder="Add a description for this moodboard"
                       />
                     ) : (
-                      <span className="w-full text-xs  text-white/40 ">
+                      <span className="w-full shrink-0 text-xs text-white/40 mt-2">
                         {draftDescription || 'No description provided'}
                       </span>
                     )
                   ) : (
-                    <span className="w-full  text-xs text-white/60 ">
+                    <span className="w-full shrink-0 text-xs text-white/60 mt-2">
                       {draftDescription || 'No description provided'}
                     </span>
                   )}
 
 
                   {/* Main Prompt Area */}
-                  <div className="space-y-4 mt-4">
-                    <div className="flex items-center justify-between">
+                  <div className="flex flex-col flex-1 min-h-0 mt-8">
+                    <div className="flex shrink-0 items-center justify-between mb-4">
                       <div className="text-xs font-medium  text-white/70">Prompt Template</div>
                       <div className="flex items-center gap-2">
                         {isEditMode && shortcut && (
@@ -981,32 +966,34 @@ export function MoodboardDetailDialog({
                       </div>
                     </div>
 
-                    <div className="group relative min-h-[300px]  overflow-hidden rounded-2xl bg-[#2C2D2F]/50 border border-white/10 transition-colors focus-within:border-[#E8FFB7]/20">
+                    <div className="group relative flex-1 min-h-[150px] overflow-hidden rounded-2xl bg-[#2C2D2F]/50 border border-white/10 transition-colors focus-within:border-[#E8FFB7]/20 flex flex-col">
                       {isEditMode ? (
                         shortcut && draftShortcut && draftEditorDocument ? (
-                          <ShortcutSlateEditor
-                            shortcut={draftShortcut}
-                            values={draftPromptValues}
-                            document={draftEditorDocument}
-                            onFieldChange={handleFieldChange}
-                            onDocumentChange={handleShortcutDocumentChange}
-                            insertTokenRequest={pendingInsertTokenRequest}
-                            onInsertTokenRequestHandled={(requestId) => {
-                              setPendingInsertTokenRequest((current) => (
-                                current?.requestId === requestId ? null : current
-                              ));
-                            }}
-                          />
+                          <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            <ShortcutSlateEditor
+                              shortcut={draftShortcut}
+                              values={draftPromptValues}
+                              document={draftEditorDocument}
+                              onFieldChange={handleFieldChange}
+                              onDocumentChange={handleShortcutDocumentChange}
+                              insertTokenRequest={pendingInsertTokenRequest}
+                              onInsertTokenRequestHandled={(requestId) => {
+                                setPendingInsertTokenRequest((current) => (
+                                  current?.requestId === requestId ? null : current
+                                ));
+                              }}
+                            />
+                          </div>
                         ) : (
                           <Textarea
                             value={shortcut ? draftPromptTemplate : draftPrompt}
                             onChange={(e) => shortcut ? setDraftPromptTemplate(e.target.value) : setDraftPrompt(e.target.value)}
-                            className="min-h-[200px] border-0 bg-transparent p-4  text-sm leading-10 text-white/80 outline-none placeholder:text-white/20"
+                            className="flex-1 border-0 bg-transparent p-4 text-sm leading-10 text-white/80 outline-none placeholder:text-white/20 resize-none"
                             placeholder={shortcut ? "Use {{token}} syntax to define dynamic fields" : "Enter prompt here..."}
                           />
                         )
                       ) : (
-                        <div className=" p-4">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
                           {shortcut ? (
                             <InlinePromptPreview
                               shortcut={draftShortcut!}
@@ -1022,17 +1009,21 @@ export function MoodboardDetailDialog({
                       )}
                     </div>
                   </div>
+                </div>
 
+              {/* Bottom Sticky Action Bar */}
+              <div className="shrink-0 p-4 pt-2">
+                {!isEditMode ? (
                   <Button
                     type="button"
-                    className="group absolute bottom-10 left-4 right-4 h-12 overflow-hidden rounded-2xl  bg-gradient-to-r from-white/45 via-[#E3FF9C] to-white/45 px-6 text-sm font-semibold text-black  transition-all duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.01]  active:scale-[0.99]"
+                    className="group relative w-full h-12 overflow-hidden rounded-2xl bg-gradient-to-r from-white/45 via-[#E3FF9C] to-white/45 px-6 text-sm font-semibold text-black transition-all duration-500 ease-out hover:-translate-y-0.5 hover:scale-[1.01] active:scale-[0.99]"
                     onClick={handleQuickApply}
                     onMouseEnter={() => setIsHoveringApply(true)}
                     onMouseLeave={() => setIsHoveringApply(false)}
                   >
                     <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full transition-transform duration-1000 ease-out group-hover:translate-x-full" />
                     <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#E3FF9C]/25 via-white/10 to-[#E3FF9C]/25 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                    <span className="relative z-10 inline-flex items-center">
+                    <span className="relative z-10 inline-flex items-center justify-center w-full">
                       {isHoveringApply ? (
                         <ShinyText
                           text="Quick Apply"
@@ -1047,93 +1038,30 @@ export function MoodboardDetailDialog({
                       )}
                     </span>
                   </Button>
-
-
-
-                  {/* Collage Tool - Minimalist Collapsible */}
-                  {/* <div className="rounded-2xl border border-white/10 bg-white/[0.03]">
-                    <div
-                      className="flex cursor-pointer items-center justify-between p-4 px-6"
-                      onClick={() => setShowCollageTools(!showCollageTools)}
+                ) : (
+                  <div className="flex flex-row items-center justify-end gap-3 rounded-2xl bg-black/20 p-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="rounded-2xl text-white/40 hover:text-white border border-white/10 bg-white/5"
+                      onClick={() => setIsEditMode(false)}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-full bg-white/5 p-1.5">
-                          <Sparkles className="h-4 w-4 text-white/40" />
-                        </div>
-                        <span className="text-xs font-medium uppercase tracking-wider text-white/40">Collage Tools</span>
-                      </div>
-                      <ChevronDown className={cn("h-4 w-4 text-white/40 transition-transform", showCollageTools && "rotate-180")} />
-                    </div>
-
-                    {showCollageTools && (
-                      <div className="border-t border-white/5 p-6 animate-in fade-in slide-in-from-top-1">
-                        <div className="flex items-center justify-between mb-6">
-                          <p className="text-xs text-white/30">Create visual moodboard collage from your gallery.</p>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-9 rounded-xl border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10"
-                            onClick={() => setIsCollageEditorOpen(true)}
-                          >
-                            <PencilLine className="mr-2 h-3.5 w-3.5" />
-                            {moodboard.collageImageUrl ? 'Edit Collage' : 'Generate Collage'}
-                          </Button>
-                        </div>
-
-                        {moodboard.collageImageUrl ? (
-                          <div className="group relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                            <NextImage
-                              src={formatImageUrl(moodboard.collageImageUrl)}
-                              alt="Collage"
-                              fill
-                              className="object-cover"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                              <Button
-                                className="rounded-full bg-white text-black hover:bg-[#E8FFB7]"
-                                onClick={() => void handleUseImage(moodboard.collageImageUrl!)}
-                              >
-                                Use this Collage
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex min-h-[160px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/5 bg-white/[0.01]">
-                            <Sparkles className="h-6 w-6 text-white/10 mb-2" />
-                            <span className="text-xs text-white/20">No collage generated yet</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div> */}
-                </div>
+                      Discard Changes
+                    </Button>
+                    <Button
+                      type="button"
+                      className="rounded-2xl bg-white px-8 text-sm font-bold text-black hover:bg-[#E8FFB7]"
+                      onClick={async () => {
+                        await handleSave();
+                        setIsEditMode(false);
+                      }}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? 'Saving...' : 'Save Template'}
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              {/* Bottom Sticky Action Bar */}
-              {isEditMode && (
-                <div className="flex items-center justify-end gap-3 border-t border-white/10 bg-[#07090d]/80 p-6 px-10 backdrop-blur-md">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="rounded-full text-white/40 hover:text-white"
-                    onClick={() => setIsEditMode(false)}
-                  >
-                    Discard Changes
-                  </Button>
-                  <Button
-                    type="button"
-                    className="rounded-full bg-white px-8 text-sm font-bold text-black hover:bg-[#E8FFB7]"
-                    onClick={async () => {
-                      await handleSave();
-                      setIsEditMode(false);
-                    }}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Saving...' : 'Save Template'}
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
 

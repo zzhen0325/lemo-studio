@@ -7,7 +7,9 @@ import { Palette, Plus, Upload, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { getApiBase } from '@/lib/api-base';
 import {
   getShortcutByMoodboardId,
   type PlaygroundShortcut,
@@ -19,16 +21,21 @@ import { usePlaygroundMoodboards } from './hooks/usePlaygroundMoodboards';
 interface StyleStacksViewProps {
   isDragging?: boolean;
   onShortcutQuickApply?: (shortcut: PlaygroundShortcut) => void;
+  onMoodboardApply?: () => void;
 }
 
 export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
   isDragging: isDraggingProp,
   onShortcutQuickApply,
+  onMoodboardApply,
 }) => {
   const addStyle = usePlaygroundStore((state) => state.addStyle);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedMoodboardId, setSelectedMoodboardId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -38,20 +45,79 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
     refreshShortcuts,
   } = usePlaygroundMoodboards();
 
-  const handleCreate = () => {
-    if (!newName.trim()) return;
-
-    void addStyle({
-      id: uuidv4(),
-      name: newName.trim(),
-      prompt: newPrompt,
-      imagePaths: [],
-      updatedAt: new Date().toISOString(),
-    });
-
+  const handleClose = () => {
+    setIsCreating(false);
     setNewName('');
     setNewPrompt('');
-    setIsCreating(false);
+    setNewImageFiles([]);
+  };
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+
+    setIsUploading(true);
+    try {
+      const imagePaths = await Promise.all(newImageFiles.map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch(`${getApiBase()}/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+        const data = await response.json();
+        return String(data.path);
+      }));
+
+      void addStyle({
+        id: uuidv4(),
+        name: newName.trim(),
+        prompt: newPrompt,
+        imagePaths,
+        updatedAt: new Date().toISOString(),
+      });
+
+      handleClose();
+    } catch (error) {
+      console.error("Upload failed", error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      setNewImageFiles(prev => [...prev, ...Array.from(files)]);
+    }
+    // clear input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = event.clipboardData.items;
+    const files: File[] = [];
+    
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    
+    if (files.length > 0) {
+      setNewImageFiles(prev => [...prev, ...files]);
+    }
+  };
+
+  const handleRemoveNewImage = (index: number) => {
+    setNewImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const filteredMoodboards = moodboards.filter((moodboard) => {
@@ -131,67 +197,6 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
                 </div>
               </div>
 
-              <AnimatePresence>
-                {isCreating ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                    className="flex w-full flex-col gap-6 rounded-2xl border border-white/10 bg-black/20 p-8 backdrop-blur-xl"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <h3 className="text-2xl font-bold text-white">创建情绪板</h3>
-                        <p className="text-sm text-white/40">手动上传图片或整理 prompt，做成一个可复用的 moodboard group</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setIsCreating(false)}
-                        className="rounded-full hover:bg-white/5"
-                      >
-                        <X size={20} className="text-white/40" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                      <div className="flex flex-col gap-3">
-                        <label className="ml-1 text-xs font-bold uppercase tracking-widest text-white/40">情绪板名称</label>
-                        <Input
-                          placeholder="例如：春季 campaign、Lemo 角色组"
-                          value={newName}
-                          onChange={(event) => setNewName(event.target.value)}
-                          className="h-14 rounded-2xl border-white/10 bg-white/5 px-6"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        <label className="ml-1 text-xs font-bold uppercase tracking-widest text-white/40">当前 Prompt</label>
-                        <Input
-                          placeholder="输入这个 moodboard 当前要复用的 prompt..."
-                          value={newPrompt}
-                          onChange={(event) => setNewPrompt(event.target.value)}
-                          className="h-14 rounded-2xl border-white/10 bg-white/5 px-6"
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-2 flex justify-end gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsCreating(false)}
-                        className="h-12 rounded-xl border border-white/20 bg-transparent px-8 text-white/60 hover:bg-white/5 hover:text-white"
-                      >
-                        取消
-                      </Button>
-                      <Button
-                        onClick={handleCreate}
-                        className="h-12 rounded-xl bg-white px-10 font-bold text-black transition-colors hover:bg-neutral-200"
-                      >
-                        确认创建
-                      </Button>
-                    </div>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-
               <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-16 px-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
                 {filteredMoodboards.map((moodboard) => {
                   const linkedShortcut = getShortcutByMoodboardId(moodboard.id, shortcuts);
@@ -203,6 +208,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
                       shortcut={linkedShortcut}
                       onClick={() => setSelectedMoodboardId(moodboard.id)}
                       onQuickApplyShortcut={linkedShortcut ? onShortcutQuickApply : undefined}
+                      onMoodboardApply={onMoodboardApply}
                       size="sm"
                     />
                   );
@@ -243,8 +249,129 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
         moodboard={selectedMoodboard}
         shortcut={selectedShortcut}
         onShortcutQuickApply={onShortcutQuickApply}
+        onMoodboardApply={onMoodboardApply}
         onShortcutsChange={refreshShortcuts}
       />
+
+      <Dialog open={isCreating} onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        } else {
+          setIsCreating(true);
+        }
+      }}>
+        <DialogContent className="max-w-[560px] border-white/10 bg-[#1C1C1C]/60 backdrop-blur-xl p-2 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] rounded-3xl overflow-hidden">
+          <div className="mb-1 relative w-full overflow-hidden rounded-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/images/c.png" 
+              alt="Moodboard Cover" 
+              className="h-60 w-full object-cover"
+            />
+            <div className="absolute top-4 right-4">
+              <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className="rounded-full hover:bg-white/25  bg-white/10  backdrop-blur-md "
+            >
+              <X size={10} className="text-white" />
+            </Button>
+
+            </div>
+             
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="font-serif text-4xl font-normal text-white ">
+                Create Moodboard
+              </span>
+             
+            </div>
+          </div>
+          {/* <div className="flex items-start justify-between mb-4 px-4">
+            <div className="space-y-1">
+              
+               <p className="text-sm text-white ">手动上传图片或整理 prompt，做成一个可复用的 moodboard group</p>
+            </div>
+           
+          </div> */}
+          
+          <div className="flex flex-col gap-6 px-6 mt-2 w-full min-w-0">
+            <div className="flex flex-col gap-3 w-full min-w-0">
+              <label className="ml-1 text-xs font-bold  text-white/70">Moodboard Name</label>
+              <Input
+                placeholder="例如：粘土材质、Lemo 角色"
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+                className="h-12 rounded-2xl border-white/10 bg-white/5 px-3 text-xs placeholder:text-white/40 text-white"
+              />
+            </div>
+            <div className="flex flex-col gap-3 w-full min-w-0">
+              <label className="ml-1 text-xs font-bold  text-white/70">上传参考图片 (可选)</label>
+              <div className="flex flex-col gap-2 w-full min-w-0" onPaste={handlePaste} tabIndex={0}>
+                <div className="w-full overflow-hidden">
+                  <div className="flex gap-2 overflow-x-auto  overflow-y-hidden ">
+                    <button
+                      onClick={handleUploadClick}
+                      className={`flex flex-col h-24 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 hover:bg-white/10 transition-colors focus:outline-none  focus:ring-none ${
+                        newImageFiles.length === 0 ? 'w-full' : 'w-24'
+                      }`}
+                    >
+                      <Plus size={20} className="text-white/40 mb-1" />
+                      <span className="text-sm text-white/40 text-center leading-tight">
+                        {newImageFiles.length === 0 ? '点击上传或直接粘贴图片' : <>点击上传<br/>或粘贴</>}
+                      </span>
+                    </button>
+                    {newImageFiles.map((file, index) => (
+                      <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-white/10">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt="preview" 
+                          className="h-full w-full object-cover"
+                        />
+                        <button
+                          onClick={() => handleRemoveNewImage(index)}
+                          className="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white hover:bg-black/80"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 w-full min-w-0">
+              <label className="ml-1 text-xs font-bold  text-white/70">Prompt</label>
+              <Input
+                placeholder="输入 Moodboard prompt 模版..."
+                value={newPrompt}
+                onChange={(event) => setNewPrompt(event.target.value)}
+                className="h-14 rounded-2xl border-white/10 bg-white/5 px-3 text-xs placeholder:text-white/40 text-white"
+              />
+            </div>
+          </div>
+
+          <div className="my-4 flex px-6 py-4 justify-end gap-3">
+           
+            <Button
+              onClick={handleCreate}
+              disabled={!newName.trim() || isUploading}
+              className="h-12  w-full   rounded-2xl bg-white  font-bold text-black transition-colors hover:bg-neutral-200 "
+            >
+              {isUploading ? '创建中...' : '确认创建'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

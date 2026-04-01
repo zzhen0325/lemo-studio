@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildRuntimePlaygroundShortcuts,
   buildShortcutPrompt,
+  extractShortcutMoodboardEntries,
   getShortcutById,
   getShortcutMoodboardId,
   mergeShortcutMoodboards,
@@ -160,6 +161,36 @@ describe('playground shortcut prompt builder', () => {
       subject: 'cream bear mascot',
       style: 'soft studio lighting',
     })).toContain('cream bear mascot');
+  });
+
+  it('uses persisted shortcut order and extracts homepage cards from moodboards', () => {
+    const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
+      persistedShortcuts: [
+        {
+          id: 'shortcut-row-jp',
+          code: 'jp-kv',
+          name: 'JP Runtime',
+          sort_order: 20,
+        },
+        {
+          id: 'shortcut-row-lemo',
+          code: 'lemo',
+          name: 'Lemo Runtime',
+          sort_order: 5,
+        },
+      ],
+    });
+
+    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual(['lemo', 'jp-kv']);
+
+    const moodboards = mergeShortcutMoodboards([], runtimeShortcuts);
+    const entries = extractShortcutMoodboardEntries(moodboards, runtimeShortcuts);
+
+    expect(entries.map((entry) => entry.shortcut.id)).toEqual(['lemo', 'jp-kv']);
+    expect(entries.map((entry) => entry.moodboard.id)).toEqual([
+      getShortcutMoodboardId('lemo'),
+      getShortcutMoodboardId('jp-kv'),
+    ]);
   });
 
   it('preserves an explicit empty shortcut overlay image list', () => {

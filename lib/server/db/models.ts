@@ -1250,13 +1250,30 @@ export const UserModel = {
 // ==========================================
 export interface InfiniteCanvasProjectDoc {
   id: string;
-  name?: string;
+  project_id?: string;
   projectId?: string; // camelCase alias
   user_id?: string;
   userId?: string;
-  data?: Record<string, unknown>;
+  project_name?: string;
+  projectName?: string;
+  cover_url?: string;
+  coverUrl?: string;
+  node_count?: number;
+  nodeCount?: number;
+  canvas_viewport?: Record<string, unknown>;
+  canvasViewport?: Record<string, unknown>;
+  last_opened_panel?: string | null;
+  lastOpenedPanel?: string | null;
+  nodes?: unknown[];
+  edges?: unknown[];
+  assets?: unknown[];
+  history?: unknown[];
+  run_queue?: unknown[];
+  runQueue?: unknown[];
   created_at?: string;
+  createdAt?: string;
   updated_at?: string;
+  updatedAt?: string;
 }
 
 export const InfiniteCanvasProjectModel = {
@@ -1297,16 +1314,21 @@ export const InfiniteCanvasProjectModel = {
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
     const normalizedFilter = normalizeFilter(filter);
     const updateData = toSnakeCase(extractUpdateData(update));
-    const id = normalizedFilter.id || normalizedFilter.project_id;
-    
+
     if (options?.upsert) {
       const existing = await this.findOne(normalizedFilter);
       if (!existing) {
-        await this.create({ ...updateData, id: id as string });
+        const createDoc: Record<string, unknown> = { ...updateData };
+        if (normalizedFilter.id) {
+          createDoc.id = normalizedFilter.id as string;
+        } else if (normalizedFilter.project_id && createDoc.project_id === undefined) {
+          createDoc.project_id = normalizedFilter.project_id;
+        }
+        await this.create(createDoc as Partial<InfiniteCanvasProjectDoc>);
         return { modifiedCount: 1 };
       }
     }
-    
+
     let query = getClient().from('infinite_canvas_projects').update(updateData);
     if (normalizedFilter.project_id) {
       query = query.eq('project_id', normalizedFilter.project_id as string);

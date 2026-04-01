@@ -3,8 +3,7 @@
 import React from 'react';
 
 import { cn } from '@/lib/utils';
-import type { StyleStack } from '@/types/database';
-import { type PlaygroundShortcut } from '@/config/playground-shortcuts';
+import { type PlaygroundShortcut, type ShortcutMoodboardEntry } from '@/config/playground-shortcuts';
 import { ShortcutStackCard } from './ShortcutStackCard';
 import { MoodboardDetailDialog } from './MoodboardDetailDialog';
 import {
@@ -15,8 +14,7 @@ import {
 
 interface StylesMarqueeProps {
   className?: string;
-  shortcuts: PlaygroundShortcut[];
-  shortcutMoodboards: Record<string, StyleStack | null>;
+  items: ShortcutMoodboardEntry[];
   onQuickApply: (shortcut: PlaygroundShortcut) => void;
   onPreviewImage?: (shortcut: PlaygroundShortcut, imageIndex: number) => void;
   onShortcutsChange?: () => Promise<void> | void;
@@ -24,8 +22,7 @@ interface StylesMarqueeProps {
 
 export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
   className,
-  shortcuts,
-  shortcutMoodboards,
+  items,
   onQuickApply,
   onPreviewImage,
   onShortcutsChange,
@@ -33,9 +30,9 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
   const [selectedShortcut, setSelectedShortcut] = React.useState<PlaygroundShortcut | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const [isPaused, setIsPaused] = React.useState(false);
-  const duplicatedShortcuts = React.useMemo(
-    () => [...shortcuts, ...shortcuts, ...shortcuts],
-    [shortcuts],
+  const duplicatedItems = React.useMemo(
+    () => [...items, ...items, ...items],
+    [items],
   );
 
   const handleViewDetail = React.useCallback((shortcut: PlaygroundShortcut) => {
@@ -71,13 +68,13 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
             'pointer-events-none',
           )}
           style={{
-            animation: `marquee ${Math.max(shortcuts.length, 1) * 9}s linear infinite`,
+            animation: `marquee ${Math.max(items.length, 1) * 9}s linear infinite`,
             animationPlayState: isPaused ? 'paused' : 'running',
           }}
         >
-          {duplicatedShortcuts.map((shortcut, index) => (
+          {duplicatedItems.map(({ shortcut, moodboard }, index) => (
             <div
-              key={`${shortcut.id}-${index}`}
+              key={`${shortcut.id}-${moodboard.id}-${index}`}
               className={cn(
                 SMALL_STACK_MARQUEE_ITEM_CLASS,
                 'pointer-events-none',
@@ -90,7 +87,7 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
               >
                 <ShortcutStackCard
                   shortcut={shortcut}
-                  moodboard={shortcutMoodboards[shortcut.id]}
+                  moodboard={moodboard}
                   size="sm"
                   onQuickApply={handleQuickApply}
                   onViewDetail={handleViewDetail}
@@ -105,7 +102,7 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
       <MoodboardDetailDialog
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
-        moodboard={selectedShortcut ? shortcutMoodboards[selectedShortcut.id] : null}
+        moodboard={selectedShortcut ? items.find((item) => item.shortcut.id === selectedShortcut.id)?.moodboard || null : null}
         shortcut={selectedShortcut}
         onShortcutQuickApply={handleQuickApply}
         onShortcutPreviewImage={onPreviewImage}
