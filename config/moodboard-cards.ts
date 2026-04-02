@@ -378,16 +378,27 @@ function inferAspectRatioFromDimensions(width?: number, height?: number): Aspect
   return bestMatch;
 }
 
-function resolveShortcutAspectRatio(record?: Pick<PersistedMoodboardCardRecord, "default_aspect_ratio" | "default_width" | "default_height">): AspectRatio {
+function resolveShortcutAspectRatio(
+  record?: Pick<PersistedMoodboardCardRecord, "default_aspect_ratio" | "default_width" | "default_height">,
+  fallback?: AspectRatio,
+): AspectRatio {
   const aspectRatio = record?.default_aspect_ratio?.trim() as AspectRatio | undefined;
   if (aspectRatio && SHORTCUT_ASPECT_RATIOS.includes(aspectRatio)) {
     return aspectRatio;
   }
 
-  return inferAspectRatioFromDimensions(record?.default_width, record?.default_height);
+  const inferred = inferAspectRatioFromDimensions(record?.default_width, record?.default_height);
+  if (inferred !== "1:1") {
+    return inferred;
+  }
+
+  return fallback || "1:1";
 }
 
-function resolveShortcutImageSize(record?: Pick<PersistedMoodboardCardRecord, "default_width" | "default_height">): ImageSize {
+function resolveShortcutImageSize(
+  record?: Pick<PersistedMoodboardCardRecord, "default_width" | "default_height">,
+  fallback?: ImageSize,
+): ImageSize {
   const longestSide = Math.max(record?.default_width || 0, record?.default_height || 0);
 
   if (longestSide >= 4096) {
@@ -400,7 +411,7 @@ function resolveShortcutImageSize(record?: Pick<PersistedMoodboardCardRecord, "d
     return "1K";
   }
 
-  return "2K";
+  return fallback || "2K";
 }
 
 function resolveShortcutImagePaths(
@@ -834,9 +845,13 @@ function buildShortcutFromRecord(options: {
     sortOrder: record?.sort_order ?? fallbackShortcut.sortOrder,
     createdAt: record?.created_at || fallbackShortcut.createdAt,
     name: record?.name?.trim() || fallbackShortcut.name,
+    description: record?.cover_subtitle?.trim() || fallbackShortcut.description,
     detailDescription: record?.moodboard_description?.trim() || fallbackShortcut.detailDescription,
     model,
     modelLabel: modelLabels?.get(model) || fallbackShortcut.modelLabel || model,
+    aspectRatio: resolveShortcutAspectRatio(record, fallbackShortcut.aspectRatio),
+    imageSize: resolveShortcutImageSize(record, fallbackShortcut.imageSize),
+    imagePaths: resolveShortcutImagePaths(record, fallbackShortcut.imagePaths),
     promptTemplate,
     promptFields,
     fields: runtimeFields,
