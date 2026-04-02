@@ -12,6 +12,9 @@ import {
 import {
   getProxyAgent,
   getUndiciDispatcher,
+  generateSign,
+  generateNonce,
+  generateTimestamp,
 } from "../utils";
 import { getConfiguredSiteBaseUrl, readLocalPublicImage } from "../imageInput";
 import { uploadToCoze } from "../cozeUploader";
@@ -1115,25 +1118,42 @@ export class BytedanceAfrProvider implements ImageProvider {
    */
   private async generateFixedSchemaImage(params: ImageGenerationInput): Promise<ImageResult> {
     const API_CONFIG = resolveBytedanceAfrConfig();
-    const submitUrl = `${API_CONFIG.BASE_URL}/media/api/pic/submit_task_v2`;
-    const conf = {
+    
+    // 生成签名参数
+    const nonce = generateNonce();
+    const timestamp = generateTimestamp();
+    const sign = generateSign(nonce, timestamp, API_CONFIG.APP_SECRET);
+
+    // 使用 /media/api/pic/afr 端点
+    const submitUrl = `${API_CONFIG.BASE_URL}/media/api/pic/afr?aid=${API_CONFIG.AID}&app_key=${API_CONFIG.APP_KEY}&nonce=${nonce}&timestamp=${timestamp}&sign=${sign}`;
+    
+    // seed4_v2_0226lemo 需要特定的配置格式
+    const conf: Record<string, unknown> = {
+      Prompt: params.prompt || "",  // 注意大写 P
+      local_lora_name: "lemo_seed4_0104_doubao@v4.safetensors",
       width: 2048,
       height: 2048,
       seed: -1,
-      string: params.prompt || "",
     };
 
     const formData = new URLSearchParams();
     formData.append("algorithms", this.config.modelId);
     formData.append("conf", JSON.stringify(conf));
 
-    const response = await fetch(submitUrl, {
+    const agent = getProxyAgent();
+    const fetchOptions: RequestInit & { agent?: unknown } = {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
-    });
+    };
+
+    if (agent) {
+      fetchOptions.agent = agent;
+    }
+
+    const response = await fetch(submitUrl, fetchOptions);
 
     const data = await response.json() as {
       success?: boolean;
@@ -1161,8 +1181,8 @@ export class BytedanceAfrProvider implements ImageProvider {
     return {
       images,
       metadata: {
-        width: conf.width,
-        height: conf.height,
+        width: conf.width as number,
+        height: conf.height as number,
       },
     };
   }
@@ -1190,7 +1210,17 @@ export class BytedanceAfrProvider implements ImageProvider {
       string: prompt,
     };
 
+    // 生成签名参数
+    const nonce = generateNonce();
+    const timestamp = generateTimestamp();
+    const sign = generateSign(nonce, timestamp, API_CONFIG.APP_SECRET);
+
     const formData = new URLSearchParams();
+    formData.append("aid", API_CONFIG.AID);
+    formData.append("app_key", API_CONFIG.APP_KEY);
+    formData.append("nonce", nonce);
+    formData.append("timestamp", timestamp);
+    formData.append("sign", sign);
     formData.append("req_key", this.config.modelId);
     formData.append("req_json", JSON.stringify(reqJson));
     formData.append("img_return_type", "url");
@@ -1267,30 +1297,40 @@ export class BytedanceAfrProvider implements ImageProvider {
     const API_CONFIG = resolveBytedanceAfrConfig();
     const pollUrl = `${API_CONFIG.BASE_URL}/media/api/pic/batch_get_result_v2`;
 
-    const formData = new URLSearchParams();
-    formData.append("req_key", this.config.modelId);
-    formData.append("task_ids", taskId);
-    formData.append("img_return_type", "url");
-    formData.append("img_return_format", "png");
-
-    const agent = getProxyAgent();
-    const fetchOptions: RequestInit & { agent?: unknown } = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData.toString(),
-    };
-
-    if (agent) {
-      fetchOptions.agent = agent;
-    }
-
     // 轮询配置
     const maxAttempts = 120; // 最多轮询 120 次
     const pollInterval = 1000; // 每秒轮询一次
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // 每次请求都生成新的签名参数
+      const nonce = generateNonce();
+      const timestamp = generateTimestamp();
+      const sign = generateSign(nonce, timestamp, API_CONFIG.APP_SECRET);
+
+      const formData = new URLSearchParams();
+      formData.append("aid", API_CONFIG.AID);
+      formData.append("app_key", API_CONFIG.APP_KEY);
+      formData.append("nonce", nonce);
+      formData.append("timestamp", timestamp);
+      formData.append("sign", sign);
+      formData.append("req_key", this.config.modelId);
+      formData.append("task_ids", taskId);
+      formData.append("img_return_type", "url");
+      formData.append("img_return_format", "png");
+
+      const agent = getProxyAgent();
+      const fetchOptions: RequestInit & { agent?: unknown } = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData.toString(),
+      };
+
+      if (agent) {
+        fetchOptions.agent = agent;
+      }
+
       const response = await fetch(pollUrl, fetchOptions);
       const data = await response.json() as {
         data?: {
