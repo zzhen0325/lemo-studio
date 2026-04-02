@@ -6,6 +6,8 @@ settings:
 
 overrides:
   '@next-ai/fornax-api': file:vendor/next-ai-fornax-api-1.2.8.tgz
+  '@byted-service/env': file:vendor/byted-service-env-1.17.22.tgz
+  '@byted-service/logid': file:vendor/byted-service-logid-1.1.1.tgz
 
 importers:
 
@@ -452,11 +454,13 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@byted-service/env@1.17.22':
-    resolution: {integrity: sha512-1md/WVCvJpnlpwQLCzr8Re1lJ9jOBV4EZHy4eLj+oWr5FQfSk6k/q1JUr4W5byYJAgJqlvDS9DVthD9giNJDQA==}
+  '@byted-service/env@file:vendor/byted-service-env-1.17.22.tgz':
+    resolution: {integrity: sha512-1md/WVCvJpnlpwQLCzr8Re1lJ9jOBV4EZHy4eLj+oWr5FQfSk6k/q1JUr4W5byYJAgJqlvDS9DVthD9giNJDQA==, tarball: file:vendor/byted-service-env-1.17.22.tgz}
+    version: 1.17.22
 
-  '@byted-service/logid@1.1.1':
-    resolution: {integrity: sha512-Gj5j6v1sRkXRG4ZoDL/+BdGVFFiHYo/evLSq5s1d10kZAW045HqwRdky9zYsPz9yV6MGyuxtBvcWTGhLmipmGA==}
+  '@byted-service/logid@file:vendor/byted-service-logid-1.1.1.tgz':
+    resolution: {integrity: sha512-Gj5j6v1sRkXRG4ZoDL/+BdGVFFiHYo/evLSq5s1d10kZAW045HqwRdky9zYsPz9yV6MGyuxtBvcWTGhLmipmGA==, tarball: file:vendor/byted-service-logid-1.1.1.tgz}
+    version: 1.1.1
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
@@ -6050,11 +6054,11 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@byted-service/env@1.17.22':
+  '@byted-service/env@file:vendor/byted-service-env-1.17.22.tgz':
     dependencies:
       tslib: 2.8.1
 
-  '@byted-service/logid@1.1.1':
+  '@byted-service/logid@file:vendor/byted-service-logid-1.1.1.tgz':
     dependencies:
       nanoid: 3.3.11
       tslib: 2.8.1
@@ -6546,8 +6550,8 @@ snapshots:
 
   '@next-ai/fornax-sdk@file:vendor/next-ai-fornax-sdk-2.4.4.tgz(chokidar@3.6.0)(ws@8.19.0)':
     dependencies:
-      '@byted-service/env': 1.17.22
-      '@byted-service/logid': 1.1.1
+      '@byted-service/env': file:vendor/byted-service-env-1.17.22.tgz
+      '@byted-service/logid': file:vendor/byted-service-logid-1.1.1.tgz
       '@next-ai/fornax-api': file:vendor/next-ai-fornax-api-1.2.8.tgz
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 1.26.0(@opentelemetry/api@1.9.1)

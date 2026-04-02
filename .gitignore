@@ -77,6 +77,8 @@ typings/
 *.tgz
 !vendor/next-ai-fornax-api-1.2.8.tgz
 !vendor/next-ai-fornax-sdk-2.4.4.tgz
+!vendor/byted-service-env-1.17.22.tgz
+!vendor/byted-service-logid-1.1.1.tgz
 
 # Yarn Integrity file
 .yarn-integrity
