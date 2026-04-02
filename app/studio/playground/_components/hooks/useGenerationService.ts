@@ -72,6 +72,7 @@ export interface GenerateOptions {
 
 const GEMINI_MAX_INLINE_IMAGE_DIMENSION = 3072;
 const GEMINI_TARGET_INLINE_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_AUTO_INLINE_IMAGE_BYTES = 1024 * 1024;
 
 function estimateDataUrlBytes(dataUrl: string): number {
     const base64 = dataUrl.split(",")[1] || "";
@@ -211,6 +212,9 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
 
             const blob = await response.blob();
             if (!blob.type.startsWith('image/')) return null;
+            if (blob.size > MAX_AUTO_INLINE_IMAGE_BYTES) {
+                return null;
+            }
             return await blobToDataURL(blob);
         } catch (err) {
             console.warn('[useGenerationService] Failed to convert remote image to data URL:', url, err);
@@ -372,7 +376,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
 
             // Prefer local data URL for model input to avoid server-side remote fetch instability.
             if (matched?.previewUrl?.startsWith('data:')) {
-                return matched.previewUrl;
+                const inlineSize = estimateDataUrlBytes(matched.previewUrl);
+                if (inlineSize <= MAX_AUTO_INLINE_IMAGE_BYTES) {
+                    return matched.previewUrl;
+                }
             }
 
             return url;

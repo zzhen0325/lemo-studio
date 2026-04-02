@@ -18,6 +18,7 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { getMoodboardCardByMoodboardId } from '@/config/moodboard-cards';
 import { getApiBase } from '@/lib/api-base';
+import { resolveGalleryImageUrl } from '@/lib/gallery-asset';
 import { usePlaygroundMoodboards } from './hooks/usePlaygroundMoodboards';
 import {
   persistShortcutGalleryOrder,
@@ -148,7 +149,7 @@ export function AddToMoodboardMenu({
             />
           </div>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[180px]">
+        <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[180px] max-h-[400px] overflow-y-auto custom-scrollbar">
           <DropdownMenuLabel className="text-white/40 text-[10px] uppercase tracking-wider px-2 py-1">
             选择情绪板
           </DropdownMenuLabel>
@@ -169,7 +170,7 @@ export function AddToMoodboardMenu({
 
           <DropdownMenuSeparator className="bg-white/5" />
 
-          <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+          <div className="pr-1">
             {moodboards.length > 0 ? (
               moodboards.map((moodboard) => {
                 const linkedMoodboardCard = getMoodboardCardByMoodboardId(moodboard.id, moodboardCards);
@@ -213,12 +214,7 @@ export function AddToMoodboardMenu({
                       }
                     }}
                   >
-                    <span className="truncate">{moodboard.name}</span>
-                    {linkedMoodboardCard && (
-                      <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-wider text-white/45">
-                        template
-                      </span>
-                    )}
+                  
                   </DropdownMenuItem>
                 );
               })
@@ -293,12 +289,12 @@ export function AddToMoodboardMenu({
                     <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-white/30">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
-                        src={imagePath.startsWith('local:') ? imagePath : `${getApiBase()}/images/${imagePath.split('/').pop()}`}
+                        src={resolveGalleryImageUrl(imagePath) || imagePath}
                         alt="Current preview" 
                         className="h-full w-full object-cover"
                         onError={(e) => {
-                          // Fallback to absolute url if needed
-                          if (!imagePath.startsWith('http') && !imagePath.startsWith('blob') && !imagePath.startsWith('local:')) {
+                          // Fallback to raw value if resolver output is not loadable.
+                          if (e.currentTarget.src !== imagePath) {
                             e.currentTarget.src = imagePath;
                           }
                         }}

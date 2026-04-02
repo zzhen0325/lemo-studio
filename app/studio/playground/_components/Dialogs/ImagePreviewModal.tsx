@@ -384,6 +384,7 @@ export default function ImagePreviewModal({
                       className="h-8 px-4 rounded-xl transition-all font-medium gap-2"
                       onClick={(e) => {
                         e.stopPropagation();
+                        onClose();
                         onEdit(result);
                       }}
                     >

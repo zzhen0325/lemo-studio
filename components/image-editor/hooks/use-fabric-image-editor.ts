@@ -74,10 +74,19 @@ const DEFAULT_BRUSH_WIDTH = 4;
 const BANNER_ANNOTATION_BORDER_COLOR = IMAGE_EDITOR_THEME.annotation.border;
 const BANNER_ANNOTATION_LABEL_BACKGROUND = IMAGE_EDITOR_THEME.annotation.labelBackground;
 const BANNER_ANNOTATION_LABEL_TEXT_COLOR = IMAGE_EDITOR_THEME.annotation.labelText;
-const BANNER_ANNOTATION_LABEL_FONT = `400 10px ${sansFontFamily}`;
-const BANNER_ANNOTATION_LABEL_OFFSET_Y = 20;
+const BANNER_ANNOTATION_BORDER_WIDTH_PX = 2;
+const BANNER_ANNOTATION_LABEL_FONT_SIZE_PX = 10;
+const BANNER_ANNOTATION_LABEL_HEIGHT_PX = 14;
+const BANNER_ANNOTATION_LABEL_PADDING_X_PX = 1;
+const BANNER_ANNOTATION_LABEL_OFFSET_Y_PX = 20;
+const CROP_BORDER_WIDTH_PX = 2;
+const HANDLE_RADIUS_PX = 4.5;
+const HANDLE_STROKE_WIDTH_PX = 1.5;
 const MIN_DRAW_SIZE = 8;
-const HANDLE_HIT_SIZE = 10;
+const HANDLE_HIT_SIZE_PX = 10;
+const MIN_VIEW_ZOOM = 0.4;
+const MAX_VIEW_ZOOM = 8;
+const WHEEL_ZOOM_SENSITIVITY = 0.0015;
 
 function createId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -197,7 +206,7 @@ function getHandlePoint(rect: ImageEditorCrop, handle: ResizeHandle): Point {
   return { x: rect.x + rect.width, y: rect.y + rect.height };
 }
 
-function getResizeHandle(point: Point, rect: ImageEditorCrop, hitSize = HANDLE_HIT_SIZE): ResizeHandle | null {
+function getResizeHandle(point: Point, rect: ImageEditorCrop, hitSize = HANDLE_HIT_SIZE_PX): ResizeHandle | null {
   const handles: ResizeHandle[] = ['nw', 'ne', 'sw', 'se'];
 
   for (const handle of handles) {
@@ -251,26 +260,50 @@ function getCanvasDisplaySize(
   canvas: HTMLCanvasElement,
   logicalWidth: number,
   logicalHeight: number,
+  viewZoom: number,
 ): { width: number; height: number } {
   const parent = canvas.parentElement;
   if (!parent) {
-    return { width: logicalWidth, height: logicalHeight };
+    return {
+      width: Math.max(1, Math.round(logicalWidth * clamp(viewZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM))),
+      height: Math.max(1, Math.round(logicalHeight * clamp(viewZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM))),
+    };
   }
 
   const bounds = parent.getBoundingClientRect();
   if (!bounds.width || !bounds.height) {
-    return { width: logicalWidth, height: logicalHeight };
+    return {
+      width: Math.max(1, Math.round(logicalWidth * clamp(viewZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM))),
+      height: Math.max(1, Math.round(logicalHeight * clamp(viewZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM))),
+    };
   }
 
-  const scale = Math.min(bounds.width / logicalWidth, bounds.height / logicalHeight, 1);
-  if (!Number.isFinite(scale) || scale <= 0) {
-    return { width: logicalWidth, height: logicalHeight };
+  const fitScale = Math.min(bounds.width / logicalWidth, bounds.height / logicalHeight, 1);
+  if (!Number.isFinite(fitScale) || fitScale <= 0) {
+    return {
+      width: Math.max(1, Math.round(logicalWidth * clamp(viewZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM))),
+      height: Math.max(1, Math.round(logicalHeight * clamp(viewZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM))),
+    };
   }
+
+  const scale = fitScale * clamp(viewZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM);
 
   return {
-    width: Math.max(1, Math.floor(logicalWidth * scale)),
-    height: Math.max(1, Math.floor(logicalHeight * scale)),
+    width: Math.max(1, Math.round(logicalWidth * scale)),
+    height: Math.max(1, Math.round(logicalHeight * scale)),
   };
+}
+
+function getLogicalUnitsPerCssPixel(
+  logicalWidth: number,
+  logicalHeight: number,
+  displayWidth: number,
+  displayHeight: number,
+): number {
+  const scaleX = displayWidth > 0 ? displayWidth / logicalWidth : 1;
+  const scaleY = displayHeight > 0 ? displayHeight / logicalHeight : 1;
+  const normalizedScale = Math.max(0.0001, Math.min(scaleX, scaleY));
+  return 1 / normalizedScale;
 }
 
 function getPointFromEvent(
@@ -287,6 +320,15 @@ function getPointFromEvent(
     x: clamp((event.clientX - bounds.left) * scaleX, 0, logicalWidth),
     y: clamp((event.clientY - bounds.top) * scaleY, 0, logicalHeight),
   };
+}
+
+function getLogicalUnitsPerCssPixelFromCanvas(
+  canvas: HTMLCanvasElement,
+  logicalWidth: number,
+  logicalHeight: number,
+): number {
+  const bounds = canvas.getBoundingClientRect();
+  return getLogicalUnitsPerCssPixel(logicalWidth, logicalHeight, bounds.width, bounds.height);
 }
 
 function getAnnotationLabelText(label: string): string {
@@ -382,17 +424,22 @@ function drawStrokePath(context: CanvasRenderingContext2D, stroke: InternalStrok
   context.restore();
 }
 
-function drawHandles(context: CanvasRenderingContext2D, rect: ImageEditorCrop, borderColor: string): void {
+function drawHandles(
+  context: CanvasRenderingContext2D,
+  rect: ImageEditorCrop,
+  borderColor: string,
+  logicalUnitsPerCssPixel: number,
+): void {
   const handles: ResizeHandle[] = ['nw', 'ne', 'sw', 'se'];
   context.save();
 
   handles.forEach((handle) => {
     const point = getHandlePoint(rect, handle);
     context.beginPath();
-    context.arc(point.x, point.y, 4.5, 0, Math.PI * 2);
+    context.arc(point.x, point.y, HANDLE_RADIUS_PX * logicalUnitsPerCssPixel, 0, Math.PI * 2);
     context.fillStyle = borderColor;
     context.fill();
-    context.lineWidth = 1.5;
+    context.lineWidth = HANDLE_STROKE_WIDTH_PX * logicalUnitsPerCssPixel;
     context.strokeStyle = IMAGE_EDITOR_THEME.annotation.handleStroke;
     context.stroke();
   });
@@ -445,6 +492,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
   const interactionRef = useRef<Interaction>(null);
   const selectionRef = useRef<Selection>(null);
   const pointerIdRef = useRef<number | null>(null);
+  const viewZoomRef = useRef(1);
   const imageSizeRef = useRef({
     width: initialSession?.imageWidth || 1024,
     height: initialSession?.imageHeight || 1024,
@@ -501,7 +549,13 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
 
     const logicalWidth = imageSizeRef.current.width;
     const logicalHeight = imageSizeRef.current.height;
-    const displaySize = getCanvasDisplaySize(canvas, logicalWidth, logicalHeight);
+    const displaySize = getCanvasDisplaySize(canvas, logicalWidth, logicalHeight, viewZoomRef.current);
+    const logicalUnitsPerCssPixel = getLogicalUnitsPerCssPixel(
+      logicalWidth,
+      logicalHeight,
+      displaySize.width,
+      displaySize.height,
+    );
     const pixelRatio = getCanvasPixelRatio();
     const pixelWidth = Math.max(1, Math.round(displaySize.width * pixelRatio));
     const pixelHeight = Math.max(1, Math.round(displaySize.height * pixelRatio));
@@ -521,6 +575,12 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     if (canvas.style.height !== cssHeight) {
       canvas.style.height = cssHeight;
     }
+    if (canvas.style.maxWidth !== 'none') {
+      canvas.style.maxWidth = 'none';
+    }
+    if (canvas.style.maxHeight !== 'none') {
+      canvas.style.maxHeight = 'none';
+    }
 
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, canvas.width, canvas.height);
@@ -539,27 +599,27 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       const rect = toRect(annotation);
 
       context.save();
-      context.lineWidth = 2;
+      context.lineWidth = BANNER_ANNOTATION_BORDER_WIDTH_PX * logicalUnitsPerCssPixel;
       context.strokeStyle = BANNER_ANNOTATION_BORDER_COLOR;
       context.strokeRect(rect.x, rect.y, rect.width, rect.height);
       context.restore();
 
       const labelText = getAnnotationLabelText(annotation.label);
       context.save();
-      context.font = BANNER_ANNOTATION_LABEL_FONT;
+      context.font = `400 ${BANNER_ANNOTATION_LABEL_FONT_SIZE_PX * logicalUnitsPerCssPixel}px ${sansFontFamily}`;
       context.textBaseline = 'middle';
-      const labelWidth = Math.ceil(context.measureText(labelText).width) + 2;
-      const labelHeight = 14;
+      const labelWidth = Math.ceil(context.measureText(labelText).width) + ((BANNER_ANNOTATION_LABEL_PADDING_X_PX * 2) * logicalUnitsPerCssPixel);
+      const labelHeight = BANNER_ANNOTATION_LABEL_HEIGHT_PX * logicalUnitsPerCssPixel;
       const labelX = rect.x;
-      const labelY = Math.max(0, rect.y - BANNER_ANNOTATION_LABEL_OFFSET_Y);
+      const labelY = Math.max(0, rect.y - (BANNER_ANNOTATION_LABEL_OFFSET_Y_PX * logicalUnitsPerCssPixel));
       context.fillStyle = BANNER_ANNOTATION_LABEL_BACKGROUND;
       context.fillRect(labelX, labelY, labelWidth, labelHeight);
       context.fillStyle = BANNER_ANNOTATION_LABEL_TEXT_COLOR;
-      context.fillText(labelText, labelX + 1, labelY + (labelHeight / 2));
+      context.fillText(labelText, labelX + (BANNER_ANNOTATION_LABEL_PADDING_X_PX * logicalUnitsPerCssPixel), labelY + (labelHeight / 2));
       context.restore();
 
       if (showHandles && selectionRef.current?.kind === 'annotation' && selectionRef.current.id === annotation.id) {
-        drawHandles(context, rect, BANNER_ANNOTATION_BORDER_COLOR);
+        drawHandles(context, rect, BANNER_ANNOTATION_BORDER_COLOR, logicalUnitsPerCssPixel);
       }
     });
 
@@ -569,14 +629,14 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       context.save();
       context.fillStyle = IMAGE_EDITOR_THEME.actionSurface;
       context.strokeStyle = IMAGE_EDITOR_THEME.action;
-      context.lineWidth = 2;
-      context.setLineDash([10, 6]);
+      context.lineWidth = CROP_BORDER_WIDTH_PX * logicalUnitsPerCssPixel;
+      context.setLineDash([10 * logicalUnitsPerCssPixel, 6 * logicalUnitsPerCssPixel]);
       context.fillRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
       context.strokeRect(cropRect.x, cropRect.y, cropRect.width, cropRect.height);
       context.restore();
 
       if (showHandles && selectionRef.current?.kind === 'crop') {
-        drawHandles(context, cropRect, IMAGE_EDITOR_THEME.action);
+        drawHandles(context, cropRect, IMAGE_EDITOR_THEME.action, logicalUnitsPerCssPixel);
       }
     }
 
@@ -584,9 +644,11 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     if (interaction && (interaction.type === 'draw-annotation' || interaction.type === 'draw-crop')) {
       const draftRect = rectFromPoints(interaction.start, interaction.current, logicalWidth, logicalHeight);
       context.save();
-      context.lineWidth = 2;
+      context.lineWidth = CROP_BORDER_WIDTH_PX * logicalUnitsPerCssPixel;
       context.strokeStyle = interaction.type === 'draw-crop' ? IMAGE_EDITOR_THEME.action : BANNER_ANNOTATION_BORDER_COLOR;
-      context.setLineDash(interaction.type === 'draw-crop' ? [10, 6] : [8, 4]);
+      context.setLineDash(interaction.type === 'draw-crop'
+        ? [10 * logicalUnitsPerCssPixel, 6 * logicalUnitsPerCssPixel]
+        : [8 * logicalUnitsPerCssPixel, 4 * logicalUnitsPerCssPixel]);
       context.strokeRect(draftRect.x, draftRect.y, draftRect.width, draftRect.height);
       context.restore();
     }
@@ -664,6 +726,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     setIsReady(false);
     isReadyRef.current = false;
     setLoadError(undefined);
+    viewZoomRef.current = 1;
 
     const initialize = async () => {
       try {
@@ -740,11 +803,13 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
 
     const findAnnotationTarget = (point: Point): { annotation: ImageEditorAnnotation; handle: ResizeHandle | null } | null => {
       const allAnnotations = annotationsRef.current;
+      const { width, height } = imageSizeRef.current;
+      const handleHitSize = HANDLE_HIT_SIZE_PX * getLogicalUnitsPerCssPixelFromCanvas(canvas, width, height);
 
       for (let index = allAnnotations.length - 1; index >= 0; index -= 1) {
         const annotation = allAnnotations[index];
         const annotationRect = toRect(annotation);
-        const handle = getResizeHandle(point, annotationRect);
+        const handle = getResizeHandle(point, annotationRect, handleHitSize);
         if (handle) {
           return { annotation, handle };
         }
@@ -760,8 +825,10 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
     const findCropTarget = (point: Point): { handle: ResizeHandle | null } | null => {
       const cropRect = cropRef.current;
       if (!cropRect) return null;
+      const { width, height } = imageSizeRef.current;
+      const handleHitSize = HANDLE_HIT_SIZE_PX * getLogicalUnitsPerCssPixelFromCanvas(canvas, width, height);
 
-      const handle = getResizeHandle(point, cropRect);
+      const handle = getResizeHandle(point, cropRect, handleHitSize);
       if (handle) {
         return { handle };
       }
@@ -1145,7 +1212,70 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       renderCanvas();
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      if (!enabled || !isReadyRef.current) return;
+
+      event.preventDefault();
+
+      const parent = canvas.parentElement;
+      if (!parent) return;
+
+      const normalizedDeltaY = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? event.deltaY * 16
+        : (event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? event.deltaY * parent.clientHeight
+          : event.deltaY);
+
+      if (!Number.isFinite(normalizedDeltaY) || normalizedDeltaY === 0) {
+        return;
+      }
+
+      const nextZoom = clamp(
+        viewZoomRef.current * Math.exp(-normalizedDeltaY * WHEEL_ZOOM_SENSITIVITY),
+        MIN_VIEW_ZOOM,
+        MAX_VIEW_ZOOM,
+      );
+
+      if (Math.abs(nextZoom - viewZoomRef.current) < 0.0001) {
+        return;
+      }
+
+      const pointerClientX = event.clientX;
+      const pointerClientY = event.clientY;
+
+      const canvasRectBefore = canvas.getBoundingClientRect();
+      const ratioX = canvasRectBefore.width > 0
+        ? clamp((pointerClientX - canvasRectBefore.left) / canvasRectBefore.width, 0, 1)
+        : 0.5;
+      const ratioY = canvasRectBefore.height > 0
+        ? clamp((pointerClientY - canvasRectBefore.top) / canvasRectBefore.height, 0, 1)
+        : 0.5;
+
+      viewZoomRef.current = nextZoom;
+      renderCanvas();
+
+      requestAnimationFrame(() => {
+        const currentParent = canvas.parentElement;
+        if (!currentParent) return;
+
+        const parentRect = currentParent.getBoundingClientRect();
+        const canvasRectAfter = canvas.getBoundingClientRect();
+        const pointerXInParent = pointerClientX - parentRect.left;
+        const pointerYInParent = pointerClientY - parentRect.top;
+
+        const canvasLeftInContent = canvasRectAfter.left - parentRect.left + currentParent.scrollLeft;
+        const canvasTopInContent = canvasRectAfter.top - parentRect.top + currentParent.scrollTop;
+
+        const targetScrollLeft = canvasLeftInContent + (ratioX * canvasRectAfter.width) - pointerXInParent;
+        const targetScrollTop = canvasTopInContent + (ratioY * canvasRectAfter.height) - pointerYInParent;
+
+        currentParent.scrollLeft = Math.max(0, targetScrollLeft);
+        currentParent.scrollTop = Math.max(0, targetScrollTop);
+      });
+    };
+
     canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerCancel);
@@ -1157,6 +1287,7 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       abortController.abort();
 
       canvas.removeEventListener('pointerdown', handlePointerDown);
+      canvas.removeEventListener('wheel', handleWheel);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerCancel);
@@ -1334,23 +1465,23 @@ export function useFabricImageEditor(options: UseFabricImageEditorOptions): UseF
       const rect = toRect(annotation);
 
       fullContext.save();
-      fullContext.lineWidth = 2;
+      fullContext.lineWidth = BANNER_ANNOTATION_BORDER_WIDTH_PX;
       fullContext.strokeStyle = BANNER_ANNOTATION_BORDER_COLOR;
       fullContext.strokeRect(rect.x, rect.y, rect.width, rect.height);
       fullContext.restore();
 
       const labelText = getAnnotationLabelText(annotation.label);
       fullContext.save();
-      fullContext.font = BANNER_ANNOTATION_LABEL_FONT;
+      fullContext.font = `400 ${BANNER_ANNOTATION_LABEL_FONT_SIZE_PX}px ${sansFontFamily}`;
       fullContext.textBaseline = 'middle';
-      const labelWidth = Math.ceil(fullContext.measureText(labelText).width) + 2;
-      const labelHeight = 14;
+      const labelWidth = Math.ceil(fullContext.measureText(labelText).width) + (BANNER_ANNOTATION_LABEL_PADDING_X_PX * 2);
+      const labelHeight = BANNER_ANNOTATION_LABEL_HEIGHT_PX;
       const labelX = rect.x;
-      const labelY = Math.max(0, rect.y - BANNER_ANNOTATION_LABEL_OFFSET_Y);
+      const labelY = Math.max(0, rect.y - BANNER_ANNOTATION_LABEL_OFFSET_Y_PX);
       fullContext.fillStyle = BANNER_ANNOTATION_LABEL_BACKGROUND;
       fullContext.fillRect(labelX, labelY, labelWidth, labelHeight);
       fullContext.fillStyle = BANNER_ANNOTATION_LABEL_TEXT_COLOR;
-      fullContext.fillText(labelText, labelX + 1, labelY + (labelHeight / 2));
+      fullContext.fillText(labelText, labelX + BANNER_ANNOTATION_LABEL_PADDING_X_PX, labelY + (labelHeight / 2));
       fullContext.restore();
     });
 

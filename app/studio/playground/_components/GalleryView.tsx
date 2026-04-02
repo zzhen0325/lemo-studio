@@ -913,23 +913,30 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
                                 setUploadedImages([]);
                             }
 
+                            const recordConfig: GenerationConfig = {
+                                ...item.config,
+                                taskId: undefined,
+                            };
+
                             // 2. 应用模型和参数
                             const fullConfig: GenerationConfig = {
                                 ...currentConfig,
-                                ...item.config,
-                                prompt: item.config.prompt || '',
-                                width: item.config.width || currentConfig.width,
-                                height: item.config.height || currentConfig.height,
-                                model: item.config.model || currentConfig.model,
-                                isEdit: item.config.isEdit,
-                                editConfig: item.config.editConfig,
-                                parentId: item.config.parentId,
+                                ...recordConfig,
+                                prompt: recordConfig.prompt || '',
+                                width: recordConfig.width || currentConfig.width,
+                                height: recordConfig.height || currentConfig.height,
+                                model: recordConfig.model || currentConfig.model,
+                                isEdit: recordConfig.isEdit,
+                                editConfig: recordConfig.editConfig,
+                                parentId: recordConfig.parentId,
                                 sourceImageUrls: sourceUrls,
+                                // Rerun should create a new history group instead of reusing the old task bucket.
+                                taskId: undefined,
                             };
 
                             applyModel(fullConfig.model, fullConfig);
                             applyPrompt(fullConfig.prompt);
-                            setSelectedPresetName(item.config.presetName);
+                            setSelectedPresetName(recordConfig.presetName);
 
                             // 3. 切换视图并触发生成
                             setViewMode('dock');

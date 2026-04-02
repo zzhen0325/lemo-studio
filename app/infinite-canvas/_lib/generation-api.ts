@@ -52,6 +52,47 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+function extensionFromMimeType(mimeType: string): string {
+  const normalized = mimeType.toLowerCase();
+  if (normalized.includes('jpeg') || normalized.includes('jpg')) return 'jpg';
+  if (normalized.includes('webp')) return 'webp';
+  if (normalized.includes('gif')) return 'gif';
+  return 'png';
+}
+
+async function uploadDataUrlImage(dataUrl: string): Promise<string> {
+  const dataResponse = await fetch(dataUrl);
+  if (!dataResponse.ok) {
+    throw new Error(`Failed to parse edited image data URL: HTTP ${dataResponse.status}`);
+  }
+
+  const imageBlob = await dataResponse.blob();
+  const mimeType = imageBlob.type || 'image/png';
+  const ext = extensionFromMimeType(mimeType);
+  const formData = new FormData();
+  formData.append('file', new File([imageBlob], `image-edit-${Date.now()}.${ext}`, { type: mimeType }));
+
+  const uploadResponse = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!uploadResponse.ok) {
+    const fallback = await uploadResponse.text().catch(() => '');
+    throw new Error(fallback || `Upload request failed with status ${uploadResponse.status}`);
+  }
+
+  const uploadPayload = await uploadResponse.json() as { path?: string; url?: string };
+  const resolvedPath = uploadPayload.url || uploadPayload.path;
+
+  if (!resolvedPath) {
+    throw new Error('Upload succeeded but no image URL returned');
+  }
+
+  return resolvedPath;
+}
+
 async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string[] }> {
   const { width, height } = parseSize(payload.imageSize);
   const directComfyUrl = getConfiguredDirectComfyUrl();
@@ -149,6 +190,10 @@ async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string
 }
 
 export async function saveImageAsset(imageBase64OrUrl: string, subdir: string): Promise<string> {
+  if (imageBase64OrUrl.startsWith('data:')) {
+    return uploadDataUrlImage(imageBase64OrUrl);
+  }
+
   const response = await requestJSON<{ path: string }>('/api/save-image', {
     method: 'POST',
     body: {

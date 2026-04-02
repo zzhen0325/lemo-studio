@@ -2,6 +2,13 @@ import React, { RefObject, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { X, Plus, Sparkles } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -386,7 +393,7 @@ export function PlaygroundInputSection({
                     showHistory ? " bg-gradient-to-br from-[#0F0F15] via-[#0F0F15] to-[#1d2025]  border-[#343434]" : "bg-black/40"
                 )}>
                     <div className="flex items-start gap-0 bg-black/60 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
-                        {variant !== 'edit' && (
+                        {variant !== 'edit' && !(isKvShortcutTemplate && isOptimizing) && (
                             <DndContext
                                 sensors={sensors}
                                 collisionDetection={closestCenter}
@@ -505,73 +512,81 @@ export function PlaygroundInputSection({
                                             }
                                         }}
                                     >
-                                        <Button
-                                            type="button"
-                                            variant="light"
-                                            size="sm"
-                                            aria-label={optimizeButtonLabel}
-                                            title={optimizeButtonLabel}
-                                            className={cn("h-6 w-fit justify-center rounded-full px-0 disabled:opacity-100", isOptimizing && "text-white")}
-                                            disabled={isOptimizeButtonDisabled}
-                                            onClick={handleOptimizeButtonClick}
-                                        >
-                                            <motion.div
-                                                initial={false}
-                                                animate={isOptimizing ? {
-                                                    opacity: [1, 0.8, 0.8, 1],
-                                                    filter: [
-                                                        "drop-shadow(0 0 4px rgba(255, 255, 255, 0.4))",
-                                                        "drop-shadow(0 0 18px rgba(255, 255, 255, 0.95))",
-                                                        "drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))",
-                                                        "drop-shadow(0 0 14px rgba(255, 255, 255, 0.9))",
-                                                        "drop-shadow(0 0 4px rgba(255, 255, 255, 0.4))"
-                                                    ]
-                                                } : {
-                                                    opacity: 1,
-                                                    filter: "drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))"
-                                                }}
-                                                transition={isOptimizing ? {
-                                                    duration: 1.1,
-                                                    repeat: Infinity,
-                                                    ease: "easeInOut"
-                                                } : {
-                                                    duration: 2,
-                                                    ease: "easeOut"
-                                                }}
-                                                className={cn("flex w-auto min-w-8 shrink-0 items-center justify-center overflow-hidden", isOptimizing ? "gap-1.5 px-1.5" : "gap-1 px-2")}
-                                            >
-                                                <Sparkles className="h-1.5 w-1.5 shrink-0 hover:drop-shadow-[0_0_18px_#ffffff]" />
-                                                {/* <span className="shrink-0 text-[14px]">AI</span> */}
-                                                <AnimatePresence initial={false} mode="wait">
-                                                    {isOptimizing ? (
-                                                        <motion.span
-                                                            key={optimizationLoadingMessage}
-                                                            aria-live="polite"
-                                                            initial="hidden"
-                                                            animate="visible"
-                                                            exit={{ opacity: 0, x: -6, filter: "blur(4px)", transition: { duration: 0.18, ease: "easeIn" } }}
-                                                            variants={{
-                                                                hidden: {},
-                                                                visible: { transition: { staggerChildren: 0.035 } }
+                                        <TooltipProvider delayDuration={100}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="light"
+                                                        size="sm"
+                                                        aria-label={optimizeButtonLabel}
+                                                        className={cn("h-6 w-fit justify-center rounded-full px-0 disabled:opacity-100", isOptimizing && "text-white")}
+                                                        disabled={isOptimizeButtonDisabled}
+                                                        onClick={handleOptimizeButtonClick}
+                                                    >
+                                                        <motion.div
+                                                            initial={false}
+                                                            animate={isOptimizing ? {
+                                                                opacity: [1, 0.8, 0.8, 1],
+                                                                filter: [
+                                                                    "drop-shadow(0 0 4px rgba(255, 255, 255, 0.4))",
+                                                                    "drop-shadow(0 0 18px rgba(255, 255, 255, 0.95))",
+                                                                    "drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))",
+                                                                    "drop-shadow(0 0 14px rgba(255, 255, 255, 0.9))",
+                                                                    "drop-shadow(0 0 4px rgba(255, 255, 255, 0.4))"
+                                                                ]
+                                                            } : {
+                                                                opacity: 1,
+                                                                filter: "drop-shadow(0 0 6px rgba(255, 255, 255, 0.22))"
                                                             }}
-                                                            className="flex truncate text-[14px] font-medium leading-none text-white/95"
+                                                            transition={isOptimizing ? {
+                                                                duration: 1.1,
+                                                                repeat: Infinity,
+                                                                ease: "easeInOut"
+                                                            } : {
+                                                                duration: 2,
+                                                                ease: "easeOut"
+                                                            }}
+                                                            className={cn("flex w-auto min-w-8 shrink-0 items-center justify-center overflow-hidden", isOptimizing ? "gap-1.5 px-1.5" : "gap-1 px-2")}
                                                         >
-                                                            {optimizationLoadingMessage.split("").map((char, i) => (
-                                                                <motion.span
-                                                                    key={i}
-                                                                    variants={{
-                                                                        hidden: { opacity: 0, x: -4, filter: "blur(3px)" },
-                                                                        visible: { opacity: 1, x: 0, filter: "blur(0px)", transition: { duration: 0.2, ease: "easeOut" } }
-                                                                    }}
-                                                                >
-                                                                    {char === " " ? "\u00A0" : char}
-                                                                </motion.span>
-                                                            ))}
-                                                        </motion.span>
-                                                    ) : null}
-                                                </AnimatePresence>
-                                            </motion.div>
-                                        </Button>
+                                                            <Sparkles className="h-1.5 w-1.5 shrink-0 hover:drop-shadow-[0_0_18px_#ffffff]" />
+                                                            {/* <span className="shrink-0 text-[14px]">AI</span> */}
+                                                            <AnimatePresence initial={false} mode="wait">
+                                                                {isOptimizing ? (
+                                                                    <motion.span
+                                                                        key={optimizationLoadingMessage}
+                                                                        aria-live="polite"
+                                                                        initial="hidden"
+                                                                        animate="visible"
+                                                                        exit={{ opacity: 0, x: -6, filter: "blur(4px)", transition: { duration: 0.18, ease: "easeIn" } }}
+                                                                        variants={{
+                                                                            hidden: {},
+                                                                            visible: { transition: { staggerChildren: 0.035 } }
+                                                                        }}
+                                                                        className="flex truncate text-[14px] font-medium leading-none text-white/95"
+                                                                    >
+                                                                        {optimizationLoadingMessage.split("").map((char, i) => (
+                                                                            <motion.span
+                                                                                key={i}
+                                                                                variants={{
+                                                                                    hidden: { opacity: 0, x: -4, filter: "blur(3px)" },
+                                                                                    visible: { opacity: 1, x: 0, filter: "blur(0px)", transition: { duration: 0.2, ease: "easeOut" } }
+                                                                                }}
+                                                                            >
+                                                                                {char === " " ? "\u00A0" : char}
+                                                                            </motion.span>
+                                                                        ))}
+                                                                    </motion.span>
+                                                                ) : null}
+                                                            </AnimatePresence>
+                                                        </motion.div>
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                 <TooltipContent side="top" sideOffset={5} className="bg-white text-slate-900 border border-slate-200 shadow-md">
+                                                     AI自动补全
+                                                 </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </motion.div>
                                 )}
                                 <PromptInput

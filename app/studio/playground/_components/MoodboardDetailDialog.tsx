@@ -35,6 +35,10 @@ import ImagePreviewModal from '@studio/playground/_components/Dialogs/ImagePrevi
 import { StyleCollageEditor } from '@studio/playground/_components/StyleCollageEditor';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import {
+  buildGenerationOutputLookup,
+  getMoodboardImageMatchKey,
+} from '@/app/studio/playground/_lib/moodboard-image-match';
+import {
   buildShortcutFromDraft,
   buildShortcutPrompt,
   createShortcutPromptValues,
@@ -86,6 +90,28 @@ function buildNewFieldDraft(index: number): ShortcutPromptFieldDefinition {
     options: [],
     order: index,
   };
+}
+
+function normalizeTokenKeyInput(input: string): string {
+  return input.trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+function buildUniqueTokenKey(baseKey: string, fields: ShortcutPromptFieldDefinition[]): string {
+  const existingKeys = new Set(
+    fields.map((field) => field.key.trim()).filter(Boolean),
+  );
+
+  if (!existingKeys.has(baseKey)) {
+    return baseKey;
+  }
+
+  let suffix = 2;
+  let candidate = `${baseKey}_${suffix}`;
+  while (existingKeys.has(candidate)) {
+    suffix += 1;
+    candidate = `${baseKey}_${suffix}`;
+  }
+  return candidate;
 }
 
 function buildUniqueNewFieldDraft(
@@ -236,6 +262,8 @@ export function MoodboardDetailDialog({
   const applyImage = usePlaygroundStore((state) => state.applyImage);
   const deleteStyle = usePlaygroundStore((state) => state.deleteStyle);
   const currentConfig = usePlaygroundStore((state) => state.config);
+  const generationHistory = usePlaygroundStore((state) => state.generationHistory);
+  const galleryItems = usePlaygroundStore((state) => state.galleryItems);
 
   const [draftName, setDraftName] = React.useState('');
   const [draftDescription, setDraftDescription] = React.useState('');
@@ -295,13 +323,42 @@ export function MoodboardDetailDialog({
   }, []);
 
   const handleAddPromptToken = React.useCallback(() => {
-    const nextField = buildUniqueNewFieldDraft(draftPromptFields);
+    const draftField = buildUniqueNewFieldDraft(draftPromptFields);
+    const rawTokenName = window.prompt('请输入 token 名称', draftField.key);
+    if (rawTokenName === null) {
+      return;
+    }
+
+    const tokenLabel = rawTokenName.trim();
+    if (!tokenLabel) {
+      toast({
+        title: 'Token 名称无效',
+        description: '请输入非空的 token 名称。',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const normalizedTokenKey = normalizeTokenKeyInput(tokenLabel);
+    const tokenKey = buildUniqueTokenKey(
+      normalizedTokenKey || draftField.key,
+      draftPromptFields,
+    );
+
+    const nextField: ShortcutPromptFieldDefinition = {
+      ...draftField,
+      key: tokenKey,
+      label: tokenLabel,
+      placeholder: tokenLabel,
+      order: draftPromptFields.length,
+    };
+
     setDraftPromptFields((prev) => [...prev, nextField]);
     setPendingInsertTokenRequest({
       requestId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      fieldId: nextField.key,
+      fieldId: tokenKey,
     });
-  }, [draftPromptFields]);
+  }, [draftPromptFields, toast]);
 
   React.useEffect(() => {
     if (!open || !moodboard) {
@@ -371,6 +428,10 @@ export function MoodboardDetailDialog({
 
     return draftPrompt || moodboard?.prompt || '';
   }, [draftPrompt, draftShortcut, moodboard?.prompt, promptPreview]);
+  const imageRecordLookup = React.useMemo(
+    () => buildGenerationOutputLookup([...galleryItems, ...generationHistory]),
+    [galleryItems, generationHistory],
+  );
   const galleryPreviewResults = React.useMemo<Generation[]>(() => {
     if (!moodboard) {
       return [];
@@ -378,29 +439,40 @@ export function MoodboardDetailDialog({
 
     const previewCreatedAt = moodboard.updatedAt || new Date().toISOString();
 
-    return galleryImages.map((imagePath, index) => ({
-      id: `${moodboard.id}-image-preview-${index}`,
-      userId: 'moodboard-preview',
-      projectId: moodboard.id,
-      outputUrl: imagePath,
-      config: {
-        prompt: moodboardPreviewPrompt,
-        model: draftShortcut?.model || currentConfig.model,
-        baseModel: draftShortcut?.model || currentConfig.baseModel || currentConfig.model,
-        width: currentConfig.width || 1024,
-        height: currentConfig.height || 1024,
-        imageSize: currentConfig.imageSize,
-        aspectRatio: currentConfig.aspectRatio,
-        loras: currentConfig.loras || [],
-        workflowName: draftName || moodboard.name,
-        presetName: draftShortcut ? draftShortcut.name : moodboard.name,
-        isPreset: false,
-        isEdit: false,
-        generationMode: 'playground',
-      },
-      status: 'completed',
-      createdAt: previewCreatedAt,
-    }));
+    return galleryImages.map((imagePath, index) => {
+      const matchedRecord = imageRecordLookup.get(getMoodboardImageMatchKey(imagePath));
+      const matchedConfig = matchedRecord?.config;
+      const fallbackModel = draftShortcut?.model || currentConfig.model;
+      const fallbackBaseModel = draftShortcut?.model || currentConfig.baseModel || currentConfig.model;
+      const prompt = matchedConfig?.prompt || moodboardPreviewPrompt;
+
+      return {
+        id: `${moodboard.id}-image-preview-${index}`,
+        userId: matchedRecord?.userId || 'moodboard-preview',
+        projectId: matchedRecord?.projectId || moodboard.id,
+        outputUrl: imagePath,
+        config: {
+          ...matchedConfig,
+          prompt,
+          model: matchedConfig?.model || fallbackModel,
+          baseModel: matchedConfig?.baseModel || matchedConfig?.model || fallbackBaseModel,
+          width: matchedConfig?.width || currentConfig.width || 1024,
+          height: matchedConfig?.height || currentConfig.height || 1024,
+          imageSize: matchedConfig?.imageSize || currentConfig.imageSize,
+          aspectRatio: matchedConfig?.aspectRatio || currentConfig.aspectRatio,
+          loras: matchedConfig?.loras || currentConfig.loras || [],
+          workflowName: matchedConfig?.workflowName || draftName || moodboard.name,
+          presetName: matchedConfig?.presetName || (draftShortcut ? draftShortcut.name : moodboard.name),
+          isPreset: matchedConfig?.isPreset || false,
+          isEdit: matchedConfig?.isEdit || false,
+          generationMode: matchedConfig?.generationMode || 'playground',
+        },
+        status: matchedRecord?.status || 'completed',
+        createdAt: matchedRecord?.createdAt || previewCreatedAt,
+        interactionStats: matchedRecord?.interactionStats,
+        viewerState: matchedRecord?.viewerState,
+      };
+    });
   }, [
     currentConfig.aspectRatio,
     currentConfig.baseModel,
@@ -412,6 +484,7 @@ export function MoodboardDetailDialog({
     draftName,
     draftShortcut,
     galleryImages,
+    imageRecordLookup,
     moodboard,
     moodboardPreviewPrompt,
   ]);
@@ -896,7 +969,7 @@ export function MoodboardDetailDialog({
 
 
 
-          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_500px]">
+          <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_500px]">
             {/* Left Column: Gallery */}
             <div className="flex min-h-0 min-w-0 flex-col ">
               <div className="h-full flex-1 overflow-y-auto px-4 py-8 custom-scrollbar">
@@ -1000,8 +1073,8 @@ export function MoodboardDetailDialog({
             </div>
 
             {/* Right Column: Main Content */}
-            <div className="flex h-full w-full max-w-[500px] flex-col rounded-3xl bg-black/50 overflow-hidden">
-              <div className="flex-1 overflow-y-auto w-full px-4 pt-8 pb-4 custom-scrollbar flex flex-col">
+            <div className="flex h-full min-h-0 w-full max-w-[500px] flex-col rounded-3xl bg-black/50 overflow-hidden">
+              <div className="flex-1 overflow-y-auto min-h-0 w-full px-4 pt-8 pb-4 custom-scrollbar flex flex-col">
                 {/* Collapsible Metadata (Name, Description, Model) */}
                 <div className={`flex w-full shrink-0 flex-col ${isEditMode ? 'gap-3' : ''}`}>
                     <div className={`flex w-full items-center ${isEditMode ? 'justify-end' : 'h-10 justify-between'} px-0`}>

@@ -117,6 +117,10 @@ import {
   type ShortcutEditorDocument,
 } from "@/app/studio/playground/_lib/shortcut-editor-document";
 import { upsertMoodboardAsShortcut } from "@/app/studio/playground/_lib/moodboard-card-gallery";
+import {
+  buildGenerationOutputLookup,
+  getMoodboardImageMatchKey,
+} from "@/app/studio/playground/_lib/moodboard-image-match";
 
 
 import gsap from "gsap";
@@ -198,6 +202,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
   const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
+  const generationHistory = usePlaygroundStore(s => s.generationHistory);
+  const galleryItems = usePlaygroundStore(s => s.galleryItems);
   const actorId = useAuthStore((state) => state.actorId);
   const currentUser = useAuthStore((state) => state.currentUser);
   const ensureSession = useAuthStore((state) => state.ensureSession);
@@ -248,6 +254,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     setHistory,
     getHistoryItem,
   }), [getHistoryItem, setHistory]);
+  const moodboardImageRecordLookup = useMemo(
+    () => buildGenerationOutputLookup([...galleryItems, ...generationHistory, ...filteredHistory]),
+    [filteredHistory, galleryItems, generationHistory],
+  );
 
   useEffect(() => {
     // 预加载图库 (之前图库只有在切换到图库标签且组件挂载后才加载)
@@ -262,6 +272,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const [isStackHovered, setIsStackHovered] = useState(false);
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
+  const [describeOptimisticHistory, setDescribeOptimisticHistory] = useState<Generation[]>([]);
   // const [isDescribeMode, setIsDescribeMode] = useState(false); // Refactored to viewMode
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
@@ -628,6 +639,32 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const shortcutPreviewHasNext =
     shortcutPreviewCurrentIndex !== -1 && shortcutPreviewCurrentIndex < shortcutPreviewResults.length - 1;
   const hasStructuredShortcutSession = Boolean(activeShortcutTemplate?.optimizationSession);
+  const historyForPanel = useMemo(() => {
+    if (describeOptimisticHistory.length === 0) {
+      return filteredHistory;
+    }
+
+    const optimisticIds = new Set(describeOptimisticHistory.map((item) => item.id));
+    return [
+      ...describeOptimisticHistory,
+      ...filteredHistory.filter((item) => !optimisticIds.has(item.id)),
+    ];
+  }, [describeOptimisticHistory, filteredHistory]);
+
+  useEffect(() => {
+    if (describeOptimisticHistory.length === 0) {
+      return;
+    }
+
+    const optimisticIds = new Set(describeOptimisticHistory.map((item) => item.id));
+    const persistedCount = filteredHistory.reduce((count, item) => {
+      return optimisticIds.has(item.id) ? count + 1 : count;
+    }, 0);
+
+    if (persistedCount === optimisticIds.size) {
+      setDescribeOptimisticHistory([]);
+    }
+  }, [describeOptimisticHistory, filteredHistory]);
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
@@ -853,7 +890,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     return parsed.variant;
   }, []);
 
-  const handleFilesUpload = React.useCallback(async (files: File[] | FileList, target: 'reference' | 'describe' = 'reference') => {
+  const handleFilesUpload = React.useCallback(async (
+    files: File[] | FileList,
+    target: 'reference' | 'describe' = 'reference',
+    options?: { waitForUpload?: boolean },
+  ) => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     const setImages = target === 'describe' ? setDescribeImages : setUploadedImages;
     const updateImage = target === 'describe' ? updateDescribeImage : updateUploadedImage;
@@ -901,8 +942,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         updateConfig({ width, height });
       }
 
-      // 6. Start background upload (NO await)
-      (async () => {
+      // 6. Start upload (optional wait for flows that need deterministic completion)
+      const uploadTask = async (throwOnError: boolean) => {
         const form = new FormData();
         form.append('file', file);
 
@@ -910,7 +951,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
         try {
           const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: form });
-          const json = await resp.ok ? await resp.json() : null;
+          if (!resp.ok) {
+            const errorText = await resp.text().catch(() => '');
+            throw new Error(errorText || `Upload failed with status ${resp.status}`);
+          }
+
+          const json = await resp.json();
           const path = json?.path ? String(json.path) : undefined;
           const url = json?.url ? String(json.url) : undefined; // 预签名 URL
 
@@ -929,8 +975,17 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         } catch (err) {
           console.error("Upload failed in background", err);
           updateImage(tempId, { isUploading: false });
+          if (throwOnError) {
+            throw err;
+          }
         }
-      })();
+      };
+
+      if (options?.waitForUpload) {
+        await uploadTask(true);
+      } else {
+        void uploadTask(false);
+      }
     }
   }, [setDescribeImages, setUploadedImages, updateDescribeImage, updateUploadedImage, updateHistorySourceUrl, updateConfig, syncLocalImageToHistory]);
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1040,31 +1095,38 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       h: config.height || 1024,
     };
 
-    return previewImages.map((imagePath, index) => ({
-      id: `shortcut-preview-${shortcut.id}-${index}`,
-      userId: effectiveUserId,
-      projectId: 'shortcut-preview',
-      outputUrl: imagePath,
-      config: {
-        prompt,
-        model: shortcut.model,
-        baseModel: shortcut.model,
-        width: dimensions.w,
-        height: dimensions.h,
-        imageSize: shortcut.imageSize,
-        aspectRatio: shortcut.aspectRatio,
-        loras: [],
-        presetName: undefined,
-        workflowName: shortcut.name,
-        isPreset: false,
-        isEdit: false,
-        editConfig: undefined,
-        generationMode: 'playground',
-      },
-      status: 'completed',
-      createdAt: shortcutMoodboard?.updatedAt || '',
-    }));
-  }, [config.height, config.width, effectiveUserId, moodboardByCardId]);
+    return previewImages.map((imagePath, index) => {
+      const matchedRecord = moodboardImageRecordLookup.get(getMoodboardImageMatchKey(imagePath));
+      const matchedConfig = matchedRecord?.config;
+
+      return {
+        id: `shortcut-preview-${shortcut.id}-${index}`,
+        userId: matchedRecord?.userId || effectiveUserId,
+        projectId: matchedRecord?.projectId || 'shortcut-preview',
+        outputUrl: imagePath,
+        config: {
+          ...matchedConfig,
+          prompt: matchedConfig?.prompt || prompt,
+          model: matchedConfig?.model || shortcut.model,
+          baseModel: matchedConfig?.baseModel || matchedConfig?.model || shortcut.model,
+          width: matchedConfig?.width || dimensions.w,
+          height: matchedConfig?.height || dimensions.h,
+          imageSize: matchedConfig?.imageSize || shortcut.imageSize,
+          aspectRatio: matchedConfig?.aspectRatio || shortcut.aspectRatio,
+          loras: matchedConfig?.loras || [],
+          presetName: matchedConfig?.presetName || undefined,
+          workflowName: matchedConfig?.workflowName || shortcut.name,
+          isPreset: matchedConfig?.isPreset || false,
+          isEdit: matchedConfig?.isEdit || false,
+          generationMode: matchedConfig?.generationMode || 'playground',
+        },
+        status: matchedRecord?.status || 'completed',
+        createdAt: matchedRecord?.createdAt || shortcutMoodboard?.updatedAt || '',
+        interactionStats: matchedRecord?.interactionStats,
+        viewerState: matchedRecord?.viewerState,
+      };
+    });
+  }, [config.height, config.width, effectiveUserId, moodboardByCardId, moodboardImageRecordLookup]);
 
   const handleShortcutPreviewOpen = useCallback((shortcut: PlaygroundShortcut, imageIndex: number) => {
     const previewResults = buildShortcutPreviewResults(shortcut);
@@ -2485,6 +2547,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
     // Insert loading cards
     setHistory((prev: import('@/types/database').Generation[]) => [...loadingCards, ...prev]);
+    setDescribeOptimisticHistory(loadingCards);
 
     try {
       // 1. Convert the first image to base64 if needed, or use existing base64
@@ -2556,6 +2619,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         }));
 
         // Remove loading cards and add real results
+        setDescribeOptimisticHistory(newHistoryItems);
         setHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => !loadingIdSet.has(item.id))]);
 
         // Also save each description to backend and sync to gallery
@@ -2574,6 +2638,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       }
     } catch (error) {
       console.error("Describe Error:", error);
+      setDescribeOptimisticHistory([]);
       // Remove loading cards on error
       setHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => !loadingIdSet.has(item.id)));
       toast({ title: "描述失败", description: error instanceof Error ? error.message : "未知错误", variant: "destructive" });
@@ -2808,7 +2873,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       };
 
       setUploadedImages([]);
-      await handleFilesUpload([file], 'reference');
+      await handleFilesUpload([file], 'reference', { waitForUpload: true });
 
       updateConfig({
         prompt: payload.finalPrompt,
@@ -3181,7 +3246,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
                     {viewMode === 'dock' && activeTab === 'history' && (
                       <PlaygroundHistoryPanel
-                        history={filteredHistory}
+                        history={historyForPanel}
                         historyLayoutMode={historyLayoutMode}
                         onHistoryLayoutModeChange={setHistoryLayoutMode}
                         onClose={() => setViewMode('home')}

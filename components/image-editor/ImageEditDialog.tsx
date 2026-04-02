@@ -433,7 +433,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
               <Button
                 type="button"
                 variant="light"
-                className="rounded-xl h-9 border-0 text-sm bg-white text-[#000000]"
+                className="rounded-xl h-9 border-0 text-sm bg-white text-[#000000] hover:text-black"
                 onClick={handleConfirm}
                 disabled={!isReady || submitting}
               >
@@ -499,7 +499,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                   Thinking...
                 </div>
               ) : null}
-              <canvas ref={setCanvasRef} className="block max-h-full max-w-full" />
+              <canvas ref={setCanvasRef} className="block shrink-0" />
 
               <div
                 className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-lg border px-2 py-1 text-[11px] border-[#4A4C4D] bg-[#0F1017] text-[#A3A3A3]"
