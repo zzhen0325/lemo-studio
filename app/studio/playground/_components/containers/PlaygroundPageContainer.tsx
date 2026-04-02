@@ -2199,6 +2199,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     );
     const EMPTY_RESULT_ERROR = "KV_STRUCTURED_EMPTY_RESULT";
     const NO_USABLE_VARIANT_ERROR = "KV_STRUCTURED_NO_USABLE_VARIANT";
+    const optimizationTaskId = `prompt-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const optimizationCreatedAt = new Date().toISOString();
 
     type KvStructuredOptimizationAttemptResult = {
       attemptIndex: number;
@@ -2218,6 +2220,94 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       ))
       || variant.promptPreview.trim().length > 0
     );
+
+    const cloneOptimizationVariant = (
+      variant: ShortcutOptimizationVariantDraft,
+    ): ShortcutOptimizationVariantDraft => ({
+      ...variant,
+      values: cloneShortcutValues(variant.values),
+      removedFieldIds: [...variant.removedFieldIds],
+      coreSuggestions: cloneShortcutValues(variant.coreSuggestions),
+      palette: cloneDesignPalette(variant.palette),
+      analysis: cloneDesignAnalysis(variant.analysis),
+      baseline: cloneVariantBaseline(variant.baseline),
+    });
+
+    const buildSelectedVariants = (
+      results: KvStructuredOptimizationAttemptResult[],
+    ): ShortcutOptimizationVariantDraft[] => (
+      results
+        .slice(0, DESIGN_STRUCTURED_VARIANT_IDS.length)
+        .map((result, index) => {
+          const variantId = DESIGN_STRUCTURED_VARIANT_IDS[index] as KvStructuredVariantId;
+          const nextLabel = result.variant.label.trim() || `版本 ${index + 1}`;
+          return {
+            ...result.variant,
+            id: variantId,
+            label: nextLabel,
+            values: cloneShortcutValues(result.variant.values),
+            removedFieldIds: [...result.variant.removedFieldIds],
+            coreSuggestions: cloneShortcutValues(result.variant.coreSuggestions),
+            palette: cloneDesignPalette(result.variant.palette),
+            analysis: cloneDesignAnalysis(result.variant.analysis),
+            baseline: {
+              ...cloneVariantBaseline(result.variant.baseline),
+              label: nextLabel,
+            },
+          };
+        })
+    );
+
+    const buildActiveTemplateFromVariants = (
+      variants: ShortcutOptimizationVariantDraft[],
+      sourceType: ReturnType<typeof parseDesignStructuredOptimizationResponse>["sourceType"],
+      lastRawResponse: string,
+    ): ActiveShortcutTemplate | null => {
+      if (variants.length === 0) {
+        return null;
+      }
+
+      const latestTemplate = activeShortcutTemplateRef.current;
+      const existingSession = latestTemplate?.shortcut.id === current.shortcut.id
+        ? latestTemplate.optimizationSession
+        : undefined;
+      const existingVariantMap = new Map<KvStructuredVariantId, ShortcutOptimizationVariantDraft>(
+        (existingSession?.variants || []).map((variant) => [variant.id, variant]),
+      );
+      const mergedVariants = variants.map((variant) => {
+        const existingVariant = existingVariantMap.get(variant.id);
+        return existingVariant
+          ? cloneOptimizationVariant(existingVariant)
+          : cloneOptimizationVariant(variant);
+      });
+
+      const fallbackVariant = mergedVariants[0];
+      if (!fallbackVariant) {
+        return null;
+      }
+
+      const activeVariantId = existingSession?.activeVariantId
+        && mergedVariants.some((variant) => variant.id === existingSession.activeVariantId)
+        ? existingSession.activeVariantId
+        : fallbackVariant.id;
+      const activeVariant = mergedVariants.find((variant) => variant.id === activeVariantId) || fallbackVariant;
+      const optimizationSession: ShortcutOptimizationSession = {
+        sourceType,
+        originValues: cloneShortcutValues(sourceValues),
+        originRemovedFieldIds: [...sourceRemovedFieldIds],
+        activeVariantId,
+        variants: mergedVariants,
+        lastRawResponse,
+      };
+
+      return {
+        shortcut: current.shortcut,
+        values: cloneShortcutValues(activeVariant.values),
+        removedFieldIds: [...activeVariant.removedFieldIds],
+        appliedPrompt: activeVariant.promptPreview,
+        optimizationSession,
+      };
+    };
 
     const runSingleAttempt = async (attemptIndex: number): Promise<KvStructuredOptimizationAttemptResult> => {
       const optimizedText = await optimizePrompt(taggedOptimizationInput, selectedAIModel);
@@ -2247,23 +2337,72 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       };
     };
 
-    const settledResults = await Promise.allSettled(
+    const successfulResults: KvStructuredOptimizationAttemptResult[] = [];
+    const rejectedReasons: unknown[] = [];
+    let primarySourceType: ReturnType<typeof parseDesignStructuredOptimizationResponse>["sourceType"] | null = null;
+    let latestRawResponse = "";
+    let hasAppliedFirstResult = false;
+
+    const applySuccessfulResult = (result: KvStructuredOptimizationAttemptResult) => {
+      successfulResults.push(result);
+      if (!primarySourceType) {
+        primarySourceType = result.sourceType;
+      }
+      latestRawResponse = result.optimizedText;
+
+      const selectedVariants = buildSelectedVariants(successfulResults);
+      const activeTemplate = buildActiveTemplateFromVariants(
+        selectedVariants,
+        primarySourceType || result.sourceType,
+        latestRawResponse,
+      );
+      if (!activeTemplate?.optimizationSession) {
+        return;
+      }
+
+      const activeOptimizationSource = buildStructuredOptimizationSourcePayload(
+        activeTemplate,
+        optimizationTaskId,
+        activeTemplate.optimizationSession.activeVariantId,
+      );
+
+      activeShortcutTemplateRef.current = activeTemplate;
+      setActiveShortcutTemplate(activeTemplate);
+
+      const currentConfig = usePlaygroundStore.getState().config;
+      const nextPrompt = hasAppliedFirstResult ? currentConfig.prompt : activeTemplate.appliedPrompt;
+      updateConfig(activeOptimizationSource
+        ? withPromptOptimizationSource(
+          {
+            ...currentConfig,
+            prompt: nextPrompt,
+          },
+          activeOptimizationSource,
+        )
+        : { prompt: nextPrompt },
+      );
+
+      hasAppliedFirstResult = true;
+    };
+
+    await Promise.allSettled(
       Array.from(
         { length: KV_STRUCTURED_OPTIMIZATION_PARALLEL_REQUEST_COUNT },
-        (_, attemptIndex) => runSingleAttempt(attemptIndex),
+        (_, attemptIndex) => runSingleAttempt(attemptIndex)
+          .then((result) => {
+            applySuccessfulResult(result);
+            return result;
+          })
+          .catch((error) => {
+            rejectedReasons.push(error);
+            throw error;
+          }),
       ),
     );
-    const successfulResults = settledResults
-      .filter((result): result is PromiseFulfilledResult<KvStructuredOptimizationAttemptResult> => result.status === "fulfilled")
-      .map((result) => result.value)
-      .sort((a, b) => a.attemptIndex - b.attemptIndex);
 
     if (successfulResults.length === 0) {
-      const reasons = settledResults
-        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
-        .map((result) => result.reason);
-      console.error("Failed to get usable KV structured optimization response", reasons);
-      const hasParseFailure = reasons.some((reason) => (
+      console.error("Failed to get usable KV structured optimization response", rejectedReasons);
+      const hasParseFailure = rejectedReasons.some((reason) => (
         !(reason instanceof Error && reason.message === EMPTY_RESULT_ERROR)
       ));
 
@@ -2278,29 +2417,14 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return true;
     }
 
-    const selectedVariants = successfulResults
-      .map((result) => result.variant)
+    const selectedVariants = (activeShortcutTemplateRef.current?.shortcut.id === current.shortcut.id
+      ? activeShortcutTemplateRef.current?.optimizationSession?.variants
+      : undefined) || buildSelectedVariants(successfulResults);
+    const normalizedSelectedVariants = selectedVariants
       .slice(0, DESIGN_STRUCTURED_VARIANT_IDS.length)
-      .map((variant, index) => {
-        const variantId = DESIGN_STRUCTURED_VARIANT_IDS[index] as KvStructuredVariantId;
-        const nextLabel = variant.label.trim() || `版本 ${index + 1}`;
-        return {
-          ...variant,
-          id: variantId,
-          label: nextLabel,
-          values: cloneShortcutValues(variant.values),
-          removedFieldIds: [...variant.removedFieldIds],
-          coreSuggestions: cloneShortcutValues(variant.coreSuggestions),
-          palette: cloneDesignPalette(variant.palette),
-          analysis: cloneDesignAnalysis(variant.analysis),
-          baseline: {
-            ...cloneVariantBaseline(variant.baseline),
-            label: nextLabel,
-          },
-        };
-      });
+      .map((variant) => cloneOptimizationVariant(variant));
 
-    if (selectedVariants.length === 0) {
+    if (normalizedSelectedVariants.length === 0) {
       toast({
         title: "AI 优化结果解析失败",
         description: "返回结果已尝试自动修复，但仍然无法解析，请重新请求一次。",
@@ -2309,35 +2433,25 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return true;
     }
 
-    const { sourceType, optimizedText } = successfulResults[0];
-
-    const activeVariant = selectedVariants[0];
+    const activeVariantIdCandidate = activeShortcutTemplateRef.current?.shortcut.id === current.shortcut.id
+      ? activeShortcutTemplateRef.current?.optimizationSession?.activeVariantId
+      : undefined;
+    const activeVariantId = activeVariantIdCandidate
+      && normalizedSelectedVariants.some((variant) => variant.id === activeVariantIdCandidate)
+      ? activeVariantIdCandidate
+      : normalizedSelectedVariants[0].id;
     const optimizationSession: ShortcutOptimizationSession = {
-      sourceType,
-      originValues: sourceValues,
-      originRemovedFieldIds: sourceRemovedFieldIds,
-      activeVariantId: activeVariant.id,
-      variants: selectedVariants,
-      lastRawResponse: optimizedText,
+      sourceType: primarySourceType || successfulResults[0].sourceType,
+      originValues: cloneShortcutValues(sourceValues),
+      originRemovedFieldIds: [...sourceRemovedFieldIds],
+      activeVariantId,
+      variants: normalizedSelectedVariants,
+      lastRawResponse: latestRawResponse || successfulResults[0].optimizedText,
     };
-    const optimizationTaskId = `prompt-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const activeTemplate: ActiveShortcutTemplate = {
-      shortcut: current.shortcut,
-      values: cloneShortcutValues(activeVariant.values),
-      removedFieldIds: [...activeVariant.removedFieldIds],
-      appliedPrompt: activeVariant.promptPreview,
-      optimizationSession,
-    };
-    const activeOptimizationSource = buildStructuredOptimizationSourcePayload(
-      activeTemplate,
-      optimizationTaskId,
-      activeVariant.id,
-    );
 
-    setActiveShortcutTemplate(activeTemplate);
     prependHistoryItems(createPromptOptimizationHistoryItems({
       taskId: optimizationTaskId,
-      createdAt: new Date().toISOString(),
+      createdAt: optimizationCreatedAt,
       userId: effectiveUserId,
       originalPrompt: buildShortcutPrompt(current.shortcut, sourceValues, {
         usePlaceholder: false,
@@ -2346,7 +2460,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       sourceKind: "kv_structured",
       shortcutId: current.shortcut.id,
       session: serializeShortcutOptimizationSession(optimizationSession),
-      variants: selectedVariants.map((variant) => ({
+      variants: normalizedSelectedVariants.map((variant) => ({
         id: variant.id,
         label: variant.label,
         prompt: variant.promptPreview,
@@ -2358,18 +2472,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         height: usePlaygroundStore.getState().config.height,
       },
     }));
-    updateConfig(activeOptimizationSource
-      ? withPromptOptimizationSource(
-        {
-          ...usePlaygroundStore.getState().config,
-          prompt: activeVariant.promptPreview,
-        },
-        activeOptimizationSource,
-      )
-      : { prompt: activeVariant.promptPreview },
-    );
     toast({
-      title: `AI 已生成 ${selectedVariants.length} 个版本`,
+      title: `AI 已生成 ${normalizedSelectedVariants.length} 个版本`,
       description: "可在输入区直接切换版本并继续编辑。",
     });
 

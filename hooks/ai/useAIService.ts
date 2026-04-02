@@ -25,7 +25,14 @@ const FALLBACK_DEFAULTS: Record<ServiceType, string> = {
 
 export function useAIService() {
     const { toast } = useToast();
-    const [isLoading, setIsLoading] = useState(false);
+    const [pendingRequestCount, setPendingRequestCount] = useState(0);
+    const isLoading = pendingRequestCount > 0;
+    const startLoading = useCallback(() => {
+        setPendingRequestCount((current) => current + 1);
+    }, []);
+    const stopLoading = useCallback(() => {
+        setPendingRequestCount((current) => (current > 0 ? current - 1 : 0));
+    }, []);
 
     // 直接订阅整个store状态
     const settings = useAPIConfigStore(state => state.settings);
@@ -94,7 +101,7 @@ export function useAIService() {
     }, [settings, providers, resolveSystemPrompt]);
 
     const callText = async (params: Partial<ClientGenerationParams> & { input: string }) => {
-        setIsLoading(true);
+        startLoading();
         try {
             // 获取优化服务的配置
             const optimizeConfig = getServiceConfig('optimize');
@@ -116,12 +123,12 @@ export function useAIService() {
             toast({ title: 'AI 文本服务错误', description: msg, variant: 'destructive' });
             throw error;
         } finally {
-            setIsLoading(false);
+            stopLoading();
         }
     };
 
     const callVision = async (params: Partial<ClientDescribeParams> & { image: string }) => {
-        setIsLoading(true);
+        startLoading();
         try {
             const targetService: ServiceType = params.context === 'service:datasetLabel' ? 'datasetLabel' : 'describe';
             const describeConfig = getServiceConfig(targetService);
@@ -143,7 +150,7 @@ export function useAIService() {
             toast({ title: 'AI 视觉服务错误', description: msg, variant: 'destructive' });
             throw error;
         } finally {
-            setIsLoading(false);
+            stopLoading();
         }
     };
 
@@ -151,7 +158,7 @@ export function useAIService() {
         params: ClientImageParams,
         onStream?: (chunk: { text?: string; images?: string[] }) => void
     ) => {
-        setIsLoading(true);
+        startLoading();
         try {
             const result = await clientGenerateImage(params, onStream);
             return result;
@@ -160,7 +167,7 @@ export function useAIService() {
             toast({ title: 'AI 图像服务错误', description: msg, variant: 'destructive' });
             throw error;
         } finally {
-            setIsLoading(false);
+            stopLoading();
         }
     };
 
