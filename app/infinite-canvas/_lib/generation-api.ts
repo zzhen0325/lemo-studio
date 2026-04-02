@@ -149,7 +149,7 @@ async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string
 }
 
 export async function saveImageAsset(imageBase64OrUrl: string, subdir: string): Promise<string> {
-  const response = await requestJSON<{ path: string }>('/save-image', {
+  const response = await requestJSON<{ path: string }>('/api/save-image', {
     method: 'POST',
     body: {
       imageBase64: imageBase64OrUrl,
@@ -201,7 +201,7 @@ export async function generateCanvasImage(payload: GenerateImagePayload): Promis
     }),
   });
 
-  const result = await requestJSON<{ images?: string[] }>('/ai/image', {
+  const result = await requestJSON<{ images?: string[] }>('/api/ai/image', {
     method: 'POST',
     body,
     signal: payload.signal,

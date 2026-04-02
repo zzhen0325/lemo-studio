@@ -1,16 +1,16 @@
 import { NextRequest } from 'next/server';
 import { handleRoute } from '@/lib/server/http';
 import { HttpError } from '@/lib/server/utils/http-error';
-import { PlaygroundShortcutsService } from '@/lib/server/service/playground-shortcuts.service';
+import { MoodboardCardsService } from '@/lib/server/service/moodboard-cards.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
-const shortcutsService = new PlaygroundShortcutsService();
+const moodboardCardsService = new MoodboardCardsService();
 
 /**
- * POST /api/playground-shortcuts/[id]/cover
+ * POST /api/moodboard-cards/[id]/cover
  * 上传封面图
  */
 export async function POST(
@@ -27,7 +27,7 @@ export async function POST(
       throw new HttpError(400, 'No file provided');
     }
 
-    const result = await shortcutsService.uploadCoverImage(id, {
+    const result = await moodboardCardsService.uploadCoverImage(id, {
       name: file.name,
       type: file.type,
       arrayBuffer: () => file.arrayBuffer(),

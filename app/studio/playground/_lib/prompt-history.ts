@@ -1,4 +1,4 @@
-import type { PlaygroundShortcut, ShortcutPromptValues } from "@/config/playground-shortcuts";
+import type { PlaygroundShortcut, ShortcutPromptValues } from "@/config/moodboard-cards";
 import type { Generation, GenerationConfig } from "@/types/database";
 import type {
   DesignStructuredAnalysis,

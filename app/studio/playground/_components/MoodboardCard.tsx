@@ -14,9 +14,9 @@ import { useImageSource } from '@/hooks/common/use-image-source';
 import {
   buildShortcutPrompt,
   createShortcutPromptValues,
-  getShortcutByMoodboardId,
-  type PlaygroundShortcut,
-} from '@/config/playground-shortcuts';
+  getMoodboardCardByMoodboardId,
+  type MoodboardCard as MoodboardCardType,
+} from '@/config/moodboard-cards';
 import {
     SMALL_STACK_CARD_LAYOUT_CLASS,
     SMALL_STACK_DESCRIPTION_CLASS,
@@ -26,11 +26,11 @@ import {
     SMALL_STACK_TITLE_CLASS,
 } from './style-card-layout';
 
-interface StyleStackCardProps {
+interface MoodboardCardProps {
     style: StyleStack;
-    shortcut?: PlaygroundShortcut | null;
+    shortcut?: MoodboardCardType | null;
     onClick?: () => void;
-    onQuickApplyShortcut?: (shortcut: PlaygroundShortcut) => void;
+    onQuickApplyShortcut?: (moodboardCard: MoodboardCardType) => void;
     onMoodboardApply?: () => void;
     size?: 'sm' | 'md' | 'grid-lg';
 }
@@ -48,7 +48,7 @@ const StyleCardImage = ({ path }: { path: string }) => {
     );
 };
 
-export const StyleStackCard: React.FC<StyleStackCardProps> = ({
+export const MoodboardCard: React.FC<MoodboardCardProps> = ({
     style,
     shortcut,
     onClick,
@@ -61,7 +61,7 @@ export const StyleStackCard: React.FC<StyleStackCardProps> = ({
     const isSmall = size === 'sm';
     const isGridLg = size === 'grid-lg';
     const [isExpanded, setIsExpanded] = useState(false);
-    const linkedShortcut = shortcut ?? getShortcutByMoodboardId(style.id);
+    const linkedShortcut = shortcut ?? getMoodboardCardByMoodboardId(style.id);
     const promptTemplate = linkedShortcut
         ? buildShortcutPrompt(linkedShortcut, createShortcutPromptValues(linkedShortcut))
         : '';

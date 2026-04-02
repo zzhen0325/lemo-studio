@@ -1395,7 +1395,7 @@ export const InfiniteCanvasProjectModel = {
 };
 
 // ==========================================
-// Playground Shortcut Model - 首页快捷入口
+// Moodboard Card Model - 首页循环瀑布流卡片
 // ==========================================
 
 /**
@@ -1413,9 +1413,9 @@ export interface PromptFieldDefinition {
 }
 
 /**
- * Playground Shortcut 文档类型
+ * Moodboard Card 文档类型
  */
-export interface PlaygroundShortcutDoc {
+export interface MoodboardCardDoc {
   id: string;
   // 基础信息
   code: string; // 唯一标识
@@ -1456,48 +1456,48 @@ export interface PlaygroundShortcutDoc {
   updated_at?: string;
 }
 
-export const PlaygroundShortcutModel = {
+export const MoodboardCardModel = {
   find(filter: Record<string, unknown> = {}): any {
-    const qb = createQuery<PlaygroundShortcutDoc>('playground_shortcuts', getClient());
+    const qb = createQuery<MoodboardCardDoc>('moodboard_cards', getClient());
     qb._filter = { ...filter };
     return createQueryable(qb);
   },
 
   findOne(filter: Record<string, unknown>): any {
-    const qb = createQuery<PlaygroundShortcutDoc>('playground_shortcuts', getClient());
+    const qb = createQuery<MoodboardCardDoc>('moodboard_cards', getClient());
     qb._filter = { ...filter };
     qb._single = true;
     return createQueryable(qb);
   },
 
-  async findById(id: string): Promise<PlaygroundShortcutDoc | null> {
+  async findById(id: string): Promise<MoodboardCardDoc | null> {
     const { data, error } = await getClient()
-      .from('playground_shortcuts')
+      .from('moodboard_cards')
       .select('*')
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
-    return data as PlaygroundShortcutDoc | null;
+    return data as MoodboardCardDoc | null;
   },
 
-  async findByCode(code: string): Promise<PlaygroundShortcutDoc | null> {
+  async findByCode(code: string): Promise<MoodboardCardDoc | null> {
     const { data, error } = await getClient()
-      .from('playground_shortcuts')
+      .from('moodboard_cards')
       .select('*')
       .eq('code', code)
       .maybeSingle();
     if (error) throw error;
-    return data as PlaygroundShortcutDoc | null;
+    return data as MoodboardCardDoc | null;
   },
 
-  async create(doc: Partial<PlaygroundShortcutDoc>): Promise<PlaygroundShortcutDoc> {
+  async create(doc: Partial<MoodboardCardDoc>): Promise<MoodboardCardDoc> {
     const { data, error } = await getClient()
-      .from('playground_shortcuts')
+      .from('moodboard_cards')
       .insert(doc as Record<string, unknown>)
       .select()
       .single();
     if (error) throw error;
-    return data as PlaygroundShortcutDoc;
+    return data as MoodboardCardDoc;
   },
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
@@ -1513,13 +1513,13 @@ export const PlaygroundShortcutModel = {
       }
     }
     
-    let query = getClient().from('playground_shortcuts').update(updateData);
+    let query = getClient().from('moodboard_cards').update(updateData);
     if (id) {
       query = query.eq('id', id as string);
     } else if (code) {
       query = query.eq('code', code as string);
     } else {
-      throw new Error('PlaygroundShortcut updateOne requires id or code in filter');
+      throw new Error('MoodboardCard updateOne requires id or code in filter');
     }
     
     const { error } = await query;
@@ -1531,32 +1531,33 @@ export const PlaygroundShortcutModel = {
     const id = filter.id || filter._id;
     const code = filter.code;
     
-    let query = getClient().from('playground_shortcuts').delete();
+    let query = getClient().from('moodboard_cards').delete();
     if (id) {
       query = query.eq('id', id as string);
     } else if (code) {
       query = query.eq('code', code as string);
     } else {
-      throw new Error('PlaygroundShortcut deleteOne requires id or code in filter');
+      throw new Error('MoodboardCard deleteOne requires id or code in filter');
     }
     
     const { error } = await query;
     if (error) throw error;
   },
 
-  async findEnabled(): Promise<PlaygroundShortcutDoc[]> {
+  async findEnabled(): Promise<MoodboardCardDoc[]> {
     const { data, error } = await getClient()
-      .from('playground_shortcuts')
+      .from('moodboard_cards')
       .select('*')
       .eq('is_enabled', true)
       .eq('publish_status', 'published')
-      .order('sort_order', { ascending: true });
+      .order('sort_order', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true, nullsFirst: false });
     if (error) throw error;
-    return (data as PlaygroundShortcutDoc[]) || [];
+    return (data as MoodboardCardDoc[]) || [];
   },
 
   async countDocuments(filter: Record<string, unknown> = {}): Promise<number> {
-    let query = getClient().from('playground_shortcuts').select('*', { count: 'exact', head: true });
+    let query = getClient().from('moodboard_cards').select('*', { count: 'exact', head: true });
     for (const [key, value] of Object.entries(filter)) {
       if (value !== undefined && value !== null) {
         query = query.eq(key, value);
@@ -1567,7 +1568,7 @@ export const PlaygroundShortcutModel = {
     return count || 0;
   },
 
-  collection: { name: 'playground_shortcuts' },
+  collection: { name: 'moodboard_cards' },
 };
 
 // ==========================================
@@ -1585,7 +1586,7 @@ export type DatasetEntry = DatasetEntryDoc;
 export type DatasetCollection = DatasetCollectionDoc;
 export type User = UserDoc;
 export type InfiniteCanvasProject = InfiniteCanvasProjectDoc;
-export type PlaygroundShortcut = PlaygroundShortcutDoc;
+export type MoodboardCard = MoodboardCardDoc;
 
 // Model aliases for DI token compatibility
 export const Generation = GenerationModel;
@@ -1598,4 +1599,4 @@ export const DatasetEntry = DatasetEntryModel;
 export const DatasetCollection = DatasetCollectionModel;
 export const User = UserModel;
 export const InfiniteCanvasProject = InfiniteCanvasProjectModel;
-export const PlaygroundShortcut = PlaygroundShortcutModel;
+export const MoodboardCard = MoodboardCardModel;

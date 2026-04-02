@@ -1,49 +1,124 @@
 'use client';
 
 import React, { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Palette, Plus, Upload, X } from 'lucide-react';
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { getApiBase } from '@/lib/api-base';
 import {
-  getShortcutByMoodboardId,
-  type PlaygroundShortcut,
-} from '@/config/playground-shortcuts';
-import { StyleStackCard } from './StyleStackCard';
+  getMoodboardCardByMoodboardId,
+  type MoodboardCard as MoodboardCardRecord,
+} from '@/config/moodboard-cards';
+import { upsertMoodboardAsShortcut } from '@/app/studio/playground/_lib/moodboard-card-gallery';
+import { MoodboardCard } from './MoodboardCard';
 import { MoodboardDetailDialog } from './MoodboardDetailDialog';
 import { usePlaygroundMoodboards } from './hooks/usePlaygroundMoodboards';
+import type { StyleStack } from '@/types/database';
 
-interface StyleStacksViewProps {
+interface MoodboardViewProps {
   isDragging?: boolean;
-  onShortcutQuickApply?: (shortcut: PlaygroundShortcut) => void;
+  onShortcutQuickApply?: (moodboardCard: MoodboardCardRecord) => void;
   onMoodboardApply?: () => void;
 }
 
-export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
+interface SortableMoodboardCardProps {
+  moodboard: StyleStack;
+  linkedMoodboardCard: MoodboardCardRecord | null;
+  disabled: boolean;
+  onOpen: () => void;
+  onQuickApplyShortcut?: (moodboardCard: MoodboardCardRecord) => void;
+  onMoodboardApply?: () => void;
+}
+
+function SortableMoodboardCard({
+  moodboard,
+  linkedMoodboardCard,
+  disabled,
+  onOpen,
+  onQuickApplyShortcut,
+  onMoodboardApply,
+}: SortableMoodboardCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: moodboard.id, disabled });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.7 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <MoodboardCard
+        style={moodboard}
+        shortcut={linkedMoodboardCard}
+        onClick={onOpen}
+        onQuickApplyShortcut={linkedMoodboardCard ? onQuickApplyShortcut : undefined}
+        onMoodboardApply={onMoodboardApply}
+        size="sm"
+      />
+    </div>
+  );
+}
+
+export const MoodboardView: React.FC<MoodboardViewProps> = ({
   isDragging: isDraggingProp,
   onShortcutQuickApply,
   onMoodboardApply,
 }) => {
-  const addStyle = usePlaygroundStore((state) => state.addStyle);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPrompt, setNewPrompt] = useState('');
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPersistingSort, setIsPersistingSort] = useState(false);
+  const [orderedMoodboards, setOrderedMoodboards] = useState<StyleStack[] | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedMoodboardId, setSelectedMoodboardId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
-    shortcuts,
+    moodboardCards,
     moodboards,
-    refreshShortcuts,
+    refreshMoodboardCards,
   } = usePlaygroundMoodboards();
+
+  React.useEffect(() => {
+    setOrderedMoodboards(null);
+  }, [moodboards]);
+
+  const baseMoodboards = orderedMoodboards || moodboards;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const handleClose = () => {
     setIsCreating(false);
@@ -69,21 +144,81 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
         return String(data.path);
       }));
 
-      void addStyle({
-        id: uuidv4(),
+      await upsertMoodboardAsShortcut({
         name: newName.trim(),
         prompt: newPrompt,
         imagePaths,
-        updatedAt: new Date().toISOString(),
       });
+      await refreshMoodboardCards();
 
       handleClose();
     } catch (error) {
-      console.error("Upload failed", error);
+      console.error('Upload failed', error);
     } finally {
       setIsUploading(false);
     }
   };
+
+  const handleDragEnd = React.useCallback(async (event: DragEndEvent) => {
+    if (searchQuery.trim() || isPersistingSort) {
+      return;
+    }
+
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = baseMoodboards.findIndex((item) => item.id === String(active.id));
+    const newIndex = baseMoodboards.findIndex((item) => item.id === String(over.id));
+
+    if (oldIndex < 0 || newIndex < 0) {
+      return;
+    }
+
+    const reordered = arrayMove(baseMoodboards, oldIndex, newIndex);
+    setOrderedMoodboards(reordered);
+
+    const orders = reordered
+      .map((item, index) => {
+        const linkedMoodboardCard = getMoodboardCardByMoodboardId(item.id, moodboardCards);
+        if (!linkedMoodboardCard?.persistedId) {
+          return null;
+        }
+
+        return {
+          id: linkedMoodboardCard.persistedId,
+          sortOrder: index,
+        };
+      })
+      .filter((item): item is { id: string; sortOrder: number } => Boolean(item));
+
+    if (orders.length === 0) {
+      return;
+    }
+
+    setIsPersistingSort(true);
+    try {
+      const response = await fetch(`${getApiBase()}/moodboard-cards/sort`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orders }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Sort update failed: ${response.status}`);
+      }
+
+      await refreshMoodboardCards();
+    } catch (error) {
+      console.error('[MoodboardView] Failed to persist moodboard order', error);
+      setOrderedMoodboards(null);
+    } finally {
+      setIsPersistingSort(false);
+    }
+  }, [baseMoodboards, isPersistingSort, moodboardCards, refreshMoodboardCards, searchQuery]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -94,7 +229,6 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
     if (files && files.length > 0) {
       setNewImageFiles(prev => [...prev, ...Array.from(files)]);
     }
-    // clear input so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -103,14 +237,14 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
   const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     const items = event.clipboardData.items;
     const files: File[] = [];
-    
+
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file) files.push(file);
       }
     }
-    
+
     if (files.length > 0) {
       setNewImageFiles(prev => [...prev, ...files]);
     }
@@ -120,23 +254,26 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
     setNewImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const filteredMoodboards = moodboards.filter((moodboard) => {
-    const linkedShortcut = getShortcutByMoodboardId(moodboard.id, shortcuts);
-    const searchTarget = [
-      moodboard.name,
-      moodboard.prompt,
-      linkedShortcut?.description,
-      linkedShortcut?.detailDescription,
-    ].filter(Boolean).join(' ').toLowerCase();
+  const filteredMoodboards = React.useMemo(() => {
+    const normalizedQuery = searchQuery.toLowerCase();
+    return baseMoodboards.filter((moodboard) => {
+      const linkedMoodboardCard = getMoodboardCardByMoodboardId(moodboard.id, moodboardCards);
+      const searchTarget = [
+        moodboard.name,
+        moodboard.prompt,
+        linkedMoodboardCard?.description,
+        linkedMoodboardCard?.detailDescription,
+      ].filter(Boolean).join(' ').toLowerCase();
 
-    return searchTarget.includes(searchQuery.toLowerCase());
-  });
+      return searchTarget.includes(normalizedQuery);
+    });
+  }, [baseMoodboards, moodboardCards, searchQuery]);
 
   const selectedMoodboard = selectedMoodboardId
-    ? moodboards.find((moodboard) => moodboard.id === selectedMoodboardId) || null
+    ? baseMoodboards.find((moodboard) => moodboard.id === selectedMoodboardId) || null
     : null;
-  const selectedShortcut = selectedMoodboard
-    ? getShortcutByMoodboardId(selectedMoodboard.id, shortcuts)
+  const selectedMoodboardCard = selectedMoodboard
+    ? getMoodboardCardByMoodboardId(selectedMoodboard.id, moodboardCards)
     : null;
 
   return (
@@ -168,9 +305,7 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
             <div className="flex w-full flex-col gap-8 pb-10">
               <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div>
-                  <span
-                    className="flex items-center gap-3 font-serif text-3xl text-white"
-                  >
+                  <span className="flex items-center gap-3 font-serif text-3xl text-white">
                     Moodboards
                   </span>
                 </div>
@@ -197,43 +332,54 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-16 px-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-                {filteredMoodboards.map((moodboard) => {
-                  const linkedShortcut = getShortcutByMoodboardId(moodboard.id, shortcuts);
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={searchQuery.trim() ? [] : filteredMoodboards.map((moodboard) => moodboard.id)}
+                  strategy={rectSortingStrategy}
+                >
+                  <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-16 px-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+                    {filteredMoodboards.map((moodboard) => {
+                      const linkedMoodboardCard = getMoodboardCardByMoodboardId(moodboard.id, moodboardCards);
 
-                  return (
-                    <StyleStackCard
-                      key={moodboard.id}
-                      style={moodboard}
-                      shortcut={linkedShortcut}
-                      onClick={() => setSelectedMoodboardId(moodboard.id)}
-                      onQuickApplyShortcut={linkedShortcut ? onShortcutQuickApply : undefined}
-                      onMoodboardApply={onMoodboardApply}
-                      size="sm"
-                    />
-                  );
-                })}
+                      return (
+                        <SortableMoodboardCard
+                          key={moodboard.id}
+                          moodboard={moodboard}
+                          linkedMoodboardCard={linkedMoodboardCard}
+                          disabled={Boolean(searchQuery.trim()) || isPersistingSort}
+                          onOpen={() => setSelectedMoodboardId(moodboard.id)}
+                          onQuickApplyShortcut={onShortcutQuickApply}
+                          onMoodboardApply={onMoodboardApply}
+                        />
+                      );
+                    })}
 
-                {filteredMoodboards.length === 0 ? (
-                  <div className="col-span-full flex flex-col items-center justify-center rounded-[4rem] border-2 border-dashed border-white/5 bg-white/[0.02] py-32 backdrop-blur-sm">
-                    <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
-                      <Palette className="text-white/20" size={40} />
-                    </div>
-                    <p className="text-lg font-medium text-white/40">
-                      {searchQuery ? `未找到匹配 "${searchQuery}" 的情绪板` : '点击上方按钮，开始创建你的第一个 moodboard'}
-                    </p>
-                    {searchQuery ? (
-                      <Button
-                        variant="link"
-                        onClick={() => setSearchQuery('')}
-                        className="mt-2 text-purple-400"
-                      >
-                        清除搜索
-                      </Button>
+                    {filteredMoodboards.length === 0 ? (
+                      <div className="col-span-full flex flex-col items-center justify-center rounded-[4rem] border-2 border-dashed border-white/5 bg-white/[0.02] py-32 backdrop-blur-sm">
+                        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
+                          <Palette className="text-white/20" size={40} />
+                        </div>
+                        <p className="text-lg font-medium text-white/40">
+                          {searchQuery ? `未找到匹配 "${searchQuery}" 的情绪板` : '点击上方按钮，开始创建你的第一个 moodboard'}
+                        </p>
+                        {searchQuery ? (
+                          <Button
+                            variant="link"
+                            onClick={() => setSearchQuery('')}
+                            className="mt-2 text-purple-400"
+                          >
+                            清除搜索
+                          </Button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
-                ) : null}
-              </div>
+                </SortableContext>
+              </DndContext>
             </div>
           </div>
         </div>
@@ -247,10 +393,10 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
           }
         }}
         moodboard={selectedMoodboard}
-        shortcut={selectedShortcut}
+        shortcut={selectedMoodboardCard}
         onShortcutQuickApply={onShortcutQuickApply}
         onMoodboardApply={onMoodboardApply}
-        onShortcutsChange={refreshShortcuts}
+        onShortcutsChange={refreshMoodboardCards}
       />
 
       <Dialog open={isCreating} onOpenChange={(open) => {
@@ -263,38 +409,31 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
         <DialogContent className="max-w-[560px] border-white/10 bg-[#1C1C1C]/60 backdrop-blur-xl p-2 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] rounded-3xl overflow-hidden">
           <div className="mb-1 relative w-full overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src="/images/c.png" 
-              alt="Moodboard Cover" 
+            <img
+              src="/images/c.png"
+              alt="Moodboard Cover"
               className="h-60 w-full object-cover"
             />
             <div className="absolute top-4 right-4">
               <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleClose}
-              className="rounded-full hover:bg-white/25  bg-white/10  backdrop-blur-md "
-            >
-              <X size={10} className="text-white" />
-            </Button>
+                variant="ghost"
+                size="icon"
+                onClick={handleClose}
+                className="rounded-full hover:bg-white/25  bg-white/10  backdrop-blur-md "
+              >
+                <X size={10} className="text-white" />
+              </Button>
 
             </div>
-             
+
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="font-serif text-4xl font-normal text-white ">
                 Create Moodboard
               </span>
-             
+
             </div>
           </div>
-          {/* <div className="flex items-start justify-between mb-4 px-4">
-            <div className="space-y-1">
-              
-               <p className="text-sm text-white ">手动上传图片或整理 prompt，做成一个可复用的 moodboard group</p>
-            </div>
-           
-          </div> */}
-          
+
           <div className="flex flex-col gap-6 px-6 mt-2 w-full min-w-0">
             <div className="flex flex-col gap-3 w-full min-w-0">
               <label className="ml-1 text-xs font-bold  text-white/70">Moodboard Name</label>
@@ -318,15 +457,15 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
                     >
                       <Plus size={20} className="text-white/40 mb-1" />
                       <span className="text-sm text-white/40 text-center leading-tight">
-                        {newImageFiles.length === 0 ? '点击上传或直接粘贴图片' : <>点击上传<br/>或粘贴</>}
+                        {newImageFiles.length === 0 ? '点击上传或直接粘贴图片' : <>点击上传<br />或粘贴</>}
                       </span>
                     </button>
                     {newImageFiles.map((file, index) => (
                       <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-white/10">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img 
-                          src={URL.createObjectURL(file)} 
-                          alt="preview" 
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt="preview"
                           className="h-full w-full object-cover"
                         />
                         <button
@@ -355,19 +494,16 @@ export const StyleStacksView: React.FC<StyleStacksViewProps> = ({
                 placeholder="输入 Moodboard prompt 模版..."
                 value={newPrompt}
                 onChange={(event) => setNewPrompt(event.target.value)}
-                className="h-14 rounded-2xl border-white/10 bg-white/5 px-3 text-xs placeholder:text-white/40 text-white"
+                className="h-12 rounded-2xl border-white/10 bg-white/5 px-3 text-xs placeholder:text-white/40 text-white"
               />
             </div>
-          </div>
 
-          <div className="my-4 flex px-6 py-4 justify-end gap-3">
-           
             <Button
               onClick={handleCreate}
-              disabled={!newName.trim() || isUploading}
-              className="h-12  w-full   rounded-2xl bg-white  font-bold text-black transition-colors hover:bg-neutral-200 "
+              disabled={isUploading || !newName.trim()}
+              className="h-12 rounded-2xl bg-white text-black hover:bg-white/90 disabled:opacity-50"
             >
-              {isUploading ? '创建中...' : '确认创建'}
+              {isUploading ? '上传中...' : '保存 Moodboard'}
             </Button>
           </div>
         </DialogContent>

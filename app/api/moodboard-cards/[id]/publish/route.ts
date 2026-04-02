@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
 import { handleRoute } from '@/lib/server/http';
-import { PlaygroundShortcutsService } from '@/lib/server/service/playground-shortcuts.service';
+import { MoodboardCardsService } from '@/lib/server/service/moodboard-cards.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const shortcutsService = new PlaygroundShortcutsService();
+const moodboardCardsService = new MoodboardCardsService();
 
 /**
- * POST /api/playground-shortcuts/[id]/publish
+ * POST /api/moodboard-cards/[id]/publish
  * 发布快捷入口
  */
 export async function POST(
@@ -17,16 +17,16 @@ export async function POST(
 ) {
   return handleRoute(async () => {
     const { id } = await params;
-    const result = await shortcutsService.publish(id);
+    const result = await moodboardCardsService.publish(id);
     if (!result) {
-      return Response.json({ error: 'Shortcut not found' }, { status: 404 });
+      return Response.json({ error: 'Moodboard card not found' }, { status: 404 });
     }
     return result;
   });
 }
 
 /**
- * DELETE /api/playground-shortcuts/[id]/publish
+ * DELETE /api/moodboard-cards/[id]/publish
  * 取消发布（改为草稿）
  */
 export async function DELETE(
@@ -35,9 +35,9 @@ export async function DELETE(
 ) {
   return handleRoute(async () => {
     const { id } = await params;
-    const result = await shortcutsService.unpublish(id);
+    const result = await moodboardCardsService.unpublish(id);
     if (!result) {
-      return Response.json({ error: 'Shortcut not found' }, { status: 404 });
+      return Response.json({ error: 'Moodboard card not found' }, { status: 404 });
     }
     return result;
   });

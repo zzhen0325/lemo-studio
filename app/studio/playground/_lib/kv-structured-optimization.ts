@@ -2,7 +2,7 @@ import {
   buildShortcutPrompt,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
-} from "@/config/playground-shortcuts";
+} from "@/config/moodboard-cards";
 
 export const KV_SHORTCUT_IDS = ["us-kv", "sea-kv", "jp-kv"] as const;
 export const DESIGN_STRUCTURED_SOURCE_TYPES = ["kv_shortcut", "image_reverse"] as const;

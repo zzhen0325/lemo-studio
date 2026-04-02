@@ -2,7 +2,6 @@
 
 import React, { useState, useRef } from 'react';
 import { Plus, X, BookmarkPlus } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,9 +16,13 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
-import { getShortcutByMoodboardId } from '@/config/playground-shortcuts';
+import { getMoodboardCardByMoodboardId } from '@/config/moodboard-cards';
 import { getApiBase } from '@/lib/api-base';
 import { usePlaygroundMoodboards } from './hooks/usePlaygroundMoodboards';
+import {
+  persistShortcutGalleryOrder,
+  upsertMoodboardAsShortcut,
+} from '@/app/studio/playground/_lib/moodboard-card-gallery';
 
 interface AddToMoodboardMenuProps {
   imagePath: string;
@@ -34,11 +37,10 @@ export function AddToMoodboardMenu({
   label = "Add to Moodboard",
   tooltipContent = "添加到情绪板",
 }: AddToMoodboardMenuProps) {
-  const addImageToStyle = usePlaygroundStore((state) => state.addImageToStyle);
-  const addStyle = usePlaygroundStore((state) => state.addStyle);
+  const deleteStyle = usePlaygroundStore((state) => state.deleteStyle);
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const { moodboards, shortcuts } = usePlaygroundMoodboards();
+  const { moodboards, moodboardCards, refreshMoodboardCards } = usePlaygroundMoodboards();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -73,14 +75,12 @@ export function AddToMoodboardMenu({
 
       // Combine with the current imagePath
       const imagePaths = [imagePath, ...uploadedPaths];
-
-      void addStyle({
-        id: uuidv4(),
+      await upsertMoodboardAsShortcut({
         name: newName.trim(),
         prompt: newPrompt,
         imagePaths,
-        updatedAt: new Date().toISOString(),
       });
+      await refreshMoodboardCards();
 
       toast({
         title: "已创建情绪板",
@@ -172,22 +172,49 @@ export function AddToMoodboardMenu({
           <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
             {moodboards.length > 0 ? (
               moodboards.map((moodboard) => {
-                const linkedShortcut = getShortcutByMoodboardId(moodboard.id, shortcuts);
+                const linkedMoodboardCard = getMoodboardCardByMoodboardId(moodboard.id, moodboardCards);
 
                 return (
                   <DropdownMenuItem
                     key={moodboard.id}
                     className="flex items-center justify-between gap-3 text-white hover:bg-white/10 rounded-xl cursor-pointer my-0.5"
                     onClick={async () => {
-                      await addImageToStyle(moodboard.id, imagePath);
-                      toast({
-                        title: "已添加",
-                        description: `已将图片加入情绪板: ${moodboard.name}`,
-                      });
+                      try {
+                        if (linkedMoodboardCard) {
+                          const nextImagePaths = moodboard.imagePaths.includes(imagePath)
+                            ? moodboard.imagePaths
+                            : [...moodboard.imagePaths, imagePath];
+                          await persistShortcutGalleryOrder(linkedMoodboardCard, nextImagePaths);
+                          await refreshMoodboardCards();
+                        } else {
+                          const nextImagePaths = moodboard.imagePaths.includes(imagePath)
+                            ? moodboard.imagePaths
+                            : [...moodboard.imagePaths, imagePath];
+                          await upsertMoodboardAsShortcut({
+                            name: moodboard.name,
+                            prompt: moodboard.prompt || '',
+                            imagePaths: nextImagePaths,
+                            sourceStyleId: moodboard.id,
+                          });
+                          await deleteStyle(moodboard.id);
+                          await refreshMoodboardCards();
+                        }
+                        toast({
+                          title: "已添加",
+                          description: `已将图片加入情绪板: ${moodboard.name}`,
+                        });
+                      } catch (error) {
+                        console.error('Failed to add image to moodboard', error);
+                        toast({
+                          title: "添加失败",
+                          description: "加入情绪板失败，请重试。",
+                          variant: "destructive",
+                        });
+                      }
                     }}
                   >
                     <span className="truncate">{moodboard.name}</span>
-                    {linkedShortcut && (
+                    {linkedMoodboardCard && (
                       <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-wider text-white/45">
                         template
                       </span>

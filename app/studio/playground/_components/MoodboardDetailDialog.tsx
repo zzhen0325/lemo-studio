@@ -41,7 +41,7 @@ import {
   type PlaygroundShortcut,
   type ShortcutPromptFieldDefinition,
   type ShortcutPromptValues,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 import {
   createShortcutEditorDocumentFromParts,
   getShortcutEditorDocumentFieldIds,
@@ -53,6 +53,10 @@ import {
   ShortcutSlateEditor,
   type ShortcutSlateInsertTokenRequest,
 } from './ShortcutSlateEditor';
+import {
+  persistShortcutGalleryOrder,
+  upsertMoodboardAsShortcut,
+} from '@/app/studio/playground/_lib/moodboard-card-gallery';
 
 interface MoodboardDetailDialogProps {
   open: boolean;
@@ -224,8 +228,7 @@ export function MoodboardDetailDialog({
   const availableModels = usePlaygroundAvailableModels();
   const applyPrompt = usePlaygroundStore((state) => state.applyPrompt);
   const applyImage = usePlaygroundStore((state) => state.applyImage);
-  const updateStyle = usePlaygroundStore((state) => state.updateStyle);
-  const removeImageFromStyle = usePlaygroundStore((state) => state.removeImageFromStyle);
+  const deleteStyle = usePlaygroundStore((state) => state.deleteStyle);
   const currentConfig = usePlaygroundStore((state) => state.config);
 
   const [draftName, setDraftName] = React.useState('');
@@ -443,12 +446,23 @@ export function MoodboardDetailDialog({
       return;
     }
 
-    await updateStyle({
-      ...moodboard,
-      ...patch,
-      updatedAt: new Date().toISOString(),
+    if (shortcut) {
+      if (Array.isArray(patch.imagePaths)) {
+        await persistShortcutGalleryOrder(shortcut, patch.imagePaths);
+        await onShortcutsChange?.();
+      }
+      return;
+    }
+
+    await upsertMoodboardAsShortcut({
+      name: (typeof patch.name === 'string' ? patch.name : draftName).trim() || moodboard.name,
+      prompt: typeof patch.prompt === 'string' ? patch.prompt : (draftPrompt || moodboard.prompt || ''),
+      imagePaths: Array.isArray(patch.imagePaths) ? patch.imagePaths : galleryImages,
+      sourceStyleId: moodboard.id,
     });
-  }, [moodboard, updateStyle]);
+    await deleteStyle(moodboard.id);
+    await onShortcutsChange?.();
+  }, [deleteStyle, draftName, draftPrompt, galleryImages, moodboard, onShortcutsChange, shortcut]);
 
   const handleShortcutSave = React.useCallback(async () => {
     if (!shortcut || !draftShortcut) {
@@ -521,7 +535,7 @@ export function MoodboardDetailDialog({
     try {
       let persistedId = shortcut.persistedId;
       if (!persistedId) {
-        const existingResponse = await fetch(`${getApiBase()}/playground-shortcuts/code/${shortcut.id}`, {
+        const existingResponse = await fetch(`${getApiBase()}/moodboard-cards/code/${shortcut.id}`, {
           cache: 'no-store',
         });
         if (existingResponse.ok) {
@@ -545,8 +559,8 @@ export function MoodboardDetailDialog({
 
       const response = await fetch(
         persistedId
-          ? `${getApiBase()}/playground-shortcuts/${persistedId}`
-          : `${getApiBase()}/playground-shortcuts`,
+          ? `${getApiBase()}/moodboard-cards/${persistedId}`
+          : `${getApiBase()}/moodboard-cards`,
         {
           method: persistedId ? 'PATCH' : 'POST',
           headers: {
@@ -594,15 +608,17 @@ export function MoodboardDetailDialog({
 
     setIsSaving(true);
     try {
-      await updateStyle({
-        ...moodboard,
+      await upsertMoodboardAsShortcut({
         name: draftName.trim(),
         prompt: draftPrompt,
-        updatedAt: new Date().toISOString(),
+        imagePaths: galleryImages,
+        sourceStyleId: moodboard.id,
       });
+      await deleteStyle(moodboard.id);
+      await onShortcutsChange?.();
       toast({
-        title: 'Moodboard 已更新',
-        description: '名称和 prompt 已保存。',
+        title: '快捷入口已更新',
+        description: '该 moodboard 已迁移为快捷入口并完成保存。',
       });
     } catch (error) {
       console.error('[MoodboardDetailDialog] Failed to save custom moodboard', error);
@@ -614,7 +630,7 @@ export function MoodboardDetailDialog({
     } finally {
       setIsSaving(false);
     }
-  }, [draftName, draftPrompt, moodboard, toast, updateStyle]);
+  }, [deleteStyle, draftName, draftPrompt, galleryImages, moodboard, onShortcutsChange, toast]);
 
   const handleSave = React.useCallback(async () => {
     if (shortcut) {
@@ -729,7 +745,15 @@ export function MoodboardDetailDialog({
     }
 
     try {
-      await removeImageFromStyle(moodboard.id, path);
+      if (shortcut) {
+        const nextImagePaths = galleryImages.filter((item) => item !== path);
+        await persistShortcutGalleryOrder(shortcut, nextImagePaths);
+        await onShortcutsChange?.();
+      } else {
+        await persistMoodboardOverlay({
+          imagePaths: galleryImages.filter((item) => item !== path),
+        });
+      }
       toast({
         title: '图片已移除',
         description: '该图片已从 moodboard 中删除。',
@@ -742,7 +766,7 @@ export function MoodboardDetailDialog({
         variant: 'destructive',
       });
     }
-  }, [moodboard, removeImageFromStyle, toast]);
+  }, [galleryImages, moodboard, onShortcutsChange, persistMoodboardOverlay, shortcut, toast]);
 
   const handleDownloadImage = React.useCallback((path: string, index: number) => {
     const link = document.createElement('a');

@@ -1,15 +1,15 @@
 import { NextRequest } from 'next/server';
 import { handleRoute } from '@/lib/server/http';
-import { PlaygroundShortcutsService } from '@/lib/server/service/playground-shortcuts.service';
+import { MoodboardCardsService } from '@/lib/server/service/moodboard-cards.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const shortcutsService = new PlaygroundShortcutsService();
+const moodboardCardsService = new MoodboardCardsService();
 
 /**
- * GET /api/playground-shortcuts/[id]
+ * GET /api/moodboard-cards/[id]
  * 根据 ID 获取快捷入口
  */
 export async function GET(
@@ -18,16 +18,16 @@ export async function GET(
 ) {
   return handleRoute(async () => {
     const { id } = await params;
-    const shortcut = await shortcutsService.getById(id);
+    const shortcut = await moodboardCardsService.getById(id);
     if (!shortcut) {
-      return Response.json({ error: 'Shortcut not found' }, { status: 404 });
+      return Response.json({ error: 'Moodboard card not found' }, { status: 404 });
     }
     return shortcut;
   });
 }
 
 /**
- * PATCH /api/playground-shortcuts/[id]
+ * PATCH /api/moodboard-cards/[id]
  * 更新快捷入口
  */
 export async function PATCH(
@@ -37,16 +37,16 @@ export async function PATCH(
   return handleRoute(async () => {
     const { id } = await params;
     const body = await request.json();
-    const updated = await shortcutsService.update(id, body);
+    const updated = await moodboardCardsService.update(id, body);
     if (!updated) {
-      return Response.json({ error: 'Shortcut not found' }, { status: 404 });
+      return Response.json({ error: 'Moodboard card not found' }, { status: 404 });
     }
     return updated;
   });
 }
 
 /**
- * DELETE /api/playground-shortcuts/[id]
+ * DELETE /api/moodboard-cards/[id]
  * 删除快捷入口
  */
 export async function DELETE(
@@ -55,7 +55,7 @@ export async function DELETE(
 ) {
   return handleRoute(async () => {
     const { id } = await params;
-    await shortcutsService.delete(id);
+    await moodboardCardsService.delete(id);
     return { success: true };
   });
 }

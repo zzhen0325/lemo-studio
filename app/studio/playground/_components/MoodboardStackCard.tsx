@@ -7,7 +7,7 @@ import { Sparkles, PanelsTopLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatImageUrl } from '@/lib/api-base';
 import { cn } from '@/lib/utils';
-import { type PlaygroundShortcut } from '@/config/playground-shortcuts';
+import { type MoodboardCard } from '@/config/moodboard-cards';
 import type { StyleStack } from './types';
 import {
   SMALL_STACK_CARD_LAYOUT_CLASS,
@@ -17,23 +17,23 @@ import {
   SMALL_STACK_TITLE_CLASS,
 } from './style-card-layout';
 
-interface ShortcutStackCardProps {
-  shortcut: PlaygroundShortcut;
+interface MoodboardStackCardProps {
+  shortcut: MoodboardCard;
   moodboard?: StyleStack | null;
-  onQuickApply: (shortcut: PlaygroundShortcut) => void;
-  onViewDetail: (shortcut: PlaygroundShortcut) => void;
-  onPreviewImage?: (shortcut: PlaygroundShortcut, imageIndex: number) => void;
+  onQuickApply: (shortcut: MoodboardCard) => void;
+  onViewDetail: (shortcut: MoodboardCard) => void;
+  onPreviewImage?: (shortcut: MoodboardCard, imageIndex: number) => void;
   size?: 'sm' | 'md';
 }
 
-export function ShortcutStackCard({
+export function MoodboardStackCard({
   shortcut,
   moodboard,
   onQuickApply,
   onViewDetail,
   onPreviewImage,
   size = 'md',
-}: ShortcutStackCardProps) {
+}: MoodboardStackCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isSmall = size === 'sm';
   const galleryImages = moodboard ? moodboard.imagePaths : shortcut.imagePaths;

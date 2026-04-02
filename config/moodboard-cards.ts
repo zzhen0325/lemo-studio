@@ -1,7 +1,7 @@
 import type { AspectRatio, ImageSize, StyleStack } from "@/types/database";
 
 export type BuiltinShortcutId = "lemo" | "us-kv" | "sea-kv" | "jp-kv";
-export type PlaygroundShortcutId = string;
+export type MoodboardCardId = string;
 export type ShortcutFieldType = "text" | "textarea" | "select" | "number" | "color";
 
 export interface ShortcutPromptFieldDefinition {
@@ -30,10 +30,11 @@ export type ShortcutPromptPart =
   | { type: "text"; value: string }
   | { type: "field"; fieldId: string };
 
-export interface PlaygroundShortcut {
-  id: PlaygroundShortcutId;
+export interface MoodboardCard {
+  id: MoodboardCardId;
   persistedId?: string;
   sortOrder?: number;
+  createdAt?: string;
   name: string;
   description: string;
   detailDescription: string;
@@ -49,10 +50,12 @@ export interface PlaygroundShortcut {
   promptParts: ShortcutPromptPart[];
 }
 
-export interface PersistedPlaygroundShortcutRecord {
+export interface PersistedMoodboardCardRecord {
   id: string;
   code: string;
   sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
   name?: string;
   cover_title?: string;
   cover_subtitle?: string;
@@ -88,8 +91,8 @@ export interface ShortcutRenderableFieldSegment {
   fieldOrder: number;
 }
 
-export interface ShortcutMoodboardEntry {
-  shortcut: PlaygroundShortcut;
+export interface MoodboardCardEntry {
+  shortcut: MoodboardCard;
   moodboard: StyleStack;
 }
 
@@ -101,7 +104,7 @@ interface ShortcutFieldEntry {
   fieldOrder: number;
 }
 
-type StaticShortcutSeed = Omit<PlaygroundShortcut, "persistedId" | "promptTemplate" | "promptFields">;
+type StaticShortcutSeed = Omit<MoodboardCard, "persistedId" | "promptTemplate" | "promptFields">;
 
 const LEADING_CLOSERS_PATTERN = /^[\s"'`’”)\]\}）】]+/;
 const LEADING_SEPARATORS_PATTERN = /^[\s,;:，、]+/;
@@ -375,7 +378,7 @@ function inferAspectRatioFromDimensions(width?: number, height?: number): Aspect
   return bestMatch;
 }
 
-function resolveShortcutAspectRatio(record?: Pick<PersistedPlaygroundShortcutRecord, "default_aspect_ratio" | "default_width" | "default_height">): AspectRatio {
+function resolveShortcutAspectRatio(record?: Pick<PersistedMoodboardCardRecord, "default_aspect_ratio" | "default_width" | "default_height">): AspectRatio {
   const aspectRatio = record?.default_aspect_ratio?.trim() as AspectRatio | undefined;
   if (aspectRatio && SHORTCUT_ASPECT_RATIOS.includes(aspectRatio)) {
     return aspectRatio;
@@ -384,7 +387,7 @@ function resolveShortcutAspectRatio(record?: Pick<PersistedPlaygroundShortcutRec
   return inferAspectRatioFromDimensions(record?.default_width, record?.default_height);
 }
 
-function resolveShortcutImageSize(record?: Pick<PersistedPlaygroundShortcutRecord, "default_width" | "default_height">): ImageSize {
+function resolveShortcutImageSize(record?: Pick<PersistedMoodboardCardRecord, "default_width" | "default_height">): ImageSize {
   const longestSide = Math.max(record?.default_width || 0, record?.default_height || 0);
 
   if (longestSide >= 4096) {
@@ -401,7 +404,7 @@ function resolveShortcutImageSize(record?: Pick<PersistedPlaygroundShortcutRecor
 }
 
 function resolveShortcutImagePaths(
-  record?: Pick<PersistedPlaygroundShortcutRecord, "galleryUrls" | "coverUrlResolved" | "cover_url">,
+  record?: Pick<PersistedMoodboardCardRecord, "galleryUrls" | "coverUrlResolved" | "cover_url">,
   fallbackImagePaths: string[] = [],
 ) {
   if (Array.isArray(record?.galleryUrls) && record.galleryUrls.length > 0) {
@@ -419,7 +422,7 @@ function resolveShortcutImagePaths(
   return fallbackImagePaths;
 }
 
-function finalizeShortcut(seed: StaticShortcutSeed, index: number): PlaygroundShortcut {
+function finalizeShortcut(seed: StaticShortcutSeed, index: number): MoodboardCard {
   const promptTemplate = serializeShortcutPromptTemplate(seed.promptParts);
   const promptFields = seed.fields.map((field, index) => buildPromptFieldDefinition(field, index));
 
@@ -568,16 +571,16 @@ const PLAYGROUND_SHORTCUT_SEEDS: StaticShortcutSeed[] = [
   },
 ];
 
-export const PLAYGROUND_SHORTCUTS: PlaygroundShortcut[] = PLAYGROUND_SHORTCUT_SEEDS.map((shortcut, index) => finalizeShortcut(shortcut, index));
+export const PLAYGROUND_SHORTCUTS: MoodboardCard[] = PLAYGROUND_SHORTCUT_SEEDS.map((shortcut, index) => finalizeShortcut(shortcut, index));
 
 export function getShortcutById(
-  shortcutId: PlaygroundShortcut["id"],
-  shortcuts: readonly PlaygroundShortcut[] = PLAYGROUND_SHORTCUTS,
+  shortcutId: MoodboardCard["id"],
+  shortcuts: readonly MoodboardCard[] = PLAYGROUND_SHORTCUTS,
 ) {
   return shortcuts.find((shortcut) => shortcut.id === shortcutId);
 }
 
-export function createShortcutPromptValues(shortcut: PlaygroundShortcut): ShortcutPromptValues {
+export function createShortcutPromptValues(shortcut: MoodboardCard): ShortcutPromptValues {
   return shortcut.fields.reduce<ShortcutPromptValues>((acc, field) => {
     acc[field.id] = field.defaultValue || "";
     return acc;
@@ -639,7 +642,7 @@ function extractLeadingClosers(value: string) {
 }
 
 function getShortcutFieldEntries(
-  shortcut: PlaygroundShortcut,
+  shortcut: MoodboardCard,
   values: ShortcutPromptValues
 ): ShortcutFieldEntry[] {
   const segments: ShortcutFieldEntry[] = [];
@@ -671,7 +674,7 @@ function getShortcutFieldEntries(
 }
 
 function resolveShortcutPromptSuffix(
-  shortcut: PlaygroundShortcut,
+  shortcut: MoodboardCard,
   values: ShortcutPromptValues,
   lastRenderedFieldOrder: number | null
 ) {
@@ -696,7 +699,7 @@ function resolveShortcutPromptSuffix(
 }
 
 export function getShortcutRenderableFieldSegments(
-  shortcut: PlaygroundShortcut,
+  shortcut: MoodboardCard,
   values: ShortcutPromptValues,
   options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
 ): ShortcutRenderableFieldSegment[] {
@@ -715,7 +718,7 @@ export function getShortcutRenderableFieldSegments(
 }
 
 export function getShortcutRenderablePromptSuffix(
-  shortcut: PlaygroundShortcut,
+  shortcut: MoodboardCard,
   values: ShortcutPromptValues,
   options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
 ) {
@@ -724,7 +727,7 @@ export function getShortcutRenderablePromptSuffix(
 }
 
 export function buildShortcutPrompt(
-  shortcut: PlaygroundShortcut,
+  shortcut: MoodboardCard,
   values: ShortcutPromptValues,
   options?: ShortcutPromptBuildOptions
 ) {
@@ -754,7 +757,7 @@ export function buildShortcutPrompt(
 }
 
 export function getShortcutMissingFields(
-  shortcut: PlaygroundShortcut,
+  shortcut: MoodboardCard,
   values: ShortcutPromptValues,
   options?: Pick<ShortcutPromptBuildOptions, "removedFieldIds">
 ) {
@@ -768,28 +771,27 @@ export function getShortcutMissingFields(
   });
 }
 
-export function getShortcutMoodboardId(shortcutId: PlaygroundShortcut["id"]) {
+export function getShortcutMoodboardId(shortcutId: MoodboardCard["id"]) {
   return `${SHORTCUT_MOODBOARD_PREFIX}${shortcutId}`;
 }
 
 export function getShortcutByMoodboardId(
   moodboardId: string,
-  shortcuts: readonly PlaygroundShortcut[] = PLAYGROUND_SHORTCUTS,
+  shortcuts: readonly MoodboardCard[] = PLAYGROUND_SHORTCUTS,
 ) {
   if (!moodboardId.startsWith(SHORTCUT_MOODBOARD_PREFIX)) {
     return null;
   }
-  const shortcutId = moodboardId.slice(SHORTCUT_MOODBOARD_PREFIX.length) as PlaygroundShortcut["id"];
+  const shortcutId = moodboardId.slice(SHORTCUT_MOODBOARD_PREFIX.length) as MoodboardCard["id"];
   return getShortcutById(shortcutId, shortcuts) || null;
 }
 
 function buildShortcutFromRecord(options: {
-  fallbackShortcut: PlaygroundShortcut;
-  record?: PersistedPlaygroundShortcutRecord;
-  legacyStyle?: StyleStack;
+  fallbackShortcut: MoodboardCard;
+  record?: PersistedMoodboardCardRecord;
   modelLabels?: Map<string, string>;
-}): PlaygroundShortcut {
-  const { fallbackShortcut, record, legacyStyle, modelLabels } = options;
+}): MoodboardCard {
+  const { fallbackShortcut, record, modelLabels } = options;
   const promptFields = normalizePromptFieldDefinitions(record?.prompt_fields, fallbackShortcut.fields);
   const runtimeFields = promptFields.map((fieldDefinition) => (
     buildRuntimeField(
@@ -800,7 +802,7 @@ function buildShortcutFromRecord(options: {
 
   const promptTemplate = typeof record?.prompt_template === "string" && record.prompt_template.trim()
     ? record.prompt_template.trim()
-    : (legacyStyle?.prompt?.trim() || fallbackShortcut.promptTemplate);
+    : fallbackShortcut.promptTemplate;
 
   const runtimeFieldsById = new Map(runtimeFields.map((field) => [field.id, field]));
   extractShortcutTemplateTokens(promptTemplate).forEach((token) => {
@@ -830,7 +832,8 @@ function buildShortcutFromRecord(options: {
     ...fallbackShortcut,
     persistedId: record?.id,
     sortOrder: record?.sort_order ?? fallbackShortcut.sortOrder,
-    name: record?.name?.trim() || legacyStyle?.name?.trim() || fallbackShortcut.name,
+    createdAt: record?.created_at || fallbackShortcut.createdAt,
+    name: record?.name?.trim() || fallbackShortcut.name,
     detailDescription: record?.moodboard_description?.trim() || fallbackShortcut.detailDescription,
     model,
     modelLabel: modelLabels?.get(model) || fallbackShortcut.modelLabel || model,
@@ -842,9 +845,9 @@ function buildShortcutFromRecord(options: {
 }
 
 function buildCustomShortcutFromRecord(options: {
-  record: PersistedPlaygroundShortcutRecord;
+  record: PersistedMoodboardCardRecord;
   modelLabels?: Map<string, string>;
-}): PlaygroundShortcut | null {
+}): MoodboardCard | null {
   const { record, modelLabels } = options;
   const shortcutCode = record.code?.trim();
 
@@ -888,6 +891,7 @@ function buildCustomShortcutFromRecord(options: {
     id: shortcutCode,
     persistedId: record.id,
     sortOrder: record.sort_order,
+    createdAt: record.created_at,
     name,
     description,
     detailDescription,
@@ -904,14 +908,14 @@ function buildCustomShortcutFromRecord(options: {
 }
 
 export function buildShortcutFromDraft(options: {
-  baseShortcut: PlaygroundShortcut;
+  baseShortcut: MoodboardCard;
   name?: string;
   detailDescription?: string;
   model?: string;
   modelLabel?: string;
   promptTemplate?: string;
   promptFields?: ShortcutPromptFieldDefinition[];
-}): PlaygroundShortcut {
+}): MoodboardCard {
   const { baseShortcut } = options;
   const promptFields = normalizePromptFieldDefinitions(options.promptFields, baseShortcut.fields);
   const runtimeFields = promptFields.map((fieldDefinition) => (
@@ -961,14 +965,10 @@ export function buildShortcutFromDraft(options: {
   };
 }
 
-export function buildRuntimePlaygroundShortcuts(options?: {
-  persistedShortcuts?: PersistedPlaygroundShortcutRecord[];
-  legacyStyles?: StyleStack[];
+export function buildRuntimeMoodboardCards(options?: {
+  persistedShortcuts?: PersistedMoodboardCardRecord[];
   modelLabelById?: Map<string, string>;
-}): PlaygroundShortcut[] {
-  const legacyStylesById = new Map(
-    (options?.legacyStyles || []).map((style) => [style.id, style]),
-  );
+}): MoodboardCard[] {
   const persistedShortcuts = options?.persistedShortcuts || [];
 
   if (persistedShortcuts.length === 0) {
@@ -993,7 +993,6 @@ export function buildRuntimePlaygroundShortcuts(options?: {
         const runtimeShortcut = buildShortcutFromRecord({
           fallbackShortcut,
           record,
-          legacyStyle: legacyStylesById.get(getShortcutMoodboardId(shortcutCode)),
           modelLabels: options?.modelLabelById,
         });
         return runtimeShortcut;
@@ -1004,19 +1003,32 @@ export function buildRuntimePlaygroundShortcuts(options?: {
         modelLabels: options?.modelLabelById,
       });
     })
-    .filter((shortcut): shortcut is PlaygroundShortcut => shortcut !== null)
-    .map((shortcut, index) => ({
-      ...shortcut,
-      sortOrder: shortcut.sortOrder ?? index,
-    }));
+    .filter((shortcut): shortcut is MoodboardCard => shortcut !== null);
 
   return runtimeShortcuts
     .sort((left, right) => {
-      const leftOrder = typeof left.sortOrder === "number" ? left.sortOrder : Number.POSITIVE_INFINITY;
-      const rightOrder = typeof right.sortOrder === "number" ? right.sortOrder : Number.POSITIVE_INFINITY;
+      const leftHasOrder = typeof left.sortOrder === "number";
+      const rightHasOrder = typeof right.sortOrder === "number";
 
-      if (leftOrder !== rightOrder) {
-        return leftOrder - rightOrder;
+      if (leftHasOrder && rightHasOrder && left.sortOrder !== right.sortOrder) {
+        return (left.sortOrder as number) - (right.sortOrder as number);
+      }
+
+      if (leftHasOrder !== rightHasOrder) {
+        return leftHasOrder ? -1 : 1;
+      }
+
+      const leftCreatedAt = Date.parse(left.createdAt || "");
+      const rightCreatedAt = Date.parse(right.createdAt || "");
+      const leftHasCreatedAt = Number.isFinite(leftCreatedAt);
+      const rightHasCreatedAt = Number.isFinite(rightCreatedAt);
+
+      if (leftHasCreatedAt && rightHasCreatedAt && leftCreatedAt !== rightCreatedAt) {
+        return leftCreatedAt - rightCreatedAt;
+      }
+
+      if (leftHasCreatedAt !== rightHasCreatedAt) {
+        return leftHasCreatedAt ? -1 : 1;
       }
 
       const nameCompare = left.name.localeCompare(right.name, "zh-Hans-CN", {
@@ -1034,8 +1046,8 @@ export function buildRuntimePlaygroundShortcuts(options?: {
 
 export function extractShortcutMoodboardEntries(
   moodboards: StyleStack[],
-  shortcuts: readonly PlaygroundShortcut[],
-): ShortcutMoodboardEntry[] {
+  shortcuts: readonly MoodboardCard[],
+): MoodboardCardEntry[] {
   return moodboards
     .map((moodboard) => {
       const shortcut = getShortcutByMoodboardId(moodboard.id, shortcuts);
@@ -1049,25 +1061,30 @@ export function extractShortcutMoodboardEntries(
         moodboard,
       };
     })
-    .filter((entry): entry is ShortcutMoodboardEntry => Boolean(entry))
+    .filter((entry): entry is MoodboardCardEntry => Boolean(entry))
     .sort((left, right) => {
-      const leftOrder = typeof left.shortcut.sortOrder === "number"
-        ? left.shortcut.sortOrder
-        : Number.POSITIVE_INFINITY;
-      const rightOrder = typeof right.shortcut.sortOrder === "number"
-        ? right.shortcut.sortOrder
-        : Number.POSITIVE_INFINITY;
+      const leftHasOrder = typeof left.shortcut.sortOrder === "number";
+      const rightHasOrder = typeof right.shortcut.sortOrder === "number";
 
-      if (leftOrder !== rightOrder) {
-        return leftOrder - rightOrder;
+      if (leftHasOrder && rightHasOrder && left.shortcut.sortOrder !== right.shortcut.sortOrder) {
+        return (left.shortcut.sortOrder as number) - (right.shortcut.sortOrder as number);
       }
 
-      const leftUpdatedAt = Date.parse(left.moodboard.updatedAt || "");
-      const rightUpdatedAt = Date.parse(right.moodboard.updatedAt || "");
-      const hasValidUpdatedAt = Number.isFinite(leftUpdatedAt) && Number.isFinite(rightUpdatedAt);
+      if (leftHasOrder !== rightHasOrder) {
+        return leftHasOrder ? -1 : 1;
+      }
 
-      if (hasValidUpdatedAt && leftUpdatedAt !== rightUpdatedAt) {
-        return rightUpdatedAt - leftUpdatedAt;
+      const leftCreatedAt = Date.parse(left.shortcut.createdAt || "");
+      const rightCreatedAt = Date.parse(right.shortcut.createdAt || "");
+      const leftHasCreatedAt = Number.isFinite(leftCreatedAt);
+      const rightHasCreatedAt = Number.isFinite(rightCreatedAt);
+
+      if (leftHasCreatedAt && rightHasCreatedAt && leftCreatedAt !== rightCreatedAt) {
+        return leftCreatedAt - rightCreatedAt;
+      }
+
+      if (leftHasCreatedAt !== rightHasCreatedAt) {
+        return leftHasCreatedAt ? -1 : 1;
       }
 
       return left.moodboard.name.localeCompare(right.moodboard.name, "zh-Hans-CN", {
@@ -1077,7 +1094,7 @@ export function extractShortcutMoodboardEntries(
     });
 }
 
-export function buildShortcutMoodboard(shortcut: PlaygroundShortcut): StyleStack {
+export function buildShortcutMoodboard(shortcut: MoodboardCard): StyleStack {
   const values = createShortcutPromptValues(shortcut);
   const promptTemplate = buildShortcutPrompt(shortcut, values);
 
@@ -1086,38 +1103,26 @@ export function buildShortcutMoodboard(shortcut: PlaygroundShortcut): StyleStack
     name: shortcut.name,
     prompt: promptTemplate,
     imagePaths: shortcut.imagePaths,
-    updatedAt: new Date(0).toISOString(),
+    updatedAt: shortcut.createdAt || new Date(0).toISOString(),
   };
 }
 
 export function mergeShortcutMoodboards(
-  styles: StyleStack[],
-  shortcuts: readonly PlaygroundShortcut[] = PLAYGROUND_SHORTCUTS,
+  _styles: StyleStack[],
+  shortcuts: readonly MoodboardCard[] = PLAYGROUND_SHORTCUTS,
 ): StyleStack[] {
-  const shortcutsById = new Map(
-    shortcuts.map((shortcut) => [getShortcutMoodboardId(shortcut.id), buildShortcutMoodboard(shortcut)])
-  );
-
-  const mergedShortcutMoodboards = shortcuts.map((shortcut) => {
-    const shortcutMoodboardId = getShortcutMoodboardId(shortcut.id);
-    const baseMoodboard = shortcutsById.get(shortcutMoodboardId)!;
-    const savedMoodboard = styles.find((style) => style.id === shortcutMoodboardId);
-
-    if (!savedMoodboard) {
-      return baseMoodboard;
-    }
-
-    return {
-      ...baseMoodboard,
-      imagePaths: Array.isArray(savedMoodboard.imagePaths)
-        ? savedMoodboard.imagePaths
-        : baseMoodboard.imagePaths,
-      collageImageUrl: savedMoodboard.collageImageUrl,
-      collageConfig: savedMoodboard.collageConfig,
-      updatedAt: savedMoodboard.updatedAt || baseMoodboard.updatedAt,
-    };
-  });
-
-  const customMoodboards = styles.filter((style) => !getShortcutByMoodboardId(style.id, shortcuts));
-  return [...mergedShortcutMoodboards, ...customMoodboards];
+  return shortcuts.map((shortcut) => buildShortcutMoodboard(shortcut));
 }
+
+export type PlaygroundShortcutId = MoodboardCardId;
+export type PlaygroundShortcut = MoodboardCard;
+export type PersistedPlaygroundShortcutRecord = PersistedMoodboardCardRecord;
+export type ShortcutMoodboardEntry = MoodboardCardEntry;
+export const buildRuntimePlaygroundShortcuts = buildRuntimeMoodboardCards;
+export const MOODBOARD_CARDS = PLAYGROUND_SHORTCUTS;
+export const getMoodboardCardById = getShortcutById;
+export const getMoodboardCardId = getShortcutMoodboardId;
+export const getMoodboardCardByMoodboardId = getShortcutByMoodboardId;
+export const extractMoodboardCardEntries = extractShortcutMoodboardEntries;
+export const buildMoodboardFromCard = buildShortcutMoodboard;
+export const mergeMoodboardCards = mergeShortcutMoodboards;

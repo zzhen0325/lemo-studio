@@ -3,8 +3,8 @@
 import React from 'react';
 
 import { cn } from '@/lib/utils';
-import { type PlaygroundShortcut, type ShortcutMoodboardEntry } from '@/config/playground-shortcuts';
-import { ShortcutStackCard } from './ShortcutStackCard';
+import { type MoodboardCard, type MoodboardCardEntry } from '@/config/moodboard-cards';
+import { MoodboardStackCard } from './MoodboardStackCard';
 import { MoodboardDetailDialog } from './MoodboardDetailDialog';
 import {
   SMALL_STACK_MARQUEE_ITEM_CLASS,
@@ -12,37 +12,40 @@ import {
   SMALL_STACK_MARQUEE_TRACK_CLASS,
 } from './style-card-layout';
 
-interface StylesMarqueeProps {
+interface MoodboardMarqueeProps {
   className?: string;
-  items: ShortcutMoodboardEntry[];
-  onQuickApply: (shortcut: PlaygroundShortcut) => void;
-  onPreviewImage?: (shortcut: PlaygroundShortcut, imageIndex: number) => void;
+  items: MoodboardCardEntry[];
+  onQuickApply: (moodboardCard: MoodboardCard) => void;
+  onPreviewImage?: (moodboardCard: MoodboardCard, imageIndex: number) => void;
+  onMoodboardCardsChange?: () => Promise<void> | void;
   onShortcutsChange?: () => Promise<void> | void;
 }
 
-export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
+export const MoodboardMarquee: React.FC<MoodboardMarqueeProps> = ({
   className,
   items,
   onQuickApply,
   onPreviewImage,
+  onMoodboardCardsChange,
   onShortcutsChange,
 }) => {
-  const [selectedShortcut, setSelectedShortcut] = React.useState<PlaygroundShortcut | null>(null);
+  const [selectedMoodboardCard, setSelectedMoodboardCard] = React.useState<MoodboardCard | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const [isPaused, setIsPaused] = React.useState(false);
   const duplicatedItems = React.useMemo(
     () => [...items, ...items, ...items],
     [items],
   );
+  const handleMoodboardCardsChange = onMoodboardCardsChange ?? onShortcutsChange;
 
-  const handleViewDetail = React.useCallback((shortcut: PlaygroundShortcut) => {
-    setSelectedShortcut(shortcut);
+  const handleViewDetail = React.useCallback((moodboardCard: MoodboardCard) => {
+    setSelectedMoodboardCard(moodboardCard);
     setIsDetailOpen(true);
   }, []);
 
-  const handleQuickApply = React.useCallback((shortcut: PlaygroundShortcut) => {
+  const handleQuickApply = React.useCallback((moodboardCard: MoodboardCard) => {
     setIsDetailOpen(false);
-    onQuickApply(shortcut);
+    onQuickApply(moodboardCard);
   }, [onQuickApply]);
 
   return (
@@ -72,9 +75,9 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
             animationPlayState: isPaused ? 'paused' : 'running',
           }}
         >
-          {duplicatedItems.map(({ shortcut, moodboard }, index) => (
+          {duplicatedItems.map(({ shortcut: moodboardCard, moodboard }, index) => (
             <div
-              key={`${shortcut.id}-${moodboard.id}-${index}`}
+              key={`${moodboardCard.id}-${moodboard.id}-${index}`}
               className={cn(
                 SMALL_STACK_MARQUEE_ITEM_CLASS,
                 'pointer-events-none',
@@ -85,8 +88,8 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
                 onMouseEnter={() => setIsPaused(true)}
                 onMouseLeave={() => setIsPaused(false)}
               >
-                <ShortcutStackCard
-                  shortcut={shortcut}
+                <MoodboardStackCard
+                  shortcut={moodboardCard}
                   moodboard={moodboard}
                   size="sm"
                   onQuickApply={handleQuickApply}
@@ -102,11 +105,11 @@ export const StylesMarquee: React.FC<StylesMarqueeProps> = ({
       <MoodboardDetailDialog
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
-        moodboard={selectedShortcut ? items.find((item) => item.shortcut.id === selectedShortcut.id)?.moodboard || null : null}
-        shortcut={selectedShortcut}
+        moodboard={selectedMoodboardCard ? items.find((item) => item.shortcut.id === selectedMoodboardCard.id)?.moodboard || null : null}
+        shortcut={selectedMoodboardCard}
         onShortcutQuickApply={handleQuickApply}
         onShortcutPreviewImage={onPreviewImage}
-        onShortcutsChange={onShortcutsChange}
+        onShortcutsChange={handleMoodboardCardsChange}
       />
     </>
   );

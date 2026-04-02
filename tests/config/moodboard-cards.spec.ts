@@ -7,7 +7,7 @@ import {
   getShortcutById,
   getShortcutMoodboardId,
   mergeShortcutMoodboards,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 
 describe('playground shortcut prompt builder', () => {
   it('preserves closing quotes around populated KV fields in the simplified KV template', () => {
@@ -193,7 +193,28 @@ describe('playground shortcut prompt builder', () => {
     ]);
   });
 
-  it('preserves an explicit empty shortcut overlay image list', () => {
+  it('falls back to created_at ascending when sort_order is missing', () => {
+    const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
+      persistedShortcuts: [
+        {
+          id: 'shortcut-row-jp',
+          code: 'jp-kv',
+          name: 'JP Runtime',
+          created_at: '2026-03-21T00:00:00.000Z',
+        },
+        {
+          id: 'shortcut-row-lemo',
+          code: 'lemo',
+          name: 'Lemo Runtime',
+          created_at: '2026-03-20T00:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual(['lemo', 'jp-kv']);
+  });
+
+  it('ignores legacy shortcut style overlays to keep shortcut moodboards single-sourced', () => {
     const mergedMoodboards = mergeShortcutMoodboards([
       {
         id: getShortcutMoodboardId('lemo'),
@@ -205,6 +226,8 @@ describe('playground shortcut prompt builder', () => {
     ]);
 
     const moodboard = mergedMoodboards.find((item) => item.id === getShortcutMoodboardId('lemo'));
-    expect(moodboard?.imagePaths).toEqual([]);
+    expect(moodboard?.name).toBe('Lemo');
+    expect(moodboard?.prompt).not.toBe('Legacy prompt');
+    expect(moodboard?.imagePaths.length).toBeGreaterThan(0);
   });
 });

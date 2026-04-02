@@ -2,7 +2,7 @@ import {
   buildShortcutPrompt,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
-} from "@/config/playground-shortcuts";
+} from "@/config/moodboard-cards";
 import type { ShortcutEditorDocument } from "@/app/studio/playground/_lib/shortcut-editor-document";
 import {
   assembleDesignStructuredShortcutPrompt,

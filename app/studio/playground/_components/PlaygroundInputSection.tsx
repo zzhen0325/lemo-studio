@@ -45,7 +45,7 @@ import { AR_MAP, getAspectRatioPresets, getAspectRatioByDimensions } from "./con
 import {
     type PlaygroundShortcut,
     type ShortcutPromptValues,
-} from "@/config/playground-shortcuts";
+} from "@/config/moodboard-cards";
 import type {
     DesignStructuredAnalysis,
     DesignAnalysisSectionKey,

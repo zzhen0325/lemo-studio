@@ -40,7 +40,7 @@ import { PresetGridOverlay } from "@studio/playground/_components/PresetGridOver
 import { PlaygroundBackground } from "@studio/playground/_components/PlaygroundBackground";
 import { PlaygroundInputSection } from "@studio/playground/_components/PlaygroundInputSection";
 import { AR_MAP } from "@studio/playground/_components/constants/aspect-ratio";
-import { StylesMarquee } from "@studio/playground/_components/StylesMarquee";
+import { MoodboardMarquee } from "@studio/playground/_components/MoodboardMarquee";
 import { usePlaygroundMoodboards } from "@studio/playground/_components/hooks/usePlaygroundMoodboards";
 import { PlaygroundDockSidebar } from "@studio/playground/_components/containers/components/PlaygroundDockSidebar";
 import { PlaygroundHistoryPanel } from "@studio/playground/_components/containers/components/PlaygroundHistoryPanel";
@@ -75,10 +75,9 @@ import {
   createShortcutPromptValues,
   getShortcutById,
   getShortcutMissingFields,
-  getShortcutMoodboardId,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
-} from "@/config/playground-shortcuts";
+} from "@/config/moodboard-cards";
 import {
   buildDesignSectionDetailSyncInstruction,
   buildKvStructuredOptimizationInput,
@@ -116,6 +115,7 @@ import {
   removeFieldFromShortcutEditorDocument,
   type ShortcutEditorDocument,
 } from "@/app/studio/playground/_lib/shortcut-editor-document";
+import { upsertMoodboardAsShortcut } from "@/app/studio/playground/_lib/moodboard-card-gallery";
 
 
 import gsap from "gsap";
@@ -194,8 +194,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
   const applyModel = usePlaygroundStore(s => s.applyModel);
-  const addStyle = usePlaygroundStore(s => s.addStyle);
-  const styles = usePlaygroundStore(s => s.styles);
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
   const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
@@ -225,10 +223,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const isSelectorExpanded = usePlaygroundStore(s => s.isSelectorExpanded);
   const setIsSelectorExpanded = usePlaygroundStore(s => s.setSelectorExpanded);
   const {
-    shortcutMoodboardEntries,
-    shortcutByCode,
-    refreshShortcuts,
+    moodboardCardEntries,
+    moodboardCardByCode,
+    refreshMoodboardCards,
   } = usePlaygroundMoodboards();
+  const moodboardByCardId = useMemo(() => {
+    return new Map(moodboardCardEntries.map((entry) => [entry.shortcut.id, entry.moodboard]));
+  }, [moodboardCardEntries]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const describePanelRef = useRef<HTMLDivElement>(null);
@@ -953,15 +954,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
       const imagePaths = await Promise.all(uploadPromises);
 
-      const newStyle = {
-        id: uuidv4(),
+      await upsertMoodboardAsShortcut({
         name: `新情绪板 ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         prompt: '',
         imagePaths,
-        updatedAt: new Date().toISOString()
-      };
-
-      await addStyle(newStyle);
+      });
+      await refreshMoodboardCards();
       toast({ title: "情绪板创建成功", description: `已成功创建新情绪板并包含 ${uploads.length} 张图片` });
     } catch (error) {
       console.error("Failed to upload images for new style", error);
@@ -1029,7 +1027,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   }, [applyModel, config.height, config.width, setSelectedPresetName, setSelectedWorkflowConfig, toast, setViewMode]);
 
   const buildShortcutPreviewResults = useCallback((shortcut: PlaygroundShortcut): Generation[] => {
-    const shortcutMoodboard = styles.find((style) => style.id === getShortcutMoodboardId(shortcut.id));
+    const shortcutMoodboard = moodboardByCardId.get(shortcut.id);
     const values = createShortcutPromptValues(shortcut);
     const prompt = buildShortcutPrompt(shortcut, values);
     const previewImages = shortcutMoodboard?.imagePaths ?? shortcut.imagePaths;
@@ -1062,7 +1060,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       status: 'completed',
       createdAt: shortcutMoodboard?.updatedAt || '',
     }));
-  }, [config.height, config.width, effectiveUserId, styles]);
+  }, [config.height, config.width, effectiveUserId, moodboardByCardId]);
 
   const handleShortcutPreviewOpen = useCallback((shortcut: PlaygroundShortcut, imageIndex: number) => {
     const previewResults = buildShortcutPreviewResults(shortcut);
@@ -1096,7 +1094,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       && optimizationSource.shortcutId
       && optimizationSource.session
     ) {
-      const shortcut = shortcutByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
+      const shortcut = moodboardCardByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
         || getShortcutById(optimizationSource.shortcutId);
       if (!shortcut) {
         applyPrompt(result.config?.prompt || "");
@@ -1158,7 +1156,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       optimizationSource?.sourceKind === "shortcut_inline"
       && optimizationSource.shortcutId
     ) {
-      const shortcut = shortcutByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
+      const shortcut = moodboardCardByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
         || getShortcutById(optimizationSource.shortcutId);
       if (!shortcut) {
         applyPrompt(result.config?.prompt || "");
@@ -1201,7 +1199,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       title: "提示词已应用",
       description: "已将此条提示词填充到输入框",
     });
-  }, [applyModel, applyPrompt, setSelectedPresetName, setSelectedWorkflowConfig, shortcutByCode, toast, updateConfig]);
+  }, [applyModel, applyPrompt, moodboardCardByCode, setSelectedPresetName, setSelectedWorkflowConfig, toast, updateConfig]);
 
   const handleUseGalleryPrompt = useCallback((result: Generation) => {
     handleUseHistoryPrompt(result);
@@ -3098,11 +3096,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
             {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && !hasStructuredShortcutSession && (
               <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none flex flex-col items-center">
-                <StylesMarquee
-                  items={shortcutMoodboardEntries}
+                <MoodboardMarquee
+                  items={moodboardCardEntries.slice(0, 10)}
                   onQuickApply={handleShortcutQuickApply}
                   onPreviewImage={handleShortcutPreviewOpen}
-                  onShortcutsChange={refreshShortcuts}
+                  onMoodboardCardsChange={refreshMoodboardCards}
                 />
                 <div className="mt-4 mb-8 pointer-events-auto">
                   <button

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getShortcutById } from '@/config/playground-shortcuts';
+import { getShortcutById } from '@/config/moodboard-cards';
 import {
   assembleDesignStructuredShortcutPrompt,
   buildDesignSectionDetailSyncInstruction,

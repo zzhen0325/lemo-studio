@@ -3,7 +3,7 @@ import {
   HistoryRepository,
   ImageAssetsRepository,
   InfiniteCanvasRepository,
-  PlaygroundShortcutsRepository,
+  MoodboardCardsRepository,
   PresetsRepository,
   StylesRepository,
   ToolPresetsRepository,
@@ -21,7 +21,7 @@ import { DatasetService } from './service/dataset.service';
 import { HistoryService } from './service/history.service';
 import { InfiniteCanvasService } from './service/infinite-canvas.service';
 import { LorasService } from './service/loras.service';
-import { PlaygroundShortcutsService } from './service/playground-shortcuts.service';
+import { MoodboardCardsService } from './service/moodboard-cards.service';
 import { PresetCategoriesService } from './service/preset-categories.service';
 import { PresetsService } from './service/presets.service';
 import { SaveImageService } from './service/save-image.service';
@@ -37,7 +37,7 @@ function createRepositories() {
     historyRepository: new HistoryRepository(),
     imageAssetsRepository: new ImageAssetsRepository(),
     infiniteCanvasRepository: new InfiniteCanvasRepository(),
-    playgroundShortcutsRepository: new PlaygroundShortcutsRepository(),
+    moodboardCardsRepository: new MoodboardCardsRepository(),
     presetsRepository: new PresetsRepository(),
     stylesRepository: new StylesRepository(),
     toolPresetsRepository: new ToolPresetsRepository(),
@@ -53,7 +53,7 @@ let servicesPromise: Promise<{
   historyRepository: HistoryRepository;
   imageAssetsRepository: ImageAssetsRepository;
   infiniteCanvasRepository: InfiniteCanvasRepository;
-  playgroundShortcutsRepository: PlaygroundShortcutsRepository;
+  moodboardCardsRepository: MoodboardCardsRepository;
   presetsRepository: PresetsRepository;
   stylesRepository: StylesRepository;
   toolPresetsRepository: ToolPresetsRepository;
@@ -69,7 +69,7 @@ let servicesPromise: Promise<{
   historyService: HistoryService;
   infiniteCanvasService: InfiniteCanvasService;
   lorasService: LorasService;
-  playgroundShortcutsService: PlaygroundShortcutsService;
+  moodboardCardsService: MoodboardCardsService;
   presetCategoriesService: PresetCategoriesService;
   presetsService: PresetsService;
   saveImageService: SaveImageService;
@@ -95,7 +95,7 @@ async function createServerServices() {
   const historyService = new HistoryService(repositories.historyRepository);
   const infiniteCanvasService = new InfiniteCanvasService(repositories.infiniteCanvasRepository);
   const lorasService = new LorasService();
-  const playgroundShortcutsService = new PlaygroundShortcutsService(repositories.playgroundShortcutsRepository);
+  const moodboardCardsService = new MoodboardCardsService(repositories.moodboardCardsRepository);
   const presetCategoriesService = new PresetCategoriesService(repositories.presetsRepository);
   const presetsService = new PresetsService(repositories.presetsRepository, repositories.imageAssetsRepository);
   const saveImageService = new SaveImageService(repositories.imageAssetsRepository);
@@ -119,7 +119,7 @@ async function createServerServices() {
     historyService,
     infiniteCanvasService,
     lorasService,
-    playgroundShortcutsService,
+    moodboardCardsService,
     presetCategoriesService,
     presetsService,
     saveImageService,

@@ -10,7 +10,7 @@ import {
   sanitizeShortcutColorDraft,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 import {
   DESIGN_ANALYSIS_SECTION_KEYS,
   extractDesignHexMatches,

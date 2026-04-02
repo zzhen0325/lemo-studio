@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
 import { handleRoute } from '@/lib/server/http';
-import { PlaygroundShortcutsService } from '@/lib/server/service/playground-shortcuts.service';
+import { MoodboardCardsService } from '@/lib/server/service/moodboard-cards.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const shortcutsService = new PlaygroundShortcutsService();
+const moodboardCardsService = new MoodboardCardsService();
 
 /**
- * POST /api/playground-shortcuts/[id]/archive
+ * POST /api/moodboard-cards/[id]/archive
  * 归档快捷入口
  */
 export async function POST(
@@ -17,9 +17,9 @@ export async function POST(
 ) {
   return handleRoute(async () => {
     const { id } = await params;
-    const result = await shortcutsService.archive(id);
+    const result = await moodboardCardsService.archive(id);
     if (!result) {
-      return Response.json({ error: 'Shortcut not found' }, { status: 404 });
+      return Response.json({ error: 'Moodboard card not found' }, { status: 404 });
     }
     return result;
   });

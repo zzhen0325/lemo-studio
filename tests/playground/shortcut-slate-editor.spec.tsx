@@ -5,7 +5,7 @@ import { ShortcutSlateEditor } from '@/app/studio/playground/_components/Shortcu
 import {
   createShortcutPromptValues,
   getShortcutById,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 import { createShortcutEditorDocumentFromParts } from '@/app/studio/playground/_lib/shortcut-editor-document';
 
 describe('ShortcutSlateEditor', () => {

@@ -1,14 +1,14 @@
 import { handleRoute } from '@/lib/server/http';
 import { HttpError } from '@/lib/server/utils/http-error';
-import { PlaygroundShortcutsService } from '@/lib/server/service/playground-shortcuts.service';
+import { MoodboardCardsService } from '@/lib/server/service/moodboard-cards.service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const shortcutsService = new PlaygroundShortcutsService();
+const moodboardCardsService = new MoodboardCardsService();
 
 /**
- * POST /api/playground-shortcuts/sort
+ * POST /api/moodboard-cards/sort
  * 批量更新排序
  * Body: { orders: Array<{ id: string; sortOrder: number }> }
  */
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       throw new HttpError(400, 'Invalid orders array');
     }
 
-    await shortcutsService.updateSortOrder(body.orders);
+    await moodboardCardsService.updateSortOrder(body.orders);
     return { success: true };
   });
 }

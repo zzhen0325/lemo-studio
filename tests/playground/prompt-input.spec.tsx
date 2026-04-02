@@ -5,7 +5,7 @@ import PromptInput from '@/app/studio/playground/_components/PromptInput';
 import {
   createShortcutPromptValues,
   getShortcutById,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 import { createShortcutEditorDocumentFromParts } from '@/app/studio/playground/_lib/shortcut-editor-document';
 
 describe('PromptInput shortcut template mode', () => {

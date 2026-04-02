@@ -12,7 +12,7 @@ import {
 import {
   buildShortcutMoodboard,
   getShortcutByMoodboardId,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 import type { SortBy } from '@/lib/server/service/history.service';
 import { useAuthStore } from './auth-store';
 

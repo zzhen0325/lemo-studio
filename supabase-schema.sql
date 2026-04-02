@@ -104,6 +104,40 @@ CREATE TABLE IF NOT EXISTS style_stacks (
 );
 
 -- ==========================================
+-- 6.1 Moodboard Card 表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS moodboard_cards (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  sort_order INTEGER,
+  is_enabled BOOLEAN DEFAULT true,
+  cover_title TEXT,
+  cover_subtitle TEXT,
+  cover_storage_key TEXT,
+  cover_url TEXT,
+  model_id VARCHAR(255),
+  default_aspect_ratio VARCHAR(32),
+  default_width INTEGER,
+  default_height INTEGER,
+  allow_model_change BOOLEAN DEFAULT true,
+  prompt_template TEXT,
+  prompt_fields JSONB DEFAULT '[]',
+  prompt_config JSONB,
+  moodboard_description TEXT,
+  example_prompts JSONB DEFAULT '[]',
+  gallery_order JSONB DEFAULT '[]',
+  creator VARCHAR(255),
+  publish_status VARCHAR(32) DEFAULT 'draft',
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS moodboard_cards_sort_order_idx ON moodboard_cards(sort_order ASC);
+CREATE INDEX IF NOT EXISTS moodboard_cards_created_at_idx ON moodboard_cards(created_at ASC);
+
+-- ==========================================
 -- 7. 工具预设表
 -- ==========================================
 CREATE TABLE IF NOT EXISTS tool_presets (
@@ -187,6 +221,7 @@ ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE presets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE preset_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE style_stacks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE moodboard_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_presets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dataset_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dataset_collections ENABLE ROW LEVEL SECURITY;
@@ -199,6 +234,7 @@ CREATE POLICY "Allow anonymous access" ON generations FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON presets FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON preset_categories FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON style_stacks FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON moodboard_cards FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON tool_presets FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON dataset_entries FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON dataset_collections FOR ALL USING (true);

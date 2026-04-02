@@ -31,7 +31,7 @@ import {
   sanitizeShortcutColorDraft,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 import {
   cloneShortcutEditorDocument,
   normalizeShortcutEditorDocument,

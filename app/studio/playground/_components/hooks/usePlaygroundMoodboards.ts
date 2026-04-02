@@ -3,32 +3,29 @@
 import React from 'react';
 
 import { getApiBase } from '@/lib/api-base';
-import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import {
-  buildRuntimePlaygroundShortcuts,
-  extractShortcutMoodboardEntries,
-  getShortcutMoodboardId,
-  mergeShortcutMoodboards,
-  type ShortcutMoodboardEntry,
-  type PersistedPlaygroundShortcutRecord,
-} from '@/config/playground-shortcuts';
-import type { StyleStack } from '@/types/database';
+  buildRuntimeMoodboardCards,
+  extractMoodboardCardEntries,
+  mergeMoodboardCards,
+  type MoodboardCardEntry,
+  type PersistedMoodboardCardRecord,
+} from '@/config/moodboard-cards';
 
 interface UsePlaygroundMoodboardsOptions {
-  initializeStyles?: boolean;
+  initializeMoodboards?: boolean;
 }
 
-let shortcutRecordsCache: PersistedPlaygroundShortcutRecord[] | null = null;
-let shortcutRecordsPromise: Promise<PersistedPlaygroundShortcutRecord[]> | null = null;
+let moodboardCardRecordsCache: PersistedMoodboardCardRecord[] | null = null;
+let moodboardCardRecordsPromise: Promise<PersistedMoodboardCardRecord[]> | null = null;
 
-async function fetchEnabledShortcuts(): Promise<PersistedPlaygroundShortcutRecord[]> {
-  const response = await fetch(`${getApiBase()}/playground-shortcuts?enabled=true`, {
+async function fetchEnabledMoodboardCards(): Promise<PersistedMoodboardCardRecord[]> {
+  const response = await fetch(`${getApiBase()}/moodboard-cards?enabled=true`, {
     cache: 'no-store',
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch shortcuts: ${response.status}`);
+    throw new Error(`Failed to fetch moodboard cards: ${response.status}`);
   }
 
   const data = await response.json();
@@ -36,99 +33,84 @@ async function fetchEnabledShortcuts(): Promise<PersistedPlaygroundShortcutRecor
 }
 
 export function usePlaygroundMoodboards(options: UsePlaygroundMoodboardsOptions = {}) {
-  const { initializeStyles = true } = options;
-  const styles = usePlaygroundStore((state) => state.styles);
-  const initStyles = usePlaygroundStore((state) => state.initStyles);
-  const isStylesLoading = usePlaygroundStore((state) => state._stylesLoading);
-  const areStylesLoaded = usePlaygroundStore((state) => state._stylesLoaded);
+  const shouldInitializeMoodboards = options.initializeMoodboards ?? true;
   const availableModels = usePlaygroundAvailableModels();
 
-  const [persistedShortcuts, setPersistedShortcuts] = React.useState<PersistedPlaygroundShortcutRecord[]>(
-    () => shortcutRecordsCache || [],
+  const [persistedMoodboardCards, setPersistedMoodboardCards] = React.useState<PersistedMoodboardCardRecord[]>(
+    () => moodboardCardRecordsCache || [],
   );
-  const [isLoadingShortcuts, setIsLoadingShortcuts] = React.useState(() => shortcutRecordsCache === null);
+  const [isLoadingMoodboardCards, setIsLoadingMoodboardCards] = React.useState(
+    () => moodboardCardRecordsCache === null,
+  );
 
-  const refreshShortcuts = React.useCallback(async () => {
-    setIsLoadingShortcuts(true);
+  const refreshMoodboardCards = React.useCallback(async () => {
+    setIsLoadingMoodboardCards(true);
     try {
-      if (!shortcutRecordsPromise) {
-        shortcutRecordsPromise = fetchEnabledShortcuts();
+      if (!moodboardCardRecordsPromise) {
+        moodboardCardRecordsPromise = fetchEnabledMoodboardCards();
       }
-      const data = await shortcutRecordsPromise;
-      shortcutRecordsCache = data;
-      setPersistedShortcuts(data);
+      const data = await moodboardCardRecordsPromise;
+      moodboardCardRecordsCache = data;
+      setPersistedMoodboardCards(data);
     } catch (error) {
-      console.error('[usePlaygroundMoodboards] Failed to fetch shortcuts', error);
-      if (shortcutRecordsCache === null) {
-        setPersistedShortcuts([]);
+      console.error('[usePlaygroundMoodboards] Failed to fetch moodboard cards', error);
+      if (moodboardCardRecordsCache === null) {
+        setPersistedMoodboardCards([]);
       }
     } finally {
-      shortcutRecordsPromise = null;
-      setIsLoadingShortcuts(false);
+      moodboardCardRecordsPromise = null;
+      setIsLoadingMoodboardCards(false);
     }
   }, []);
 
-  const invalidateAndRefreshShortcuts = React.useCallback(async () => {
-    shortcutRecordsCache = null;
-    shortcutRecordsPromise = null;
-    await refreshShortcuts();
-  }, [refreshShortcuts]);
+  const invalidateAndRefreshMoodboardCards = React.useCallback(async () => {
+    moodboardCardRecordsCache = null;
+    moodboardCardRecordsPromise = null;
+    await refreshMoodboardCards();
+  }, [refreshMoodboardCards]);
 
   React.useEffect(() => {
-    if (shortcutRecordsCache) {
-      setPersistedShortcuts(shortcutRecordsCache);
-      setIsLoadingShortcuts(false);
+    if (!shouldInitializeMoodboards) {
+      setIsLoadingMoodboardCards(false);
       return;
     }
 
-    void refreshShortcuts();
-  }, [refreshShortcuts]);
-
-  React.useEffect(() => {
-    if (initializeStyles && !areStylesLoaded && !isStylesLoading) {
-      void initStyles();
+    if (moodboardCardRecordsCache) {
+      setPersistedMoodboardCards(moodboardCardRecordsCache);
+      setIsLoadingMoodboardCards(false);
+      return;
     }
-  }, [areStylesLoaded, initStyles, initializeStyles, isStylesLoading]);
+
+    void refreshMoodboardCards();
+  }, [refreshMoodboardCards, shouldInitializeMoodboards]);
 
   const modelLabelById = React.useMemo(() => {
     return new Map(availableModels.map((model) => [model.id, model.displayName]));
   }, [availableModels]);
 
-  const shortcuts = React.useMemo(() => {
-    return buildRuntimePlaygroundShortcuts({
-      persistedShortcuts,
-      legacyStyles: styles,
+  const moodboardCards = React.useMemo(() => {
+    return buildRuntimeMoodboardCards({
+      persistedShortcuts: persistedMoodboardCards,
       modelLabelById,
     });
-  }, [modelLabelById, persistedShortcuts, styles]);
+  }, [modelLabelById, persistedMoodboardCards]);
 
-  const moodboards = React.useMemo(() => mergeShortcutMoodboards(styles, shortcuts), [shortcuts, styles]);
+  const moodboards = React.useMemo(() => mergeMoodboardCards([], moodboardCards), [moodboardCards]);
 
-  const shortcutMoodboardsByCode = React.useMemo(() => {
-    const moodboardById = new Map(moodboards.map((moodboard) => [moodboard.id, moodboard]));
+  const moodboardCardByCode = React.useMemo(() => {
+    return new Map(moodboardCards.map((moodboardCard) => [moodboardCard.id, moodboardCard]));
+  }, [moodboardCards]);
 
-    return shortcuts.reduce<Record<string, StyleStack | null>>((acc, shortcut) => {
-      acc[shortcut.id] = moodboardById.get(getShortcutMoodboardId(shortcut.id)) || null;
-      return acc;
-    }, {});
-  }, [moodboards, shortcuts]);
-
-  const shortcutByCode = React.useMemo(() => {
-    return new Map(shortcuts.map((shortcut) => [shortcut.id, shortcut]));
-  }, [shortcuts]);
-
-  const shortcutMoodboardEntries = React.useMemo<ShortcutMoodboardEntry[]>(() => {
-    return extractShortcutMoodboardEntries(moodboards, shortcuts);
-  }, [moodboards, shortcuts]);
+  const moodboardCardEntries = React.useMemo<MoodboardCardEntry[]>(() => {
+    return extractMoodboardCardEntries(moodboards, moodboardCards);
+  }, [moodboards, moodboardCards]);
 
   return {
-    rawStyles: styles,
-    shortcuts,
+    moodboardCards,
     moodboards,
-    shortcutMoodboardEntries,
-    shortcutMoodboardsByCode,
-    shortcutByCode,
-    refreshShortcuts: invalidateAndRefreshShortcuts,
-    isLoadingShortcuts,
+    moodboardCardEntries,
+    moodboardCardByCode,
+    refreshMoodboardCards: invalidateAndRefreshMoodboardCards,
+    isLoadingMoodboardCards,
   };
 }

@@ -3,7 +3,7 @@ import {
   type PlaygroundShortcut,
   type ShortcutPromptPart,
   type ShortcutPromptValues,
-} from '@/config/playground-shortcuts';
+} from '@/config/moodboard-cards';
 
 export interface ShortcutEditorTextNode {
   type: 'text';
