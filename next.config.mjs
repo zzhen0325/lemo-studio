@@ -106,8 +106,6 @@ const serverExternalPackages = [
   'snappy',
   'node-unix-socket',
   'node-unix-socket-darwin-arm64',
-  '@next-ai/fornax-sdk',
-  '@next-ai/fornax-sdk/components',
   'fsevents',
 ];
 

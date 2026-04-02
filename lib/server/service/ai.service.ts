@@ -46,13 +46,6 @@ export interface TextRequestBody {
   options?: Record<string, unknown>;
 }
 
-const KV_OPTIMIZATION_REQUEST_PREFIX = '[Event kv]';
-const DEFAULT_FORNAX_KV_PROMPT_KEY = 'lemon8.festa.image_generate_optimize';
-const FORNAX_REGIONS = ['CN', 'I18N', 'I18N_DEV', 'I18N_VA', 'NON_TT', 'BOE_CN'] as const;
-const DEFAULT_FORNAX_REGION_ORDER: FornaxRegion[] = ['I18N', 'CN'];
-
-type FornaxRegion = (typeof FORNAX_REGIONS)[number];
-
 function stripCodeFence(text: string): string {
   const value = text.trim();
   if (!value.startsWith('```') || !value.endsWith('```')) {
@@ -87,145 +80,11 @@ function normalizeDatasetLabelText(text: string): string {
   return normalized;
 }
 
-function parseFornaxRegion(value: string | undefined): FornaxRegion | null {
-  const normalized = value?.trim().toUpperCase();
-  if (!normalized) {
-    return null;
-  }
-
-  if (FORNAX_REGIONS.includes(normalized as FornaxRegion)) {
-    return normalized as FornaxRegion;
-  }
-
-  return null;
-}
-
-function isKvStructuredOptimizationInput(input: string): boolean {
-  const trimmedStart = input.trimStart();
-  return trimmedStart.startsWith(`${KV_OPTIMIZATION_REQUEST_PREFIX}\n`)
-    || trimmedStart.startsWith(`${KV_OPTIMIZATION_REQUEST_PREFIX}\r\n`)
-    || trimmedStart === KV_OPTIMIZATION_REQUEST_PREFIX;
-}
-
-function stripKvStructuredOptimizationPrefix(input: string): string {
-  const trimmedStart = input.trimStart();
-  if (trimmedStart.startsWith(`${KV_OPTIMIZATION_REQUEST_PREFIX}\r\n`)) {
-    return trimmedStart.slice(KV_OPTIMIZATION_REQUEST_PREFIX.length + 2).trim();
-  }
-  if (trimmedStart.startsWith(`${KV_OPTIMIZATION_REQUEST_PREFIX}\n`)) {
-    return trimmedStart.slice(KV_OPTIMIZATION_REQUEST_PREFIX.length + 1).trim();
-  }
-  if (trimmedStart === KV_OPTIMIZATION_REQUEST_PREFIX) {
-    return '';
-  }
-  return input.trim();
-}
-
 export class AiService {
   constructor(
     private readonly apiConfigService: ApiConfigService,
     private readonly logger: Logger,
   ) {}
-
-  private async tryGenerateKvStructuredViaFornax(
-    body: TextRequestBody,
-  ): Promise<{ text: string } | null> {
-    if (!isKvStructuredOptimizationInput(body.input)) {
-      return null;
-    }
-
-    const ak = process.env.FORNAX_AK?.trim();
-    const sk = process.env.FORNAX_SK?.trim();
-    if (!ak || !sk) {
-      this.logger.error('ai_service_generate_text_kv_fornax_misconfigured', {
-        model: body.model,
-        reason: 'missing_ak_or_sk',
-      });
-      throw new HttpError(500, 'FORNAX_KV_CREDENTIALS_MISSING', {
-        code: 'FORNAX_KV_CREDENTIALS_MISSING',
-      });
-    }
-
-    const promptKey = process.env.FORNAX_KV_PROMPT_KEY?.trim() || DEFAULT_FORNAX_KV_PROMPT_KEY;
-    const configuredRegion = parseFornaxRegion(process.env.FORNAX_REGION);
-    const regionsToTry = configuredRegion ? [configuredRegion] : DEFAULT_FORNAX_REGION_ORDER;
-    const query = stripKvStructuredOptimizationPrefix(body.input);
-    const userName = process.env.FORNAX_KV_USER_NAME?.trim() || 'zz';
-
-    if (!query) {
-      this.logger.warn('ai_service_generate_text_kv_fornax_skipped', {
-        model: body.model,
-        reason: 'empty_kv_query_after_prefix_strip',
-      });
-      throw new HttpError(400, 'FORNAX_KV_EMPTY_QUERY', {
-        code: 'FORNAX_KV_EMPTY_QUERY',
-      });
-    }
-
-    let lastError: unknown = null;
-    const { ptaas } = await import('@next-ai/fornax-sdk/components');
-
-    for (const region of regionsToTry) {
-      try {
-        const model = ptaas(promptKey, {
-          ak,
-          sk,
-          region,
-          modelConfigs: {
-            variables: {
-              user_name: userName,
-            },
-          },
-        });
-
-        const resp = await model.invoke({
-          messages: [
-            { role: 'user', content: query },
-          ],
-        });
-
-        const rawContent = resp?.choices?.[0]?.message?.content;
-        const text = typeof rawContent === 'string'
-          ? rawContent.trim()
-          : rawContent === null || rawContent === undefined
-            ? ''
-            : JSON.stringify(rawContent);
-
-        if (!text) {
-          throw new Error('Fornax PTaaS returned empty content');
-        }
-
-        this.logger.info('ai_service_generate_text_kv_fornax_succeeded', {
-          model: body.model,
-          region,
-          promptKey,
-          textLength: text.length,
-        });
-        return { text };
-      } catch (error) {
-        lastError = error;
-        this.logger.warn('ai_service_generate_text_kv_fornax_attempt_failed', {
-          model: body.model,
-          region,
-          promptKey,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    this.logger.error('ai_service_generate_text_kv_fornax_failed', {
-      model: body.model,
-      promptKey,
-      regionsTried: regionsToTry.join(','),
-      error: lastError instanceof Error ? lastError.message : String(lastError),
-    });
-    throw new HttpError(502, 'FORNAX_KV_REQUEST_FAILED', {
-      code: 'FORNAX_KV_REQUEST_FAILED',
-      promptKey,
-      regionsTried: regionsToTry,
-      error: lastError instanceof Error ? lastError.message : String(lastError),
-    });
-  }
 
   private async describeDatasetLabelViaCoze(params: {
     image: string;
@@ -492,11 +351,6 @@ export class AiService {
 
     if (!model) {
       throw new HttpError(400, 'Missing model ID');
-    }
-
-    const kvFornaxResult = await this.tryGenerateKvStructuredViaFornax(body);
-    if (kvFornaxResult) {
-      return kvFornaxResult;
     }
 
     const providers = await this.apiConfigService.getRuntimeProviders();
