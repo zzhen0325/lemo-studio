@@ -21,6 +21,12 @@ BEGIN
       ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_code_key;
       ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_pkey;
       ALTER TABLE public.moodboard_cards ADD CONSTRAINT moodboard_cards_code_key UNIQUE (code);
+      
+      -- 删除旧索引（会在后面创建新索引）
+      DROP INDEX IF EXISTS public.playground_shortcuts_code_idx;
+      DROP INDEX IF EXISTS public.playground_shortcuts_is_enabled_idx;
+      DROP INDEX IF EXISTS public.playground_shortcuts_publish_status_idx;
+      DROP INDEX IF EXISTS public.playground_shortcuts_sort_order_idx;
     END IF;
   END IF;
 END $$;

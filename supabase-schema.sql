@@ -107,22 +107,23 @@ CREATE TABLE IF NOT EXISTS style_stacks (
 -- 6.1 Moodboard Card 表
 -- ==========================================
 
--- 清理旧表遗留的约束（playground_shortcuts -> moodboard_cards 重命名后约束名未变）
+-- 清理旧表遗留的约束和索引（playground_shortcuts -> moodboard_cards 重命名后名称未变）
 DO $$
 BEGIN
-  -- 删除旧的唯一约束（如果存在）
-  IF EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'playground_shortcuts_code_key'
-  ) THEN
+  -- 删除旧的约束
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'playground_shortcuts_code_key') THEN
     ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_code_key;
   END IF;
   
-  -- 删除旧的主键约束（如果存在）
-  IF EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'playground_shortcuts_pkey'
-  ) THEN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'playground_shortcuts_pkey') THEN
     ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_pkey;
   END IF;
+  
+  -- 删除旧的索引
+  DROP INDEX IF EXISTS public.playground_shortcuts_code_idx;
+  DROP INDEX IF EXISTS public.playground_shortcuts_is_enabled_idx;
+  DROP INDEX IF EXISTS public.playground_shortcuts_publish_status_idx;
+  DROP INDEX IF EXISTS public.playground_shortcuts_sort_order_idx;
 END $$;
 
 CREATE TABLE IF NOT EXISTS moodboard_cards (
