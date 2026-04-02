@@ -75,6 +75,8 @@ typings/
 
 # Output of 'npm pack'
 *.tgz
+!vendor/next-ai-fornax-api-1.2.8.tgz
+!vendor/next-ai-fornax-sdk-2.4.4.tgz
 
 # Yarn Integrity file
 .yarn-integrity
