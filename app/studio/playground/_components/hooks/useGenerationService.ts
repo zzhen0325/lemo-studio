@@ -343,10 +343,17 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
     }, [setHistoryEntries, toast, addGalleryItem]);
 
     const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
-        // Calculate effective source URLs - prioritize passed parameter
+        const uploadedSourceUrls = usePlaygroundStore.getState().uploadedImages
+            .map((img) => img.path || img.previewUrl)
+            .filter((url): url is string => typeof url === 'string' && url.length > 0);
+        const configuredSourceUrls = Array.isArray(currentConfig.sourceImageUrls)
+            ? currentConfig.sourceImageUrls.filter((url): url is string => typeof url === 'string' && url.length > 0)
+            : undefined;
+        // Calculate effective source URLs:
+        // 1) explicit param, 2) config snapshot (can be empty by design), 3) current uploaded images.
         const effectiveSourceUrls = sourceImageUrls.length > 0
             ? sourceImageUrls
-            : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
+            : (configuredSourceUrls !== undefined ? configuredSourceUrls : uploadedSourceUrls);
 
         const effectiveLocalId = localSourceId || (sourceImageUrls.length === 0 ? usePlaygroundStore.getState().uploadedImages[0]?.id : undefined);
         const effectiveLocalIds = localSourceIds.length > 0
@@ -372,10 +379,9 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         });
 
         const normalizedInputImages = await Promise.all(effectiveInputImages.map(async (inputUrl) => {
-            const shouldInlineImage = inputUrl.startsWith('/')
-                || /tiktokcdn\.com/i.test(inputUrl);
-            if (!shouldInlineImage) return inputUrl;
+            if (inputUrl.startsWith('data:')) return inputUrl;
 
+            // Try to inline every non-data URL as base64 first, then gracefully fallback.
             const asDataUrl = await fetchImageAsDataUrl(inputUrl);
             if (asDataUrl) return asDataUrl;
             if (inputUrl.startsWith('/')) {

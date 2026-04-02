@@ -118,6 +118,28 @@ describe('playground shortcut prompt builder', () => {
     expect(buildShortcutPrompt(shortcut!, { hero: 'toy bear', accent: '#FFAA00' })).toContain('toy bear');
   });
 
+  it('uses static prompt template text when a shortcut has no dynamic fields', () => {
+    const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
+      persistedShortcuts: [
+        {
+          id: 'shortcut-row-static',
+          code: 'static-prompt',
+          name: 'Static Prompt',
+          prompt_template: 'Create a cinematic poster with neon lighting and shallow depth of field',
+          prompt_fields: [],
+          moodboard_description: 'No token template',
+        },
+      ],
+    });
+
+    const shortcut = runtimeShortcuts.find((item) => item.id === 'static-prompt');
+    expect(shortcut).toBeTruthy();
+    expect(shortcut?.fields).toEqual([]);
+    expect(buildShortcutPrompt(shortcut!, {})).toBe(
+      'Create a cinematic poster with neon lighting and shallow depth of field',
+    );
+  });
+
   it('includes published custom shortcuts outside the builtin shortcut set', () => {
     const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
       persistedShortcuts: [
@@ -163,7 +185,7 @@ describe('playground shortcut prompt builder', () => {
     })).toContain('cream bear mascot');
   });
 
-  it('uses persisted shortcut order and extracts homepage cards from moodboards', () => {
+  it('always keeps four builtin shortcuts as system presets', () => {
     const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
       persistedShortcuts: [
         {
@@ -181,37 +203,46 @@ describe('playground shortcut prompt builder', () => {
       ],
     });
 
-    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual(['lemo', 'jp-kv']);
+    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual(['lemo', 'us-kv', 'sea-kv', 'jp-kv']);
 
     const moodboards = mergeShortcutMoodboards([], runtimeShortcuts);
     const entries = extractShortcutMoodboardEntries(moodboards, runtimeShortcuts);
 
-    expect(entries.map((entry) => entry.shortcut.id)).toEqual(['lemo', 'jp-kv']);
+    expect(entries.map((entry) => entry.shortcut.id)).toEqual(['lemo', 'us-kv', 'sea-kv', 'jp-kv']);
     expect(entries.map((entry) => entry.moodboard.id)).toEqual([
       getShortcutMoodboardId('lemo'),
+      getShortcutMoodboardId('us-kv'),
+      getShortcutMoodboardId('sea-kv'),
       getShortcutMoodboardId('jp-kv'),
     ]);
   });
 
-  it('falls back to created_at ascending when sort_order is missing', () => {
+  it('falls back to created_at ascending when custom shortcut sort_order is missing', () => {
     const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
       persistedShortcuts: [
         {
-          id: 'shortcut-row-jp',
-          code: 'jp-kv',
-          name: 'JP Runtime',
+          id: 'shortcut-row-custom-late',
+          code: 'custom-late',
+          name: 'Custom Late',
           created_at: '2026-03-21T00:00:00.000Z',
         },
         {
-          id: 'shortcut-row-lemo',
-          code: 'lemo',
-          name: 'Lemo Runtime',
+          id: 'shortcut-row-custom-early',
+          code: 'custom-early',
+          name: 'Custom Early',
           created_at: '2026-03-20T00:00:00.000Z',
         },
       ],
     });
 
-    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual(['lemo', 'jp-kv']);
+    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual([
+      'lemo',
+      'us-kv',
+      'sea-kv',
+      'jp-kv',
+      'custom-early',
+      'custom-late',
+    ]);
   });
 
   it('ignores legacy shortcut style overlays to keep shortcut moodboards single-sourced', () => {

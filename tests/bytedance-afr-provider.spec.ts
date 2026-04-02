@@ -29,22 +29,35 @@ describe("BytedanceAfrProvider", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses fixed conf schema for seed4_v2_0226lemo", async () => {
+  it("uses submit_task_v2 + batch_get_result_v2 for seed4_v2_0226lemo", async () => {
     env.NODE_ENV = "test";
     process.env.GATEWAY_BASE_URL = "https://effect.bytedance.net";
     process.env.BYTEDANCE_AID = "6834";
     process.env.BYTEDANCE_APP_KEY = "test-app-key";
     process.env.BYTEDANCE_APP_SECRET = "test-app-secret";
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        data: {
-          afr_data: [{ pic: "AAAABBBB" }],
-        },
-      }),
-    });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status_code: 0,
+          data: {
+            task_id: "test-task-id",
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status_code: 0,
+          data: {
+            results: [{
+              status: "done",
+              pic_urls: [{ main_url: "https://example.com/generated.png" }],
+            }],
+          },
+        }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = new BytedanceAfrProvider({
@@ -61,19 +74,25 @@ describe("BytedanceAfrProvider", () => {
       },
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, options] = fetchMock.mock.calls[0];
-    const body = String(options?.body || "");
-    const form = new URLSearchParams(body);
-    const conf = JSON.parse(String(form.get("conf") || "{}"));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    expect(form.get("algorithms")).toBe("seed4_v2_0226lemo");
-    expect(conf).toEqual({
-      width: 2048,
-      height: 2048,
+    const [submitUrl, submitOptions] = fetchMock.mock.calls[0];
+    expect(String(submitUrl)).toContain("/media/api/pic/submit_task_v2");
+    const submitForm = new URLSearchParams(String(submitOptions?.body || ""));
+    const reqJson = JSON.parse(String(submitForm.get("req_json") || "{}"));
+    expect(submitForm.get("req_key")).toBe("seed4_v2_0226lemo");
+    expect(reqJson).toEqual({
+      width: 1024,
+      height: 1024,
       seed: -1,
       string: "小龙虾形状的lemo，米黄色纯色背景",
     });
+
+    const [pollUrl, pollOptions] = fetchMock.mock.calls[1];
+    expect(String(pollUrl)).toContain("/media/api/pic/batch_get_result_v2");
+    const pollForm = new URLSearchParams(String(pollOptions?.body || ""));
+    expect(pollForm.get("req_key")).toBe("seed4_v2_0226lemo");
+    expect(pollForm.get("task_ids")).toBe("test-task-id");
   });
 
   it("fails fast in production when AFR env vars are missing", async () => {

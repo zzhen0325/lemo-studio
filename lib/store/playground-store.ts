@@ -322,15 +322,40 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             applyImage: async (imageUrl) => {
                 const currentImages = get().uploadedImages;
                 // Avoid duplicates
-                if (currentImages.some(img => img.path === imageUrl)) {
+                if (currentImages.some(img => img.path === imageUrl || img.previewUrl === imageUrl)) {
                     return;
                 }
 
+                const appendRemoteImage = () => {
+                    set((state) => {
+                        if (state.uploadedImages.some(img => img.path === imageUrl || img.previewUrl === imageUrl)) {
+                            return state;
+                        }
+
+                        return {
+                            uploadedImages: [
+                                ...state.uploadedImages,
+                                {
+                                    id: uuidv4(),
+                                    file: new File([], `image-${Date.now()}.png`, { type: 'image/png' }),
+                                    base64: '',
+                                    previewUrl: imageUrl,
+                                    path: imageUrl
+                                }
+                            ]
+                        };
+                    });
+                };
+
                 try {
                     const resp = await fetch(imageUrl);
+                    if (!resp.ok) {
+                        throw new Error(`Failed to fetch image: ${resp.status}`);
+                    }
                     const blob = await resp.blob();
 
-                    const file = new File([blob], `image-${Date.now()}.png`, { type: 'image/png' });
+                    const fileType = blob.type || 'image/png';
+                    const file = new File([blob], `image-${Date.now()}.png`, { type: fileType });
                     const reader = new FileReader();
                     const dataUrl = await new Promise<string>((resolve) => {
                         reader.onload = (e) => resolve(String(e.target?.result));
@@ -351,6 +376,8 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     }));
                 } catch (error) {
                     console.error("Failed to apply image", error);
+                    // Fallback: keep remote URL as reference image to ensure the UI can still show it.
+                    appendRemoteImage();
                 }
             },
 

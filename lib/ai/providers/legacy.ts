@@ -1114,80 +1114,6 @@ export class BytedanceAfrProvider implements ImageProvider {
   }
 
   /**
-   * 特定 Seed4 模型走固定 conf schema 的同步接口
-   */
-  private async generateFixedSchemaImage(params: ImageGenerationInput): Promise<ImageResult> {
-    const API_CONFIG = resolveBytedanceAfrConfig();
-    
-    // 生成签名参数
-    const nonce = generateNonce();
-    const timestamp = generateTimestamp();
-    const sign = generateSign(nonce, timestamp, API_CONFIG.APP_SECRET);
-
-    // 使用 /media/api/pic/afr 端点
-    const submitUrl = `${API_CONFIG.BASE_URL}/media/api/pic/afr?aid=${API_CONFIG.AID}&app_key=${API_CONFIG.APP_KEY}&nonce=${nonce}&timestamp=${timestamp}&sign=${sign}`;
-    
-    // seed4_v2_0226lemo 需要特定的配置格式
-    const conf: Record<string, unknown> = {
-      Prompt: params.prompt || "",  // 注意大写 P
-      local_lora_name: "lemo_seed4_0104_doubao@v4.safetensors",
-      width: 2048,
-      height: 2048,
-      seed: -1,
-    };
-
-    const formData = new URLSearchParams();
-    formData.append("algorithms", this.config.modelId);
-    formData.append("conf", JSON.stringify(conf));
-
-    const agent = getProxyAgent();
-    const fetchOptions: RequestInit & { agent?: unknown } = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData.toString(),
-    };
-
-    if (agent) {
-      fetchOptions.agent = agent;
-    }
-
-    const response = await fetch(submitUrl, fetchOptions);
-
-    const data = await response.json() as {
-      success?: boolean;
-      message?: string;
-      status_code?: number;
-      data?: {
-        afr_data?: Array<{ pic?: string }>;
-      };
-    };
-
-    const isSuccessful = response.ok && data.success !== false && (data.status_code === undefined || data.status_code === 0);
-    if (!isSuccessful) {
-      throw new Error(`Submit task failed: ${data.message || response.status}`);
-    }
-
-    const images = (data.data?.afr_data || [])
-      .map((item) => item.pic || '')
-      .filter(Boolean)
-      .map((value) => /^https?:\/\//i.test(value) ? value : `data:image/png;base64,${value}`);
-
-    if (images.length === 0) {
-      throw new Error("No image data returned from ByteDance AFR");
-    }
-
-    return {
-      images,
-      metadata: {
-        width: conf.width as number,
-        height: conf.height as number,
-      },
-    };
-  }
-
-  /**
    * 提交图片生成任务
    * 使用 submit_task_v2 接口
    */
@@ -1437,10 +1363,6 @@ export class BytedanceAfrProvider implements ImageProvider {
     const { prompt, width, height, imageSize, image, images } = params;
     const API_CONFIG = resolveBytedanceAfrConfig();
     const startedAt = Date.now();
-
-    if (this.config.modelId === 'seed4_v2_0226lemo') {
-      return this.generateFixedSchemaImage(params);
-    }
 
     // 计算实际尺寸
     const actualWidth = width || this.getWidthFromImageSize(imageSize);

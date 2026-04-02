@@ -7,6 +7,7 @@ import {
   ImagePlus,
   PencilLine,
   Plus,
+  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -44,10 +45,15 @@ import {
 } from '@/config/moodboard-cards';
 import {
   createShortcutEditorDocumentFromParts,
+  createShortcutEditorDocumentFromTemplate,
   getShortcutEditorDocumentFieldIds,
   serializeShortcutEditorDocumentToTemplate,
   type ShortcutEditorDocument,
 } from '@/app/studio/playground/_lib/shortcut-editor-document';
+import {
+  shouldShowMoodboardPromptSparkle,
+  syncPromptFieldsWithTemplate,
+} from '@/app/studio/playground/_lib/moodboard-prompt-template';
 import type { Generation, StyleStack } from '@/types/database';
 import {
   ShortcutSlateEditor,
@@ -241,6 +247,7 @@ export function MoodboardDetailDialog({
   const [pendingInsertTokenRequest, setPendingInsertTokenRequest] = React.useState<ShortcutSlateInsertTokenRequest | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isGeneratingPromptTemplate, setIsGeneratingPromptTemplate] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isCollageEditorOpen, setIsCollageEditorOpen] = React.useState(false);
   const [selectedGalleryPreviewResult, setSelectedGalleryPreviewResult] = React.useState<Generation | undefined>(undefined);
@@ -352,6 +359,10 @@ export function MoodboardDetailDialog({
   }, [draftPromptValues, draftShortcut]);
 
   const galleryImages = React.useMemo(() => moodboard?.imagePaths || [], [moodboard]);
+  const shouldShowPromptSparkle = React.useMemo(
+    () => shouldShowMoodboardPromptSparkle(shortcut?.id),
+    [shortcut?.id],
+  );
   const dialogTitle = shortcut ? `${draftName || shortcut.name} ` : (draftName || moodboard?.name || '');
   const moodboardPreviewPrompt = React.useMemo(() => {
     if (draftShortcut) {
@@ -690,6 +701,102 @@ export function MoodboardDetailDialog({
     fileInputRef.current?.click();
   }, []);
 
+  const handleGeneratePromptTemplate = React.useCallback(async () => {
+    if (!moodboard) {
+      return;
+    }
+
+    if (galleryImages.length === 0) {
+      toast({
+        title: '缺少参考图',
+        description: '请先为当前 moodboard 添加至少一张图片。',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const currentTemplate = (shortcut ? draftPromptTemplate : draftPrompt).trim();
+    if (currentTemplate) {
+      const shouldReplace = window.confirm('当前已存在 Prompt Template，是否替换当前模板并重新 AI 描述？');
+      if (!shouldReplace) {
+        return;
+      }
+    }
+
+    setIsGeneratingPromptTemplate(true);
+    try {
+      const response = await fetch(`${getApiBase()}/moodboard-cards/prompt-template`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          images: galleryImages.slice(0, 4),
+          moodboardName: (draftName || moodboard.name || '').trim(),
+          currentTemplate,
+        }),
+      });
+      const raw = await response.text();
+
+      if (!response.ok) {
+        let message = `AI 生成失败（${response.status}）`;
+        if (raw.trim()) {
+          try {
+            const parsed = JSON.parse(raw) as { error?: string };
+            message = parsed.error?.trim() || message;
+          } catch {
+            message = raw.trim();
+          }
+        }
+        throw new Error(message);
+      }
+
+      let payload: { promptTemplate?: string; imageCount?: number } = {};
+      if (raw.trim()) {
+        payload = JSON.parse(raw) as { promptTemplate?: string; imageCount?: number };
+      }
+
+      const nextTemplate = (payload.promptTemplate || '').trim();
+      if (!nextTemplate) {
+        throw new Error('AI 未返回可用的 Prompt Template');
+      }
+
+      if (shortcut) {
+        const syncedFields = syncPromptFieldsWithTemplate(nextTemplate, draftPromptFields);
+        setDraftPromptFields(syncedFields);
+        setDraftPromptTemplate(nextTemplate);
+        setDraftEditorDocument(createShortcutEditorDocumentFromTemplate(nextTemplate));
+        setPendingInsertTokenRequest(null);
+      } else {
+        setDraftPrompt(nextTemplate);
+      }
+
+      setIsEditMode(true);
+      toast({
+        title: 'Prompt Template 已生成',
+        description: `已基于 ${payload.imageCount || Math.min(galleryImages.length, 4)} 张参考图生成，可继续编辑并保存。`,
+      });
+    } catch (error) {
+      console.error('[MoodboardDetailDialog] Failed to generate prompt template', error);
+      toast({
+        title: '生成失败',
+        description: error instanceof Error ? error.message : 'AI 生成 Prompt Template 失败，请稍后重试。',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingPromptTemplate(false);
+    }
+  }, [
+    draftName,
+    draftPrompt,
+    draftPromptFields,
+    draftPromptTemplate,
+    galleryImages,
+    moodboard,
+    shortcut,
+    toast,
+  ]);
+
   const handleUploadImages = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!moodboard) {
       return;
@@ -972,6 +1079,19 @@ export function MoodboardDetailDialog({
                     <div className="flex shrink-0 items-center justify-between mb-4">
                       <div className="text-xs font-medium  text-white/70">Prompt Template</div>
                       <div className="flex items-center gap-2">
+                        {shouldShowPromptSparkle ? (
+                          <Button
+                            type="button"
+                            variant="light"
+                            size="icon"
+                            className="h-8 w-8 rounded-full border border-[#E8FFB7]/10 bg-[#E8FFB7]/5 text-[#E8FFB7] hover:bg-white/10"
+                            onClick={() => void handleGeneratePromptTemplate()}
+                            disabled={isGeneratingPromptTemplate}
+                            aria-label="Generate Prompt Template"
+                          >
+                            <Sparkles className={cn('h-4 w-4', isGeneratingPromptTemplate ? 'animate-pulse' : '')} />
+                          </Button>
+                        ) : null}
                         {isEditMode && shortcut && (
                           <Button
                             type="button"

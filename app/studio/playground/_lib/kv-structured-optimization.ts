@@ -6,7 +6,7 @@ import {
 
 export const KV_SHORTCUT_IDS = ["us-kv", "sea-kv", "jp-kv"] as const;
 export const DESIGN_STRUCTURED_SOURCE_TYPES = ["kv_shortcut", "image_reverse"] as const;
-export const DESIGN_STRUCTURED_VARIANT_IDS = ["v1", "v2"] as const;
+export const DESIGN_STRUCTURED_VARIANT_IDS = ["v1", "v2", "v3", "v4"] as const;
 export const DESIGN_VARIANT_EDIT_SCOPES = [
   "variant",
   "canvas",
@@ -142,7 +142,7 @@ export const DESIGN_STRUCTURED_OPTIMIZATION_SYSTEM_PROMPT = `你是服务于 KV 
 输出格式已经由 json schema 提供，你只需要严格遵守 schema，不要输出解释、标题、Markdown、代码块或额外字段。
 
 任务目标：
-1. 基于用户提供的 KV 模板文本，生成 2 个不同的结构化视觉方向。
+1. 基于用户提供的 KV 模板文本，生成 1 个结构化视觉方向。
 2. sourceType 固定为 "kv_shortcut"。
 3. 用户明确给出的 coreFields 视为锁定值，不得改写；如有更优写法，只能写入 coreSuggestions。
 4. 输出保持轻量，不需要额外生成 promptPreview，前端会基于 analysis 和必要 coreFields 本地重组最终预览。
@@ -150,7 +150,7 @@ export const DESIGN_STRUCTURED_OPTIMIZATION_SYSTEM_PROMPT = `你是服务于 KV 
 内容要求：
 1. 每个 variant 都必须有明确的 dominant hero subject，不能只是装饰元素堆砌。
 2. 每个 variant 都必须形成完整场景，并体现主体、辅助元素、背景之间的关系。
-3. 2 个 variants 必须从主体隐喻、场景设定、叙事方式、信息结构或版式重心上明显不同。
+3. variant 必须具备完整且可执行的视觉方向，避免空泛描述。
 4. analysis 必须完整包含 canvas、subject、background、layout、typography 五组。
 5. subject 必须明确谁是主角、谁是辅助。
 6. layout 必须说明 mainTitle、subTitle、eventTime 与主体的关系。
@@ -177,7 +177,7 @@ export const DESIGN_VARIANT_EDIT_SYSTEM_PROMPT = `# 角色定义
 {
   "mode": "design_structured_variant_edit_v1",
   "variant": {
-    "id": "v1 或 v2",
+    "id": "v1 / v2 / v3 / v4",
     "label": "",
     "coreFields": {
       "mainTitle": "",
@@ -233,7 +233,7 @@ export const DESIGN_SECTION_EDIT_SYSTEM_PROMPT = `# 角色定义
 {
   "mode": "design_structured_variant_edit_v1",
   "variant": {
-    "id": "v1 或 v2",
+    "id": "v1 / v2 / v3 / v4",
     "label": "",
     "coreFields": {
       "mainTitle": "",

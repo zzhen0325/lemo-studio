@@ -10,7 +10,7 @@ import { useGenerationService, type GenerateOptions } from "@studio/playground/_
 import { useResultModalState } from "@studio/playground/_components/containers/hooks/useResultModalState";
 import { useHistory } from "@studio/playground/_components/hooks/useHistory";
 import { useHistoryDragTransfer } from "@studio/playground/_components/hooks/useHistoryDragTransfer";
-import { useAIService as useAIServiceV1 } from "@/hooks/ai/useAIService";
+import { describeImage as requestDescribeImage } from "@/lib/ai/client";
 
 import { GoogleApiStatus } from "@studio/playground/_components/GoogleApiStatus";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
@@ -18,7 +18,7 @@ import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
 import {
   BASE_SYSTEM_INSTRUCTION,
-  VISION_DESCRIBE_SYSTEM_PROMPT,
+  VISION_DESCRIBE_SINGLE_SYSTEM_PROMPT,
   type GenerationConfig,
   type UploadedImage,
   type PresetExtended,
@@ -81,6 +81,7 @@ import {
 import {
   buildDesignSectionDetailSyncInstruction,
   buildKvStructuredOptimizationInput,
+  DESIGN_STRUCTURED_VARIANT_IDS,
   DESIGN_VARIANT_EDIT_MODE,
   getKvShortcutMarket,
   normalizeDesignPalette,
@@ -160,6 +161,7 @@ interface BannerSessionHistoryItem {
 }
 
 type PromptOptimizationRequestPrefix = "[Event kv]" | "[Text]";
+const KV_STRUCTURED_OPTIMIZATION_PARALLEL_REQUEST_COUNT = 4;
 
 function prependPromptOptimizationRequestPrefix(
   input: string,
@@ -192,7 +194,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const setSelectedLoras = usePlaygroundStore(s => s.setSelectedLoras);
   const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
   const initPresets = usePlaygroundStore(s => s.initPresets);
-  const applyPrompt = usePlaygroundStore(s => s.applyPrompt);
   const applyModel = usePlaygroundStore(s => s.applyModel);
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
@@ -633,14 +634,17 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     const { configOverride, batchSizeOverride } = options;
     const storeState = usePlaygroundStore.getState();
     const isBannerModeGenerate = storeState.activeTab === 'banner' && Boolean(storeState.activeBannerData);
+    const hasExplicitSourceImageUrls = Object.prototype.hasOwnProperty.call(options, 'sourceImageUrls');
+    const explicitSourceImageUrls = hasExplicitSourceImageUrls
+      ? (options.sourceImageUrls || []).filter((url): url is string => typeof url === 'string' && url.length > 0)
+      : undefined;
 
     if (isBannerModeGenerate) {
       const startTime = new Date().toISOString();
       const batchTaskId = options.taskId || configOverride?.taskId || (Date.now().toString() + Math.random().toString(36).substring(2, 7));
       const currentConfig = usePlaygroundStore.getState().config;
-      const sourceImageUrls = options.sourceImageUrls && options.sourceImageUrls.length > 0
-        ? options.sourceImageUrls
-        : (currentConfig.sourceImageUrls || []);
+      const sourceImageUrls = explicitSourceImageUrls
+        ?? (currentConfig.sourceImageUrls || []).filter((url): url is string => typeof url === 'string' && url.length > 0);
 
       const bannerConfig: GenerationConfig = {
         ...currentConfig,
@@ -734,9 +738,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         : withoutPromptOptimizationSource(finalConfig);
       // 优先使用显式传入的 sourceImageUrls（例如 rerun 场景），否则从当前 store 读取
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
-      const sourceImageUrls = options.sourceImageUrls && options.sourceImageUrls.length > 0
-        ? options.sourceImageUrls
-        : currentUploadedImages.map(img => img.path || img.previewUrl);
+      const sourceImageUrls = explicitSourceImageUrls
+        ?? currentUploadedImages
+          .map(img => img.path || img.previewUrl)
+          .filter((url): url is string => typeof url === 'string' && url.length > 0);
 
       // 1. Immediately create and show the pending card
       // 关键修复：普通生成显式禁用 isEdit，逻辑上它不是编辑。
@@ -794,7 +799,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   }, [batchSize, singleGenerate, executeGeneration, setViewMode, setActiveTab, setShowHistory]);
 
   const { optimizePrompt, isOptimizing } = usePromptOptimization();
-  const { callVision } = useAIServiceV1();
 
   const requestDesignVariantEdit = useCallback(async (params: {
     instruction: string;
@@ -1086,6 +1090,19 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     setSelectedShortcutPreviewResult(result);
   }, []);
 
+  const applyPlainHistoryPrompt = useCallback((promptText: string) => {
+    setActiveShortcutTemplate(null);
+    setConfig((prev) => {
+      const sanitizedConfig = withoutPromptOptimizationSource(prev);
+      return {
+        ...sanitizedConfig,
+        prompt: promptText,
+        optimizationSource: undefined,
+        promptCategory: undefined,
+      };
+    });
+  }, [setConfig]);
+
   const handleUseHistoryPrompt = useCallback((result: Generation) => {
     const optimizationSource = getPromptOptimizationSource(result.config);
 
@@ -1097,7 +1114,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       const shortcut = moodboardCardByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
         || getShortcutById(optimizationSource.shortcutId);
       if (!shortcut) {
-        applyPrompt(result.config?.prompt || "");
+        applyPlainHistoryPrompt(result.config?.prompt || "");
         return;
       }
 
@@ -1107,7 +1124,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       ) || hydratedSession.variants[0];
 
       if (!activeVariant) {
-        applyPrompt(result.config?.prompt || "");
+        applyPlainHistoryPrompt(result.config?.prompt || "");
         return;
       }
 
@@ -1159,7 +1176,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       const shortcut = moodboardCardByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
         || getShortcutById(optimizationSource.shortcutId);
       if (!shortcut) {
-        applyPrompt(result.config?.prompt || "");
+        applyPlainHistoryPrompt(result.config?.prompt || "");
         return;
       }
 
@@ -1194,12 +1211,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return;
     }
 
-    applyPrompt(result.config?.prompt || "");
+    applyPlainHistoryPrompt(result.config?.prompt || "");
     toast({
       title: "提示词已应用",
       description: "已将此条提示词填充到输入框",
     });
-  }, [applyModel, applyPrompt, moodboardCardByCode, setSelectedPresetName, setSelectedWorkflowConfig, toast, updateConfig]);
+  }, [applyModel, applyPlainHistoryPrompt, moodboardCardByCode, setSelectedPresetName, setSelectedWorkflowConfig, toast, updateConfig]);
 
   const handleUseGalleryPrompt = useCallback((result: Generation) => {
     handleUseHistoryPrompt(result);
@@ -2118,15 +2135,36 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       optimizationInput,
       "[Event kv]",
     );
+    const EMPTY_RESULT_ERROR = "KV_STRUCTURED_EMPTY_RESULT";
+    const NO_USABLE_VARIANT_ERROR = "KV_STRUCTURED_NO_USABLE_VARIANT";
 
-    const optimizedText = await optimizePrompt(taggedOptimizationInput, selectedAIModel);
-    console.info("[KV structured optimization] raw_response", optimizedText);
+    type KvStructuredOptimizationAttemptResult = {
+      attemptIndex: number;
+      optimizedText: string;
+      sourceType: ReturnType<typeof parseDesignStructuredOptimizationResponse>["sourceType"];
+      variant: ShortcutOptimizationVariantDraft;
+    };
 
-    if (!optimizedText) {
-      return true;
-    }
+    const isMeaningfulVariant = (variant: ShortcutOptimizationVariantDraft, index: number) => (
+      (variant.label.trim() && variant.label.trim() !== `版本 ${index + 1}`)
+      || Object.values(variant.values).some((value) => value.trim())
+      || Object.values(variant.coreSuggestions).some((value) => value.trim())
+      || variant.palette.length > 0
+      || Object.values(variant.analysis).some((section) => (
+        section.tokens.length > 0
+        || section.detailText.trim().length > 0
+      ))
+      || variant.promptPreview.trim().length > 0
+    );
 
-    try {
+    const runSingleAttempt = async (attemptIndex: number): Promise<KvStructuredOptimizationAttemptResult> => {
+      const optimizedText = await optimizePrompt(taggedOptimizationInput, selectedAIModel);
+      console.info(`[KV structured optimization] raw_response attempt_${attemptIndex + 1}`, optimizedText);
+
+      if (!optimizedText) {
+        throw new Error(EMPTY_RESULT_ERROR);
+      }
+
       const parsedResponse = parseDesignStructuredOptimizationResponse(optimizedText);
       const variants = createShortcutOptimizationVariants(
         current.shortcut,
@@ -2134,75 +2172,144 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         sourceRemovedFieldIds,
         optimizedText,
       );
-      const activeVariant = variants[0];
-      const optimizationSession: ShortcutOptimizationSession = {
-        sourceType: parsedResponse.sourceType,
-        originValues: sourceValues,
-        originRemovedFieldIds: sourceRemovedFieldIds,
-        activeVariantId: activeVariant.id,
-        variants,
-        lastRawResponse: optimizedText,
-      };
-      const optimizationTaskId = `prompt-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      const activeTemplate: ActiveShortcutTemplate = {
-        shortcut: current.shortcut,
-        values: cloneShortcutValues(activeVariant.values),
-        removedFieldIds: [...activeVariant.removedFieldIds],
-        appliedPrompt: activeVariant.promptPreview,
-        optimizationSession,
-      };
-      const activeOptimizationSource = buildStructuredOptimizationSourcePayload(
-        activeTemplate,
-        optimizationTaskId,
-        activeVariant.id,
-      );
+      const firstUsableVariant = variants.find((variant, index) => isMeaningfulVariant(variant, index));
+      if (!firstUsableVariant) {
+        throw new Error(NO_USABLE_VARIANT_ERROR);
+      }
 
-      setActiveShortcutTemplate(activeTemplate);
-      prependHistoryItems(createPromptOptimizationHistoryItems({
-        taskId: optimizationTaskId,
-        createdAt: new Date().toISOString(),
-        userId: effectiveUserId,
-        originalPrompt: buildShortcutPrompt(current.shortcut, sourceValues, {
-          usePlaceholder: false,
-          removedFieldIds: sourceRemovedFieldIds,
-        }),
-        sourceKind: "kv_structured",
-        shortcutId: current.shortcut.id,
-        session: serializeShortcutOptimizationSession(optimizationSession),
-        variants: variants.map((variant) => ({
-          id: variant.id,
-          label: variant.label,
-          prompt: variant.promptPreview,
-        })),
-        configBase: {
-          model: current.shortcut.model,
-          baseModel: current.shortcut.model,
-          width: usePlaygroundStore.getState().config.width,
-          height: usePlaygroundStore.getState().config.height,
-        },
-      }));
-      updateConfig(activeOptimizationSource
-        ? withPromptOptimizationSource(
-          {
-            ...usePlaygroundStore.getState().config,
-            prompt: activeVariant.promptPreview,
+      return {
+        attemptIndex,
+        optimizedText,
+        sourceType: parsedResponse.sourceType,
+        variant: firstUsableVariant,
+      };
+    };
+
+    const settledResults = await Promise.allSettled(
+      Array.from(
+        { length: KV_STRUCTURED_OPTIMIZATION_PARALLEL_REQUEST_COUNT },
+        (_, attemptIndex) => runSingleAttempt(attemptIndex),
+      ),
+    );
+    const successfulResults = settledResults
+      .filter((result): result is PromiseFulfilledResult<KvStructuredOptimizationAttemptResult> => result.status === "fulfilled")
+      .map((result) => result.value)
+      .sort((a, b) => a.attemptIndex - b.attemptIndex);
+
+    if (successfulResults.length === 0) {
+      const reasons = settledResults
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => result.reason);
+      console.error("Failed to get usable KV structured optimization response", reasons);
+      const hasParseFailure = reasons.some((reason) => (
+        !(reason instanceof Error && reason.message === EMPTY_RESULT_ERROR)
+      ));
+
+      if (hasParseFailure) {
+        toast({
+          title: "AI 优化结果解析失败",
+          description: "返回结果已尝试自动修复，但仍然无法解析，请重新请求一次。",
+          variant: "destructive",
+        });
+      }
+
+      return true;
+    }
+
+    const selectedVariants = successfulResults
+      .map((result) => result.variant)
+      .slice(0, DESIGN_STRUCTURED_VARIANT_IDS.length)
+      .map((variant, index) => {
+        const variantId = DESIGN_STRUCTURED_VARIANT_IDS[index] as KvStructuredVariantId;
+        const nextLabel = variant.label.trim() || `版本 ${index + 1}`;
+        return {
+          ...variant,
+          id: variantId,
+          label: nextLabel,
+          values: cloneShortcutValues(variant.values),
+          removedFieldIds: [...variant.removedFieldIds],
+          coreSuggestions: cloneShortcutValues(variant.coreSuggestions),
+          palette: cloneDesignPalette(variant.palette),
+          analysis: cloneDesignAnalysis(variant.analysis),
+          baseline: {
+            ...cloneVariantBaseline(variant.baseline),
+            label: nextLabel,
           },
-          activeOptimizationSource,
-        )
-        : { prompt: activeVariant.promptPreview },
-      );
-      toast({
-        title: "AI 已生成 2 个版本",
-        description: "可在输入区直接切换版本并继续编辑。",
+        };
       });
-    } catch (error) {
-      console.error("Failed to parse KV structured optimization response", error);
+
+    if (selectedVariants.length === 0) {
       toast({
         title: "AI 优化结果解析失败",
         description: "返回结果已尝试自动修复，但仍然无法解析，请重新请求一次。",
         variant: "destructive",
       });
+      return true;
     }
+
+    const { sourceType, optimizedText } = successfulResults[0];
+
+    const activeVariant = selectedVariants[0];
+    const optimizationSession: ShortcutOptimizationSession = {
+      sourceType,
+      originValues: sourceValues,
+      originRemovedFieldIds: sourceRemovedFieldIds,
+      activeVariantId: activeVariant.id,
+      variants: selectedVariants,
+      lastRawResponse: optimizedText,
+    };
+    const optimizationTaskId = `prompt-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const activeTemplate: ActiveShortcutTemplate = {
+      shortcut: current.shortcut,
+      values: cloneShortcutValues(activeVariant.values),
+      removedFieldIds: [...activeVariant.removedFieldIds],
+      appliedPrompt: activeVariant.promptPreview,
+      optimizationSession,
+    };
+    const activeOptimizationSource = buildStructuredOptimizationSourcePayload(
+      activeTemplate,
+      optimizationTaskId,
+      activeVariant.id,
+    );
+
+    setActiveShortcutTemplate(activeTemplate);
+    prependHistoryItems(createPromptOptimizationHistoryItems({
+      taskId: optimizationTaskId,
+      createdAt: new Date().toISOString(),
+      userId: effectiveUserId,
+      originalPrompt: buildShortcutPrompt(current.shortcut, sourceValues, {
+        usePlaceholder: false,
+        removedFieldIds: sourceRemovedFieldIds,
+      }),
+      sourceKind: "kv_structured",
+      shortcutId: current.shortcut.id,
+      session: serializeShortcutOptimizationSession(optimizationSession),
+      variants: selectedVariants.map((variant) => ({
+        id: variant.id,
+        label: variant.label,
+        prompt: variant.promptPreview,
+      })),
+      configBase: {
+        model: current.shortcut.model,
+        baseModel: current.shortcut.model,
+        width: usePlaygroundStore.getState().config.width,
+        height: usePlaygroundStore.getState().config.height,
+      },
+    }));
+    updateConfig(activeOptimizationSource
+      ? withPromptOptimizationSource(
+        {
+          ...usePlaygroundStore.getState().config,
+          prompt: activeVariant.promptPreview,
+        },
+        activeOptimizationSource,
+      )
+      : { prompt: activeVariant.promptPreview },
+    );
+    toast({
+      title: `AI 已生成 ${selectedVariants.length} 个版本`,
+      description: "可在输入区直接切换版本并继续编辑。",
+    });
 
     return true;
   }, [effectiveUserId, optimizePrompt, prependHistoryItems, selectedAIModel, toast, updateConfig]);
@@ -2348,13 +2455,15 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     // Create a unified taskId for the entire batch to ensure grouping
     const batchTaskId = Date.now().toString() + Math.random().toString(36).substring(2, 7);
 
-    // Create a temporary loading card
-    const loadingId = `describe-loading-${Date.now()}`;
+    // Create temporary loading cards (show 4 placeholders while describing)
+    const loadingBatchToken = Date.now();
+    const loadingIds = Array.from({ length: 4 }, (_, index) => `describe-loading-${loadingBatchToken}-${index}`);
+    const loadingIdSet = new Set(loadingIds);
     const image = describeImages[0];
     const imageUrl = image.path || image.previewUrl;
 
-    const loadingCard: import('@/types/database').Generation = {
-      id: loadingId,
+    const loadingCards: import('@/types/database').Generation[] = loadingIds.map((id) => ({
+      id,
       userId: effectiveUserId,
       projectId: 'default',
       outputUrl: imageUrl,
@@ -2372,10 +2481,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       },
       status: 'pending',
       createdAt: startTime,
-    };
+    }));
 
-    // Insert loading card
-    setHistory((prev: import('@/types/database').Generation[]) => [loadingCard, ...prev]);
+    // Insert loading cards
+    setHistory((prev: import('@/types/database').Generation[]) => [...loadingCards, ...prev]);
 
     try {
       // 1. Convert the first image to base64 if needed, or use existing base64
@@ -2393,14 +2502,36 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       }
 
       const modelId = 'coze-prompt';
-      const result = await callVision({
-        image: `data:image/png;base64,${base64}`,
-        model: modelId,
-        prompt: VISION_DESCRIBE_SYSTEM_PROMPT,
-      });
+      const describeFocusPrompts = [
+        '优先强调主体和动作姿态，并保持客观准确。',
+        '优先强调服装材质、配饰和人物外观细节，并保持客观准确。',
+        '优先强调场景环境、背景元素与空间层次，并保持客观准确。',
+        '优先强调构图、光照、色彩氛围与可见文字信息，并保持客观准确。',
+      ];
 
-      const text = result?.text || "";
-      const results = text.split('|||').map((s: string) => s.trim()).filter(Boolean);
+      const settledResults = await Promise.allSettled(
+        loadingIds.map((_, index) => requestDescribeImage({
+          image: `data:image/png;base64,${base64}`,
+          model: modelId,
+          prompt: `${VISION_DESCRIBE_SINGLE_SYSTEM_PROMPT}\n\n补充要求：${describeFocusPrompts[index % describeFocusPrompts.length]}`,
+        }))
+      );
+
+      const rejectedCount = settledResults.filter((result) => result.status === 'rejected').length;
+      if (rejectedCount > 0) {
+        console.warn('Describe partial failures', {
+          rejectedCount,
+          totalCount: settledResults.length,
+        });
+      }
+
+      const results = settledResults
+        .flatMap((result) => result.status === 'fulfilled'
+          ? result.value?.text?.split('|||') ?? []
+          : [])
+        .map((text) => text.trim())
+        .filter(Boolean)
+        .slice(0, loadingIds.length);
 
       if (results.length > 0) {
         // Create history cards for each description result
@@ -2424,8 +2555,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           createdAt: startTime,
         }));
 
-        // Remove loading card and add real results
-        setHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => item.id !== loadingId)]);
+        // Remove loading cards and add real results
+        setHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => !loadingIdSet.has(item.id))]);
 
         // Also save each description to backend and sync to gallery
         newHistoryItems.forEach(item => {
@@ -2433,45 +2564,48 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           usePlaygroundStore.getState().addGalleryItem(item);
         });
 
-        toast({ title: "描述成功", description: `已生成 ${results.length} 组描述卡片` });
+        if (rejectedCount > 0 || results.length < loadingIds.length) {
+          toast({ title: "描述部分完成", description: `已生成 ${results.length}/${loadingIds.length} 组描述卡片` });
+        } else {
+          toast({ title: "描述成功", description: `已生成 ${results.length} 组描述卡片` });
+        }
       } else {
         throw new Error("解析描述结果失败");
       }
     } catch (error) {
       console.error("Describe Error:", error);
-      // Remove loading card on error
-      setHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => item.id !== loadingId));
+      // Remove loading cards on error
+      setHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => !loadingIdSet.has(item.id)));
       toast({ title: "描述失败", description: error instanceof Error ? error.message : "未知错误", variant: "destructive" });
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setHistory, callVision, toast, effectiveUserId, saveHistoryToBackend]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setHistory, toast, effectiveUserId, saveHistoryToBackend]);
 
   const handleBatchUse = useCallback(async (results: Generation[]) => {
     if (!results || results.length === 0) return;
     toast({ title: "批量生成中", description: `即将开始 ${results.length} 个生成任务...` });
     
-    // 我们需要用每个结果项自己的配置作为基础（特别是提示词和参考图），
-    // 但也要混入当前的全局配置（比如模型、尺寸等）
+    // Use ALL 仅复用每张卡片的 prompt，始终使用当前模型配置进行文生图。
     for (const result of results) {
-      const originalConfig = result.config || {};
       const currentStoreConfig = usePlaygroundStore.getState().config;
+      const prompt = result.config?.prompt || '';
 
-      const fullConfig = {
+      const fullConfig: GenerationConfig = {
         ...currentStoreConfig,
-        ...originalConfig,
-        prompt: originalConfig.prompt || '',
-        // 显式确保 taskId 为空，让 handleGenerate 生成一个全新的 ID
+        prompt,
         taskId: undefined,
+        isEdit: false,
+        editConfig: undefined,
+        parentId: undefined,
+        sourceImageUrls: [],
+        localSourceIds: [],
       };
-
-      const sourceImageUrls = originalConfig.sourceImageUrls || [];
-      const localSourceIds = originalConfig.localSourceIds || [];
 
       await handleGenerate({ 
         configOverride: fullConfig,
-        sourceImageUrls,
-        localSourceIds
+        sourceImageUrls: [],
+        localSourceIds: [],
       });
       await new Promise(r => setTimeout(r, 300));
     }

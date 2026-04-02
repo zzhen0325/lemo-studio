@@ -4,6 +4,7 @@ import { getShortcutById } from '@/config/moodboard-cards';
 import {
   buildPromptFromShortcutEditorDocument,
   createShortcutEditorDocumentFromParts,
+  createShortcutEditorDocumentFromTemplate,
   createShortcutEditorDocumentFromText,
   getRemovedFieldIdsFromShortcutEditorDocument,
   removeFieldFromShortcutEditorDocument,
@@ -81,6 +82,22 @@ describe('shortcut editor document helpers', () => {
       {
         type: 'paragraph',
         children: [{ type: 'text', text: 'third line' }],
+      },
+    ]);
+  });
+
+  it('parses template tokens into token nodes', () => {
+    const document = createShortcutEditorDocumentFromTemplate('hello {{hero}} in {{scene}}');
+
+    expect(document).toEqual([
+      {
+        type: 'paragraph',
+        children: [
+          { type: 'text', text: 'hello ' },
+          { type: 'token', fieldId: 'hero' },
+          { type: 'text', text: ' in ' },
+          { type: 'token', fieldId: 'scene' },
+        ],
       },
     ]);
   });

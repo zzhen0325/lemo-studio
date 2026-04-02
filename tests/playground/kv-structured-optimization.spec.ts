@@ -95,7 +95,7 @@ describe('design structured optimization helpers', () => {
 
     expect(result.mode).toBe('design_structured_variants_v1');
     expect(result.sourceType).toBe('kv_shortcut');
-    expect(result.variants).toHaveLength(2);
+    expect(result.variants).toHaveLength(4);
     expect(result.variants[0].label).toBe('软木拼贴');
     expect(result.variants[0].palette[0]).toEqual({
       hex: '#E7AE68',
@@ -224,7 +224,7 @@ describe('design structured optimization helpers', () => {
     ]);
   });
 
-  it('parses the lightweight 2-variant format and rebuilds prompt preview from analysis only', () => {
+  it('parses the lightweight variant format and rebuilds prompt preview from analysis only', () => {
     const raw = `{
       "mode": "design_structured_variants_v1",
       "sourceType": "kv_shortcut",
@@ -314,7 +314,7 @@ describe('design structured optimization helpers', () => {
 
     const result = parseDesignStructuredOptimizationResponse(raw);
 
-    expect(result.variants).toHaveLength(2);
+    expect(result.variants).toHaveLength(4);
     expect(result.variants[0].id).toBe('v1');
     expect(result.variants[1].id).toBe('v2');
     expect(result.variants[0].promptPreview).toContain('主标题#Biweeklybudget放在主体正下方居中位置');

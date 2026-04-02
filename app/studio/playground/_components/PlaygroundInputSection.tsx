@@ -46,12 +46,13 @@ import {
     type PlaygroundShortcut,
     type ShortcutPromptValues,
 } from "@/config/moodboard-cards";
-import type {
-    DesignStructuredAnalysis,
-    DesignAnalysisSectionKey,
-    DesignStructuredPaletteEntry,
-    DesignVariantEditScope,
-    DesignStructuredVariantId,
+import {
+    isKvShortcutId,
+    type DesignStructuredAnalysis,
+    type DesignAnalysisSectionKey,
+    type DesignStructuredPaletteEntry,
+    type DesignVariantEditScope,
+    type DesignStructuredVariantId,
 } from "@/app/studio/playground/_lib/kv-structured-optimization";
 import type { ShortcutEditorDocument } from "@/app/studio/playground/_lib/shortcut-editor-document";
 
@@ -248,6 +249,8 @@ export function PlaygroundInputSection({
         })
     );
     const hasStructuredShortcutSession = Boolean(shortcutTemplate?.optimizationSession);
+    const isKvShortcutTemplate = Boolean(shortcutTemplate && isKvShortcutId(shortcutTemplate.shortcut.id));
+    const shouldShowAiPromptPrimaryAction = isKvShortcutTemplate && !hasStructuredShortcutSession;
     const isHomeStructuredMode = hasStructuredShortcutSession && !showHistory;
     const handlePrimaryGenerate = hasStructuredShortcutSession
         ? (onShortcutTemplateGenerateAll || handleGenerate)
@@ -268,6 +271,9 @@ export function PlaygroundInputSection({
 
         handleOptimizePrompt();
     };
+    const handlePrimaryAction = shouldShowAiPromptPrimaryAction
+        ? handleOptimizeButtonClick
+        : handlePrimaryGenerate;
 
     React.useEffect(() => {
         if (!isOptimizing) {
@@ -681,8 +687,11 @@ export function PlaygroundInputSection({
                         }}
                         isAspectRatioLocked={isAspectRatioLocked}
                         onToggleAspectRatioLock={() => setIsAspectRatioLocked(!isAspectRatioLocked)}
-                        onGenerate={handlePrimaryGenerate}
+                        onGenerate={handlePrimaryAction}
                         isGenerating={isGenerating}
+                        primaryActionMode={shouldShowAiPromptPrimaryAction ? 'optimize' : 'generate'}
+                        primaryActionLabel={shouldShowAiPromptPrimaryAction ? 'AI Prompt' : undefined}
+                        isPrimaryActionLoading={shouldShowAiPromptPrimaryAction ? isOptimizing : isGenerating}
                         loadingText="Thinking..."
                         selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
                         selectedBaseModelName={config.model}

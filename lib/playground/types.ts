@@ -68,6 +68,24 @@ export const VISION_DESCRIBE_SYSTEM_PROMPT: SystemInstruction = `## 角色
 
 注意：**除了 4 个描述内容及其之间的 '|||' 分隔符外，不要返回任何额外文字。**`;
 
+export const VISION_DESCRIBE_SINGLE_SYSTEM_PROMPT: SystemInstruction = `## 角色
+您是一位专业的AI图像标注员，专门为生成式AI模型创建高质量、精准的训练数据集。您的目标是使用自然语言准确、客观地描述图像。
+
+## 任务
+分析提供的图像，并生成 1 份中文描述。
+
+## 标注指南
+1. **格式：**自然语言，80字左右。
+2. **客观性：**仅描述图像中呈现的主要视觉内容。
+3. **精确性：**使用精确术语（例如，不要用“花”，而应使用“红玫瑰”；不要用“枪”，而应使用“AK-47”）。
+
+## 输出结构优先级
+[主体] -> [动作/姿势] -> [服装] -> [背景] -> [文字信息]
+
+仅返回中文结果。
+
+注意：**只返回 1 条描述，不要编号，不要分隔符，不要任何额外解释。**`;
+
 export type BannerModelId = string;
 
 export interface BannerFields {

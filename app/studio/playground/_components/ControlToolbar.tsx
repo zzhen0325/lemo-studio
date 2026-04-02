@@ -42,6 +42,9 @@ interface ControlToolbarProps {
   onGenerate: () => void;
   isGenerating: boolean;
   loadingText?: string;
+  primaryActionMode?: 'generate' | 'optimize';
+  primaryActionLabel?: string;
+  isPrimaryActionLoading?: boolean;
   onOpenLoraSelector?: () => void;
   selectedBaseModelName?: string;
   selectedLoras?: SelectedLora[];
@@ -84,6 +87,9 @@ export default function ControlToolbar({
   onGenerate,
   isGenerating,
   loadingText = "Thinking...",
+  primaryActionMode = 'generate',
+  primaryActionLabel,
+  isPrimaryActionLoading,
   onOpenLoraSelector,
   selectedBaseModelName,
   selectedLoras = [],
@@ -135,11 +141,17 @@ export default function ControlToolbar({
     : (['1K', '2K', '4K'] as const);
   const selectedSupportsBatch = selectedModelMeta?.capabilities?.supportsBatch ?? true;
   const selectedMaxBatchSize = selectedSupportsBatch ? Math.max(1, selectedModelMeta?.capabilities?.maxBatchSize ?? 10) : 1;
-  const allowsContinuousGenerate = selectedModel === 'coze_seedream4_5';
-  const shouldLockGenerateControls = isGenerating && !allowsContinuousGenerate;
-  const generateButtonLabel = isGenerating
-    ? (allowsContinuousGenerate ? 'Generate Again' : loadingText)
-    : 'Generate';
+  const isOptimizePrimaryAction = primaryActionMode === 'optimize';
+  const isPrimaryActionBusy = isPrimaryActionLoading ?? isGenerating;
+  const allowsContinuousGenerate = !isOptimizePrimaryAction && selectedModel === 'coze_seedream4_5';
+  const shouldLockGenerateControls = isPrimaryActionBusy && !allowsContinuousGenerate;
+  const generateButtonLabel = isOptimizePrimaryAction
+    ? (primaryActionLabel || 'AI Prompt')
+    : (
+      isPrimaryActionBusy
+        ? (allowsContinuousGenerate ? 'Generate Again' : loadingText)
+        : (primaryActionLabel || 'Generate')
+    );
 
   // 初始化与回填：根据外部 selectedModel 映射到内部 selectValue
   React.useEffect(() => {
@@ -600,7 +612,7 @@ export default function ControlToolbar({
             <AnimatedButton
               onClick={onGenerate}
               disabled={shouldLockGenerateControls}
-              loading={isGenerating}
+              loading={isPrimaryActionBusy}
               disableWhileLoading={!allowsContinuousGenerate}
               label={generateButtonLabel}
               variant="default"

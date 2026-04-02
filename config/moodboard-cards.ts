@@ -742,6 +742,15 @@ export function buildShortcutPrompt(
   values: ShortcutPromptValues,
   options?: ShortcutPromptBuildOptions
 ) {
+  const hasFieldParts = shortcut.promptParts.some((part) => part.type === "field");
+  if (!hasFieldParts) {
+    return shortcut.promptParts
+      .map((part) => (part.type === "text" ? part.value : ""))
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   const usePlaceholder = options?.usePlaceholder ?? true;
   const segments = getShortcutRenderableFieldSegments(shortcut, values, {
     removedFieldIds: options?.removedFieldIds,
@@ -990,27 +999,80 @@ export function buildRuntimeMoodboardCards(options?: {
     return [...PLAYGROUND_SHORTCUTS];
   }
 
+  const compareMoodboardCards = (left: MoodboardCard, right: MoodboardCard) => {
+    const leftHasOrder = typeof left.sortOrder === "number";
+    const rightHasOrder = typeof right.sortOrder === "number";
+
+    if (leftHasOrder && rightHasOrder && left.sortOrder !== right.sortOrder) {
+      return (left.sortOrder as number) - (right.sortOrder as number);
+    }
+
+    if (leftHasOrder !== rightHasOrder) {
+      return leftHasOrder ? -1 : 1;
+    }
+
+    const leftCreatedAt = Date.parse(left.createdAt || "");
+    const rightCreatedAt = Date.parse(right.createdAt || "");
+    const leftHasCreatedAt = Number.isFinite(leftCreatedAt);
+    const rightHasCreatedAt = Number.isFinite(rightCreatedAt);
+
+    if (leftHasCreatedAt && rightHasCreatedAt && leftCreatedAt !== rightCreatedAt) {
+      return leftCreatedAt - rightCreatedAt;
+    }
+
+    if (leftHasCreatedAt !== rightHasCreatedAt) {
+      return leftHasCreatedAt ? -1 : 1;
+    }
+
+    const nameCompare = left.name.localeCompare(right.name, "zh-Hans-CN", {
+      numeric: true,
+      sensitivity: "base",
+    });
+
+    if (nameCompare !== 0) {
+      return nameCompare;
+    }
+
+    return left.id.localeCompare(right.id);
+  };
+
+  const persistedByCode = new Map<string, PersistedMoodboardCardRecord>();
+  persistedShortcuts.forEach((record) => {
+    const shortcutCode = record.code?.trim();
+    if (!shortcutCode || persistedByCode.has(shortcutCode)) {
+      return;
+    }
+    persistedByCode.set(shortcutCode, record);
+  });
+
   const builtinShortcutsById = new Map(
     PLAYGROUND_SHORTCUTS.map((shortcut) => [shortcut.id, shortcut]),
   );
 
-  const runtimeShortcuts = persistedShortcuts
+  const builtinRuntimeShortcuts = PLAYGROUND_SHORTCUTS.map((fallbackShortcut) => {
+    const persistedRecord = persistedByCode.get(fallbackShortcut.id);
+    if (!persistedRecord) {
+      return fallbackShortcut;
+    }
+
+    const runtimeShortcut = buildShortcutFromRecord({
+      fallbackShortcut,
+      record: persistedRecord,
+      modelLabels: options?.modelLabelById,
+    });
+
+    // System presets should always keep stable order in UI.
+    return {
+      ...runtimeShortcut,
+      sortOrder: fallbackShortcut.sortOrder,
+    };
+  });
+
+  const customRuntimeShortcuts = persistedShortcuts
     .map((record) => {
       const shortcutCode = record.code?.trim();
-
-      if (!shortcutCode) {
+      if (!shortcutCode || builtinShortcutsById.has(shortcutCode)) {
         return null;
-      }
-
-      const fallbackShortcut = builtinShortcutsById.get(shortcutCode);
-
-      if (fallbackShortcut) {
-        const runtimeShortcut = buildShortcutFromRecord({
-          fallbackShortcut,
-          record,
-          modelLabels: options?.modelLabelById,
-        });
-        return runtimeShortcut;
       }
 
       return buildCustomShortcutFromRecord({
@@ -1018,45 +1080,10 @@ export function buildRuntimeMoodboardCards(options?: {
         modelLabels: options?.modelLabelById,
       });
     })
-    .filter((shortcut): shortcut is MoodboardCard => shortcut !== null);
+    .filter((shortcut): shortcut is MoodboardCard => shortcut !== null)
+    .sort(compareMoodboardCards);
 
-  return runtimeShortcuts
-    .sort((left, right) => {
-      const leftHasOrder = typeof left.sortOrder === "number";
-      const rightHasOrder = typeof right.sortOrder === "number";
-
-      if (leftHasOrder && rightHasOrder && left.sortOrder !== right.sortOrder) {
-        return (left.sortOrder as number) - (right.sortOrder as number);
-      }
-
-      if (leftHasOrder !== rightHasOrder) {
-        return leftHasOrder ? -1 : 1;
-      }
-
-      const leftCreatedAt = Date.parse(left.createdAt || "");
-      const rightCreatedAt = Date.parse(right.createdAt || "");
-      const leftHasCreatedAt = Number.isFinite(leftCreatedAt);
-      const rightHasCreatedAt = Number.isFinite(rightCreatedAt);
-
-      if (leftHasCreatedAt && rightHasCreatedAt && leftCreatedAt !== rightCreatedAt) {
-        return leftCreatedAt - rightCreatedAt;
-      }
-
-      if (leftHasCreatedAt !== rightHasCreatedAt) {
-        return leftHasCreatedAt ? -1 : 1;
-      }
-
-      const nameCompare = left.name.localeCompare(right.name, "zh-Hans-CN", {
-        numeric: true,
-        sensitivity: "base",
-      });
-
-      if (nameCompare !== 0) {
-        return nameCompare;
-      }
-
-      return left.id.localeCompare(right.id);
-    });
+  return [...builtinRuntimeShortcuts, ...customRuntimeShortcuts];
 }
 
 export function extractShortcutMoodboardEntries(

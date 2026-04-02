@@ -159,6 +159,60 @@ export function createShortcutEditorDocumentFromText(
   );
 }
 
+export function createShortcutEditorDocumentFromTemplate(
+  template: string,
+): ShortcutEditorDocument {
+  const normalizedTemplate = (template || '').replace(/\r\n?/g, '\n');
+
+  const blocks = normalizedTemplate.split('\n').map((line) => {
+    const children: Array<ShortcutEditorTextNode | ShortcutEditorTokenNode> = [];
+    let lastIndex = 0;
+    const tokenPattern = /{{\s*([a-zA-Z0-9_-]+)\s*}}/g;
+
+    for (const match of line.matchAll(tokenPattern)) {
+      const index = match.index ?? 0;
+      const token = match[1]?.trim();
+
+      if (index > lastIndex) {
+        children.push({
+          type: 'text',
+          text: line.slice(lastIndex, index),
+        });
+      }
+
+      if (token) {
+        children.push({
+          type: 'token',
+          fieldId: token,
+        });
+      }
+
+      lastIndex = index + match[0].length;
+    }
+
+    if (lastIndex < line.length) {
+      children.push({
+        type: 'text',
+        text: line.slice(lastIndex),
+      });
+    }
+
+    if (children.length === 0) {
+      children.push({
+        type: 'text',
+        text: '',
+      });
+    }
+
+    return {
+      type: 'paragraph' as const,
+      children,
+    };
+  });
+
+  return normalizeShortcutEditorDocument(blocks);
+}
+
 export function serializeShortcutEditorDocumentToTemplate(
   document: ShortcutEditorDocument,
 ): string {
