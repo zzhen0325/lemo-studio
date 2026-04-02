@@ -16,6 +16,11 @@ BEGIN
         AND table_name = 'moodboard_cards'
     ) THEN
       ALTER TABLE public.playground_shortcuts RENAME TO moodboard_cards;
+      
+      -- 重命名约束（PostgreSQL 重命名表时不会自动重命名约束）
+      ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_code_key;
+      ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_pkey;
+      ALTER TABLE public.moodboard_cards ADD CONSTRAINT moodboard_cards_code_key UNIQUE (code);
     END IF;
   END IF;
 END $$;
