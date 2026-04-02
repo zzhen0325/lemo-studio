@@ -3,70 +3,88 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  console.log('\n');
-  console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║           Lemon8 AI Studio - 环境变量调试信息                 ║');
-  console.log('╚══════════════════════════════════════════════════════════════╝');
-  console.log('');
+type CheckStatus = 'success' | 'error' | 'skipped';
 
-  // 1. Supabase 数据库配置
-  console.log('📊 Supabase 数据库配置:');
-  console.log('──────────────────────────────────────────────────────────────');
+type ConnectionCheck = {
+  status: CheckStatus;
+  message: string;
+  code?: string;
+  details?: Record<string, unknown>;
+};
+
+type DebugEnvReport = {
+  supabase: Record<string, string>;
+  storage: Record<string, string>;
+  project: Record<string, string>;
+  ai: Record<string, string>;
+  session: Record<string, string>;
+  checks: {
+    database: ConnectionCheck;
+    storage: ConnectionCheck;
+  };
+};
+
+function maskedValue(value: string | undefined, visibleChars: number): string {
+  if (!value) return '(未设置)';
+  return `${value.slice(0, visibleChars)}...`;
+}
+
+function configuredFlag(value: string | undefined): string {
+  return value ? '✅ 已设置' : '❌ 未设置';
+}
+
+export async function GET() {
   const supabaseUrl = process.env.COZE_SUPABASE_URL;
   const supabaseKey = process.env.COZE_SUPABASE_ANON_KEY;
   const dbPassword = process.env.DB_PASSWORD;
-  
-  console.log(`  COZE_SUPABASE_URL:       ${supabaseUrl || '(未设置)'}`);
-  console.log(`  COZE_SUPABASE_ANON_KEY:  ${supabaseKey ? `${supabaseKey.substring(0, 30)}...` : '(未设置)'}`);
-  console.log(`  DB_PASSWORD:             ${dbPassword ? `${dbPassword.substring(0, 20)}...` : '(未设置)'}`);
-  console.log('');
-
-  // 2. 对象存储配置
-  console.log('📦 对象存储配置:');
-  console.log('──────────────────────────────────────────────────────────────');
   const bucketEndpoint = process.env.COZE_BUCKET_ENDPOINT_URL;
   const bucketName = process.env.COZE_BUCKET_NAME;
   const storageAccessKey = process.env.STORAGE_ACCESS_KEY;
-  
-  console.log(`  COZE_BUCKET_ENDPOINT_URL: ${bucketEndpoint || '(未设置)'}`);
-  console.log(`  COZE_BUCKET_NAME:         ${bucketName || '(未设置)'}`);
-  console.log(`  STORAGE_ACCESS_KEY:       ${storageAccessKey ? `${storageAccessKey.substring(0, 20)}...` : '(未设置)'}`);
-  console.log('');
 
-  // 3. 项目配置
-  console.log('🚀 项目配置:');
-  console.log('──────────────────────────────────────────────────────────────');
-  console.log(`  COZE_WORKSPACE_PATH:      ${process.env.COZE_WORKSPACE_PATH || '(未设置)'}`);
-  console.log(`  COZE_PROJECT_DOMAIN:      ${process.env.COZE_PROJECT_DOMAIN_DEFAULT || '(未设置)'}`);
-  console.log(`  DEPLOY_RUN_PORT:          ${process.env.DEPLOY_RUN_PORT || '(未设置)'}`);
-  console.log(`  COZE_PROJECT_ENV:         ${process.env.COZE_PROJECT_ENV || '(未设置)'}`);
-  console.log('');
+  const report: DebugEnvReport = {
+    supabase: {
+      COZE_SUPABASE_URL: supabaseUrl || '(未设置)',
+      COZE_SUPABASE_ANON_KEY: maskedValue(supabaseKey, 30),
+      DB_PASSWORD: maskedValue(dbPassword, 20),
+    },
+    storage: {
+      COZE_BUCKET_ENDPOINT_URL: bucketEndpoint || '(未设置)',
+      COZE_BUCKET_NAME: bucketName || '(未设置)',
+      STORAGE_ACCESS_KEY: maskedValue(storageAccessKey, 20),
+    },
+    project: {
+      COZE_WORKSPACE_PATH: process.env.COZE_WORKSPACE_PATH || '(未设置)',
+      COZE_PROJECT_DOMAIN: process.env.COZE_PROJECT_DOMAIN_DEFAULT || '(未设置)',
+      DEPLOY_RUN_PORT: process.env.DEPLOY_RUN_PORT || '(未设置)',
+      COZE_PROJECT_ENV: process.env.COZE_PROJECT_ENV || '(未设置)',
+    },
+    ai: {
+      DOUBAO_API_KEY: configuredFlag(process.env.DOUBAO_API_KEY),
+      GOOGLE_API_KEY: configuredFlag(process.env.GOOGLE_API_KEY),
+      GOOGLE_GENAI_API_KEY: configuredFlag(process.env.GOOGLE_GENAI_API_KEY),
+      DEEPSEEK_API_KEY: configuredFlag(process.env.DEEPSEEK_API_KEY),
+      LEMO_COZE_API_TOKEN: configuredFlag(process.env.LEMO_COZE_API_TOKEN),
+      BYTEDANCE_APP_KEY: configuredFlag(process.env.BYTEDANCE_APP_KEY),
+      BYTEDANCE_APP_SECRET: configuredFlag(process.env.BYTEDANCE_APP_SECRET),
+      COMFYUI_API_URL: process.env.COMFYUI_API_URL || '(未设置)',
+    },
+    session: {
+      AUTH_SESSION_SECRET: configuredFlag(process.env.AUTH_SESSION_SECRET),
+      API_CONFIG_ENCRYPTION_KEY: configuredFlag(process.env.API_CONFIG_ENCRYPTION_KEY),
+    },
+    checks: {
+      database: {
+        status: 'skipped',
+        message: '跳过数据库连接测试（缺少环境变量）',
+      },
+      storage: {
+        status: 'skipped',
+        message: '跳过对象存储连接测试（缺少环境变量）',
+      },
+    },
+  };
 
-  // 4. AI API 配置状态
-  console.log('🤖 AI API 配置状态:');
-  console.log('──────────────────────────────────────────────────────────────');
-  console.log(`  DOUBAO_API_KEY:        ${process.env.DOUBAO_API_KEY ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  GOOGLE_API_KEY:        ${process.env.GOOGLE_API_KEY ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  GOOGLE_GENAI_API_KEY:  ${process.env.GOOGLE_GENAI_API_KEY ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  DEEPSEEK_API_KEY:      ${process.env.DEEPSEEK_API_KEY ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  LEMO_COZE_API_TOKEN:   ${process.env.LEMO_COZE_API_TOKEN ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  BYTEDANCE_APP_KEY:     ${process.env.BYTEDANCE_APP_KEY ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  BYTEDANCE_APP_SECRET:  ${process.env.BYTEDANCE_APP_SECRET ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  COMFYUI_API_URL:       ${process.env.COMFYUI_API_URL || '(未设置)'}`);
-  console.log('');
-
-  // 5. Session 配置
-  console.log('🔐 Session 配置:');
-  console.log('──────────────────────────────────────────────────────────────');
-  console.log(`  AUTH_SESSION_SECRET:       ${process.env.AUTH_SESSION_SECRET ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log(`  API_CONFIG_ENCRYPTION_KEY: ${process.env.API_CONFIG_ENCRYPTION_KEY ? '✅ 已设置' : '❌ 未设置'}`);
-  console.log('');
-
-  // 6. 测试数据库连接
   if (supabaseUrl && (supabaseKey || dbPassword)) {
-    console.log('🔌 测试数据库连接...');
-    console.log('──────────────────────────────────────────────────────────────');
     try {
       const { createClient } = await import('@supabase/supabase-js');
       const client = createClient(supabaseUrl, supabaseKey || dbPassword!, {
@@ -76,21 +94,26 @@ export async function GET() {
       const { error } = await client.from('generations').select('id').limit(1);
       
       if (error) {
-        console.log(`  ❌ 数据库连接失败: ${error.message}`);
-        console.log(`     错误码: ${error.code}`);
+        report.checks.database = {
+          status: 'error',
+          message: `数据库连接失败: ${error.message}`,
+          code: error.code || undefined,
+        };
       } else {
-        console.log('  ✅ 数据库连接成功!');
+        report.checks.database = {
+          status: 'success',
+          message: '数据库连接成功',
+        };
       }
     } catch (e) {
-      console.log(`  ❌ 数据库连接异常: ${e instanceof Error ? e.message : String(e)}`);
+      report.checks.database = {
+        status: 'error',
+        message: `数据库连接异常: ${e instanceof Error ? e.message : String(e)}`,
+      };
     }
-    console.log('');
   }
 
-  // 7. 测试对象存储连接
   if (bucketEndpoint && bucketName) {
-    console.log('🔌 测试对象存储连接...');
-    console.log('──────────────────────────────────────────────────────────────');
     try {
       const { S3Storage } = await import('coze-coding-dev-sdk');
       const storage = new S3Storage({
@@ -102,25 +125,26 @@ export async function GET() {
       });
       
       const listResult = await storage.listFiles({ maxKeys: 5 });
-      console.log('  ✅ 对象存储连接成功!');
-      console.log(`     Bucket: ${bucketName}`);
-      console.log(`     文件数量: ${listResult.keys?.length || 0}`);
-      if (listResult.keys && listResult.keys.length > 0) {
-        console.log(`     示例文件: ${listResult.keys.slice(0, 3).join(', ')}`);
-      }
+      report.checks.storage = {
+        status: 'success',
+        message: '对象存储连接成功',
+        details: {
+          bucket: bucketName,
+          fileCount: listResult.keys?.length || 0,
+          sampleFiles: listResult.keys?.slice(0, 3) || [],
+        },
+      };
     } catch (e) {
-      console.log(`  ❌ 对象存储连接异常: ${e instanceof Error ? e.message : String(e)}`);
+      report.checks.storage = {
+        status: 'error',
+        message: `对象存储连接异常: ${e instanceof Error ? e.message : String(e)}`,
+      };
     }
-    console.log('');
   }
 
-  console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║  环境变量调试信息输出完成                                     ║');
-  console.log('╚══════════════════════════════════════════════════════════════╝');
-  console.log('\n');
-
   return NextResponse.json({
-    message: '环境变量已打印到控制台',
+    message: '环境变量调试信息已返回，可在浏览器控制台查看',
+    report,
     environment: {
       supabase: {
         url: supabaseUrl || null,

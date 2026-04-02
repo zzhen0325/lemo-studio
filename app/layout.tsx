@@ -8,6 +8,7 @@ import { ViewComfyProvider } from "@/lib/providers/view-comfy-provider";
 import { cn } from "@/lib/utils";
 import ScrollbarVisibility from "@/components/common/scrollbar-visibility";
 import { AppToaster } from "@/components/ui/AppToaster";
+import EnvDebugConsole from "@/components/common/EnvDebugConsole";
 
 export const metadata: Metadata = {
   title: "Lemostudio",
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <TooltipProvider>
             <ViewComfyProvider>
+              <EnvDebugConsole />
               <ScrollbarVisibility />
               {children}
               <AppToaster />
