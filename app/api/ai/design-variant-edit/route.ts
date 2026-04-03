@@ -1,5 +1,4 @@
 import {
-  DESIGN_SECTION_EDIT_SYSTEM_PROMPT,
   DESIGN_VARIANT_EDIT_SYSTEM_PROMPT,
   buildDesignVariantEditUserInput,
   parseDesignStructuredVariantEditResponse,
@@ -33,10 +32,11 @@ export async function POST(request: Request) {
     }
 
     const { instruction, scope, variant, context } = parsed.data;
+    if (scope !== 'variant') {
+      throw new HttpError(400, 'design-variant-edit only supports scope=variant, use /ai/design-section-edit for section updates');
+    }
     const normalizedVariant = parseDesignStructuredVariantEditResponse(JSON.stringify({ variant })).variant;
-    const systemPrompt = scope === 'variant'
-      ? DESIGN_VARIANT_EDIT_SYSTEM_PROMPT
-      : DESIGN_SECTION_EDIT_SYSTEM_PROMPT;
+    const systemPrompt = DESIGN_VARIANT_EDIT_SYSTEM_PROMPT;
 
     const userInput = buildDesignVariantEditUserInput({
       instruction,

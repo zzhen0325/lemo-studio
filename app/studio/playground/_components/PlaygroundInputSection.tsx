@@ -2,7 +2,6 @@ import React, { RefObject, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
     Tooltip,
     TooltipContent,
@@ -164,6 +163,7 @@ export interface PlaygroundInputSectionProps {
     onShortcutTemplatePrefillInstruction?: (instruction: string, scope?: DesignVariantEditScope) => void;
     onShortcutTemplateApplyEdit?: (scope: DesignVariantEditScope, instructionOverride?: string) => void;
     onShortcutTemplateRestoreVariant?: () => void;
+    onStructuredComposerExpandedChange?: (expanded: boolean) => void;
     isFloatingOverlay?: boolean;
 }
 
@@ -239,11 +239,13 @@ export function PlaygroundInputSection({
     onShortcutTemplatePrefillInstruction,
     onShortcutTemplateApplyEdit,
     onShortcutTemplateRestoreVariant,
+    onStructuredComposerExpandedChange,
     isFloatingOverlay = false,
 }: PlaygroundInputSectionProps) {
     const aspectRatioPresets = getAspectRatioPresets();
     const [activeId, setActiveId] = useState<string | null>(null);
     const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+    const [isStructuredComposerExpanded, setIsStructuredComposerExpanded] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -258,15 +260,27 @@ export function PlaygroundInputSection({
     const hasStructuredShortcutSession = Boolean(shortcutTemplate?.optimizationSession);
     const isKvShortcutTemplate = Boolean(shortcutTemplate && isKvShortcutId(shortcutTemplate.shortcut.id));
     const shouldShowAiPromptPrimaryAction = isKvShortcutTemplate && !hasStructuredShortcutSession;
+    const shouldHideUploadPanel = hasStructuredShortcutSession || isOptimizing;
+    const shouldUseStructuredOptimizeCopy = hasStructuredShortcutSession;
+    const shouldHideSparklesOptimizeButton = hasStructuredShortcutSession && isStructuredComposerExpanded;
     const isHomeStructuredMode = hasStructuredShortcutSession && !showHistory;
     const handlePrimaryGenerate = hasStructuredShortcutSession
         ? (onShortcutTemplateGenerateAll || handleGenerate)
         : handleGenerate;
-    const optimizeButtonLabel = isOptimizing ? "AI自动优化中" : "AI自动优化";
-    const canOptimizeShortcutTemplate = !shortcutTemplate || Boolean(onShortcutTemplateOptimize);
-    const isOptimizeButtonDisabled = isOptimizing || !canOptimizeShortcutTemplate;
+    const optimizeButtonLabel = shouldUseStructuredOptimizeCopy
+        ? (isOptimizing ? "重新优化中" : "重新优化")
+        : (isOptimizing ? "AI自动优化中" : "AI自动优化");
     const optimizationLoadingMessage =
         OPTIMIZATION_LOADING_MESSAGES[Math.min(loadingMessageIndex, OPTIMIZATION_LOADING_MESSAGES.length - 1)];
+    const optimizeButtonText = !shouldUseStructuredOptimizeCopy && isOptimizing
+        ? optimizationLoadingMessage
+        : optimizeButtonLabel;
+    const shouldShowOptimizeButtonText = shouldUseStructuredOptimizeCopy || isOptimizing;
+    const optimizeTooltipText = shouldUseStructuredOptimizeCopy
+        ? optimizeButtonLabel
+        : "AI自动补全";
+    const canOptimizeShortcutTemplate = !shortcutTemplate || Boolean(onShortcutTemplateOptimize);
+    const isOptimizeButtonDisabled = isOptimizing || !canOptimizeShortcutTemplate;
 
     const handleOptimizeButtonClick = () => {
         if (isOptimizeButtonDisabled) return;
@@ -283,7 +297,7 @@ export function PlaygroundInputSection({
         : handlePrimaryGenerate;
 
     React.useEffect(() => {
-        if (!isOptimizing) {
+        if (!isOptimizing || shouldUseStructuredOptimizeCopy) {
             setLoadingMessageIndex(0);
             return;
         }
@@ -297,7 +311,14 @@ export function PlaygroundInputSection({
         }, shortcutTemplate ? 1400 : 4500);
 
         return () => window.clearInterval(intervalId);
-    }, [isOptimizing, shortcutTemplate]);
+    }, [isOptimizing, shortcutTemplate, shouldUseStructuredOptimizeCopy]);
+
+    React.useEffect(() => {
+        if (!hasStructuredShortcutSession && isStructuredComposerExpanded) {
+            setIsStructuredComposerExpanded(false);
+            onStructuredComposerExpandedChange?.(false);
+        }
+    }, [hasStructuredShortcutSession, isStructuredComposerExpanded, onStructuredComposerExpandedChange]);
 
     const getCurrentAspectRatio = () => {
         if (config.aspectRatio === 'auto') return 'auto';
@@ -392,8 +413,11 @@ export function PlaygroundInputSection({
                     "relative z-10 flex items-center bg-black/40 justify-center w-full text-white flex-col rounded-[30px] backdrop-blur-md border border-white/20  p-2 transition-colors duration-100",
                     showHistory ? " bg-gradient-to-br from-[#0F0F15] via-[#0F0F15] to-[#1d2025]  border-[#343434]" : "bg-black/40"
                 )}>
-                    <div className="flex items-start gap-0 bg-black/60 border border-white/10 rounded-3xl w-full pl-4 relative overflow-visible">
-                        {variant !== 'edit' && !(isKvShortcutTemplate && isOptimizing) && (
+                    <div className={cn(
+                        "flex items-stretch gap-0 bg-black/60 border border-white/10 rounded-3xl w-full relative overflow-visible min-h-[86px]",
+                        shouldHideUploadPanel ? "pl-2" : "pl-4",
+                    )}>
+                        {variant !== 'edit' && !shouldHideUploadPanel && (
                             <DndContext
                                 sensors={sensors}
                                 collisionDetection={closestCenter}
@@ -438,6 +462,7 @@ export function PlaygroundInputSection({
                                     {!disableImageUpload && (
                                         <motion.button
                                             onClick={() => fileInputRef.current?.click()}
+                                            aria-label="上传参考图"
                                             initial={false}
                                             animate={{
                                                 rotate: activeId ? 0 : 3,
@@ -485,17 +510,17 @@ export function PlaygroundInputSection({
                         )}
 
                         <div className={cn(
-                            "flex-1 mt-1 flex justify-start gap-2 items-start",
+                            "flex-1 mt-1 flex justify-start gap-2 items-stretch h-full self-stretch",
                             hasStructuredShortcutSession ? "overflow-visible py-3 pr-2" : "overflow-hidden"
                         )}>
-                            <div className="flex-1 flex flex-col items-start w-full">
-                                {variant !== 'edit' && (
+                            <div className="flex-1 flex flex-col items-stretch w-full h-full justify-center">
+                                {variant !== 'edit' && !shouldHideSparklesOptimizeButton && (
                                     <motion.div
                                         className={cn(
                                             "z-10 flex h-6 w-fit min-w-10 max-w-[calc(100%-24px)] items-center justify-center rounded-full",
                                             isOptimizing
-                                                ? "relative self-start mb-0 mt-3 ml-2 origin-left px-1"
-                                                : "absolute right-3 top-3 origin-right "
+                                                ? "relative self-start mb-0 mt-3 origin-left ml-4"
+                                                : "absolute right-3 top-3 ml-4 origin-right"
                                         )}
                                         initial={false}
                                         layout
@@ -547,43 +572,22 @@ export function PlaygroundInputSection({
                                                                 duration: 2,
                                                                 ease: "easeOut"
                                                             }}
-                                                            className={cn("flex w-auto min-w-8 shrink-0 items-center justify-center overflow-hidden", isOptimizing ? "gap-1.5 px-1.5" : "gap-1 px-2")}
+                                                            className="flex w-auto min-w-8 shrink-0 items-center justify-center gap-1.5 overflow-hidden "
                                                         >
-                                                            <Sparkles className="h-1.5 w-1.5 shrink-0 hover:drop-shadow-[0_0_18px_#ffffff]" />
-                                                            {/* <span className="shrink-0 text-[14px]">AI</span> */}
-                                                            <AnimatePresence initial={false} mode="wait">
-                                                                {isOptimizing ? (
-                                                                    <motion.span
-                                                                        key={optimizationLoadingMessage}
-                                                                        aria-live="polite"
-                                                                        initial="hidden"
-                                                                        animate="visible"
-                                                                        exit={{ opacity: 0, x: -6, filter: "blur(4px)", transition: { duration: 0.18, ease: "easeIn" } }}
-                                                                        variants={{
-                                                                            hidden: {},
-                                                                            visible: { transition: { staggerChildren: 0.035 } }
-                                                                        }}
-                                                                        className="flex truncate text-[14px] font-medium leading-none text-white/95"
-                                                                    >
-                                                                        {optimizationLoadingMessage.split("").map((char, i) => (
-                                                                            <motion.span
-                                                                                key={i}
-                                                                                variants={{
-                                                                                    hidden: { opacity: 0, x: -4, filter: "blur(3px)" },
-                                                                                    visible: { opacity: 1, x: 0, filter: "blur(0px)", transition: { duration: 0.2, ease: "easeOut" } }
-                                                                                }}
-                                                                            >
-                                                                                {char === " " ? "\u00A0" : char}
-                                                                            </motion.span>
-                                                                        ))}
-                                                                    </motion.span>
-                                                                ) : null}
-                                                            </AnimatePresence>
+                                                            <Sparkles className={cn("shrink-0", isOptimizing ? "h-3.5 w-3.5 animate-pulse text-white" : "h-3.5 w-3.5")} />
+                                                            {shouldShowOptimizeButtonText ? (
+                                                                <span
+                                                                    aria-live={isOptimizing ? "polite" : undefined}
+                                                                    className="truncate text-[12px] font-medium leading-none text-white/95"
+                                                                >
+                                                                    {optimizeButtonText}
+                                                                </span>
+                                                            ) : null}
                                                         </motion.div>
                                                     </Button>
                                                 </TooltipTrigger>
                                                  <TooltipContent side="top" sideOffset={5} className="bg-white text-slate-900 border border-slate-200 shadow-md">
-                                                     AI自动补全
+                                                     {optimizeTooltipText}
                                                  </TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
@@ -620,6 +624,10 @@ export function PlaygroundInputSection({
                                     onShortcutTemplateRestoreVariant={onShortcutTemplateRestoreVariant}
                                     isGenerating={isGenerating}
                                     isHomeStructuredMode={isHomeStructuredMode}
+                                    onStructuredExpandedChange={(expanded) => {
+                                        setIsStructuredComposerExpanded(expanded);
+                                        onStructuredComposerExpandedChange?.(expanded);
+                                    }}
                                 />
                             </div>
                         </div>
@@ -707,7 +715,6 @@ export function PlaygroundInputSection({
                         primaryActionMode={shouldShowAiPromptPrimaryAction ? 'optimize' : 'generate'}
                         primaryActionLabel={shouldShowAiPromptPrimaryAction ? 'AI Prompt' : undefined}
                         isPrimaryActionLoading={shouldShowAiPromptPrimaryAction ? isOptimizing : isGenerating}
-                        loadingText="Thinking..."
                         selectedWorkflowName={selectedWorkflowConfig?.viewComfyJSON.title}
                         selectedBaseModelName={config.model}
                         workflows={workflows}

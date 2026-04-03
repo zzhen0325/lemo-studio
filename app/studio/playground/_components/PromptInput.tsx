@@ -36,6 +36,7 @@ interface PromptInputProps {
   isPresetGridOpen?: boolean;
   onTogglePresetGrid?: () => void;
   onFocusChange?: (focused: boolean) => void;
+  onStructuredExpandedChange?: (expanded: boolean) => void;
   isDraggingOver?: boolean;
   onDraggingOverChange?: (isDragging: boolean) => void;
   shortcutTemplate?: {
@@ -86,6 +87,7 @@ export default function PromptInput({
   onPromptChange,
   onAddImages,
   onFocusChange,
+  onStructuredExpandedChange,
   isDraggingOver,
   onDraggingOverChange,
   isOptimizing,
@@ -115,6 +117,8 @@ export default function PromptInput({
   const lastSyncPrompt = React.useRef(prompt);
   const hadStructuredSessionRef = React.useRef(false);
   const wasGeneratingRef = React.useRef(false);
+  const isFocusWithinRef = React.useRef(false);
+  const deferredBlurTimerRef = React.useRef<number | null>(null);
   const hasStructuredSession = Boolean(shortcutTemplate?.optimizationSession);
   const useSlateShortcutEditor = Boolean(
     shortcutTemplate
@@ -122,6 +126,11 @@ export default function PromptInput({
     && shortcutTemplate.shortcut.promptComposerLayout !== 'grid'
     && shortcutTemplate.editorDocument,
   );
+  const shouldClampStructuredCollapsedHeight = hasStructuredSession && !isFocused;
+  const setStructuredExpanded = React.useCallback((expanded: boolean) => {
+    setIsStructuredExpanded(expanded);
+    onStructuredExpandedChange?.(expanded);
+  }, [onStructuredExpandedChange]);
 
   // 当外部 prompt 变更时（例如 AI 优化），如果不是我们自己发出的变更，则同步到本地
   React.useEffect(() => {
@@ -141,26 +150,32 @@ export default function PromptInput({
 
   React.useEffect(() => {
     if (hasStructuredSession && !hadStructuredSessionRef.current) {
-      setIsStructuredExpanded(true);
+      setStructuredExpanded(false);
+      setIsFocused(true);
+      isFocusWithinRef.current = true;
       onFocusChange?.(true);
     }
 
     if (!hasStructuredSession && hadStructuredSessionRef.current) {
-      setIsStructuredExpanded(false);
+      setStructuredExpanded(false);
+      setIsFocused(false);
+      isFocusWithinRef.current = false;
       onFocusChange?.(false);
     }
 
     hadStructuredSessionRef.current = hasStructuredSession;
-  }, [hasStructuredSession, onFocusChange]);
+  }, [hasStructuredSession, onFocusChange, setStructuredExpanded]);
 
   React.useEffect(() => {
     if (hasStructuredSession && isGenerating && !wasGeneratingRef.current) {
-      setIsStructuredExpanded(false);
+      setStructuredExpanded(false);
+      setIsFocused(false);
+      isFocusWithinRef.current = false;
       onFocusChange?.(false);
     }
 
     wasGeneratingRef.current = isGenerating;
-  }, [hasStructuredSession, isGenerating, onFocusChange]);
+  }, [hasStructuredSession, isGenerating, onFocusChange, setStructuredExpanded]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -179,30 +194,94 @@ export default function PromptInput({
   };
 
   const wrapperRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        isStructuredExpanded &&
-        wrapperRef.current &&
-        !wrapperRef.current.contains(event.target as Node)
-      ) {
-        setIsStructuredExpanded(false);
-        onFocusChange?.(false);
-      }
+  const clearDeferredBlurTimer = React.useCallback(() => {
+    if (deferredBlurTimerRef.current !== null) {
+      window.clearTimeout(deferredBlurTimerRef.current);
+      deferredBlurTimerRef.current = null;
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isStructuredExpanded, onFocusChange]);
+  }, []);
 
-  const handleStructuredExpand = React.useCallback(() => {
-    if (!hasStructuredSession || isStructuredExpanded) {
+  const handleWrapperFocusCapture = React.useCallback(() => {
+    clearDeferredBlurTimer();
+    setIsFocused(true);
+
+    if (isFocusWithinRef.current) {
       return;
     }
 
-    setIsStructuredExpanded(true);
+    isFocusWithinRef.current = true;
     onFocusChange?.(true);
-  }, [hasStructuredSession, isStructuredExpanded, onFocusChange]);
+  }, [clearDeferredBlurTimer, onFocusChange]);
+
+  const handleWrapperMouseDownCapture = React.useCallback(() => {
+    clearDeferredBlurTimer();
+
+    if (!hasStructuredSession) {
+      return;
+    }
+
+    setIsFocused(true);
+
+    if (!isFocusWithinRef.current) {
+      isFocusWithinRef.current = true;
+      onFocusChange?.(true);
+    }
+  }, [clearDeferredBlurTimer, hasStructuredSession, onFocusChange]);
+
+  const handleWrapperBlurCapture = React.useCallback((event: React.FocusEvent<HTMLDivElement>) => {
+    const nextFocusedNode = event.relatedTarget as Node | null;
+    if (nextFocusedNode && wrapperRef.current?.contains(nextFocusedNode)) {
+      return;
+    }
+
+    isFocusWithinRef.current = false;
+    if (hasStructuredSession) {
+      clearDeferredBlurTimer();
+      deferredBlurTimerRef.current = window.setTimeout(() => {
+        deferredBlurTimerRef.current = null;
+        setIsFocused(false);
+        onFocusChange?.(false);
+      }, 0);
+      return;
+    }
+
+    setIsFocused(false);
+    onFocusChange?.(false);
+  }, [clearDeferredBlurTimer, hasStructuredSession, onFocusChange]);
+
+  React.useEffect(() => {
+    if (!hasStructuredSession) {
+      return;
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+
+      if (wrapperRef.current?.contains(target)) {
+        return;
+      }
+
+      clearDeferredBlurTimer();
+      setIsFocused(false);
+
+      if (isFocusWithinRef.current) {
+        isFocusWithinRef.current = false;
+        onFocusChange?.(false);
+      }
+    }
+
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, [clearDeferredBlurTimer, hasStructuredSession, onFocusChange]);
+
+  React.useEffect(() => {
+    return () => {
+      clearDeferredBlurTimer();
+    };
+  }, [clearDeferredBlurTimer]);
 
   const handleShortcutSlateFieldChange = React.useCallback((fieldId: string, value: string) => {
     onShortcutTemplateFieldChange?.(fieldId, value);
@@ -225,7 +304,7 @@ export default function PromptInput({
     collapsedMaxHeight?: number;
     className?: string;
   }) => (
-    <div className="relative">
+    <div className="relative w-full h-full flex flex-col justify-center">
       <AutosizeTextarea
         aria-label={ariaLabel}
         placeholder={placeholder}
@@ -259,14 +338,14 @@ export default function PromptInput({
           }
         }}
         className={cn(
-          "w-full placeholder:text-white/40 bg-transparent max-h-[400px] leading-relaxed tracking-wide p-2 pl-4 pr-16 border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none",
+          "w-full placeholder:text-white/40 bg-transparent max-h-[400px] leading-relaxed   p-2 pl-4 pr-12    break-words border-none focus-visible:ring-0 focus-visible:ring-offset-0 outline-none resize-none",
           className,
           isOptimizing ? "text-transparent" : "text-white"
         )}
       />
       {isOptimizing && (
-        <div className="pointer-events-none absolute inset-0 p-2 pl-4 pr-16 text-sm leading-relaxed tracking-wide whitespace-pre-wrap break-words md:pr-28">
-          <ShinyText text={localPrompt} color="#ffffff9b" direction="left" shineColor="rgb(255 255 255)" speed={2} />
+        <div className="pointer-events-none absolute inset-0 p-2 pl-4  pr-4 text-xs leading-relaxed  whitespace-pre-wrap break-words">
+          <ShinyText text={localPrompt} color="#FFFFFF7C" direction="left" shineColor="rgb(255 255 255)" speed={2} />
         </div>
       )}
     </div>
@@ -276,9 +355,12 @@ export default function PromptInput({
     <div
       ref={wrapperRef}
       className={cn(
-        "w-full relative rounded-2xl",
+        "w-full h-full relative rounded-2xl flex flex-col justify-center",
         isDraggingOver && ""
       )}
+      onMouseDownCapture={handleWrapperMouseDownCapture}
+      onFocusCapture={handleWrapperFocusCapture}
+      onBlurCapture={handleWrapperBlurCapture}
       onDragOver={(e) => { e.preventDefault(); }}
       onDrop={(e) => {
         e.preventDefault();
@@ -298,7 +380,14 @@ export default function PromptInput({
           onFocusChange={onFocusChange}
         />
       ) : shortcutTemplate ? (
-        <div className="relative">
+        <div
+          data-testid={hasStructuredSession ? 'structured-prompt-container' : undefined}
+          className={cn(
+            "relative",
+            hasStructuredSession && !isStructuredExpanded && "transition-[max-height] duration-200",
+            shouldClampStructuredCollapsedHeight && "max-h-[86px] overflow-hidden",
+          )}
+        >
           <ShortcutPromptComposer
             shortcut={shortcutTemplate.shortcut}
             values={shortcutTemplate.values}
@@ -322,18 +411,15 @@ export default function PromptInput({
             isGenerating={isGenerating}
             isExpanded={!hasStructuredSession || isStructuredExpanded}
             isHomeStructuredMode={isHomeStructuredMode}
+            onRequestExpand={() => {
+              setStructuredExpanded(true);
+              onFocusChange?.(true);
+            }}
+            onRequestCollapse={() => {
+              setStructuredExpanded(false);
+              onFocusChange?.(false);
+            }}
           />
-          {hasStructuredSession && !isStructuredExpanded ? (
-            <>
-              {/* <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 rounded-b-2xl bg-gradient-to-t from-[#0d0f13] via-[#0d0f13]/75 to-transparent" /> */}
-              <button
-                type="button"
-                onClick={handleStructuredExpand}
-                className="absolute inset-0 z-10 rounded-2xl"
-                aria-label="展开结构化输入内容"
-              />
-            </>
-          ) : null}
         </div>
       ) : (
         renderPromptTextarea({})

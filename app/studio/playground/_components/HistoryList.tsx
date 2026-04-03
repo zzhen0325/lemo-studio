@@ -387,7 +387,7 @@ const HistoryList = function HistoryList({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-6 group/card">
+                    <div className="flex flex-col gap-4 group/card">
                       <div className="flex items-center justify-between gap-4 text-[10px] text-white/30 font-mono uppercase ">
                         <div className="flex items-center gap-4">
                           <span>{new Date(group.startAt).toLocaleString()}</span>
@@ -396,8 +396,8 @@ const HistoryList = function HistoryList({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))] gap-4 items-start content-start">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 flex flex-col gap-4 overflow-hidden h-[220px]">
+                      <div className="grid grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))] gap-4 items-stretch content-start">
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-5 flex flex-col gap-4 overflow-hidden h-[220px]">
                           <div className="flex items-center gap-2 text-[10px] text-white/30 font-mono uppercase tracking-[0.2em]">
                             <span className="block w-1 h-1 rounded-full bg-white/20" />
                             Original Prompt
@@ -409,24 +409,26 @@ const HistoryList = function HistoryList({
                           </div>
                         </div>
 
-                        {group.items.map((item, itemIdx) => (
-                          <DraggableHistoryCard
-                            key={`${item.id}-${itemIdx}`}
-                            result={item}
-                            selectedIds={selectedIds}
-                            isSelectionMode={isSelectionMode}
-                          >
-                            <TextHistoryCard
+                        <div className="col-span-4 grid grid-cols-4 gap-2">
+                          {group.items.map((item, itemIdx) => (
+                            <DraggableHistoryCard
+                              key={`${item.id}-${itemIdx}`}
                               result={item}
-                              title={getPromptOptimizationSource(item.config)?.activeVariantLabel || `Optimized Prompt ${itemIdx + 1}`}
-                              actionLabel="Use Variant"
-                              onUsePrompt={onUsePrompt}
+                              selectedIds={selectedIds}
                               isSelectionMode={isSelectionMode}
-                              isSelected={selectedIds.has(item.id)}
-                              onToggleSelect={() => toggleSelection(item.id)}
-                            />
-                          </DraggableHistoryCard>
-                        ))}
+                            >
+                              <TextHistoryCard
+                                result={item}
+                                title={getPromptOptimizationSource(item.config)?.activeVariantLabel || `Optimized Prompt ${itemIdx + 1}`}
+                                actionLabel="Use Variant"
+                                onUsePrompt={onUsePrompt}
+                                isSelectionMode={isSelectionMode}
+                                isSelected={selectedIds.has(item.id)}
+                                onToggleSelect={() => toggleSelection(item.id)}
+                              />
+                            </DraggableHistoryCard>
+                          ))}
+                        </div>
                       </div>
 
                       {group.items.length > 0 && !isSelectionMode && (

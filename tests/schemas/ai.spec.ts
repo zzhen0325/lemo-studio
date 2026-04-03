@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { TextRequestSchema, ImageRequestSchema, DescribeRequestSchema, DesignVariantEditRequestSchema } from '@/lib/schemas/ai';
+import {
+  TextRequestSchema,
+  ImageRequestSchema,
+  DescribeRequestSchema,
+  DesignVariantEditRequestSchema,
+  DesignSectionEditRequestSchema,
+} from '@/lib/schemas/ai';
 
 describe('AI request schemas', () => {
   describe('TextRequestSchema', () => {
@@ -183,11 +189,11 @@ describe('AI request schemas', () => {
           { hex: '#15BC55', weight: '' },
         ],
         analysis: {
-          canvas: { tokens: ['拼贴海报'], detailText: '绿色主导的拼贴海报。' },
-          subject: { tokens: ['预算账本主体'], detailText: '主体是一册夸张放大的预算账本。' },
-          background: { tokens: ['便签背景'], detailText: '背景是米色纸张与便签。' },
-          layout: { tokens: ['居中构图'], detailText: '主标题在中间。' },
-          typography: { tokens: ['圆角黑体'], detailText: '标题使用圆角黑体。' },
+          canvas: { detailText: '绿色主导的拼贴海报。' },
+          subject: { detailText: '主体是一册夸张放大的预算账本。' },
+          background: { detailText: '背景是米色纸张与便签。' },
+          layout: { detailText: '主标题在中间。' },
+          typography: { detailText: '标题使用圆角黑体。' },
         },
         promptPreview: 'A playful budget collage poster...',
       },
@@ -215,6 +221,48 @@ describe('AI request schemas', () => {
       const result = DesignVariantEditRequestSchema.safeParse({
         ...validPayload,
         scope: 'prompt',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('DesignSectionEditRequestSchema', () => {
+    const validPayload = {
+      variantId: 'v1',
+      sectionKey: 'layout',
+      instruction: '请强化标题层级并给时间标签更明显位置',
+      currentSectionText: '主标题在中间。',
+      fullAnalysisContext: {
+        canvas: { detailText: '绿色主导的拼贴海报。' },
+        subject: { detailText: '主体是一册夸张放大的预算账本。' },
+        background: { detailText: '背景是米色纸张与便签。' },
+        layout: { detailText: '主标题在中间。' },
+        typography: { detailText: '标题使用圆角黑体。' },
+      },
+      shortcutContext: {
+        shortcutId: 'us-kv',
+        shortcutPrompt: 'Create a US-EVENT KV with main title ...',
+        market: 'US',
+      },
+    };
+
+    it('accepts a valid payload', () => {
+      const result = DesignSectionEditRequestSchema.safeParse(validPayload);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects empty instruction', () => {
+      const result = DesignSectionEditRequestSchema.safeParse({
+        ...validPayload,
+        instruction: '',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects unsupported sectionKey', () => {
+      const result = DesignSectionEditRequestSchema.safeParse({
+        ...validPayload,
+        sectionKey: 'prompt',
       });
       expect(result.success).toBe(false);
     });

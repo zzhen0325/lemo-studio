@@ -35,7 +35,7 @@ export const FALLBACK_AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
     { id: 'gemini-3.1-flash-image-preview', displayName: 'Nano banana 2' },
     { id: 'gemini-2.5-flash-image', displayName: 'Nano banana' },
-    { id: 'seed4_v2_0226lemo', displayName: 'Lemo Seed' },
+    { id: 'seed4_0402_v4_lemo', displayName: 'Lemo Seed' },
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
 ];
 
@@ -938,6 +938,18 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             isEdit,
             parentId
         };
+        if (
+            finalConfig.historyRecordType === "prompt_optimization"
+            || finalConfig.historyRecordType === "image_description"
+        ) {
+            delete finalConfig.historyRecordType;
+        }
+        if (
+            finalConfig.promptCategory === "prompt_optimization"
+            || finalConfig.promptCategory === "image_description"
+        ) {
+            delete finalConfig.promptCategory;
+        }
         setHasGenerated(true);
         const configForHistory = { ...finalConfig };
         if (!isWorkflow) { configForHistory.loras = undefined; configForHistory.workflowName = undefined; }

@@ -58,7 +58,6 @@ const DesignStructuredPaletteEntrySchema = z.object({
 });
 
 const DesignStructuredAnalysisSectionSchema = z.object({
-  tokens: z.array(z.string()),
   detailText: z.string(),
 });
 
@@ -92,3 +91,18 @@ export const DesignVariantEditRequestSchema = z.object({
 });
 
 export type DesignVariantEditRequestInput = z.infer<typeof DesignVariantEditRequestSchema>;
+
+export const DesignSectionEditRequestSchema = z.object({
+  variantId: z.string().min(1, 'variantId is required'),
+  sectionKey: z.enum(['canvas', 'subject', 'background', 'layout', 'typography']),
+  instruction: z.string().min(1, 'instruction is required'),
+  currentSectionText: z.string(),
+  fullAnalysisContext: DesignStructuredAnalysisSchema,
+  shortcutContext: z.object({
+    shortcutId: z.string().min(1, 'shortcutId is required'),
+    shortcutPrompt: z.string().min(1, 'shortcutPrompt is required'),
+    market: z.string().optional(),
+  }),
+});
+
+export type DesignSectionEditRequestInput = z.infer<typeof DesignSectionEditRequestSchema>;

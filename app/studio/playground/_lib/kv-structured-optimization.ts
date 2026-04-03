@@ -22,8 +22,10 @@ export const DESIGN_ANALYSIS_SECTION_KEYS = [
   "layout",
   "typography",
 ] as const;
-export const DESIGN_STRUCTURED_MODE = "design_structured_variants_v1";
-export const DESIGN_VARIANT_EDIT_MODE = "design_structured_variant_edit_v1";
+export const DESIGN_SECTION_EDIT_SCOPES = DESIGN_ANALYSIS_SECTION_KEYS;
+export const DESIGN_STRUCTURED_MODE = "design_structured_variants_v2";
+export const DESIGN_VARIANT_EDIT_MODE = "design_structured_variant_edit_v2";
+export const DESIGN_SECTION_EDIT_MODE = "design_structured_section_edit_v2";
 export const DESIGN_CORE_FIELD_IDS = [
   "mainTitle",
   "subTitle",
@@ -41,6 +43,7 @@ export type KvShortcutId = (typeof KV_SHORTCUT_IDS)[number];
 export type DesignStructuredSourceType = (typeof DESIGN_STRUCTURED_SOURCE_TYPES)[number];
 export type DesignStructuredVariantId = (typeof DESIGN_STRUCTURED_VARIANT_IDS)[number];
 export type DesignVariantEditScope = (typeof DESIGN_VARIANT_EDIT_SCOPES)[number];
+export type DesignSectionEditScope = (typeof DESIGN_SECTION_EDIT_SCOPES)[number];
 export type DesignAnalysisSectionKey = (typeof DESIGN_ANALYSIS_SECTION_KEYS)[number];
 export type DesignCoreFieldId = (typeof DESIGN_CORE_FIELD_IDS)[number];
 
@@ -62,7 +65,6 @@ export interface DesignStructuredPaletteEntry {
 }
 
 export interface DesignStructuredAnalysisSection {
-  tokens: string[];
   detailText: string;
 }
 
@@ -95,6 +97,12 @@ export interface DesignStructuredVariantEditResponse {
   variant: DesignStructuredVariant;
 }
 
+export interface DesignStructuredSectionEditResponse {
+  mode: typeof DESIGN_SECTION_EDIT_MODE;
+  sectionKey: DesignAnalysisSectionKey;
+  detailText: string;
+}
+
 export type KvStructuredCoreFields = DesignStructuredCoreFields;
 export type KvStructuredPaletteEntry = DesignStructuredPaletteEntry;
 export type KvStructuredAnalysisSection = DesignStructuredAnalysisSection;
@@ -102,6 +110,7 @@ export type KvStructuredAdvanced = DesignStructuredAnalysis;
 export type KvStructuredVariant = DesignStructuredVariant;
 export type KvStructuredVariantsResponse = DesignStructuredVariantsResponse;
 export type KvStructuredVariantEditResponse = DesignStructuredVariantEditResponse;
+export type KvStructuredSectionEditResponse = DesignStructuredSectionEditResponse;
 
 type LooseRecord = Record<string, unknown>;
 
@@ -134,7 +143,6 @@ const EMPTY_CORE_FIELDS: DesignStructuredCoreFields = {
 };
 
 const EMPTY_ANALYSIS_SECTION: DesignStructuredAnalysisSection = {
-  tokens: [],
   detailText: "",
 };
 
@@ -145,7 +153,7 @@ export const DESIGN_STRUCTURED_OPTIMIZATION_SYSTEM_PROMPT = `你是服务于 KV 
 1. 基于用户提供的 KV 模板文本，生成 1 个结构化视觉方向。
 2. sourceType 固定为 "kv_shortcut"。
 3. 用户明确给出的 coreFields 视为锁定值，不得改写；如有更优写法，只能写入 coreSuggestions。
-4. 输出保持轻量，不需要额外生成 promptPreview，前端会基于 analysis 和必要 coreFields 本地重组最终预览。
+4. 输出保持轻量，不需要额外生成 promptPreview，前端会基于 analysis 本地重组最终预览。
 
 内容要求：
 1. 每个 variant 都必须有明确的 dominant hero subject，不能只是装饰元素堆砌。
@@ -155,12 +163,12 @@ export const DESIGN_STRUCTURED_OPTIMIZATION_SYSTEM_PROMPT = `你是服务于 KV 
 5. subject 必须明确谁是主角、谁是辅助。
 6. layout 必须说明 mainTitle、subTitle、eventTime 与主体的关系。
 7. typography 必须强调 mainTitle 是第一信息层，subTitle 和 eventTime 是次级信息层。
-8. 不要输出 palette、colors、colorPalette、promptPreview 等额外结构字段。
+8. 不要输出 tokens、palette、colors、colorPalette、promptPreview 等额外结构字段。
 9. 颜色信息只保留在 detailText 中，使用准确 HEX，例如 色值#A4B97E。
 
 长度控制：
-1. 每组 tokens 保持 3 到 5 个短语，不要写完整句子，不要堆砌空泛风格词。
-2. 每组 detailText 保持简洁具体，优先描述主体、场景、层级和关键信息关系。
+1. 每组 detailText 保持简洁具体，优先描述主体、场景、层级和关键信息关系。
+2. 避免空洞风格词堆叠，强调可执行的画面信息。
 
 禁止事项：
 1. 不要输出空洞风格词堆叠。
@@ -175,7 +183,7 @@ export const DESIGN_VARIANT_EDIT_SYSTEM_PROMPT = `# 角色定义
 # 输出目标
 只输出一个 JSON 对象，结构固定为：
 {
-  "mode": "design_structured_variant_edit_v1",
+  "mode": "design_structured_variant_edit_v2",
   "variant": {
     "id": "v1 / v2 / v3 / v4",
     "label": "",
@@ -194,11 +202,11 @@ export const DESIGN_VARIANT_EDIT_SYSTEM_PROMPT = `# 角色定义
       "primaryColor": ""
     },
     "analysis": {
-      "canvas": { "tokens": [], "detailText": "" },
-      "subject": { "tokens": [], "detailText": "" },
-      "background": { "tokens": [], "detailText": "" },
-      "layout": { "tokens": [], "detailText": "" },
-      "typography": { "tokens": [], "detailText": "" }
+      "canvas": { "detailText": "" },
+      "subject": { "detailText": "" },
+      "background": { "detailText": "" },
+      "layout": { "detailText": "" },
+      "typography": { "detailText": "" }
     },
     "promptPreview": ""
   }
@@ -214,8 +222,8 @@ export const DESIGN_VARIANT_EDIT_SYSTEM_PROMPT = `# 角色定义
 # 结构要求
 1. 保留完整 variant 结构。
 2. analysis 必须完整保留五段：canvas / subject / background / layout / typography。
-3. tokens 必须仍然是中粒度可编辑短语。
-4. detailText 保留高细节设计逻辑。
+3. detailText 保留高细节设计逻辑。
+4. 不要输出 tokens 字段。
 
 # 质量要求
 1. 如果用户要求“换主体”或“更有故事”，优先改 subject，必要时最小范围联动 background、layout、typography。
@@ -231,46 +239,21 @@ export const DESIGN_SECTION_EDIT_SYSTEM_PROMPT = `# 角色定义
 # 输出目标
 只输出一个 JSON 对象，结构固定为：
 {
-  "mode": "design_structured_variant_edit_v1",
-  "variant": {
-    "id": "v1 / v2 / v3 / v4",
-    "label": "",
-    "coreFields": {
-      "mainTitle": "",
-      "subTitle": "",
-      "eventTime": "",
-      "style": "",
-      "primaryColor": ""
-    },
-    "coreSuggestions": {
-      "mainTitle": "",
-      "subTitle": "",
-      "eventTime": "",
-      "style": "",
-      "primaryColor": ""
-    },
-    "analysis": {
-      "canvas": { "tokens": [], "detailText": "" },
-      "subject": { "tokens": [], "detailText": "" },
-      "background": { "tokens": [], "detailText": "" },
-      "layout": { "tokens": [], "detailText": "" },
-      "typography": { "tokens": [], "detailText": "" }
-    },
-    "promptPreview": ""
-  }
+  "mode": "design_structured_section_edit_v2",
+  "sectionKey": "canvas / subject / background / layout / typography",
+  "detailText": ""
 }
 
 # 修改原则
-1. 只重点重写用户指定的 section。
-2. 其他 section 和 coreFields 尽量保持稳定。
-3. 只有在必要时才做最小范围联动。
-4. promptPreview 必须根据更新后的结构同步重写，并保持自然流畅的一整段。
+1. 只重点重写用户指定的 section 的 detailText。
+2. 不要返回其他 section，不要返回 variant，不要返回 tokens。
+3. detailText 必须具体、可执行、层级清晰，避免空泛形容词堆砌。
+4. 如果原文本已有 HEX 色值，优先沿用并保持一致性。
 
 # 结构要求
-1. 返回完整 variant，不要只返回 section patch。
-2. analysis 五段必须完整。
-3. tokens 仍为短语，detailText 保留高细节 prose。
-4. 输出必须是合法 JSON，不要附带解释。`;
+1. sectionKey 必须与输入完全一致。
+2. detailText 必须是非空字符串。
+3. 输出必须是合法 JSON，不要附带解释。`;
 
 export const KV_STRUCTURED_OPTIMIZATION_SYSTEM_PROMPT = DESIGN_STRUCTURED_OPTIMIZATION_SYSTEM_PROMPT;
 
@@ -314,10 +297,6 @@ function uniquePhraseList(values: string[]) {
     seen.add(key);
     return true;
   });
-}
-
-function stripBulletPrefix(value: string) {
-  return value.replace(/^(?:[-*•·▪●◦]+|\d+[\.\)]\s*)/, "").trim();
 }
 
 function normalizeHex(value: string) {
@@ -477,15 +456,10 @@ export function derivePaletteFromVariantContent(params: {
       params.basePrompt || "",
       params.promptPreview || "",
       params.analysis.canvas.detailText,
-      ...params.analysis.canvas.tokens,
       params.analysis.subject.detailText,
-      ...params.analysis.subject.tokens,
       params.analysis.background.detailText,
-      ...params.analysis.background.tokens,
       params.analysis.layout.detailText,
-      ...params.analysis.layout.tokens,
       params.analysis.typography.detailText,
-      ...params.analysis.typography.tokens,
     ],
     params.existingPalette,
   );
@@ -528,54 +502,6 @@ export function replacePaletteWeightReferences(value: string, hex: string, previ
     .replace(new RegExp(`(占比\\s*)${escapedPreviousWeight}(\\s*的\\s*${escapedHex})`, "gi"), `$1${safeNextWeight}$2`)
     .replace(new RegExp(`(${escapedHex}[^#\\n]{0,32}?)${escapedPreviousWeight}`, "gi"), `$1${safeNextWeight}`)
     .replace(new RegExp(`${escapedPreviousWeight}([^#\\n]{0,32}?${escapedHex})`, "gi"), `${safeNextWeight}$1`);
-}
-
-function splitPhraseString(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return [];
-  }
-
-  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-    try {
-      return normalizePhraseList(JSON.parse(trimmed));
-    } catch {
-      // Ignore and continue with loose splitting.
-    }
-  }
-
-  return uniquePhraseList(
-    trimmed
-      .split(/\r?\n|[，、；;]+|(?<!#),(?!\d)/)
-      .map((part) => stripBulletPrefix(part))
-      .filter(Boolean)
-  );
-}
-
-function normalizePhraseList(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return uniquePhraseList(
-      value.flatMap((item) => {
-        if (typeof item === "string") {
-          return splitPhraseString(item);
-        }
-        const scalar = toLooseString(item);
-        return scalar ? [scalar] : [];
-      })
-    );
-  }
-
-  if (typeof value === "string") {
-    return splitPhraseString(value);
-  }
-
-  if (isRecord(value)) {
-    return uniquePhraseList(
-      Object.values(value).flatMap((item) => normalizePhraseList(item))
-    );
-  }
-
-  return [];
 }
 
 function extractJsonCandidate(raw: string) {
@@ -1181,21 +1107,13 @@ function normalizeAnalysisSection(value: unknown): DesignStructuredAnalysisSecti
     return { ...EMPTY_ANALYSIS_SECTION };
   }
 
-  if (typeof value === "string" || Array.isArray(value)) {
+  if (typeof value === "string") {
     return {
-      tokens: normalizePhraseList(value),
-      detailText: typeof value === "string" ? toLooseString(value) : "",
+      detailText: toLooseString(value),
     };
   }
 
   const source = isRecord(value) ? value : {};
-  const tokens = normalizePhraseList(getFirstPresentValue(source, [
-    "tokens",
-    "items",
-    "chips",
-    "phrases",
-    "keywords",
-  ]));
   const detailText = toLooseString(getFirstPresentValue(source, [
     "detailText",
     "detail_text",
@@ -1206,48 +1124,13 @@ function normalizeAnalysisSection(value: unknown): DesignStructuredAnalysisSecti
   ]));
 
   return {
-    tokens,
     detailText,
-  };
-}
-
-function mergeAnalysisSection(
-  base: DesignStructuredAnalysisSection,
-  incoming: DesignStructuredAnalysisSection,
-) {
-  return {
-    tokens: uniquePhraseList([...base.tokens, ...incoming.tokens]),
-    detailText: incoming.detailText || base.detailText,
-  };
-}
-
-function splitLegacyLayoutTypographyTokens(tokens: string[]) {
-  const layoutTokens: string[] = [];
-  const typographyTokens: string[] = [];
-  const layoutPattern = /layout|composition|focus|balance|center|centered|top|bottom|left|right|hierarchy|sticker|tag|banner|构图|布局|焦点|层次|顶部|底部|居中|对称|标签|横幅/i;
-  const typographyPattern = /font|type|text|letter|headline|title|caption|serif|sans|stroke|outline|shadow|mask|halftone|handwritten|script|字|字体|文字|描边|阴影|遮罩|手写|无衬线|衬线/i;
-
-  tokens.forEach((token) => {
-    const matchesLayout = layoutPattern.test(token);
-    const matchesTypography = typographyPattern.test(token);
-
-    if (matchesLayout || !matchesTypography) {
-      layoutTokens.push(token);
-    }
-    if (matchesTypography) {
-      typographyTokens.push(token);
-    }
-  });
-
-  return {
-    layout: uniquePhraseList(layoutTokens),
-    typography: uniquePhraseList(typographyTokens),
   };
 }
 
 function normalizeAnalysis(value: unknown): DesignStructuredAnalysis {
   const source = isRecord(value) ? value : {};
-  const analysis: DesignStructuredAnalysis = {
+  return {
     canvas: normalizeAnalysisSection(getFirstPresentValue(source, [
       "canvas",
       "overall",
@@ -1288,25 +1171,6 @@ function normalizeAnalysis(value: unknown): DesignStructuredAnalysis {
       "visual_effects",
     ])),
   };
-
-  const legacyLayoutTypography = normalizeAnalysisSection(getFirstPresentValue(source, [
-    "layoutTypography",
-    "layout_typography",
-  ]));
-
-  if (legacyLayoutTypography.tokens.length > 0 || legacyLayoutTypography.detailText) {
-    const split = splitLegacyLayoutTypographyTokens(legacyLayoutTypography.tokens);
-    analysis.layout = mergeAnalysisSection(analysis.layout, {
-      tokens: split.layout,
-      detailText: legacyLayoutTypography.detailText,
-    });
-    analysis.typography = mergeAnalysisSection(analysis.typography, {
-      tokens: split.typography.length > 0 ? split.typography : legacyLayoutTypography.tokens,
-      detailText: legacyLayoutTypography.detailText,
-    });
-  }
-
-  return analysis;
 }
 
 function normalizePaletteEntry(value: unknown): DesignStructuredPaletteEntry | null {
@@ -1532,14 +1396,7 @@ function buildAnalysisOnlyPrompt(
 ) {
   const sectionPhrases = DESIGN_ANALYSIS_SECTION_KEYS.flatMap((sectionKey) => {
     const section = analysis[sectionKey];
-    const parts: string[] = [];
-    if (section.detailText.trim()) {
-      parts.push(section.detailText.trim());
-    }
-    if (section.tokens.length > 0) {
-      parts.push(`${sectionKey}: ${section.tokens.join(", ")}`);
-    }
-    return parts;
+    return section.detailText.trim() ? [section.detailText.trim()] : [];
   });
 
   return sectionPhrases
@@ -1608,8 +1465,7 @@ function hasMeaningfulVariantContent(variant: DesignStructuredVariant, index: nu
     || Object.values(variant.coreSuggestions).some((value) => value.trim())
     || variant.palette.length > 0
     || DESIGN_ANALYSIS_SECTION_KEYS.some((sectionKey) => (
-      variant.analysis[sectionKey].tokens.length > 0
-      || variant.analysis[sectionKey].detailText.trim()
+      variant.analysis[sectionKey].detailText.trim()
     ))
     || variant.promptPreview.trim()
   );
@@ -1682,23 +1538,18 @@ export function parseDesignStructuredOptimizationResponse(raw: string): DesignSt
       palette: normalizeDesignPalette(variant.palette),
       analysis: {
         canvas: {
-          tokens: uniquePhraseList(variant.analysis.canvas.tokens),
           detailText: variant.analysis.canvas.detailText.trim(),
         },
         subject: {
-          tokens: uniquePhraseList(variant.analysis.subject.tokens),
           detailText: variant.analysis.subject.detailText.trim(),
         },
         background: {
-          tokens: uniquePhraseList(variant.analysis.background.tokens),
           detailText: variant.analysis.background.detailText.trim(),
         },
         layout: {
-          tokens: uniquePhraseList(variant.analysis.layout.tokens),
           detailText: variant.analysis.layout.detailText.trim(),
         },
         typography: {
-          tokens: uniquePhraseList(variant.analysis.typography.tokens),
           detailText: variant.analysis.typography.detailText.trim(),
         },
       },
@@ -1736,23 +1587,18 @@ export function parseDesignStructuredVariantEditResponse(raw: string): DesignStr
         palette: normalizeDesignPalette(directVariant.palette),
         analysis: {
           canvas: {
-            tokens: uniquePhraseList(directVariant.analysis.canvas.tokens),
             detailText: directVariant.analysis.canvas.detailText.trim(),
           },
           subject: {
-            tokens: uniquePhraseList(directVariant.analysis.subject.tokens),
             detailText: directVariant.analysis.subject.detailText.trim(),
           },
           background: {
-            tokens: uniquePhraseList(directVariant.analysis.background.tokens),
             detailText: directVariant.analysis.background.detailText.trim(),
           },
           layout: {
-            tokens: uniquePhraseList(directVariant.analysis.layout.tokens),
             detailText: directVariant.analysis.layout.detailText.trim(),
           },
           typography: {
-            tokens: uniquePhraseList(directVariant.analysis.typography.tokens),
             detailText: directVariant.analysis.typography.detailText.trim(),
           },
         },
@@ -1792,18 +1638,14 @@ export function buildDesignSectionDetailSyncInstruction(params: {
   sectionKey: DesignAnalysisSectionKey;
   section: DesignStructuredAnalysisSection;
 }) {
-  const normalizedTokens = params.section.tokens
-    .map((token) => token.trim())
-    .filter(Boolean);
   const originalDetailText = params.section.detailText.trim() || "（当前为空）";
 
   return [
-    `请只更新 ${params.sectionKey} section 的 detailText，并严格保留当前 tokens 原样不变。`,
-    "新的 detailText 必须完整吸收这些 tokens 表达的重点，并尽量延续原始 detailText 的细节密度、语气和具体程度。",
-    "不要改动其他 section，不要改 coreFields，也不要把 detailText 退化成 tokens 的简单罗列。",
-    `当前 tokens（必须原样保留）: ${JSON.stringify(normalizedTokens)}`,
+    `请只更新 ${params.sectionKey} section 的 detailText。`,
+    "detailText 必须具体、可执行，强调主体、场景和层级关系。",
+    "不要改动其他 section，不要改 coreFields，也不要返回 tokens。",
     `原始 detailText: ${originalDetailText}`,
-    "请输出完整 variant JSON，但只有当前 section 的 detailText 需要被显著更新。",
+    "只返回当前 section 的 detailText。",
   ].join("\n");
 }
 
@@ -1819,7 +1661,7 @@ export function buildDesignVariantEditUserInput(params: {
 }) {
   return JSON.stringify(
     {
-      task: "design_structured_variant_edit_v1",
+      task: "design_structured_variant_edit_v2",
       scope: params.scope,
       instruction: params.instruction.trim(),
       context: params.context,
@@ -1835,4 +1677,55 @@ export function buildDesignVariantEditUserInput(params: {
     null,
     2,
   );
+}
+
+export function buildDesignSectionEditUserInput(params: {
+  variantId: string;
+  sectionKey: DesignSectionEditScope;
+  instruction: string;
+  currentSectionText: string;
+  fullAnalysisContext: DesignStructuredAnalysis;
+  shortcutContext: {
+    shortcutId: string;
+    shortcutPrompt: string;
+    market?: string;
+  };
+}) {
+  return JSON.stringify(
+    {
+      task: "design_structured_section_edit_v2",
+      variantId: params.variantId,
+      sectionKey: params.sectionKey,
+      instruction: params.instruction.trim(),
+      currentSectionText: params.currentSectionText,
+      fullAnalysisContext: params.fullAnalysisContext,
+      shortcutContext: params.shortcutContext,
+    },
+    null,
+    2,
+  );
+}
+
+export function parseDesignSectionEditResponse(raw: string): DesignStructuredSectionEditResponse {
+  const parsed = unwrapStructuredPayload(parseJsonCandidate(raw));
+  const source = isRecord(parsed) ? parsed : {};
+  const mode = toLooseString(getFirstPresentValue(source, ["mode"]));
+  const sectionKey = toLooseString(getFirstPresentValue(source, ["sectionKey", "section_key"])) as DesignAnalysisSectionKey;
+  const detailText = toLooseString(getFirstPresentValue(source, ["detailText", "detail_text", "text", "content"]));
+
+  if (mode !== DESIGN_SECTION_EDIT_MODE) {
+    throw new Error(`Unexpected section edit mode: ${mode || "empty"}`);
+  }
+  if (!(DESIGN_ANALYSIS_SECTION_KEYS as readonly string[]).includes(sectionKey)) {
+    throw new Error(`Invalid sectionKey: ${sectionKey || "empty"}`);
+  }
+  if (!detailText) {
+    throw new Error("Section edit response missing detailText");
+  }
+
+  return {
+    mode: DESIGN_SECTION_EDIT_MODE,
+    sectionKey,
+    detailText,
+  };
 }

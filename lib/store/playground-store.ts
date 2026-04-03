@@ -421,7 +421,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         : { ...state.config, model: finalModel, baseModel: finalModel, isPreset: false, presetName: undefined };
 
                     // Default to 2K for Seed 4.2
-                    if (finalModel === 'seed4_v2_0226lemo' && !newConfig.imageSize) {
+                    if (finalModel === 'seed4_0402_v4_lemo' && !newConfig.imageSize) {
                         newConfig.imageSize = '2K';
                     }
 

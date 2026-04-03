@@ -79,13 +79,14 @@ import {
   type ShortcutPromptValues,
 } from "@/config/moodboard-cards";
 import {
-  buildDesignSectionDetailSyncInstruction,
   buildKvStructuredOptimizationInput,
   DESIGN_STRUCTURED_VARIANT_IDS,
   DESIGN_VARIANT_EDIT_MODE,
+  DESIGN_SECTION_EDIT_MODE,
   getKvShortcutMarket,
   normalizeDesignPalette,
   isKvShortcutId,
+  parseDesignSectionEditResponse,
   parseDesignStructuredOptimizationResponse,
   parseDesignStructuredVariantEditResponse,
   type DesignStructuredAnalysis,
@@ -166,6 +167,7 @@ interface BannerSessionHistoryItem {
 
 type PromptOptimizationRequestPrefix = "[Event kv]" | "[Text]";
 const KV_STRUCTURED_OPTIMIZATION_PARALLEL_REQUEST_COUNT = 4;
+const KV_STRUCTURED_HISTORY_BACKFILL_COUNT = 1;
 
 function prependPromptOptimizationRequestPrefix(
   input: string,
@@ -639,6 +641,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const shortcutPreviewHasNext =
     shortcutPreviewCurrentIndex !== -1 && shortcutPreviewCurrentIndex < shortcutPreviewResults.length - 1;
   const hasStructuredShortcutSession = Boolean(activeShortcutTemplate?.optimizationSession);
+  const shouldHideHomeEntryCards = hasStructuredShortcutSession && isInputFocused;
   const historyForPanel = useMemo(() => {
     if (describeOptimisticHistory.length === 0) {
       return filteredHistory;
@@ -888,6 +891,65 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
 
     return parsed.variant;
+  }, []);
+
+  const requestDesignSectionEdit = useCallback(async (params: {
+    sectionKey: DesignAnalysisSectionKey;
+    instruction: string;
+    variant: ShortcutOptimizationVariantDraft;
+    shortcut: PlaygroundShortcut;
+    values: ShortcutPromptValues;
+    removedFieldIds: string[];
+  }) => {
+    const market = isKvShortcutId(params.shortcut.id)
+      ? getKvShortcutMarket(params.shortcut.id)
+      : undefined;
+    const shortcutPrompt = buildShortcutPrompt(params.shortcut, params.values, {
+      removedFieldIds: params.removedFieldIds,
+      usePlaceholder: false,
+    });
+
+    const response = await fetch(`${getApiBase()}/ai/design-section-edit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        variantId: params.variant.id,
+        sectionKey: params.sectionKey,
+        instruction: params.instruction,
+        currentSectionText: params.variant.analysis[params.sectionKey].detailText,
+        fullAnalysisContext: params.variant.analysis,
+        shortcutContext: {
+          shortcutId: params.shortcut.id,
+          shortcutPrompt,
+          market,
+        },
+      }),
+    });
+
+    const raw = await response.text();
+    if (!response.ok) {
+      let errorMessage = raw || `HTTP ${response.status}`;
+      try {
+        const errorPayload = JSON.parse(raw) as { error?: string };
+        errorMessage = errorPayload.error || errorMessage;
+      } catch {
+        // Ignore parse errors and fall back to raw text.
+      }
+      throw new Error(errorMessage);
+    }
+
+    const parsed = parseDesignSectionEditResponse(raw);
+    if (parsed.mode !== DESIGN_SECTION_EDIT_MODE) {
+      throw new Error('Unexpected design section edit response mode');
+    }
+
+    if (parsed.sectionKey !== params.sectionKey) {
+      throw new Error(`Section key mismatch: expected ${params.sectionKey}, received ${parsed.sectionKey}`);
+    }
+
+    return parsed;
   }, []);
 
   const handleFilesUpload = React.useCallback(async (
@@ -1511,7 +1573,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     const nextAnalysis = {
       ...activeVariant.analysis,
       [sectionKey]: {
-        tokens: [...nextSection.tokens],
         detailText: nextSection.detailText,
       },
     };
@@ -1746,38 +1807,17 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
 
     const rawInstruction = (instructionOverride ?? activeVariant.pendingInstruction).trim();
-    const shouldSyncSectionDetailText = scope !== 'variant' && !rawInstruction;
+    const isSectionScope = scope !== 'variant';
     const sectionKey = scope as DesignAnalysisSectionKey;
-    const currentSection = shouldSyncSectionDetailText
-      ? activeVariant.analysis[sectionKey]
-      : null;
-    const normalizedTokens = currentSection
-      ? currentSection.tokens.map((token) => token.trim()).filter(Boolean)
-      : [];
-    if (shouldSyncSectionDetailText && normalizedTokens.length === 0) {
+    if (!rawInstruction) {
       toast({
-        title: '请先补充 Token',
-        description: '至少保留一个 token，AI 才能根据 token 更新 Detail Text。',
+        title: '请输入修改要求',
+        description: isSectionScope ? '请输入一句自然语言，描述你希望该段如何改写。' : '请输入一句自然语言描述你想调整的方向。',
         variant: 'destructive',
       });
       return;
     }
-
-    const instruction = shouldSyncSectionDetailText
-      ? buildDesignSectionDetailSyncInstruction({
-        sectionKey,
-        section: {
-          tokens: normalizedTokens,
-          detailText: currentSection?.detailText || '',
-        },
-      })
-      : rawInstruction;
-    if (!instruction) {
-      toast({
-        title: '请输入修改要求',
-        description: '可以点击快捷修改，或输入一句自然语言描述你想调整的方向。',
-        variant: 'destructive',
-      });
+    if (current.optimizationSession.variants.some((variant) => variant.isModifying)) {
       return;
     }
 
@@ -1802,50 +1842,29 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     });
 
     try {
-      const nextVariant = await requestDesignVariantEdit({
-        instruction,
-        scope,
-        variant: activeVariant,
-        shortcut: current.shortcut,
-        values: current.values,
-        removedFieldIds: current.removedFieldIds,
-      });
+      if (isSectionScope) {
+        const sectionEdit = await requestDesignSectionEdit({
+          sectionKey,
+          instruction: rawInstruction,
+          variant: activeVariant,
+          shortcut: current.shortcut,
+          values: current.values,
+          removedFieldIds: current.removedFieldIds,
+        });
 
-      const nextValues = mergeLockedKvValues(current.values, nextVariant.coreFields);
-      const nextPalette = deriveVariantPalette(
-        current.shortcut,
-        nextValues,
-        current.removedFieldIds,
-        nextVariant.analysis,
-        nextVariant.palette,
-        nextVariant.promptPreview,
-      );
-      const nextPrompt = buildKvVariantPromptPreview(
-        current.shortcut,
-        nextValues,
-        current.removedFieldIds,
-        nextVariant.analysis,
-        nextPalette,
-      );
-
-      const latest = activeShortcutTemplateRef.current;
-      if (!latest?.optimizationSession) {
-        return;
-      }
-      const shouldSyncActiveView = latest.optimizationSession.activeVariantId === activeVariantId;
-
-      if (shouldSyncSectionDetailText) {
+        const latest = activeShortcutTemplateRef.current;
+        if (!latest?.optimizationSession) {
+          return;
+        }
         const latestVariant = findShortcutVariant(latest.optimizationSession, activeVariantId);
         if (!latestVariant) {
           return;
         }
 
-        const latestSection = latestVariant.analysis[sectionKey];
         const nextAnalysis: DesignStructuredAnalysis = {
           ...cloneDesignAnalysis(latestVariant.analysis),
           [sectionKey]: {
-            tokens: [...latestSection.tokens],
-            detailText: nextVariant.analysis[sectionKey].detailText.trim() || latestSection.detailText,
+            detailText: sectionEdit.detailText.trim(),
           },
         };
         const nextPalette = deriveVariantPalette(
@@ -1854,6 +1873,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           latestVariant.removedFieldIds,
           nextAnalysis,
           latestVariant.palette,
+          latestVariant.promptPreview,
         );
         const nextPrompt = buildKvVariantPromptPreview(
           latest.shortcut,
@@ -1862,6 +1882,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           nextAnalysis,
           nextPalette,
         );
+        const shouldSyncActiveView = latest.optimizationSession.activeVariantId === activeVariantId;
 
         setActiveShortcutTemplate({
           shortcut: latest.shortcut,
@@ -1890,6 +1911,37 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         }
         return;
       }
+
+      const nextVariant = await requestDesignVariantEdit({
+        instruction: rawInstruction,
+        scope,
+        variant: activeVariant,
+        shortcut: current.shortcut,
+        values: current.values,
+        removedFieldIds: current.removedFieldIds,
+      });
+
+      const latest = activeShortcutTemplateRef.current;
+      if (!latest?.optimizationSession) {
+        return;
+      }
+      const shouldSyncActiveView = latest.optimizationSession.activeVariantId === activeVariantId;
+      const nextValues = mergeLockedKvValues(current.values, nextVariant.coreFields);
+      const nextPalette = deriveVariantPalette(
+        latest.shortcut,
+        nextValues,
+        current.removedFieldIds,
+        nextVariant.analysis,
+        nextVariant.palette,
+        nextVariant.promptPreview,
+      );
+      const nextPrompt = buildKvVariantPromptPreview(
+        latest.shortcut,
+        nextValues,
+        current.removedFieldIds,
+        nextVariant.analysis,
+        nextPalette,
+      );
 
       setActiveShortcutTemplate({
         shortcut: latest.shortcut,
@@ -1949,12 +2001,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         },
       });
       toast({
-        title: shouldSyncSectionDetailText ? 'AI 更新 Detail Text 失败' : 'AI 微调失败',
+        title: isSectionScope ? 'AI 更新段落失败' : 'AI 微调失败',
         description: error instanceof Error ? error.message : '请稍后重试',
         variant: 'destructive',
       });
     }
-  }, [requestDesignVariantEdit, toast, updateConfig]);
+  }, [requestDesignSectionEdit, requestDesignVariantEdit, toast, updateConfig]);
 
   const handleExitShortcutTemplate = useCallback(() => {
     setActiveShortcutTemplate(null);
@@ -2013,6 +2065,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           {
             ...usePlaygroundStore.getState().config,
             prompt: activeVariant?.promptPreview || current.appliedPrompt,
+            taskId: undefined,
           },
           optimizationSource,
         ),
@@ -2215,8 +2268,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       || Object.values(variant.coreSuggestions).some((value) => value.trim())
       || variant.palette.length > 0
       || Object.values(variant.analysis).some((section) => (
-        section.tokens.length > 0
-        || section.detailText.trim().length > 0
+        section.detailText.trim().length > 0
       ))
       || variant.promptPreview.trim().length > 0
     );
@@ -2471,6 +2523,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         width: usePlaygroundStore.getState().config.width,
         height: usePlaygroundStore.getState().config.height,
       },
+      maxItems: KV_STRUCTURED_HISTORY_BACKFILL_COUNT,
     }));
     toast({
       title: `AI 已生成 ${normalizedSelectedVariants.length} 个版本`,
@@ -2566,7 +2619,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
     if (firstVariant) {
       const optimizationSource: PromptOptimizationSourcePayload = {
-        version: 1,
+        version: 2,
         sourceKind: inlineShortcutTemplateSnapshot ? "shortcut_inline" : "plain_text",
         taskId: optimizationTaskId,
         originalPrompt: config.prompt,
@@ -3339,7 +3392,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                     )}
 
                     {/* Capsule Triggers - Only visible in Home Mode */}
-                    {viewMode === 'home' && !isPresetGridOpen && !hasStructuredShortcutSession && (
+                    {viewMode === 'home' && !isPresetGridOpen && !shouldHideHomeEntryCards && (
                       <PlaygroundHomeActions
                         onOpenDescribe={() => { setViewMode('dock'); setActiveTab('describe'); }}
                         onEdit={handleEditUploadedImage}
@@ -3397,7 +3450,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
             </div>
 
-            {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && !hasStructuredShortcutSession && (
+            {!isPresetGridOpen && !isPresetManagerOpen && viewMode === 'home' && !shouldHideHomeEntryCards && (
               <div className="absolute bottom-0 w-full overflow-visible z-50 pointer-events-none flex flex-col items-center">
                 <MoodboardMarquee
                   items={moodboardCardEntries.slice(0, 10)}

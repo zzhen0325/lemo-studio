@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Pipette, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
-
+import { ChevronLeft, ChevronRight, Minimize2, Pipette, RefreshCw, Sparkles, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   getShortcutRenderableFieldSegments,
   getShortcutRenderablePromptSuffix,
@@ -13,10 +13,8 @@ import {
 } from '@/config/moodboard-cards';
 import {
   DESIGN_ANALYSIS_SECTION_KEYS,
-  extractDesignHexMatches,
   formatPaletteWeight,
   normalizeDesignPalette,
-  replaceHexColorReferences,
   type DesignVariantEditScope,
   type DesignStructuredAnalysis,
   type DesignAnalysisSectionKey,
@@ -67,6 +65,8 @@ interface ShortcutPromptComposerProps {
   isGenerating?: boolean;
   isExpanded?: boolean;
   isHomeStructuredMode?: boolean;
+  onRequestExpand?: () => void;
+  onRequestCollapse?: () => void;
 }
 
 const ANALYSIS_SECTION_LABELS: Record<DesignAnalysisSectionKey, string> = {
@@ -105,79 +105,6 @@ type DetailTextSegment =
     normalizedHex: string;
     occurrenceIndex: number;
   };
-
-function TokenEditor({
-  label,
-  items,
-  onChange,
-}: {
-  label: string;
-  items: string[];
-  onChange: (nextItems: string[]) => void;
-}) {
-  const normalizedItems = items.length > 0 ? items : [''];
-
-  return (
-    <div className="grid grid-cols-2 gap-2 mt-2">
-      {normalizedItems.map((item, index) => {
-        const itemHex = extractDesignHexMatches(item)[0];
-
-        return (
-          <div
-            key={`${label}-${index}`}
-            className="inline-flex min-h-7 min-w-[6rem] items-center gap-1.5 rounded-md border border-white/20 bg-white/5 px-2 py-1 text-white"
-          >
-            {itemHex ? (
-              <label className="relative flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center">
-                <span
-                  className="h-4 w-4 rounded-full border border-white/30"
-                  style={{ backgroundColor: normalizeShortcutColorValue(itemHex) || '#1F2937' }}
-                />
-                <input
-                  type="color"
-                  tabIndex={-1}
-                  value={normalizeShortcutColorValue(itemHex) || '#1F2937'}
-                  onChange={(event) => {
-                    const nextItems = [...normalizedItems];
-                    nextItems[index] = replaceHexColorReferences(
-                      nextItems[index],
-                      itemHex,
-                      event.target.value.toUpperCase(),
-                    );
-                    onChange(nextItems);
-                  }}
-                  className="sr-only"
-                />
-              </label>
-            ) : null}
-            <input
-              value={item}
-              onChange={(event) => {
-                const nextItems = [...normalizedItems];
-                nextItems[index] = event.target.value;
-                onChange(nextItems);
-              }}
-              placeholder="可编辑短语"
-              className="min-w-[6rem] flex-1 bg-transparent text-xs text-white outline-none placeholder:text-white/35"
-            />
-            <button
-              type="button"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                const nextItems = normalizedItems.filter((_, itemIndex) => itemIndex !== index);
-                onChange(nextItems);
-              }}
-              className="flex h-4 w-4 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white"
-              aria-label={`删除 ${label} 短语`}
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function getDetailTextSegments(value: string) {
   const segments: DetailTextSegment[] = [];
@@ -317,10 +244,16 @@ function InlineDetailTextEditor({
   value,
   onChange,
   placeholder,
+  containerClassName,
+  editorClassName,
+  placeholderClassName,
 }: {
   value: string;
   onChange: (nextValue: string) => void;
   placeholder?: string;
+  containerClassName?: string;
+  editorClassName?: string;
+  placeholderClassName?: string;
 }) {
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const isComposingRef = React.useRef(false);
@@ -420,9 +353,9 @@ function InlineDetailTextEditor({
   }, [syncEditorFromValue, value]);
 
   return (
-    <div className="relative">
+    <div className={cn('relative', containerClassName)}>
       {!value ? (
-        <span className="pointer-events-none absolute left-0 top-0 text-xs leading-5 text-white/35">
+        <span className={cn('pointer-events-none absolute left-0 top-0 text-xs leading-5 text-white/35', placeholderClassName)}>
           {placeholder}
         </span>
       ) : null}
@@ -470,7 +403,10 @@ function InlineDetailTextEditor({
             emitCurrentValue();
           }
         }}
-        className="min-h-[5.5rem] min-w-[14rem] whitespace-pre-wrap break-words bg-transparent text-xs leading-5 text-white outline-none"
+        className={cn(
+          'min-h-[5.5rem] min-w-[14rem] whitespace-pre-wrap break-words bg-transparent text-xs leading-5 text-white outline-none',
+          editorClassName,
+        )}
       />
     </div>
   );
@@ -478,49 +414,58 @@ function InlineDetailTextEditor({
 
 function AnalysisSectionEditor({
   label,
+  sectionKey,
   section,
   onChange,
-  onRewrite,
+  rewriteInstruction,
+  onRewriteInstructionChange,
+  onSubmitRewrite,
   isRewriting = false,
 }: {
   label: string;
+  sectionKey: DesignAnalysisSectionKey;
   section: DesignStructuredAnalysisSection;
   onChange: (nextSection: DesignStructuredAnalysisSection) => void;
-  onRewrite?: () => void;
+  rewriteInstruction: string;
+  onRewriteInstructionChange: (value: string) => void;
+  onSubmitRewrite: () => void;
   isRewriting?: boolean;
 }) {
+  const canSubmit = rewriteInstruction.trim().length > 0 && !isRewriting;
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2 flex items-center gap-2">
         <span className="text-[11px] font-medium   text-white/55">
           {label}
         </span>
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5">
+          <input
+            value={rewriteInstruction}
+            onChange={(event) => onRewriteInstructionChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') {
+                return;
+              }
+              event.preventDefault();
+              if (canSubmit) {
+                onSubmitRewrite();
+              }
+            }}
+            placeholder="输入改写指令..."
+            className="h-7 w-[150px] max-w-[42vw] rounded-md border border-white/10 bg-white/10 px-2 text-[11px] text-white outline-none placeholder:text-white/38 focus:border-[#D8FF8E]/30 focus:bg-white/10"
+          />
           <button
             type="button"
-            disabled={isRewriting}
-            onClick={() => onRewrite?.()}
-            className="inline-flex items-center gap-1 rounded-full border border-[#D8FF8E]/20 bg-[#D8FF8E]/10 px-2 py-0.5 text-[10px] text-[#F4FFCE] transition-colors hover:bg-[#D8FF8E]/16 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!canSubmit}
+            onClick={onSubmitRewrite}
+            className="inline-flex h-7 items-center gap-1 rounded-full border border-[#D8FF8E]/20 bg-[#D8FF8E]/10 px-2 py-0.5 text-[10px] text-[#F4FFCE] transition-colors hover:bg-[#D8FF8E]/16 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className={cn('h-3 w-3', isRewriting && 'animate-pulse')} />
-            AI重写
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({ ...section, tokens: [...section.tokens, ''] })}
-            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <Plus className="h-3 w-3" />
-            添加
+            AI改写
           </button>
         </div>
       </div>
-
-      <TokenEditor
-        label={label}
-        items={section.tokens}
-        onChange={(nextTokens) => onChange({ ...section, tokens: nextTokens.filter((item, index, array) => item || array.length === 1 || index < array.length - 1) })}
-      />
 
       <div className="mt-2.5">
         <div className="mb-1.5 text-[10px] font-medium text-white/45">
@@ -697,6 +642,8 @@ export function ShortcutPromptComposer({
   isOptimizing = false,
   isExpanded = true,
   isHomeStructuredMode = false,
+  onRequestExpand,
+  onRequestCollapse,
 }: ShortcutPromptComposerProps) {
   const inputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
   const colorPickerRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
@@ -721,10 +668,21 @@ export function ShortcutPromptComposer({
     () => optimizationSession?.variants.find((variant) => variant.id === optimizationSession.activeVariantId) || null,
     [optimizationSession]
   );
+  const activeVariantIndex = React.useMemo(
+    () => optimizationSession?.variants.findIndex((variant) => variant.id === optimizationSession.activeVariantId) ?? -1,
+    [optimizationSession],
+  );
   const isAnyVariantModifying = React.useMemo(
     () => optimizationSession?.variants.some((variant) => variant.isModifying) || false,
     [optimizationSession]
   );
+  const [sectionRewriteInstructions, setSectionRewriteInstructions] = React.useState<Record<DesignAnalysisSectionKey, string>>({
+    canvas: '',
+    subject: '',
+    background: '',
+    layout: '',
+    typography: '',
+  });
   const useTokenGridLayout = shortcut.promptComposerLayout === 'grid';
   const isStructuredSession = Boolean(optimizationSession);
   const inlinePromptShinyText = React.useMemo(
@@ -762,6 +720,27 @@ export function ShortcutPromptComposer({
     }
     pendingFocusFieldIdRef.current = null;
   }, [visibleFieldIds]);
+
+  React.useEffect(() => {
+    if (!activeVariant) {
+      return;
+    }
+
+    setSectionRewriteInstructions((previous) => {
+      if (Object.values(previous).every((value) => value === '')) {
+        return previous;
+      }
+      return {
+        canvas: '',
+        subject: '',
+        background: '',
+        layout: '',
+        typography: '',
+      };
+    });
+  }, [activeVariant?.id]);
+
+
 
   const renderFieldControl = (
     field: (typeof visibleSegments)[number]["field"],
@@ -917,145 +896,195 @@ export function ShortcutPromptComposer({
     </div>
   );
 
+  const normalizedActivePalette = React.useMemo(
+    () => normalizeDesignPalette(activeVariant?.palette || []),
+    [activeVariant?.palette],
+  );
+  const compactPaletteRows = React.useMemo(
+    () => normalizedActivePalette.slice(0, 6),
+    [normalizedActivePalette],
+  );
+
   return (
     <div
       className={cn(
-        'flex w-full flex-col gap-3 p-2 pl-6',
+        'flex w-full flex-col gap-3 pt-6 pl-6',
         isStructuredSession
           ? isExpanded
             ? cn(
-              'overflow-y-auto pb-2 pr-10',
+              'overflow-y-auto pb-2 pr-6',
               isHomeStructuredMode ? 'max-h-[68vh] md:max-h-[72vh]' : 'max-h-[56vh] md:max-h-[62vh]'
             )
-            : 'max-h-[96px] overflow-hidden pb-2 pr-6'
-          : 'pb-4 pr-16 '
+            : 'pb-2 pr-6'
+          : 'pb-4 pr-12'
       )}
     >
-      {optimizationSession ? (
-        <div className="relative rounded-2xl border border-white/10 bg-transparent p-3">
-          {inlinePromptEditor}
-        </div>
-      ) : null}
+      {!optimizationSession ? inlinePromptEditor : null}
 
-      {optimizationSession ? (
-        <div className="flex flex-col mt-4 gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
+      {optimizationSession && activeVariant && !isExpanded ? (
+        <div className="rounded-2xl  border-none bg-white/10 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {compactPaletteRows.length === 0 ? (
+                <span className="text-[11px] text-white/45">暂无色板</span>
+              ) : compactPaletteRows.map((entry, index) => (
+                <label
+                  key={`${entry.hex}-${index}`}
+                  className="group relative flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm border border-white/30"
+                  style={{ backgroundColor: normalizeShortcutColorValue(entry.hex) || '#1F2937' }}
+                >
+                  <input
+                    type="color"
+                    tabIndex={-1}
+                    value={normalizeShortcutColorValue(entry.hex) || '#1F2937'}
+                    onChange={(event) => {
+                      const nextPalette = [...normalizedActivePalette];
+                      nextPalette[index] = { ...entry, hex: event.target.value.toUpperCase() };
+                      onPaletteChange?.(nextPalette);
+                    }}
+                    className="sr-only"
+                  />
+                </label>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => onRequestExpand?.()}
+              className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-1 text-[10px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              展开
+            </button>
+          </div>
+
+          <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/10" data-testid="collapsed-analysis-sections">
+            <div className="max-h-48 divide-y divide-white/10 overflow-y-auto">
+              {DESIGN_ANALYSIS_SECTION_KEYS.map((sectionKey) => (
+                <div key={sectionKey} data-testid={`collapsed-analysis-${sectionKey}`} className="px-2.5 py-2">
+                  <div className="mb-1 text-[10px] font-medium text-white/45">
+                    {ANALYSIS_SECTION_LABELS[sectionKey]}
+                  </div>
+                  <div className="border-none bg-transparent text-xs leading-5 text-white">
+                    <InlineDetailTextEditor
+                      value={activeVariant.analysis[sectionKey].detailText}
+                      onChange={(nextDetailText) => onAnalysisSectionChange?.(sectionKey, {
+                        ...activeVariant.analysis[sectionKey],
+                        detailText: nextDetailText,
+                      })}
+                      placeholder="可直接编辑文字，点击 #HEX 调整颜色"
+                      editorClassName="min-h-[2.5rem] min-w-0 text-xs leading-5"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center  justify-center gap-1 overflow-x-auto no-scrollbar">
             {optimizationSession.variants.map((variant) => {
-              const isActive = variant.id === optimizationSession.activeVariantId;
+              const isActive = variant.id === activeVariant.id;
               return (
-                <button
+                <Button
                   key={variant.id}
                   type="button"
+                  variant="light"
+                  
                   disabled={isAnyVariantModifying}
                   onClick={() => onVariantSelect?.(variant.id)}
                   className={cn(
-                    'rounded-xl border px-3 py-2 text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                    "inline-flex h-7 items-center justify-center rounded-sm border px-3 text-[11px] font-medium transition-colors whitespace-nowrap",
                     isActive
-                      ? 'border-[#D8FF8E]/20 bg-white/10 text-[#F4FFCE]'
-                      : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                      ? "border-white/20 bg-white/20 text-white"
+                      : "border-transparent bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  {variant.id.toUpperCase()} {variant.label}
-                </button>
+                  {isActive ? `${variant.id.toUpperCase()} · ${variant.label}` : variant.id.toUpperCase()}
+                </Button>
               );
             })}
           </div>
-
-          {/* 生成当前方案按钮已隐藏 */}
-          <button
-            type="button"
-            disabled={isOptimizing || isAnyVariantModifying}
-            onClick={() => onRegenerateVariants?.()}
-            className="h-8 inline-flex items-center justify-center gap-1 self-start rounded-md border border-white/10 bg-white/5 px-3 py-1 text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 md:self-auto"
-          >
-            <RefreshCw className={cn('h-3 w-3', isOptimizing && 'animate-spin')} />
-            重新优化
-          </button>
         </div>
       ) : null}
 
-      {!optimizationSession ? inlinePromptEditor : null}
-
-      {activeVariant ? (
-        <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/78" open>
-          <summary className="cursor-pointer list-none text-[11px] font-medium  text-white/55">
-            Final Prompt
-          </summary>
-          <div className="mt-2 max-h-36 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6 text-white/82 pr-2">
-            {activeVariant.promptPreview}
-          </div>
-        </details>
-      ) : null}
-
-      {/* 快捷入口 */}
-      {/* {activeVariant ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-white/55">
-              快捷修改
-            </span>
-            <button
-              type="button"
-              disabled={isAnyVariantModifying}
-              onClick={() => onRestoreVariant?.()}
-              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              恢复原版
-            </button>
-          </div>
-
-          <div className="mb-3 flex flex-wrap gap-2">
-            {QUICK_EDIT_ACTIONS.map((action) => (
+      {optimizationSession && activeVariant && isExpanded ? (
+        <>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1">
+              {optimizationSession.variants.map((variant) => {
+                const isActive = variant.id === activeVariant.id;
+                return (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    disabled={isAnyVariantModifying}
+                    onClick={() => onVariantSelect?.(variant.id)}
+                    className={cn(
+                      "inline-flex h-7 items-center justify-center rounded-full border px-3 text-[11px] font-medium transition-colors whitespace-nowrap",
+                      isActive
+                        ? "border-white/20 bg-white/10 text-white"
+                        : "border-transparent bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    {isActive ? `${variant.id.toUpperCase()} · ${variant.label}` : variant.id.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                key={action.label}
                 type="button"
-                onClick={() => onPrefillInstruction?.(action.instruction, 'variant')}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                disabled={isOptimizing || isAnyVariantModifying}
+                onClick={() => onRegenerateVariants?.()}
+                className="h-8 inline-flex items-center justify-center gap-1 rounded-md border border-white/10 bg-white/5 px-3 py-1 text-[12px] text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {action.label}
+                <RefreshCw className={cn('h-3 w-3', isOptimizing && 'animate-spin')} />
+                重新优化
               </button>
+              <button
+                type="button"
+                onClick={() => onRequestCollapse?.()}
+                className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 text-[11px] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+                收起
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-2.5 md:grid-cols-2">
+            <PaletteEditor
+              palette={activeVariant.palette}
+              onChange={(nextPalette) => onPaletteChange?.(nextPalette.filter((entry) => entry.hex || entry.weight))}
+            />
+            {DESIGN_ANALYSIS_SECTION_KEYS.map((sectionKey) => (
+              <AnalysisSectionEditor
+                key={sectionKey}
+                label={ANALYSIS_SECTION_LABELS[sectionKey]}
+                sectionKey={sectionKey}
+                section={activeVariant.analysis[sectionKey]}
+                onChange={(nextSection) => onAnalysisSectionChange?.(sectionKey, nextSection)}
+                rewriteInstruction={sectionRewriteInstructions[sectionKey]}
+                onRewriteInstructionChange={(value) => {
+                  setSectionRewriteInstructions((previous) => ({
+                    ...previous,
+                    [sectionKey]: value,
+                  }));
+                }}
+                onSubmitRewrite={() => {
+                  const instruction = sectionRewriteInstructions[sectionKey].trim();
+                  if (!instruction) {
+                    return;
+                  }
+                  onApplyEdit?.(sectionKey, instruction);
+                  setSectionRewriteInstructions((previous) => ({
+                    ...previous,
+                    [sectionKey]: '',
+                  }));
+                }}
+                isRewriting={activeVariant.isModifying && activeVariant.pendingScope === sectionKey}
+              />
             ))}
           </div>
-
-          <textarea
-            value={activeVariant.pendingInstruction}
-            onChange={(event) => onEditInstructionChange?.(event.target.value)}
-            placeholder="例如：把主体改成超大账本，背景更像真实桌面，标题更突出"
-            rows={3}
-            className="w-full resize-y rounded-2xl border border-white/10 bg-black/10 px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-white/35"
-          />
-
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              disabled={activeVariant.isModifying || !activeVariant.pendingInstruction.trim()}
-              onClick={() => onApplyEdit?.(activeVariant.pendingScope)}
-              className="inline-flex items-center gap-1 rounded-full border border-[#D8FF8E]/25 bg-[#D8FF8E]/10 px-3 py-1 text-[11px] text-[#F4FFCE] transition-colors hover:bg-[#D8FF8E]/16 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Sparkles className={cn('h-3 w-3', activeVariant.isModifying && 'animate-pulse')} />
-              {activeVariant.isModifying ? '修改中...' : '应用修改'}
-            </button>
-          </div>
-        </div>
-      ) : null} */}
-
-      {activeVariant ? (
-        <div className="grid gap-2.5 md:grid-cols-2">
-          <PaletteEditor
-            palette={activeVariant.palette}
-            onChange={(nextPalette) => onPaletteChange?.(nextPalette.filter((entry) => entry.hex || entry.weight))}
-          />
-          {DESIGN_ANALYSIS_SECTION_KEYS.map((sectionKey) => (
-            <AnalysisSectionEditor
-              key={sectionKey}
-              label={ANALYSIS_SECTION_LABELS[sectionKey]}
-              section={activeVariant.analysis[sectionKey]}
-              onChange={(nextSection) => onAnalysisSectionChange?.(sectionKey, nextSection)}
-              onRewrite={() => onApplyEdit?.(sectionKey, activeVariant.pendingInstruction.trim() || undefined)}
-              isRewriting={activeVariant.isModifying}
-            />
-          ))}
-        </div>
+        </>
       ) : null}
     </div>
   );

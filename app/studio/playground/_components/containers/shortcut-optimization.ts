@@ -77,11 +77,11 @@ export function cloneDesignPalette(palette: DesignStructuredPaletteEntry[]) {
 
 export function cloneDesignAnalysis(analysis: DesignStructuredAnalysis): DesignStructuredAnalysis {
   return {
-    canvas: { tokens: [...analysis.canvas.tokens], detailText: analysis.canvas.detailText },
-    subject: { tokens: [...analysis.subject.tokens], detailText: analysis.subject.detailText },
-    background: { tokens: [...analysis.background.tokens], detailText: analysis.background.detailText },
-    layout: { tokens: [...analysis.layout.tokens], detailText: analysis.layout.detailText },
-    typography: { tokens: [...analysis.typography.tokens], detailText: analysis.typography.detailText },
+    canvas: { detailText: analysis.canvas.detailText },
+    subject: { detailText: analysis.subject.detailText },
+    background: { detailText: analysis.background.detailText },
+    layout: { detailText: analysis.layout.detailText },
+    typography: { detailText: analysis.typography.detailText },
   };
 }
 
@@ -185,7 +185,7 @@ export function buildStructuredOptimizationSourcePayload(
   );
 
   return {
-    version: 1,
+    version: 2,
     sourceKind: "kv_structured",
     taskId,
     originalPrompt,
@@ -279,23 +279,18 @@ export function replaceColorInAnalysis(
 ) {
   return {
     canvas: {
-      tokens: analysis.canvas.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
       detailText: replaceHexColorReferences(analysis.canvas.detailText, previousHex, nextHex),
     },
     subject: {
-      tokens: analysis.subject.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
       detailText: replaceHexColorReferences(analysis.subject.detailText, previousHex, nextHex),
     },
     background: {
-      tokens: analysis.background.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
       detailText: replaceHexColorReferences(analysis.background.detailText, previousHex, nextHex),
     },
     layout: {
-      tokens: analysis.layout.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
       detailText: replaceHexColorReferences(analysis.layout.detailText, previousHex, nextHex),
     },
     typography: {
-      tokens: analysis.typography.tokens.map((token) => replaceHexColorReferences(token, previousHex, nextHex)),
       detailText: replaceHexColorReferences(analysis.typography.detailText, previousHex, nextHex),
     },
   };
@@ -309,23 +304,18 @@ export function replacePaletteWeightsInAnalysis(
 ) {
   return {
     canvas: {
-      tokens: analysis.canvas.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
       detailText: replacePaletteWeightReferences(analysis.canvas.detailText, hex, previousWeight, nextWeight),
     },
     subject: {
-      tokens: analysis.subject.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
       detailText: replacePaletteWeightReferences(analysis.subject.detailText, hex, previousWeight, nextWeight),
     },
     background: {
-      tokens: analysis.background.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
       detailText: replacePaletteWeightReferences(analysis.background.detailText, hex, previousWeight, nextWeight),
     },
     layout: {
-      tokens: analysis.layout.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
       detailText: replacePaletteWeightReferences(analysis.layout.detailText, hex, previousWeight, nextWeight),
     },
     typography: {
-      tokens: analysis.typography.tokens.map((token) => replacePaletteWeightReferences(token, hex, previousWeight, nextWeight)),
       detailText: replacePaletteWeightReferences(analysis.typography.detailText, hex, previousWeight, nextWeight),
     },
   };

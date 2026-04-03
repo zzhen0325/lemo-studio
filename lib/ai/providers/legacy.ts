@@ -1133,8 +1133,12 @@ export class BytedanceAfrProvider implements ImageProvider {
       width,
       height,
       seed: -1,
-      string: prompt,
     };
+    if (this.config.modelId === "seed4_0402_v4_lemo") {
+      reqJson.Prompt = prompt;
+    } else {
+      reqJson.string = prompt;
+    }
 
     // 生成签名参数
     const nonce = generateNonce();

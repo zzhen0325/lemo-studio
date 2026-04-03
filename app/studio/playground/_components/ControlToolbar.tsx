@@ -41,7 +41,6 @@ interface ControlToolbarProps {
   onToggleAspectRatioLock: () => void;
   onGenerate: () => void;
   isGenerating: boolean;
-  loadingText?: string;
   primaryActionMode?: 'generate' | 'optimize';
   primaryActionLabel?: string;
   isPrimaryActionLoading?: boolean;
@@ -86,7 +85,6 @@ export default function ControlToolbar({
   onToggleAspectRatioLock,
   onGenerate,
   isGenerating,
-  loadingText = "Thinking...",
   primaryActionMode = 'generate',
   primaryActionLabel,
   isPrimaryActionLoading,
@@ -135,7 +133,7 @@ export default function ControlToolbar({
   }, [availableModels, getModelEntryById, isEditMode, uploadedImages.length]);
   const selectedModelMeta = getModelEntryById(selectedModel);
   const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
-    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_v2_0226lemo', 'coze_seedream4_5'].includes(selectedModel);
+    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_0402_v4_lemo', 'coze_seedream4_5'].includes(selectedModel);
   const selectedAllowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
     ? selectedModelMeta.capabilities.allowedImageSizes
     : (['1K', '2K', '4K'] as const);
@@ -143,15 +141,11 @@ export default function ControlToolbar({
   const selectedMaxBatchSize = selectedSupportsBatch ? Math.max(1, selectedModelMeta?.capabilities?.maxBatchSize ?? 10) : 1;
   const isOptimizePrimaryAction = primaryActionMode === 'optimize';
   const isPrimaryActionBusy = isPrimaryActionLoading ?? isGenerating;
-  const allowsContinuousGenerate = !isOptimizePrimaryAction && selectedModel === 'coze_seedream4_5';
-  const shouldLockGenerateControls = isPrimaryActionBusy && !allowsContinuousGenerate;
+  const shouldDisablePrimaryAction = isOptimizePrimaryAction && isPrimaryActionBusy;
+  const shouldShowPrimaryActionLoading = isOptimizePrimaryAction && isPrimaryActionBusy;
   const generateButtonLabel = isOptimizePrimaryAction
     ? (primaryActionLabel || 'AI Prompt')
-    : (
-      isPrimaryActionBusy
-        ? (allowsContinuousGenerate ? 'Generate Again' : loadingText)
-        : (primaryActionLabel || 'Generate')
-    );
+    : (primaryActionLabel || 'Generate');
 
   // 初始化与回填：根据外部 selectedModel 映射到内部 selectValue
   React.useEffect(() => {
@@ -212,7 +206,7 @@ export default function ControlToolbar({
       }
 
       const supportsImageSize = modelMeta?.capabilities?.supportsImageSize
-        ?? ['coze_seedream4_5', 'seed4_v2_0226lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
+        ?? ['coze_seedream4_5', 'seed4_0402_v4_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
 
       if (supportsImageSize) {
         const allowed = modelMeta?.capabilities?.allowedImageSizes?.length
@@ -276,7 +270,7 @@ export default function ControlToolbar({
       logo: '/images/logos/seed.png',
       description: 'Seedream 4.5'
     },
-    'seed4_v2_0226lemo': {
+    'seed4_0402_v4_lemo': {
       logo: '/images/logos/seed.png',
       description: '生成lemo选这个'
     },
@@ -589,7 +583,7 @@ export default function ControlToolbar({
                 size="sm"
                 className="h-6 w-6   p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
                 onClick={() => onBatchSizeChange?.(Math.max(1, batchSize - 1))}
-                disabled={batchSize <= 1 || shouldLockGenerateControls}
+                disabled={batchSize <= 1}
               >
                 <Minus className="w-3 h-3" />
               </Button>
@@ -601,7 +595,7 @@ export default function ControlToolbar({
                 size="sm"
                 className="h-6 w-6 p-0 rounded-xl hover:bg-white/10 text-white/60 hover:text-white"
                 onClick={() => onBatchSizeChange?.(Math.min(selectedMaxBatchSize, batchSize + 1))}
-                disabled={batchSize >= selectedMaxBatchSize || shouldLockGenerateControls}
+                disabled={batchSize >= selectedMaxBatchSize}
               >
                 <Plus className="w-3 h-3" />
               </Button>
@@ -611,9 +605,9 @@ export default function ControlToolbar({
           <div className="relative rounded-xl">
             <AnimatedButton
               onClick={onGenerate}
-              disabled={shouldLockGenerateControls}
-              loading={isPrimaryActionBusy}
-              disableWhileLoading={!allowsContinuousGenerate}
+              disabled={shouldDisablePrimaryAction}
+              loading={shouldShowPrimaryActionLoading}
+              disableWhileLoading={isOptimizePrimaryAction}
               label={generateButtonLabel}
               variant="default"
               showShimmer={true}

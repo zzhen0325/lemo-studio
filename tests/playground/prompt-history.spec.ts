@@ -5,6 +5,8 @@ import {
   getGalleryPromptCategory,
   getPromptOptimizationSource,
   IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
+  withPromptOptimizationSource,
+  withoutPromptOptimizationSource,
 } from '@/app/studio/playground/_lib/prompt-history';
 
 describe('prompt history helpers', () => {
@@ -43,6 +45,29 @@ describe('prompt history helpers', () => {
     });
   });
 
+  it('supports limiting history backfill items', () => {
+    const items = createPromptOptimizationHistoryItems({
+      taskId: 'opt-limit-1',
+      createdAt: '2026-03-27T11:00:00.000Z',
+      userId: 'user-1',
+      originalPrompt: '原始提示词',
+      sourceKind: 'kv_structured',
+      variants: [
+        { id: 'v1', label: '方案 A', prompt: '优化方案 A' },
+        { id: 'v2', label: '方案 B', prompt: '优化方案 B' },
+      ],
+      configBase: {
+        model: 'coze_seedream4_5',
+        width: 1024,
+        height: 1024,
+      },
+      maxItems: 1,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(getPromptOptimizationSource(items[0].config)?.activeVariantId).toBe('v1');
+  });
+
   it('detects prompt categories from config metadata', () => {
     expect(getGalleryPromptCategory({
       prompt: 'desc',
@@ -66,7 +91,7 @@ describe('prompt history helpers', () => {
       height: 1024,
       model: 'gemini',
       optimizationSource: {
-        version: 1,
+        version: 2,
         sourceKind: 'plain_text',
         taskId: 'opt-1',
         originalPrompt: 'orig',
@@ -83,7 +108,7 @@ describe('prompt history helpers', () => {
       height: 1024,
       model: 'coze_seedream4_5',
       optimizationSource: {
-        version: 1,
+        version: 2,
         sourceKind: 'shortcut_inline',
         taskId: 'opt-inline-1',
         originalPrompt: 'original shortcut prompt',
@@ -98,5 +123,37 @@ describe('prompt history helpers', () => {
       taskId: 'opt-inline-1',
       shortcutId: 'lemo',
     });
+  });
+
+  it('removes optimization-only history type markers when reusing prompt config', () => {
+    const sourcePayload = {
+      version: 2 as const,
+      sourceKind: 'plain_text' as const,
+      taskId: 'opt-keep-1',
+      originalPrompt: 'orig prompt',
+      activeVariantId: 'v1',
+      activeVariantLabel: '方案 A',
+    };
+    const optimized = withPromptOptimizationSource({
+      prompt: 'optimized prompt',
+      width: 1024,
+      height: 1024,
+      model: 'coze_seedream4_5',
+      historyRecordType: 'prompt_optimization',
+      promptCategory: 'prompt_optimization',
+    }, sourcePayload);
+
+    expect(optimized.historyRecordType).toBeUndefined();
+    expect(optimized.promptCategory).toBe('optimized_generation');
+
+    const reverted = withoutPromptOptimizationSource({
+      ...optimized,
+      historyRecordType: 'image_description',
+      promptCategory: 'image_description',
+    });
+
+    expect(reverted.historyRecordType).toBeUndefined();
+    expect(reverted.promptCategory).toBeUndefined();
+    expect(reverted.optimizationSource).toBeUndefined();
   });
 });

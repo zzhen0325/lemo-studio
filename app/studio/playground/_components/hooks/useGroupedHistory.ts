@@ -38,7 +38,7 @@ export function useGroupedHistory(history: Generation[]): GroupedHistoryItem[] {
           ? 'text'
           : 'image';
       const taskId = result.config?.taskId;
-      const key = taskId ? `task|${taskId}` : `item|${result.id}`;
+      const key = taskId ? `task|${taskId}|${type}` : `item|${result.id}`;
       const existing = map.get(key);
 
       if (existing) {

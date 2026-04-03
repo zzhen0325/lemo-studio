@@ -262,7 +262,7 @@
     "baseURL": "",
     "models": [
       {
-        "modelId": "seed4_v2_0226lemo",
+        "modelId": "seed4_0402_v4_lemo",
         "displayName": "Lemo Seed",
         "task": [
           "image"

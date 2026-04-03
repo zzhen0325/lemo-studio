@@ -73,7 +73,7 @@ export interface SerializedShortcutOptimizationSession {
 }
 
 export interface PromptOptimizationSourcePayload {
-  version: 1;
+  version: 2;
   sourceKind: PromptOptimizationSourceKind;
   taskId: string;
   originalPrompt: string;
@@ -97,6 +97,7 @@ interface BuildPromptOptimizationHistoryItemsParams {
   sourceKind: PromptOptimizationSourceKind;
   variants: PromptOptimizationVariantDraftInput[];
   configBase: Pick<GenerationConfig, "model" | "width" | "height"> & Partial<GenerationConfig>;
+  maxItems?: number;
   shortcutId?: PlaygroundShortcut["id"];
   session?: SerializedShortcutOptimizationSession;
 }
@@ -139,7 +140,7 @@ export function getPromptOptimizationSource(
   const activeVariantLabel = asString(payload.activeVariantLabel);
 
   if (
-    version !== 1
+    version !== 2
     || (
       sourceKind !== "plain_text"
       && sourceKind !== "kv_structured"
@@ -157,7 +158,7 @@ export function getPromptOptimizationSource(
   const session = payload.session as SerializedShortcutOptimizationSession | undefined;
 
   return {
-    version: 1,
+    version: 2,
     sourceKind,
     taskId,
     originalPrompt,
@@ -244,13 +245,18 @@ export function createPromptOptimizationHistoryItems(
     sourceKind,
     variants,
     configBase,
+    maxItems,
     shortcutId,
     session,
   } = params;
 
-  return variants.slice(0, PROMPT_OPTIMIZATION_VARIANT_COUNT).map((variant, index) => {
+  const normalizedMaxItems = Number.isFinite(maxItems)
+    ? Math.max(1, Math.floor(maxItems as number))
+    : PROMPT_OPTIMIZATION_VARIANT_COUNT;
+
+  return variants.slice(0, normalizedMaxItems).map((variant, index) => {
     const optimizationSource: PromptOptimizationSourcePayload = {
-      version: 1,
+      version: 2,
       sourceKind,
       taskId,
       originalPrompt,
@@ -284,8 +290,9 @@ export function withPromptOptimizationSource(
   payload: PromptOptimizationSourcePayload,
   promptCategory: GalleryPromptCategory = "optimized_generation",
 ): GenerationConfig {
+  const sanitized = withoutPromptOptimizationSource(config);
   return {
-    ...config,
+    ...sanitized,
     promptCategory,
     optimizationSource: payload,
   };
@@ -297,8 +304,19 @@ export function withoutPromptOptimizationSource(
   const nextConfig = { ...config };
   delete nextConfig.optimizationSource;
 
-  if (nextConfig.promptCategory === "optimized_generation") {
+  if (
+    nextConfig.promptCategory === "optimized_generation"
+    || nextConfig.promptCategory === "prompt_optimization"
+    || nextConfig.promptCategory === "image_description"
+  ) {
     delete nextConfig.promptCategory;
+  }
+
+  if (
+    nextConfig.historyRecordType === PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE
+    || nextConfig.historyRecordType === IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE
+  ) {
+    delete nextConfig.historyRecordType;
   }
 
   return nextConfig;
