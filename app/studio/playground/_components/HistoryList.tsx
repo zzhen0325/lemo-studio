@@ -240,12 +240,10 @@ const HistoryList = function HistoryList({
         )}>
           {layoutMode === 'grid' ? (
             history.map((result, resultIdx) => {
-              if (isTextHistoryResult(result) || isPromptOptimizationHistoryItem(result)) {
-                return null;
-              }
-
               const normalizedId = (result.id || '').trim();
               const resultKey = normalizedId || `history-item-${result.createdAt || 'unknown'}-${resultIdx}`;
+              const isTextItem = isTextHistoryResult(result);
+              const isOptimizationItem = isPromptOptimizationHistoryItem(result);
 
               return (
                 <div key={resultKey} className="break-inside-avoid mb-4">
@@ -254,23 +252,39 @@ const HistoryList = function HistoryList({
                     selectedIds={selectedIds}
                     isSelectionMode={isSelectionMode}
                   >
-                    <HistoryCard
-                      result={result}
-                      onRegenerate={onRegenerate}
-                      onDownload={onDownload}
-                      onEdit={onEdit}
-                      onImageClick={onImageClick}
-                      onUsePrompt={onUsePrompt}
-                      onRefImageClick={(url, id) => {
-                        setPreviewImage(url, id);
-                      }}
-                      layoutMode={layoutMode}
-                      isSelectionMode={isSelectionMode}
-                      isSelected={selectedIds.has(result.id)}
-                      onToggleSelect={() => {
-                        usePlaygroundStore.getState().toggleHistorySelection(result.id);
-                      }}
-                    />
+                    {isTextItem || isOptimizationItem ? (
+                      <TextHistoryCard
+                        result={result}
+                        title={isOptimizationItem
+                          ? (getPromptOptimizationSource(result.config)?.activeVariantLabel || 'Optimized Prompt')
+                          : 'Image Analysis'}
+                        actionLabel={isOptimizationItem ? 'Use Variant' : 'Use Prompt'}
+                        onUsePrompt={onUsePrompt}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedIds.has(result.id)}
+                        onToggleSelect={() => {
+                          usePlaygroundStore.getState().toggleHistorySelection(result.id);
+                        }}
+                      />
+                    ) : (
+                      <HistoryCard
+                        result={result}
+                        onRegenerate={onRegenerate}
+                        onDownload={onDownload}
+                        onEdit={onEdit}
+                        onImageClick={onImageClick}
+                        onUsePrompt={onUsePrompt}
+                        onRefImageClick={(url, id) => {
+                          setPreviewImage(url, id);
+                        }}
+                        layoutMode={layoutMode}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedIds.has(result.id)}
+                        onToggleSelect={() => {
+                          usePlaygroundStore.getState().toggleHistorySelection(result.id);
+                        }}
+                      />
+                    )}
                   </DraggableHistoryCard>
                 </div>
               );

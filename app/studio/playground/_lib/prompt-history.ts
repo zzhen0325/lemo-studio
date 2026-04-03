@@ -206,6 +206,33 @@ export function getGalleryPromptCategoryLabel(
   return GALLERY_PROMPT_CATEGORY_LABELS[category];
 }
 
+export function shouldShowInGalleryImageWall(
+  item: Pick<Generation, "outputUrl" | "config">,
+): boolean {
+  if (!item.outputUrl) {
+    return false;
+  }
+
+  const category = getGalleryPromptCategory(item.config);
+  return category !== "prompt_optimization" && category !== "image_description";
+}
+
+export function getPromptCardThumbnailSource(
+  item: Pick<Generation, "config">,
+): string | null {
+  const sourceImageUrls = item.config?.sourceImageUrls;
+  if (!Array.isArray(sourceImageUrls) || sourceImageUrls.length === 0) {
+    return null;
+  }
+
+  const firstSourceUrl = sourceImageUrls[0];
+  if (typeof firstSourceUrl !== "string" || firstSourceUrl.trim().length === 0) {
+    return null;
+  }
+
+  return firstSourceUrl;
+}
+
 export function isPromptOptimizationHistoryItem(result: Generation): boolean {
   return getPromptHistoryRecordType(result.config) === PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE;
 }

@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   createPromptOptimizationHistoryItems,
   getGalleryPromptCategory,
+  getPromptCardThumbnailSource,
   getPromptOptimizationSource,
   IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
+  shouldShowInGalleryImageWall,
   withPromptOptimizationSource,
   withoutPromptOptimizationSource,
 } from '@/app/studio/playground/_lib/prompt-history';
@@ -99,6 +101,70 @@ describe('prompt history helpers', () => {
         activeVariantLabel: '方案 A',
       },
     })).toBe('optimized_generation');
+  });
+
+  it('filters visibility for gallery image wall', () => {
+    const baseConfig = {
+      prompt: 'desc',
+      width: 1024,
+      height: 1024,
+      model: 'gemini',
+    };
+
+    expect(shouldShowInGalleryImageWall({
+      outputUrl: 'https://example.com/image.png',
+      config: baseConfig,
+    })).toBe(true);
+
+    expect(shouldShowInGalleryImageWall({
+      outputUrl: 'https://example.com/describe.png',
+      config: {
+        ...baseConfig,
+        historyRecordType: IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
+      },
+    })).toBe(false);
+
+    expect(shouldShowInGalleryImageWall({
+      outputUrl: 'https://example.com/prompt-opt.png',
+      config: {
+        ...baseConfig,
+        historyRecordType: 'prompt_optimization',
+      },
+    })).toBe(false);
+
+    expect(shouldShowInGalleryImageWall({
+      outputUrl: '',
+      config: baseConfig,
+    })).toBe(false);
+  });
+
+  it('returns the first source image as prompt card thumbnail source', () => {
+    const baseConfig = {
+      prompt: 'desc',
+      width: 1024,
+      height: 1024,
+      model: 'gemini',
+    };
+
+    expect(getPromptCardThumbnailSource({
+      config: {
+        ...baseConfig,
+        sourceImageUrls: ['https://example.com/source-1.png', 'https://example.com/source-2.png'],
+      },
+    })).toBe('https://example.com/source-1.png');
+
+    expect(getPromptCardThumbnailSource({
+      config: {
+        ...baseConfig,
+        sourceImageUrls: [],
+      },
+    })).toBeNull();
+
+    expect(getPromptCardThumbnailSource({
+      config: {
+        ...baseConfig,
+      },
+    })).toBeNull();
   });
 
   it('parses inline shortcut optimization metadata', () => {

@@ -24,8 +24,10 @@ import { Button } from "@/components/ui/button";
 import SplitText from "@/components/ui/split-text";
 import type { SortBy } from '@/lib/server/service/history.service';
 import {
+  getPromptCardThumbnailSource,
   getGalleryPromptCategory,
   getGalleryPromptCategoryLabel,
+  shouldShowInGalleryImageWall,
   type GalleryPromptCategory,
 } from '@studio/playground/_lib/prompt-history';
 
@@ -111,9 +113,7 @@ export default function GalleryView({
     }, [galleryItems]);
 
     const imageItems = useMemo(
-        () => galleryItems.filter(
-            (item) => Boolean(item.outputUrl) && getGalleryPromptCategory(item.config) !== 'prompt_optimization'
-        ),
+        () => galleryItems.filter((item) => shouldShowInGalleryImageWall(item)),
         [galleryItems]
     );
 
@@ -577,7 +577,6 @@ interface MasonryGridProps<T> {
     items: T[];
     columnsCount: number;
     scrollContainerRef: React.RefObject<HTMLDivElement>;
-    overscan?: number;
     gap?: number;
     renderItem: (item: T, index: number) => React.ReactNode;
 }
@@ -586,127 +585,73 @@ function MasonryGrid<T extends Generation>({
     items,
     columnsCount,
     scrollContainerRef,
-    overscan = 600,
     gap = 0,
     renderItem
 }: MasonryGridProps<T>) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [containerWidth, setContainerWidth] = useState(0);
-    const [viewport, setViewport] = useState({ scrollTop: 0, height: 900 });
     const safeColumnsCount = Math.max(columnsCount, 1);
+    // Keep signature aligned with existing callers; layout no longer depends on scroll viewport math.
+    void scrollContainerRef;
 
-    useEffect(() => {
-        const updateContainerWidth = () => {
-            if (containerRef.current) {
-                setContainerWidth(containerRef.current.clientWidth);
-            }
+    const orderedEntries = useMemo(() => {
+        const toTimestamp = (value?: string) => {
+            const ts = Date.parse(value || '');
+            return Number.isNaN(ts) ? 0 : ts;
         };
 
-        updateContainerWidth();
+        return items
+            .map((item, index) => ({ item, originalIndex: index }))
+            .sort((a, b) => {
+                const createdAtDiff = toTimestamp(b.item.createdAt) - toTimestamp(a.item.createdAt);
+                if (createdAtDiff !== 0) return createdAtDiff;
 
-        let resizeObserver: ResizeObserver | null = null;
-        if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
-            resizeObserver = new ResizeObserver(updateContainerWidth);
-            resizeObserver.observe(containerRef.current);
-        }
-
-        window.addEventListener('resize', updateContainerWidth);
-
-        return () => {
-            window.removeEventListener('resize', updateContainerWidth);
-            resizeObserver?.disconnect();
-        };
-    }, []);
-
-    useEffect(() => {
-        const scrollNode = scrollContainerRef.current;
-        if (!scrollNode) return;
-
-        const updateViewport = () => {
-            setViewport({
-                scrollTop: scrollNode.scrollTop,
-                height: scrollNode.clientHeight || 900
-            });
-        };
-
-        updateViewport();
-        scrollNode.addEventListener('scroll', updateViewport, { passive: true });
-        window.addEventListener('resize', updateViewport);
-
-        return () => {
-            scrollNode.removeEventListener('scroll', updateViewport);
-            window.removeEventListener('resize', updateViewport);
-        };
-    }, [scrollContainerRef]);
-
-    const layout = useMemo(() => {
-        if (items.length === 0) {
-            return { positionedItems: [] as Array<{ item: T; index: number; key: string; top: number; left: number; width: number; height: number }>, totalHeight: 0 };
-        }
-
-        const usableWidth = Math.max(containerWidth, 1);
-        const columnWidth = (usableWidth - gap * (safeColumnsCount - 1)) / safeColumnsCount;
-        const colHeights = new Array(safeColumnsCount).fill(0);
-
-        const positionedItems = items.map((item, index) => {
-            let targetColIndex = 0;
-            let minHeight = colHeights[0];
-
-            for (let i = 1; i < safeColumnsCount; i++) {
-                if (colHeights[i] < minHeight) {
-                    minHeight = colHeights[i];
-                    targetColIndex = i;
+                const aId = (a.item.id || '').trim();
+                const bId = (b.item.id || '').trim();
+                if (aId && bId) {
+                    const idDiff = aId.localeCompare(bId);
+                    if (idDiff !== 0) return idDiff;
+                } else if (aId) {
+                    return -1;
+                } else if (bId) {
+                    return 1;
                 }
-            }
 
-            const imgWidth = Math.max(1, Number(item.config?.width) || 1024);
-            const imgHeight = Math.max(1, Number(item.config?.height) || 1024);
-            const estimatedHeight = columnWidth * (imgHeight / imgWidth);
-            const top = colHeights[targetColIndex];
-            const left = targetColIndex * (columnWidth + gap);
+                return a.originalIndex - b.originalIndex;
+            });
+    }, [items]);
+
+    const columns = useMemo(() => {
+        const groupedColumns = Array.from({ length: safeColumnsCount }, () =>
+            [] as Array<{ item: T; orderedIndex: number; key: string }>
+        );
+
+        orderedEntries.forEach(({ item }, orderedIndex) => {
+            const columnIndex = orderedIndex % safeColumnsCount;
             const normalizedId = (item.id || '').trim();
-
-            colHeights[targetColIndex] += estimatedHeight + gap;
-
-            return {
+            groupedColumns[columnIndex].push({
                 item,
-                index,
-                key: normalizedId || `gallery-item-${item.createdAt || 'unknown'}-${index}`,
-                top,
-                left,
-                width: columnWidth,
-                height: estimatedHeight
-            };
+                orderedIndex,
+                key: normalizedId || `gallery-item-${item.createdAt || 'unknown'}-${orderedIndex}`
+            });
         });
 
-        const totalHeight = Math.max(...colHeights, 0);
-
-        return { positionedItems, totalHeight };
-    }, [items, safeColumnsCount, containerWidth, gap]);
-
-    const startY = Math.max(0, viewport.scrollTop - overscan);
-    const endY = viewport.scrollTop + viewport.height + overscan;
-
-    const visibleItems = useMemo(() => {
-        return layout.positionedItems.filter(({ top, height }) => {
-            const bottom = top + height;
-            return bottom >= startY && top <= endY;
-        });
-    }, [layout.positionedItems, startY, endY]);
+        return groupedColumns;
+    }, [orderedEntries, safeColumnsCount]);
 
     return (
-        <div ref={containerRef} className="relative w-full">
-            <div className="relative w-full" style={{ height: `${layout.totalHeight}px` }}>
-                {visibleItems.map(({ item, index, key, top, left, width }) => (
-                    <div
-                        key={key}
-                        className="absolute"
-                        style={{ top, left, width }}
-                    >
-                        {renderItem(item, index)}
-                    </div>
-                ))}
-            </div>
+        <div className="flex w-full" style={{ gap: `${gap}px` }}>
+            {columns.map((columnItems, columnIndex) => (
+                <div
+                    key={`gallery-column-${columnIndex}`}
+                    className="flex min-w-0 flex-1 flex-col"
+                    style={{ gap: `${gap}px` }}
+                >
+                    {columnItems.map(({ item, orderedIndex, key }) => (
+                        <div key={key}>
+                            {renderItem(item, orderedIndex)}
+                        </div>
+                    ))}
+                </div>
+            ))}
         </div>
     );
 }
@@ -1035,6 +980,11 @@ function PromptCard({
     const promptCategory = getGalleryPromptCategory(item.config);
     const promptCategoryLabel = getGalleryPromptCategoryLabel(promptCategory);
     const prompt = item.config?.prompt || '';
+    const thumbnailSource = getPromptCardThumbnailSource(item);
+    const thumbnailUrl = React.useMemo(
+        () => (thumbnailSource ? resolveGalleryImageUrl(thumbnailSource) : ''),
+        [thumbnailSource]
+    );
 
     const handleUsePrompt = () => {
         if (!prompt) {
@@ -1059,10 +1009,24 @@ function PromptCard({
             onClick={handleUsePrompt}
             className="group flex min-h-[220px] w-full flex-col rounded-2xl border border-white/10 bg-black/20 p-5 text-left transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06]"
         >
-            <div className="flex items-center justify-between gap-3">
-                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium tracking-[0.16em] text-white/65 uppercase">
-                    {promptCategoryLabel}
-                </span>
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                    {thumbnailUrl ? (
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-white/5">
+                            <Image
+                                src={thumbnailUrl}
+                                alt="Prompt source thumbnail"
+                                fill
+                                sizes="40px"
+                                className="object-cover"
+                                unoptimized
+                            />
+                        </div>
+                    ) : null}
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium tracking-[0.16em] text-white/65 uppercase">
+                        {promptCategoryLabel}
+                    </span>
+                </div>
                 <span className="text-[10px] text-white/30 font-mono uppercase">
                     {new Date(item.createdAt).toLocaleDateString()}
                 </span>

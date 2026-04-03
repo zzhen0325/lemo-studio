@@ -305,21 +305,49 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
 
     const addGalleryItem = usePlaygroundStore(s => s.addGalleryItem);
 
+    const ensureHistoryIdentity = useCallback((uniqueId: string, next: Generation, existing?: Generation): Generation => ({
+        ...next,
+        id: uniqueId,
+        userId: existing?.userId || next.userId || resolveEffectiveUserId(),
+        projectId: existing?.projectId || next.projectId || 'default',
+        createdAt: existing?.createdAt || next.createdAt || new Date().toISOString(),
+    }), [resolveEffectiveUserId]);
+
+    const upsertHistoryEntry = useCallback(
+        (uniqueId: string, updater: (existing: Generation | undefined) => Generation) => {
+            setHistoryEntries((prev: Generation[]) => {
+                const existingIndex = prev.findIndex((item) => item.id === uniqueId);
+                const existingItem = existingIndex >= 0 ? prev[existingIndex] : undefined;
+                const nextItem = ensureHistoryIdentity(uniqueId, updater(existingItem), existingItem);
+
+                if (existingIndex < 0) {
+                    return [nextItem, ...prev];
+                }
+
+                const next = [...prev];
+                next[existingIndex] = nextItem;
+                return next;
+            });
+        },
+        [ensureHistoryIdentity, setHistoryEntries],
+    );
+
     const updateHistoryAndSave = useCallback((uniqueId: string, result: Generation) => {
-        setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
-            ...item,
-            ...result,
-            // 确保保持原始 ID 和基础字段
-            id: uniqueId,
-            userId: item.userId,
-            projectId: item.projectId,
-            createdAt: item.createdAt,
-        } : item));
+        let recordToPersist: Generation | null = null;
+        upsertHistoryEntry(uniqueId, (existing) => {
+            const merged = ensureHistoryIdentity(uniqueId, {
+                ...(existing ?? result),
+                ...result,
+            } as Generation, existing);
+            recordToPersist = merged;
+            return merged;
+        });
+        const normalizedRecord = recordToPersist ?? ensureHistoryIdentity(uniqueId, result);
 
         // 如果成功生成，同步到 Gallery 状态
-        if (result.status === 'completed') {
+        if (normalizedRecord.status === 'completed') {
             addGalleryItem({
-                ...result,
+                ...normalizedRecord,
                 id: uniqueId,
                 status: 'completed'
             });
@@ -338,13 +366,13 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                 toast({ title: "保存历史失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
             }
         };
-        saveToBackend(result);
+        saveToBackend(normalizedRecord);
 
         // 如果成功生成，清除正在生成的标志
-        if (result.status === 'completed') {
+        if (normalizedRecord.status === 'completed') {
             setIsGenerating(false);
         }
-    }, [setHistoryEntries, toast, addGalleryItem]);
+    }, [addGalleryItem, ensureHistoryIdentity, toast, upsertHistoryEntry]);
 
     const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const uploadedSourceUrls = usePlaygroundStore.getState().uploadedImages
@@ -489,22 +517,37 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             }
         }, isCoze ? async (chunk) => {
             if (chunk.text) {
-                setHistoryEntries((prev: Generation[]) => prev.map(item =>
-                    item.id === uniqueId ? { ...item, llmResponse: (item.llmResponse || "") + chunk.text } : item
-                ));
+                upsertHistoryEntry(uniqueId, (existing) => ({
+                    ...(existing ?? {
+                        id: uniqueId,
+                        userId: resolveEffectiveUserId(),
+                        projectId: 'default',
+                        outputUrl: '',
+                        config: finalGenConfig,
+                        status: 'pending',
+                        createdAt: generationTime,
+                    }),
+                    llmResponse: `${existing?.llmResponse || ''}${chunk.text}`,
+                }));
             }
             if (chunk.images && chunk.images.length > 0) {
                 for (const imgUrl of chunk.images.filter(url => !processedImages.has(url))) {
                     processedImages.add(imgUrl);
                     const previewUrl = await toPreviewUrl(imgUrl);
-                    setHistoryEntries((prev: Generation[]) => prev.map(item =>
-                        item.id === uniqueId ? {
-                            ...item,
-                            outputUrl: previewUrl,
-                            status: 'completed',
-                            config: { ...item.config, ...finalGenConfig }
-                        } : item
-                    ));
+                    upsertHistoryEntry(uniqueId, (existing) => ({
+                        ...(existing ?? {
+                            id: uniqueId,
+                            userId: resolveEffectiveUserId(),
+                            projectId: 'default',
+                            outputUrl: '',
+                            config: finalGenConfig,
+                            status: 'pending',
+                            createdAt: generationTime,
+                        }),
+                        outputUrl: previewUrl,
+                        status: 'completed',
+                        config: { ...(existing?.config || finalGenConfig), ...finalGenConfig },
+                    }));
 
                     const saveTask = (async () => {
                         let shouldRevokePreview = false;
@@ -521,10 +564,20 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                             if (!savedPath) return;
                             lastSavedPath = savedPath;
                             const latestItem = getHistoryItem(uniqueId);
-                            if (!latestItem) return;
+                            const effectiveUserId = resolveEffectiveUserId();
+                            const fallbackItem: Generation = {
+                                id: uniqueId,
+                                userId: effectiveUserId,
+                                projectId: 'default',
+                                outputUrl: previewUrl,
+                                config: finalGenConfig,
+                                status: 'completed',
+                                createdAt: generationTime,
+                            };
+                            const itemForSave = latestItem || fallbackItem;
                             updateHistoryAndSave(uniqueId, {
-                                ...latestItem,
-                                config: { ...latestItem.config, loras: undefined, workflowName: undefined },
+                                ...itemForSave,
+                                config: { ...itemForSave.config, loras: undefined, workflowName: undefined },
                                 outputUrl: savedPath,
                                 status: 'completed'
                             } as Generation);
@@ -571,14 +624,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                 status: 'completed',
                 createdAt: generationTime,
             };
-            setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
-                ...item,
+            upsertHistoryEntry(uniqueId, (existing) => ({
+                ...(existing ?? previewGen),
                 ...previewGen,
-                id: uniqueId,
-                userId: item.userId,
-                projectId: item.projectId,
-                createdAt: item.createdAt,
-            } : item));
+            }));
 
             void (async () => {
                 let shouldRevokePreview = false;
@@ -607,7 +656,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             return previewGen;
         }
         throw new Error(`${selectedModel} returned empty result`);
-    }, [selectedModel, defaultImageModelId, setHistoryEntries, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, normalizeGeminiInputImage, resolveEffectiveUserId, getModelEntryById, getHistoryItem]);
+    }, [selectedModel, defaultImageModelId, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, normalizeGeminiInputImage, resolveEffectiveUserId, getModelEntryById, getHistoryItem, upsertHistoryEntry]);
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
@@ -714,14 +763,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                 status: 'completed',
                                 createdAt: generationTime,
                             };
-                            setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
-                                ...item,
+                            upsertHistoryEntry(uniqueId, (existing) => ({
+                                ...(existing ?? previewGen),
                                 ...previewGen,
-                                id: uniqueId,
-                                userId: item.userId,
-                                projectId: item.projectId,
-                                createdAt: item.createdAt,
-                            } : item));
+                            }));
                             resolve(previewGen);
                             void (async () => {
                                 let shouldRevokePreview = false;
@@ -755,7 +800,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             });
         });
         return previewResult;
-    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs, setHistoryEntries, resolveEffectiveUserId]);
+    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs, resolveEffectiveUserId, upsertHistoryEntry]);
 
     const handleFluxKlein = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const effectiveSourceUrls = sourceImageUrls.length > 0 ? sourceImageUrls : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
@@ -791,14 +836,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                 status: 'completed',
                                 createdAt: generationTime,
                             };
-                            setHistoryEntries((prev: Generation[]) => prev.map(item => item.id === uniqueId ? {
-                                ...item,
+                            upsertHistoryEntry(uniqueId, (existing) => ({
+                                ...(existing ?? previewGen),
                                 ...previewGen,
-                                id: uniqueId,
-                                userId: item.userId,
-                                projectId: item.projectId,
-                                createdAt: item.createdAt,
-                            } : item));
+                            }));
                             resolve(previewGen);
                             void (async () => {
                                 let shouldRevokePreview = false;
@@ -832,7 +873,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             });
         });
         return previewResult;
-    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave, setHistoryEntries, resolveEffectiveUserId]);
+    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave, resolveEffectiveUserId, upsertHistoryEntry]);
 
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
