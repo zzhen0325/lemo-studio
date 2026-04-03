@@ -30,6 +30,18 @@ function isBareRemoteUrl(value: string): boolean {
   return /^[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+\//.test(value);
 }
 
+/**
+ * Check if a string is a storage key (not a full URL)
+ * Storage keys are paths like "ljhwZthlaukjlkulzlp/..." without protocol
+ */
+function isStorageKey(value: string): boolean {
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:') || value.startsWith('blob:')) {
+    return false;
+  }
+  // Storage keys are relative paths with at least one slash
+  return value.includes('/') && !value.startsWith('/');
+}
+
 function normalizePublicAssetPath(value: string): string | null {
   if (!value.startsWith('/')) {
     return null;
@@ -138,6 +150,18 @@ export async function tryNormalizeAssetUrlToCdn(
 
   if (isBareRemoteUrl(trimmed)) {
     return { storageKey: `https://${trimmed}`, url: `https://${trimmed}` };
+  }
+
+  // Handle storage keys (paths like "ljhwZthlaukjlkulzlp/...")
+  // These are already normalized storage keys from upload API
+  if (isStorageKey(trimmed)) {
+    try {
+      const url = await getFileUrl(trimmed);
+      return { storageKey: trimmed, url };
+    } catch (error) {
+      console.warn(`[cdn-image-url] Failed to generate URL for storage key: ${trimmed}`, error);
+      return { storageKey: trimmed };
+    }
   }
 
   // Blob URLs can't be processed server-side
