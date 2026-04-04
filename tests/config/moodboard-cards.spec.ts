@@ -185,6 +185,41 @@ describe('playground shortcut prompt builder', () => {
     })).toContain('cream bear mascot');
   });
 
+  it('uses moodboard description when a custom shortcut has no cover subtitle', () => {
+    const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
+      persistedShortcuts: [
+        {
+          id: 'shortcut-row-description-only',
+          code: 'description-only',
+          name: 'Description Only',
+          moodboard_description: 'Moodboard description on home card',
+        },
+      ],
+    });
+
+    const shortcut = runtimeShortcuts.find((item) => item.id === 'description-only');
+    expect(shortcut?.description).toBe('Moodboard description on home card');
+    expect(shortcut?.detailDescription).toBe('Moodboard description on home card');
+  });
+
+  it('ignores the legacy placeholder cover subtitle when moodboard description exists', () => {
+    const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
+      persistedShortcuts: [
+        {
+          id: 'shortcut-row-legacy-subtitle',
+          code: 'legacy-subtitle',
+          name: 'Legacy Subtitle',
+          cover_subtitle: '自定义快捷入口',
+          moodboard_description: 'Use this description instead',
+        },
+      ],
+    });
+
+    const shortcut = runtimeShortcuts.find((item) => item.id === 'legacy-subtitle');
+    expect(shortcut?.description).toBe('Use this description instead');
+    expect(shortcut?.detailDescription).toBe('Use this description instead');
+  });
+
   it('always keeps four builtin shortcuts as system presets', () => {
     const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
       persistedShortcuts: [

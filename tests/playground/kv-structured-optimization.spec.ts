@@ -60,7 +60,7 @@ describe('design structured optimization helpers (v2)', () => {
             "primaryColor": ""
           },
           "analysis": {
-            "canvas": { "detailText": "整体以#E7AE68为底色，叠加#884823与#E5D5D1。" },
+            "canvas": { "detailText": "整体以#E7AE68为底色，叠加(#884823)与#E5D5D1。" },
             "subject": { "detailText": "双少女贴纸角色作为主视觉。" },
             "background": { "detailText": "软木板纹理+针织底块。" },
             "layout": { "detailText": "主标题居中，时间标签在右上。" },
@@ -76,7 +76,7 @@ describe('design structured optimization helpers (v2)', () => {
     expect(result.sourceType).toBe('kv_shortcut');
     expect(result.variants).toHaveLength(4);
     expect(result.variants[0].label).toBe('软木拼贴');
-    expect(result.variants[0].analysis.canvas.detailText).toContain('#E7AE68');
+    expect(result.variants[0].analysis.canvas.detailText).toBe('整体以(#E7AE68)为底色，叠加(#884823)与(#E5D5D1)。');
     expect(result.variants[0].analysis.layout).not.toHaveProperty('tokens');
     expect(result.variants[0].palette.map((entry) => entry.hex)).toEqual(
       expect.arrayContaining(['#E7AE68', '#884823', '#E5D5D1']),
@@ -103,14 +103,14 @@ describe('design structured optimization helpers (v2)', () => {
           "style": "",
           "primaryColor": ""
         },
-        "analysis": {
-          "canvas": { "detailText": "整体像一张摊开的桌面预算手账海报。" },
-          "subject": { "detailText": "主体是一册夸张放大的双周预算账本。" },
-          "background": { "detailText": "背景以浅木纹桌面和便签层搭出真实空间。" },
-          "layout": { "detailText": "主标题压在主体上方，副标题沿账本下缘展开。" },
-          "typography": { "detailText": "标题是厚重黑体，副标题像便签贴纸。" }
-        },
-        "promptPreview": "A playful budget poster with an oversized ledger and strong #15BC55 title treatment."
+          "analysis": {
+            "canvas": { "detailText": "整体像一张摊开的桌面预算手账海报。" },
+            "subject": { "detailText": "主体是一册夸张放大的双周预算账本。" },
+            "background": { "detailText": "背景以浅木纹桌面和便签层搭出真实空间。" },
+            "layout": { "detailText": "主标题压在主体上方，副标题沿账本下缘展开。" },
+            "typography": { "detailText": "标题是厚重黑体，副标题像便签贴纸。" }
+          },
+        "promptPreview": "A playful budget poster with an oversized ledger, strong #15BC55 title treatment, and (#F8E6CC) paper layer."
       }
     }`;
 
@@ -120,19 +120,22 @@ describe('design structured optimization helpers (v2)', () => {
     expect(result.variant.id).toBe('v2');
     expect(result.variant.analysis.subject.detailText).toContain('夸张放大的双周预算账本');
     expect(result.variant.analysis.subject).not.toHaveProperty('tokens');
+    expect(result.variant.promptPreview).toContain('(#15BC55)');
+    expect(result.variant.promptPreview).toContain('(#F8E6CC)');
+    expect(result.variant.promptPreview).not.toContain('((#F8E6CC))');
   });
 
   it('parses section edit response and validates required fields', () => {
     const raw = `{
       "mode": "design_structured_section_edit_v2",
       "sectionKey": "layout",
-      "detailText": "主标题收束在视觉中心，副标题贴近主体边缘形成二级层级。"
+      "detailText": "主标题收束在视觉中心，用 #15BC55 强调主信息，并延续 (#F8E6CC) 纸张高光。"
     }`;
 
     const result = parseDesignSectionEditResponse(raw);
     expect(result.mode).toBe('design_structured_section_edit_v2');
     expect(result.sectionKey).toBe('layout');
-    expect(result.detailText).toContain('主标题收束在视觉中心');
+    expect(result.detailText).toBe('主标题收束在视觉中心，用 (#15BC55) 强调主信息，并延续 (#F8E6CC) 纸张高光。');
 
     expect(() => parseDesignSectionEditResponse(`{
       "mode": "design_structured_section_edit_v2",
@@ -159,7 +162,7 @@ describe('design structured optimization helpers (v2)', () => {
       },
       [],
       {
-        canvas: { detailText: '整体以#15BC55为主色，结合暖米色纸张背景。' },
+        canvas: { detailText: '整体以#15BC55为主色，结合(#F8E6CC)暖米色纸张背景。' },
         subject: { detailText: '主体是夸张化预算账本与收据云团。' },
         background: { detailText: '背景用浅米纸纹与便签层衬托。' },
         layout: { detailText: '标题居中，时间标签靠右上。' },
@@ -170,7 +173,8 @@ describe('design structured optimization helpers (v2)', () => {
       ],
     );
 
-    expect(result).toContain('整体以#15BC55为主色');
+    expect(result).toContain('整体以(#15BC55)为主色');
+    expect(result).toContain('结合(#F8E6CC)暖米色纸张背景');
     expect(result).toContain('标题居中，时间标签靠右上');
     expect(result).not.toContain('canvas:');
     expect(result).not.toContain('tokens');

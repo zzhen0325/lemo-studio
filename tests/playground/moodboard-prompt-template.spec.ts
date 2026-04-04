@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { syncPromptFieldsWithTemplate, shouldShowMoodboardPromptSparkle } from '@/app/studio/playground/_lib/moodboard-prompt-template';
+import {
+  normalizePromptTemplateDraftForSave,
+  shouldShowMoodboardPromptSparkle,
+  syncPromptFieldsWithTemplate,
+} from '@/app/studio/playground/_lib/moodboard-prompt-template';
 
 describe('moodboard prompt template helpers', () => {
   it('hides sparkle button for builtin shortcuts', () => {
@@ -78,5 +82,60 @@ describe('moodboard prompt template helpers', () => {
     ]);
 
     expect(fields).toEqual([]);
+  });
+
+  it('clears prompt fields when saving an empty template', () => {
+    const result = normalizePromptTemplateDraftForSave('   ', [
+      {
+        key: 'hero',
+        label: '主角',
+        placeholder: '输入主角',
+        type: 'text',
+        defaultValue: 'lemo',
+        required: true,
+        options: [],
+        order: 0,
+      },
+    ]);
+
+    expect(result).toEqual({
+      promptTemplate: '',
+      promptFields: [],
+      missingDefinitions: [],
+      unusedFields: [],
+    });
+  });
+
+  it('preserves mismatch detection for non-empty templates during save normalization', () => {
+    const result = normalizePromptTemplateDraftForSave(
+      'A poster with {{hero}}',
+      [
+        {
+          key: 'hero',
+          label: '主角',
+          placeholder: '输入主角',
+          type: 'text',
+          defaultValue: 'lemo',
+          required: true,
+          options: [],
+          order: 3,
+        },
+        {
+          key: 'scene',
+          label: '场景',
+          placeholder: '输入场景',
+          type: 'text',
+          defaultValue: 'studio',
+          required: false,
+          options: [],
+          order: 4,
+        },
+      ],
+    );
+
+    expect(result.promptTemplate).toBe('A poster with {{hero}}');
+    expect(result.promptFields.map((field) => field.key)).toEqual(['hero', 'scene']);
+    expect(result.unusedFields).toEqual(['scene']);
+    expect(result.missingDefinitions).toEqual([]);
   });
 });

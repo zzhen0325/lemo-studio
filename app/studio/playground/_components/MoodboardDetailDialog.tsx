@@ -42,7 +42,6 @@ import {
   buildShortcutFromDraft,
   buildShortcutPrompt,
   createShortcutPromptValues,
-  extractShortcutTemplateTokens,
   type PlaygroundShortcut,
   type ShortcutPromptFieldDefinition,
   type ShortcutPromptValues,
@@ -55,6 +54,8 @@ import {
   type ShortcutEditorDocument,
 } from '@/app/studio/playground/_lib/shortcut-editor-document';
 import {
+  normalizePromptFieldDrafts,
+  normalizePromptTemplateDraftForSave,
   shouldShowMoodboardPromptSparkle,
   syncPromptFieldsWithTemplate,
 } from '@/app/studio/playground/_lib/moodboard-prompt-template';
@@ -129,21 +130,6 @@ function buildUniqueNewFieldDraft(
   }
 
   return draft;
-}
-
-function normalizePromptFieldDrafts(fields: ShortcutPromptFieldDefinition[]): ShortcutPromptFieldDefinition[] {
-  return fields.map((field, index) => ({
-    key: (field.key || '').trim(),
-    label: (field.label || '').trim(),
-    placeholder: (field.placeholder || '').trim(),
-    type: field.type || 'text',
-    defaultValue: field.defaultValue ?? '',
-    required: Boolean(field.required),
-    options: Array.isArray(field.options)
-      ? field.options.map((option) => option.trim()).filter(Boolean)
-      : [],
-    order: index,
-  }));
 }
 
 function InlinePromptPreview({
@@ -553,7 +539,12 @@ export function MoodboardDetailDialog({
       return;
     }
 
-    const normalizedFields = normalizePromptFieldDrafts(draftPromptFields);
+    const {
+      promptTemplate: normalizedTemplate,
+      promptFields: normalizedFields,
+      missingDefinitions,
+      unusedFields,
+    } = normalizePromptTemplateDraftForSave(draftPromptTemplate, draftPromptFields);
     const duplicateKeys = normalizedFields.reduce<string[]>((acc, field, index) => {
       if (!field.key) {
         acc.push(`字段 ${index + 1} 缺少 token key`);
@@ -576,15 +567,6 @@ export function MoodboardDetailDialog({
       return;
     }
 
-    if (!draftPromptTemplate.trim()) {
-      toast({
-        title: '缺少模板',
-        description: '请先填写 prompt 模版。',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     if (duplicateKeys.length > 0) {
       toast({
         title: '字段无效',
@@ -593,11 +575,6 @@ export function MoodboardDetailDialog({
       });
       return;
     }
-
-    const templateTokens = extractShortcutTemplateTokens(draftPromptTemplate);
-    const fieldKeys = normalizedFields.map((field) => field.key);
-    const missingDefinitions = templateTokens.filter((token) => !fieldKeys.includes(token));
-    const unusedFields = fieldKeys.filter((key) => !templateTokens.includes(key));
 
     if (missingDefinitions.length > 0 || unusedFields.length > 0) {
       const messages: string[] = [];
@@ -634,7 +611,7 @@ export function MoodboardDetailDialog({
         code: shortcut.id,
         name: draftName.trim(),
         modelId: draftModelId || shortcut.model,
-        promptTemplate: draftPromptTemplate.trim(),
+        promptTemplate: normalizedTemplate,
         promptFields: normalizedFields,
         moodboardDescription: draftDescription.trim(),
         isEnabled: true,

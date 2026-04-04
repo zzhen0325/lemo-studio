@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Upload, User as UserIcon } from "lucide-react";
-import Image from "next/image";
+import Image, { type ImageLoaderProps } from "next/image";
 import { useImageUpload } from "@/hooks/common/use-image-upload";
-import { useImageSource } from "@/hooks/common/use-image-source";
+import { formatImageUrl } from "@/lib/api-base";
 import { useAuthStore } from "@/lib/store/auth-store";
 
 interface UserProfileDialogProps {
@@ -20,10 +20,12 @@ interface UserProfileDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
+const passthroughImageLoader = ({ src }: ImageLoaderProps) => src;
+
 const AvatarImage = ({ src, alt, width, height, className }: { src: string; alt: string; width: number; height: number; className?: string }) => {
-    const source = useImageSource(src);
+    const source = formatImageUrl(src);
     if (!source) return null;
-    return <Image src={source} alt={alt} width={width} height={height} className={className} />;
+    return <Image loader={passthroughImageLoader} unoptimized src={source} alt={alt} width={width} height={height} className={className} />;
 };
 
 export const UserProfileDialog = ({ open, onOpenChange }: UserProfileDialogProps) => {
@@ -36,9 +38,33 @@ export const UserProfileDialog = ({ open, onOpenChange }: UserProfileDialogProps
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { uploadFile } = useImageUpload();
 
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        setName(user?.name || "");
+        setAvatar(user?.avatar || "");
+    }, [open, user?.avatar, user?.id, user?.name]);
+
     const handleSave = async () => {
+        const trimmedName = name.trim();
+        const updates: { name?: string; avatar?: string } = {};
+
+        if (trimmedName && trimmedName !== (user?.name || "")) {
+            updates.name = trimmedName;
+        }
+        if (avatar && avatar !== (user?.avatar || "")) {
+            updates.avatar = avatar;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            onOpenChange(false);
+            return;
+        }
+
         setLoading(true);
-        const success = await updateProfile({ name, avatar });
+        const success = await updateProfile(updates);
         setLoading(false);
         if (success) {
             onOpenChange(false);

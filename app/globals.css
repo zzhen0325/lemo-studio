@@ -57,11 +57,11 @@
   --studio-accent: 24 24 27;
   --studio-accent-foreground: 255 255 255;
 
-  /* Global overlay scale: page chrome < dialogs < floating menus < toast < tooltip */
-  --z-layer-floating: 1320;
+  /* Global overlay scale: page chrome < dialog overlay < dialog < lightbox < floating menus < toast < tooltip */
   --z-layer-dialog-overlay: 1300;
   --z-layer-dialog: 1310;
-  --z-layer-lightbox: 1360;
+  --z-layer-lightbox: 1320;
+  --z-layer-floating: 1360;
   --z-layer-toast: 1400;
   --z-layer-tooltip: 1500;
 }

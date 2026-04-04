@@ -20,8 +20,10 @@ export function shouldShowMoodboardPromptSparkle(shortcutId?: string | null): bo
   return !DISABLED_SPARKLE_SHORTCUT_IDS.has(normalizeSparkleShortcutId(shortcutId));
 }
 
-function normalizePromptFieldDraft(field: ShortcutPromptFieldDefinition): ShortcutPromptFieldDefinition {
-  return {
+export function normalizePromptFieldDrafts(
+  fields: ShortcutPromptFieldDefinition[],
+): ShortcutPromptFieldDefinition[] {
+  return fields.map((field, index) => ({
     key: (field.key || '').trim(),
     label: (field.label || '').trim(),
     placeholder: (field.placeholder || '').trim(),
@@ -31,7 +33,33 @@ function normalizePromptFieldDraft(field: ShortcutPromptFieldDefinition): Shortc
     options: Array.isArray(field.options)
       ? field.options.map((option) => option.trim()).filter(Boolean)
       : [],
-    order: typeof field.order === 'number' ? field.order : 0,
+    order: index,
+  }));
+}
+
+export function normalizePromptTemplateDraftForSave(
+  template: string,
+  existingFields: ShortcutPromptFieldDefinition[],
+) {
+  const promptTemplate = template.trim();
+  if (!promptTemplate) {
+    return {
+      promptTemplate: '',
+      promptFields: [],
+      missingDefinitions: [],
+      unusedFields: [],
+    };
+  }
+
+  const promptFields = normalizePromptFieldDrafts(existingFields);
+  const templateTokens = extractShortcutTemplateTokens(promptTemplate);
+  const fieldKeys = promptFields.map((field) => field.key);
+
+  return {
+    promptTemplate,
+    promptFields,
+    missingDefinitions: templateTokens.filter((token) => !fieldKeys.includes(token)),
+    unusedFields: fieldKeys.filter((key) => !templateTokens.includes(key)),
   };
 }
 
@@ -44,8 +72,7 @@ export function syncPromptFieldsWithTemplate(
     return [];
   }
 
-  const normalizedExisting = existingFields
-    .map((field) => normalizePromptFieldDraft(field))
+  const normalizedExisting = normalizePromptFieldDrafts(existingFields)
     .filter((field) => Boolean(field.key));
   const fieldByKey = new Map(normalizedExisting.map((field) => [field.key, field]));
 

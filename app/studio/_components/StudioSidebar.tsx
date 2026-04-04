@@ -7,8 +7,9 @@ import {
   LogOut,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
+import Image, { type ImageLoaderProps } from "next/image";
 import { cn } from "@/lib/utils";
+import { formatImageUrl } from "@/lib/api-base";
 import SplitText from "@/components/ui/split-text";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,8 @@ import { STUDIO_NAV_ITEMS, STUDIO_ROUTES } from "../_lib/navigation";
 function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
+
+const passthroughImageLoader = ({ src }: ImageLoaderProps) => src;
 
 export const StudioSidebar = function StudioSidebar() {
   const pathname = usePathname();
@@ -48,6 +51,7 @@ export const StudioSidebar = function StudioSidebar() {
     router.push(href);
   }, [router, setViewMode]);
   const hydratedUser = hasHydrated ? currentUser : null;
+  const avatarSrc = hydratedUser?.avatar ? formatImageUrl(hydratedUser.avatar) : "";
 
   useEffect(() => {
     setHasHydrated(true);
@@ -118,9 +122,11 @@ export const StudioSidebar = function StudioSidebar() {
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/10 outline-none"
               >
                 <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden">
-                  {hydratedUser.avatar ? (
+                  {avatarSrc ? (
                     <Image
-                      src={hydratedUser.avatar}
+                      loader={passthroughImageLoader}
+                      unoptimized
+                      src={avatarSrc}
                       alt={hydratedUser.name || 'User'}
                       width={20}
                       height={20}

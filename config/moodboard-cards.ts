@@ -110,6 +110,7 @@ const LEADING_CLOSERS_PATTERN = /^[\s"'`’”)\]\}）】]+/;
 const LEADING_SEPARATORS_PATTERN = /^[\s,;:，、]+/;
 const HEX_COLOR_PATTERN = /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i;
 const TEMPLATE_TOKEN_PATTERN = /{{\s*([a-zA-Z0-9_-]+)\s*}}/g;
+const LEGACY_CUSTOM_SHORTCUT_DESCRIPTION = "自定义快捷入口";
 const SHORTCUT_ASPECT_RATIOS: AspectRatio[] = [
   "1:1",
   "2:3",
@@ -908,7 +909,13 @@ function buildCustomShortcutFromRecord(options: {
 
   const model = record.model_id?.trim() || SHORTCUT_DEFAULT_MODEL;
   const name = record.name?.trim() || record.cover_title?.trim() || shortcutCode;
-  const description = record.cover_subtitle?.trim() || record.moodboard_description?.trim() || "自定义快捷入口";
+  const coverSubtitle = record.cover_subtitle?.trim() || "";
+  const moodboardDescription = record.moodboard_description?.trim() || "";
+  const description = (
+    coverSubtitle && coverSubtitle !== LEGACY_CUSTOM_SHORTCUT_DESCRIPTION
+      ? coverSubtitle
+      : moodboardDescription || coverSubtitle || LEGACY_CUSTOM_SHORTCUT_DESCRIPTION
+  );
   const detailDescription = record.moodboard_description?.trim() || description;
 
   return {

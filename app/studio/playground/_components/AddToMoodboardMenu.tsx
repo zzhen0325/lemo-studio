@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Plus, X, BookmarkPlus } from 'lucide-react';
+import { Plus, X, BookmarkPlus, Check } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -174,6 +174,7 @@ export function AddToMoodboardMenu({
             {moodboards.length > 0 ? (
               moodboards.map((moodboard) => {
                 const linkedMoodboardCard = getMoodboardCardByMoodboardId(moodboard.id, moodboardCards);
+                const isCurrentImageIncluded = moodboard.imagePaths.includes(imagePath);
 
                 return (
                   <DropdownMenuItem
@@ -214,7 +215,25 @@ export function AddToMoodboardMenu({
                       }
                     }}
                   >
-                  
+                    <div className="min-w-0 flex flex-1 items-center gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/70">
+                        <BookmarkPlus size={14} />
+                      </div>
+                      <div className="min-w-0 flex flex-1 flex-col">
+                        <span className="truncate text-sm font-medium text-white">
+                          {moodboard.name}
+                        </span>
+                        <span className="truncate text-[11px] text-white/35">
+                          {moodboard.imagePaths.length} 张参考图
+                        </span>
+                      </div>
+                    </div>
+                    {isCurrentImageIncluded ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#E8FFB7]/20 bg-[#E8FFB7]/10 px-2 py-0.5 text-[10px] font-medium text-[#E8FFB7]">
+                        <Check size={12} />
+                        已包含
+                      </span>
+                    ) : null}
                   </DropdownMenuItem>
                 );
               })

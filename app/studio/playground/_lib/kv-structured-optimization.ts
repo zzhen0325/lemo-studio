@@ -164,7 +164,7 @@ export const DESIGN_STRUCTURED_OPTIMIZATION_SYSTEM_PROMPT = `你是服务于 KV 
 6. layout 必须说明 mainTitle、subTitle、eventTime 与主体的关系。
 7. typography 必须强调 mainTitle 是第一信息层，subTitle 和 eventTime 是次级信息层。
 8. 不要输出 tokens、palette、colors、colorPalette、promptPreview 等额外结构字段。
-9. 颜色信息只保留在 detailText 中，使用准确 HEX，例如 色值#A4B97E。
+9. 颜色信息只保留在 detailText 中，使用准确 HEX，并统一写成 ASCII 圆括号包裹的形式，例如 色值(#A4B97E)。
 
 长度控制：
 1. 每组 detailText 保持简洁具体，优先描述主体、场景、层级和关键信息关系。
@@ -224,6 +224,7 @@ export const DESIGN_VARIANT_EDIT_SYSTEM_PROMPT = `# 角色定义
 2. analysis 必须完整保留五段：canvas / subject / background / layout / typography。
 3. detailText 保留高细节设计逻辑。
 4. 不要输出 tokens 字段。
+5. 所有 HEX 色值统一写成 ASCII 圆括号包裹的形式，例如 (#A4B97E)。
 
 # 质量要求
 1. 如果用户要求“换主体”或“更有故事”，优先改 subject，必要时最小范围联动 background、layout、typography。
@@ -248,7 +249,7 @@ export const DESIGN_SECTION_EDIT_SYSTEM_PROMPT = `# 角色定义
 1. 只重点重写用户指定的 section 的 detailText。
 2. 不要返回其他 section，不要返回 variant，不要返回 tokens。
 3. detailText 必须具体、可执行、层级清晰，避免空泛形容词堆砌。
-4. 如果原文本已有 HEX 色值，优先沿用并保持一致性。
+4. 如果原文本已有 HEX 色值，优先沿用并保持一致性，且统一写成 ASCII 圆括号包裹的形式，例如 (#A4B97E)。
 
 # 结构要求
 1. sectionKey 必须与输入完全一致。
@@ -314,6 +315,27 @@ function extractHexMatches(text: string) {
 }
 
 export const extractDesignHexMatches = extractHexMatches;
+
+function ensureParenthesizedHexColors(text: string) {
+  if (!text) {
+    return "";
+  }
+
+  return text.replace(/#[0-9A-Fa-f]{3,6}\b/g, (matched, offset, source) => {
+    const normalizedHex = normalizeHex(matched);
+    if (!normalizedHex) {
+      return matched;
+    }
+
+    const previousChar = source[offset - 1] || "";
+    const nextChar = source[offset + matched.length] || "";
+    if (previousChar === "(" && nextChar === ")") {
+      return normalizedHex;
+    }
+
+    return `(${normalizedHex})`;
+  });
+}
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1109,7 +1131,7 @@ function normalizeAnalysisSection(value: unknown): DesignStructuredAnalysisSecti
 
   if (typeof value === "string") {
     return {
-      detailText: toLooseString(value),
+      detailText: ensureParenthesizedHexColors(toLooseString(value)),
     };
   }
 
@@ -1124,7 +1146,7 @@ function normalizeAnalysisSection(value: unknown): DesignStructuredAnalysisSecti
   ]));
 
   return {
-    detailText,
+    detailText: ensureParenthesizedHexColors(detailText),
   };
 }
 
@@ -1399,11 +1421,13 @@ function buildAnalysisOnlyPrompt(
     return section.detailText.trim() ? [section.detailText.trim()] : [];
   });
 
-  return sectionPhrases
+  const prompt = sectionPhrases
     .filter(Boolean)
     .join(", ")
     .replace(/\s+/g, " ")
     .trim();
+
+  return ensureParenthesizedHexColors(prompt);
 }
 
 function normalizeVariant(value: unknown, index: number): DesignStructuredVariant {
@@ -1553,7 +1577,7 @@ export function parseDesignStructuredOptimizationResponse(raw: string): DesignSt
           detailText: variant.analysis.typography.detailText.trim(),
         },
       },
-      promptPreview: variant.promptPreview.trim() || buildAnalysisOnlyPrompt(variant.analysis),
+      promptPreview: ensureParenthesizedHexColors(variant.promptPreview.trim() || buildAnalysisOnlyPrompt(variant.analysis)),
     })),
   };
 }
@@ -1602,7 +1626,7 @@ export function parseDesignStructuredVariantEditResponse(raw: string): DesignStr
             detailText: directVariant.analysis.typography.detailText.trim(),
           },
         },
-        promptPreview: directVariant.promptPreview.trim() || buildAnalysisOnlyPrompt(directVariant.analysis),
+        promptPreview: ensureParenthesizedHexColors(directVariant.promptPreview.trim() || buildAnalysisOnlyPrompt(directVariant.analysis)),
       },
     };
   }
@@ -1726,6 +1750,6 @@ export function parseDesignSectionEditResponse(raw: string): DesignStructuredSec
   return {
     mode: DESIGN_SECTION_EDIT_MODE,
     sectionKey,
-    detailText,
+    detailText: ensureParenthesizedHexColors(detailText),
   };
 }
