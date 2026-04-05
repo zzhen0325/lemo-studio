@@ -83,11 +83,23 @@ export interface HistoryQuery {
   userId?: string | null;
   sortBy?: SortBy | null;
   viewerUserId?: string | null;
+  lightweight?: string | number | boolean | null;
+  minimal?: string | number | boolean | null;
 }
 
 // Simple UUID validation
 function isValidId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
+function isEnabledFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
+  }
+  return false;
 }
 
 export class HistoryService {
@@ -169,9 +181,12 @@ export class HistoryService {
   }
 
   public async getHistory(query: HistoryQuery): Promise<{ history: Generation[]; total: number; hasMore: boolean }> {
-    const { page, limit, projectId, userId, sortBy, viewerUserId } = query;
+    const { page, limit, projectId, userId, sortBy, viewerUserId, lightweight, minimal } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
+    const lightweightMode = isEnabledFlag(lightweight);
+    const minimalMode = isEnabledFlag(minimal);
+    const shouldUseLightweightMapping = lightweightMode || minimalMode;
     const debugHistory = process.env.DEBUG_HISTORY === 'true' || process.env.HISTORY_DEBUG === '1';
 
     // Auto cleanup old records with 1% probability
@@ -242,7 +257,9 @@ export class HistoryService {
         sort: sortOption,
         skip: (pageNum - 1) * limitNum,
         limit: limitNum,
-        select: 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage,like_count,moodboard_add_count,download_count,edit_count,last_liked_at,last_moodboard_added_at,last_downloaded_at,last_edited_at',
+        select: shouldUseLightweightMapping
+          ? 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage'
+          : 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage,like_count,moodboard_add_count,download_count,edit_count,last_liked_at,last_moodboard_added_at,last_downloaded_at,last_edited_at',
       };
       const items = hasOwnerFilter
         ? await this.historyRepository.listByOwner(userId!, listOptions)
@@ -261,6 +278,7 @@ export class HistoryService {
       // Batch get interaction data if viewerUserId is provided
       const itemIds = items.map(item => item.id);
       const interactionDataMap = viewerUserId 
+        && !shouldUseLightweightMapping
         ? await getBatchInteractionData(itemIds, viewerUserId)
         : new Map();
 
@@ -275,14 +293,18 @@ export class HistoryService {
           ? config.localSourceIds as string[]
           : config.localSourceId ? [config.localSourceId as string] : [];
 
-        const normalizedUrls = await this.normalizeGenerationUrls(
-          item.id,
-          outputUrl,
-          sourceImageUrls,
-        );
-
         // Get interaction data
         const interactionData = interactionDataMap.get(item.id);
+        const normalizedUrls = shouldUseLightweightMapping
+          ? {
+            outputUrl,
+            sourceImageUrls,
+          }
+          : await this.normalizeGenerationUrls(
+            item.id,
+            outputUrl,
+            sourceImageUrls,
+          );
 
         return {
           id: item.id,
@@ -298,17 +320,19 @@ export class HistoryService {
           createdAt: item.created_at || new Date().toISOString(),
           progress: item.progress,
           progressStage: item.progress_stage,
-          interactionStats: interactionData?.interactionStats || {
-            likeCount: item.like_count || 0,
-            moodboardAddCount: item.moodboard_add_count || 0,
-            downloadCount: item.download_count || 0,
-            editCount: item.edit_count || 0,
-            lastLikedAt: item.last_liked_at || undefined,
-            lastMoodboardAddedAt: item.last_moodboard_added_at || undefined,
-            lastDownloadedAt: item.last_downloaded_at || undefined,
-            lastEditedAt: item.last_edited_at || undefined,
-          },
-          viewerState: interactionData?.viewerState,
+          interactionStats: shouldUseLightweightMapping
+            ? undefined
+            : (interactionData?.interactionStats || {
+              likeCount: item.like_count || 0,
+              moodboardAddCount: item.moodboard_add_count || 0,
+              downloadCount: item.download_count || 0,
+              editCount: item.edit_count || 0,
+              lastLikedAt: item.last_liked_at || undefined,
+              lastMoodboardAddedAt: item.last_moodboard_added_at || undefined,
+              lastDownloadedAt: item.last_downloaded_at || undefined,
+              lastEditedAt: item.last_edited_at || undefined,
+            }),
+          viewerState: shouldUseLightweightMapping ? undefined : interactionData?.viewerState,
         } as Generation;
       }));
 

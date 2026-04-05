@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Image as ImageIcon, LayoutGrid, List, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Generation } from '@/types/database';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { cn } from '@/lib/utils';
@@ -8,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { HistoryLoadingSkeleton } from './HistoryLoadingSkeleton';
 import { useGroupedHistory, isTextHistoryResult } from '@studio/playground/_components/hooks/useGroupedHistory';
+import { usePlaygroundMoodboards } from '@studio/playground/_components/hooks/usePlaygroundMoodboards';
 import {
   DescribeSourceImage,
   DraggableHistoryCard,
@@ -19,6 +21,57 @@ import {
   getPromptOptimizationSource,
   isPromptOptimizationHistoryItem,
 } from '@studio/playground/_lib/prompt-history';
+
+const HISTORY_INITIAL_RENDER_COUNT = 60;
+const HISTORY_BATCH_RENDER_COUNT = 30;
+
+function useIncrementalVisibleCount(
+  totalCount: number,
+  initialCount: number,
+  batchCount: number,
+  resetSignal: string
+) {
+  const [visibleCount, setVisibleCount] = React.useState(() => Math.min(totalCount, initialCount));
+
+  useEffect(() => {
+    setVisibleCount(Math.min(totalCount, initialCount));
+  }, [initialCount, resetSignal, totalCount]);
+
+  useEffect(() => {
+    if (visibleCount >= totalCount) return;
+
+    let cancelled = false;
+    let timer: number | null = null;
+    let idleId: number | null = null;
+    const win = window as Window & {
+      requestIdleCallback?: (cb: IdleRequestCallback) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    const flushNext = () => {
+      if (cancelled) return;
+      setVisibleCount((prev) => Math.min(totalCount, prev + batchCount));
+    };
+
+    if (typeof win.requestIdleCallback === 'function') {
+      idleId = win.requestIdleCallback(() => {
+        flushNext();
+      });
+    } else {
+      timer = window.setTimeout(flushNext, 16);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+      if (idleId !== null && typeof win.cancelIdleCallback === 'function') {
+        win.cancelIdleCallback(idleId);
+      }
+    };
+  }, [batchCount, totalCount, visibleCount]);
+
+  return visibleCount;
+}
 
 const HistoryList = function HistoryList({
   history,
@@ -36,15 +89,13 @@ const HistoryList = function HistoryList({
   isLoading = false,
 }: HistoryListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const {
-    setPreviewImage,
-
-    isSelectionMode,
-    setIsSelectionMode,
-    selectedHistoryIds: selectedIds,
-    toggleHistorySelection: toggleSelection,
-    clearHistorySelection: clearSelection,
-  } = usePlaygroundStore();
+  const setPreviewImage = usePlaygroundStore((state) => state.setPreviewImage);
+  const isSelectionMode = usePlaygroundStore((state) => state.isSelectionMode);
+  const setIsSelectionMode = usePlaygroundStore((state) => state.setIsSelectionMode);
+  const selectedIds = usePlaygroundStore((state) => state.selectedHistoryIds);
+  const toggleSelection = usePlaygroundStore((state) => state.toggleHistorySelection);
+  const clearSelection = usePlaygroundStore((state) => state.clearHistorySelection);
+  const { moodboards, moodboardCards, refreshMoodboardCards } = usePlaygroundMoodboards();
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +116,31 @@ const HistoryList = function HistoryList({
     return () => observer.disconnect();
   }, [hasMore, isLoading, onLoadMore]);
   const groupedHistory = useGroupedHistory(history);
+  const visibilityResetSignal = `${layoutMode}|${history.length}|${groupedHistory.length}`;
+  const visibleHistoryCount = useIncrementalVisibleCount(
+    history.length,
+    HISTORY_INITIAL_RENDER_COUNT,
+    HISTORY_BATCH_RENDER_COUNT,
+    visibilityResetSignal
+  );
+  const visibleGridHistory = React.useMemo(
+    () => history.slice(0, visibleHistoryCount),
+    [history, visibleHistoryCount]
+  );
+  const visibleGroupedHistory = React.useMemo(() => {
+    if (visibleHistoryCount >= history.length) {
+      return groupedHistory;
+    }
+
+    let consumed = 0;
+    const acc: typeof groupedHistory = [];
+    for (const group of groupedHistory) {
+      if (consumed >= visibleHistoryCount) break;
+      acc.push(group);
+      consumed += group.items.length;
+    }
+    return acc;
+  }, [groupedHistory, history.length, visibleHistoryCount]);
 
   const toggleGroupSelection = (items: Generation[]) => {
     const allSelected = items.every(item => selectedIds.has(item.id));
@@ -94,6 +170,7 @@ const HistoryList = function HistoryList({
   return (
 
     // bg-white/5 border border-white/10 rounded-3xl
+    <TooltipProvider delayDuration={100}>
     <div
       className=" rounded-2xl h-full flex flex-col relative overflow-hidden"
     >
@@ -239,7 +316,7 @@ const HistoryList = function HistoryList({
           variant === 'default' ? "max-w-[1600px]" : "max-w-full"
         )}>
           {layoutMode === 'grid' ? (
-            history.map((result, resultIdx) => {
+            visibleGridHistory.map((result, resultIdx) => {
               const normalizedId = (result.id || '').trim();
               const resultKey = normalizedId || `history-item-${result.createdAt || 'unknown'}-${resultIdx}`;
               const isTextItem = isTextHistoryResult(result);
@@ -283,6 +360,9 @@ const HistoryList = function HistoryList({
                         onToggleSelect={() => {
                           usePlaygroundStore.getState().toggleHistorySelection(result.id);
                         }}
+                        moodboards={moodboards}
+                        moodboardCards={moodboardCards}
+                        refreshMoodboardCards={refreshMoodboardCards}
                       />
                     )}
                   </DraggableHistoryCard>
@@ -290,12 +370,12 @@ const HistoryList = function HistoryList({
               );
             })
           ) : (
-            groupedHistory.map((group, groupIdx) => {
+            visibleGroupedHistory.map((group) => {
               const isGroupSelected = group.items.every(item => selectedIds.has(item.id));
 
               return (
                 <div
-                  key={`group-${groupIdx}`}
+                  key={group.key}
                   className={cn(
                     "break-inside-avoid flex flex-col overflow-hidden mb-2  transition-all",
                     isSelectionMode ? "cursor-pointer border-2 p-2 rounded-3xl " : "bg-transparent border-0",
@@ -329,6 +409,9 @@ const HistoryList = function HistoryList({
                           isSelectionMode={isSelectionMode}
                           isSelected={isGroupSelected} // In list mode, the card represents the group
                           onToggleSelect={() => toggleGroupSelection(group.items)}
+                          moodboards={moodboards}
+                          moodboardCards={moodboardCards}
+                          refreshMoodboardCards={refreshMoodboardCards}
                         />
                       </DraggableHistoryCard>
                     </div>
@@ -533,6 +616,7 @@ const HistoryList = function HistoryList({
         )}
       </AnimatePresence>
     </div>
+    </TooltipProvider>
   );
 };
 

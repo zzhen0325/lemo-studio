@@ -17,6 +17,7 @@ import {
 import type { SortBy } from '@/lib/server/service/history.service';
 
 const galleryInFlightRequests = new Map<string, Promise<{ history: Generation[]; hasMore: boolean } | null>>();
+export const PERSISTED_GALLERY_LIMIT = 120;
 
 export const fetchGalleryPageFromApi = async (
   page: number, 
@@ -78,15 +79,26 @@ export const sanitizeUrlsForPersist = (urls?: (string | undefined | null)[]) =>
     .filter(Boolean) as string[] | undefined;
 
 export const sanitizeGalleryItemsForPersist = (items: Generation[]) =>
-  items.map(item => ({
-    ...item,
-    config: item.config
-      ? {
-        ...item.config,
-        sourceImageUrls: sanitizeUrlsForPersist(item.config.sourceImageUrls),
-      }
-      : item.config,
-  }));
+  items
+    .slice(0, PERSISTED_GALLERY_LIMIT)
+    .map((item) => ({
+      id: item.id,
+      userId: item.userId,
+      projectId: item.projectId,
+      outputUrl: item.outputUrl,
+      status: item.status,
+      createdAt: item.createdAt,
+      config: {
+        prompt: item.config?.prompt || '',
+        model: item.config?.model || '',
+        presetName: item.config?.presetName,
+        width: Number(item.config?.width) || 1024,
+        height: Number(item.config?.height) || 1024,
+        sourceImageUrls: sanitizeUrlsForPersist(item.config?.sourceImageUrls),
+        promptCategory: item.config?.promptCategory,
+        historyRecordType: item.config?.historyRecordType,
+      },
+    }));
 
 export const clearBannerMetadata = (config: GenerationConfig): GenerationConfig => {
   const nextConfig = { ...config };

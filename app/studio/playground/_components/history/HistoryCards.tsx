@@ -155,7 +155,7 @@ export function DraggableHistoryCard({
   );
 }
 
-export function HistoryCard({
+export const HistoryCard = React.memo(function HistoryCard({
   result,
   allResults,
   onRegenerate,
@@ -167,7 +167,10 @@ export function HistoryCard({
   layoutMode = 'list',
   isSelectionMode,
   isSelected,
-  onToggleSelect
+  onToggleSelect,
+  moodboards,
+  moodboardCards,
+  refreshMoodboardCards,
 }: {
   result: Generation;
   allResults?: Generation[];
@@ -181,10 +184,18 @@ export function HistoryCard({
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  moodboards?: import('@/types/database').StyleStack[];
+  moodboardCards?: import('@/config/moodboard-cards').MoodboardCard[];
+  refreshMoodboardCards?: () => Promise<void>;
 }) {
   const [isHover, setIsHover] = React.useState(false);
+  const [hoveredResultId, setHoveredResultId] = React.useState<string | null>(null);
   const availableModels = usePlaygroundAvailableModels();
-  const { applyPrompt, applyModel, applyImage, applyImages, setSelectedPresetName } = usePlaygroundStore();
+  const applyPrompt = usePlaygroundStore((state) => state.applyPrompt);
+  const applyModel = usePlaygroundStore((state) => state.applyModel);
+  const applyImage = usePlaygroundStore((state) => state.applyImage);
+  const applyImages = usePlaygroundStore((state) => state.applyImages);
+  const setSelectedPresetName = usePlaygroundStore((state) => state.setSelectedPresetName);
   const { toast } = useToast();
 
   // 数据已规范化，直接从 config.sourceImageUrls 读取
@@ -310,6 +321,7 @@ export function HistoryCard({
                     label="Copy Prompt"
                     tooltipContent="Copy Prompt"
                     tooltipSide="top"
+                    withProvider={false}
                     className="w-2 h-2 p-1 bg-transparent hover:bg-transparent text-white/20 hover:text-white transition-all group/copy "
                     onClick={(e) => {
                       e.stopPropagation();
@@ -370,6 +382,8 @@ export function HistoryCard({
                       key={res.id || idx}
                       className="relative w-full overflow-hidden rounded-xl group/img border border-white/5 bg-white/5"
                       style={{ aspectRatio: effectiveAspectRatio }}
+                      onMouseEnter={() => setHoveredResultId(res.id)}
+                      onMouseLeave={() => setHoveredResultId((current) => (current === res.id ? null : current))}
                     >
                       <AnimatePresence>
                         {res.status === 'pending' ? (
@@ -422,9 +436,18 @@ export function HistoryCard({
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      {res.status !== 'pending' && img && !isSelectionMode && (
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-300 opacity-0 group-hover/img:opacity-100 group-hover/img:translate-y-0 translate-y-4" onClick={(e) => e.stopPropagation()}>
-                          <AddToMoodboardMenu imagePath={img} />
+                      {res.status !== 'pending' && img && !isSelectionMode && hoveredResultId === res.id ? (
+                        <div
+                          className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-300 opacity-100 translate-y-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <AddToMoodboardMenu
+                            imagePath={img}
+                            tooltipWithProvider={false}
+                            moodboardsData={moodboards}
+                            moodboardCardsData={moodboardCards}
+                            onRefreshMoodboardCards={refreshMoodboardCards}
+                          />
 
                           <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
 
@@ -433,6 +456,7 @@ export function HistoryCard({
                             label="Use Image"
                             tooltipContent="Use Image"
                             tooltipSide="top"
+                            withProvider={false}
                             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                             onClick={() => {
                               applyImage(img);
@@ -445,6 +469,7 @@ export function HistoryCard({
                             label="Edit"
                             tooltipContent="以结果图开始新编辑"
                             tooltipSide="top"
+                            withProvider={false}
                             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -457,6 +482,7 @@ export function HistoryCard({
                             label="Download"
                             tooltipContent="Download"
                             tooltipSide="top"
+                            withProvider={false}
                             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -464,7 +490,7 @@ export function HistoryCard({
                             }}
                           />
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   );
                 })}
@@ -629,13 +655,14 @@ export function HistoryCard({
         </AnimatePresence>
       </motion.div>
 
-      {!isSelectionMode && (
-        <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
+      {!isSelectionMode && isHover ? (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-black/50 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl transition-all duration-50 opacity-100 translate-y-0 scale-100" onClick={(e) => e.stopPropagation()}>
           <TooltipButton
             icon={<Type className="w-4 h-4" />}
             label="Use Prompt"
             tooltipContent="Use Prompt"
             tooltipSide="top"
+            withProvider={false}
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
@@ -647,6 +674,7 @@ export function HistoryCard({
             label="Use Image"
             tooltipContent="Use Image"
             tooltipSide="top"
+            withProvider={false}
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
@@ -661,6 +689,7 @@ export function HistoryCard({
             label="Use Model"
             tooltipContent="Use Model"
             tooltipSide="top"
+            withProvider={false}
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
@@ -685,6 +714,7 @@ export function HistoryCard({
             label="Edit"
             tooltipContent="以结果图开始新编辑"
             tooltipSide="top"
+            withProvider={false}
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
@@ -696,6 +726,7 @@ export function HistoryCard({
             label="Remix"
             tooltipContent="Recreate"
             tooltipSide="top"
+            withProvider={false}
             className="w-8 h-8 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
             onClick={(e) => {
               e.stopPropagation();
@@ -707,6 +738,7 @@ export function HistoryCard({
             label="Download"
             tooltipContent="Download"
             tooltipSide="top"
+            withProvider={false}
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
@@ -714,12 +746,12 @@ export function HistoryCard({
             }}
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
-}
+});
 
-export function TextHistoryCard({
+export const TextHistoryCard = React.memo(function TextHistoryCard({
   result,
   title = 'Image Description',
   actionLabel = 'Use Prompt',
@@ -737,7 +769,7 @@ export function TextHistoryCard({
   onToggleSelect?: () => void;
 }) {
   const { toast } = useToast();
-  const { applyPrompt } = usePlaygroundStore();
+  const applyPrompt = usePlaygroundStore((state) => state.applyPrompt);
   const prompt = result.config?.prompt || '';
 
   const handleApply = (e: React.MouseEvent) => {
@@ -813,4 +845,7 @@ export function TextHistoryCard({
       )}
     </div>
   );
-}
+});
+
+HistoryCard.displayName = 'HistoryCard';
+TextHistoryCard.displayName = 'TextHistoryCard';

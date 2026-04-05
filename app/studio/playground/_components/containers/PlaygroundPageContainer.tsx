@@ -326,20 +326,18 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const activeShortcutTemplateRef = useRef<ActiveShortcutTemplate | null>(null);
 
 
-  const {
-    showHistory,
-    setShowHistory,
-    selectedPresetName,
-    setSelectedPresetName,
-    viewMode,
-    setViewMode,
-    activeTab,
-    setActiveTab,
-    previewImageUrl,
-    previewLayoutId,
-    setPreviewImage,
-    selectedHistoryIds
-  } = usePlaygroundStore();
+  const showHistory = usePlaygroundStore((state) => state.showHistory);
+  const setShowHistory = usePlaygroundStore((state) => state.setShowHistory);
+  const selectedPresetName = usePlaygroundStore((state) => state.selectedPresetName);
+  const setSelectedPresetName = usePlaygroundStore((state) => state.setSelectedPresetName);
+  const viewMode = usePlaygroundStore((state) => state.viewMode);
+  const setViewMode = usePlaygroundStore((state) => state.setViewMode);
+  const activeTab = usePlaygroundStore((state) => state.activeTab);
+  const setActiveTab = usePlaygroundStore((state) => state.setActiveTab);
+  const previewImageUrl = usePlaygroundStore((state) => state.previewImageUrl);
+  const previewLayoutId = usePlaygroundStore((state) => state.previewLayoutId);
+  const setPreviewImage = usePlaygroundStore((state) => state.setPreviewImage);
+  const selectedHistoryIds = usePlaygroundStore((state) => state.selectedHistoryIds);
   const apiConfigSettings = useAPIConfigStore(s => s.settings);
   const defaultImageModelId = apiConfigSettings.services?.imageGeneration?.binding?.modelId
     || apiConfigSettings.defaults?.image?.textToImage?.binding?.modelId

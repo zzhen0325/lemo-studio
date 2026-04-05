@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { resolveGalleryImageUrl } from "@/lib/gallery-asset";
 import { Download, Search, Image as ImageIcon, Type, Box, RefreshCw, X, SlidersHorizontal, Trash2, LucideIcon, ArrowUpDown } from "lucide-react";
 import { TooltipButton } from "@/components/ui/tooltip-button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
 import { useMediaQuery } from '@/hooks/common/use-media-query';
@@ -14,6 +15,7 @@ import { useGenerationService } from "@studio/playground/_components/hooks/useGe
 import type { PlaygroundHistoryController } from "@studio/playground/_components/hooks/useHistory";
 import { Generation, GenerationConfig } from '@/types/database';
 import { AddToMoodboardMenu } from "@studio/playground/_components/AddToMoodboardMenu";
+import { usePlaygroundMoodboards } from '@studio/playground/_components/hooks/usePlaygroundMoodboards';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,9 +34,58 @@ import {
 } from '@studio/playground/_lib/prompt-history';
 
 const GALLERY_THUMB_QUALITY = 25;
+const GALLERY_INITIAL_RENDER_COUNT = 80;
+const GALLERY_BATCH_RENDER_COUNT = 40;
 
 type GalleryInnerTab = 'gallery' | 'prompt';
 
+function useIncrementalVisibleCount(
+    totalCount: number,
+    initialCount: number,
+    batchCount: number,
+    resetSignal: string
+) {
+    const [visibleCount, setVisibleCount] = useState(() => Math.min(totalCount, initialCount));
+
+    useEffect(() => {
+        setVisibleCount(Math.min(totalCount, initialCount));
+    }, [initialCount, resetSignal, totalCount]);
+
+    useEffect(() => {
+        if (visibleCount >= totalCount) return;
+
+        let cancelled = false;
+        let timer: number | null = null;
+        let idleId: number | null = null;
+        const win = window as Window & {
+            requestIdleCallback?: (cb: IdleRequestCallback) => number;
+            cancelIdleCallback?: (id: number) => void;
+        };
+
+        const flushNext = () => {
+            if (cancelled) return;
+            setVisibleCount((prev) => Math.min(totalCount, prev + batchCount));
+        };
+
+        if (typeof win.requestIdleCallback === 'function') {
+            idleId = win.requestIdleCallback(() => {
+                flushNext();
+            });
+        } else {
+            timer = window.setTimeout(flushNext, 16);
+        }
+
+        return () => {
+            cancelled = true;
+            if (timer !== null) window.clearTimeout(timer);
+            if (idleId !== null && typeof win.cancelIdleCallback === 'function') {
+                win.cancelIdleCallback(idleId);
+            }
+        };
+    }, [batchCount, totalCount, visibleCount]);
+
+    return visibleCount;
+}
 
 
 
@@ -67,6 +118,7 @@ export default function GalleryView({
     const gallerySortBy = usePlaygroundStore(s => s.gallerySortBy);
     const setGallerySortBy = usePlaygroundStore(s => s.setGallerySortBy);
     const { handleGenerate } = useGenerationService(historyController);
+    const { moodboards, moodboardCards, refreshMoodboardCards } = usePlaygroundMoodboards();
 
     // Sort options configuration (excluding interactionPriority which is internal)
     const sortOptions: { value: Exclude<SortBy, 'interactionPriority'>; label: string }[] = [
@@ -170,6 +222,28 @@ export default function GalleryView({
     const filteredPromptItems = useMemo(
         () => buildFilteredItems(promptItems),
         [buildFilteredItems, promptItems]
+    );
+
+    const visibilityResetSignature = `${activeInnerTab}|${searchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${gallerySortBy}`;
+    const visibleGalleryCount = useIncrementalVisibleCount(
+        filteredGalleryItems.length,
+        GALLERY_INITIAL_RENDER_COUNT,
+        GALLERY_BATCH_RENDER_COUNT,
+        visibilityResetSignature
+    );
+    const visiblePromptCount = useIncrementalVisibleCount(
+        filteredPromptItems.length,
+        GALLERY_INITIAL_RENDER_COUNT,
+        GALLERY_BATCH_RENDER_COUNT,
+        visibilityResetSignature
+    );
+    const renderedGalleryItems = useMemo(
+        () => filteredGalleryItems.slice(0, visibleGalleryCount),
+        [filteredGalleryItems, visibleGalleryCount]
+    );
+    const renderedPromptItems = useMemo(
+        () => filteredPromptItems.slice(0, visiblePromptCount),
+        [filteredPromptItems, visiblePromptCount]
     );
 
     const toggleModel = (model: string) => {
@@ -297,6 +371,7 @@ export default function GalleryView({
     const searchPlaceholder = activeInnerTab === 'gallery' ? 'Search gallery prompts...' : 'Search prompt records...';
 
     return (
+        <TooltipProvider delayDuration={100}>
         <div className="w-[95%] h-full mt-10 mx-auto  bg-transparent flex flex-col overflow-hidden">
 
 
@@ -401,25 +476,27 @@ export default function GalleryView({
                                 <GallerySkeletonGrid columnsCount={columnsCount} />
                             ) : activeInnerTab === 'gallery' ? (
                                 <MasonryGrid
-                                    items={filteredGalleryItems}
+                                    items={renderedGalleryItems}
                                     columnsCount={columnsCount}
                                     scrollContainerRef={galleryScrollRef}
                                     renderItem={(item, index) => (
                                         <GalleryCard
                                             key={`${item.id}-${index}`}
                                             item={item}
-                                            allItems={filteredGalleryItems}
                                             onSelectItem={handleSelectItem}
                                             onDownload={handleDownload}
                                             onGenerate={handleGenerate}
                                             onUsePrompt={onUsePrompt}
                                             onUseImage={onUseImage}
+                                            moodboards={moodboards}
+                                            moodboardCards={moodboardCards}
+                                            refreshMoodboardCards={refreshMoodboardCards}
                                         />
                                     )}
                                 />
                             ) : (
                                 <PromptListView
-                                    items={filteredPromptItems}
+                                    items={renderedPromptItems}
                                     onUsePrompt={onUsePrompt}
                                 />
                             )}
@@ -570,6 +647,7 @@ export default function GalleryView({
 
             </div>
         </div>
+        </TooltipProvider>
     );
 }
 
@@ -684,15 +762,27 @@ type HandleGenerateFn = ReturnType<typeof useGenerationService>['handleGenerate'
 
 interface GalleryCardProps {
     item: Generation;
-    allItems: Generation[];
     onSelectItem?: (item: Generation, items?: Generation[]) => void;
     onDownload: (e: React.MouseEvent, url: string, filename: string) => void;
     onGenerate: HandleGenerateFn;
     onUsePrompt?: (item: Generation) => void;
     onUseImage?: (item: Generation) => void | Promise<void>;
+    moodboards: import('@/types/database').StyleStack[];
+    moodboardCards: import('@/config/moodboard-cards').MoodboardCard[];
+    refreshMoodboardCards: () => Promise<void>;
 }
 
-function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onUsePrompt, onUseImage }: GalleryCardProps) {
+const GalleryCard = React.memo(function GalleryCard({
+    item,
+    onSelectItem,
+    onDownload,
+    onGenerate,
+    onUsePrompt,
+    onUseImage,
+    moodboards,
+    moodboardCards,
+    refreshMoodboardCards,
+}: GalleryCardProps) {
     const [isHover, setIsHover] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
     const { ref, isInView } = useInView('200px');
@@ -711,8 +801,8 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
     );
 
     const handleCardClick = useCallback(() => {
-        onSelectItem?.(item, allItems);
-    }, [onSelectItem, item, allItems]);
+        onSelectItem?.(item);
+    }, [onSelectItem, item]);
 
     const performDownload = useCallback(() => {
         if (!item.outputUrl) return;
@@ -789,121 +879,130 @@ function GalleryCard({ item, allItems, onSelectItem, onDownload, onGenerate, onU
                 /> */}
 
 
-                {/* Floating Actions - consistent with HistoryList */}
-                <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex shrink-0 items-center gap-1 max-w-[calc(100%-24px)] overflow-hidden bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 ${isHover ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none'}`} onClick={(e) => e.stopPropagation()}>
-                    <AddToMoodboardMenu imagePath={item.outputUrl} />
+                {isHover ? (
+                    <div
+                        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex shrink-0 items-center gap-1 max-w-[calc(100%-24px)] overflow-hidden bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl transition-all duration-50 opacity-100 translate-y-0 scale-100"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <AddToMoodboardMenu
+                            imagePath={item.outputUrl}
+                            tooltipWithProvider={false}
+                            moodboardsData={moodboards}
+                            moodboardCardsData={moodboardCards}
+                            onRefreshMoodboardCards={refreshMoodboardCards}
+                        />
 
-                    {/* <div className="w-[1px] h-4 bg-white/10 mx-0.5" /> */}
-                    <TooltipButton
-                        icon={<Type className="w-4 h-4" />}
-                        label="Use Prompt"
-                        tooltipContent="Use Prompt"
-                        tooltipSide="top"
-                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                        onClick={() => {
-                            if (item.config?.prompt) {
-                                if (onUsePrompt) {
-                                    onUsePrompt(item);
-                                } else {
-                                    usePlaygroundStore.getState().applyPrompt(item.config.prompt);
+                        <TooltipButton
+                            icon={<Type className="w-4 h-4" />}
+                            label="Use Prompt"
+                            tooltipContent="Use Prompt"
+                            tooltipSide="top"
+                            withProvider={false}
+                            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={() => {
+                                if (item.config?.prompt) {
+                                    if (onUsePrompt) {
+                                        onUsePrompt(item);
+                                    } else {
+                                        usePlaygroundStore.getState().applyPrompt(item.config.prompt);
+                                    }
+                                    toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
                                 }
-                                toast({ title: "Prompt Applied", description: "提示词已应用到输入框" });
-                            }
-                        }}
-                    />
-                    <TooltipButton
-                        icon={<ImageIcon className="w-4 h-4" />}
-                        label="Use Image"
-                        tooltipContent="Use Image"
-                        tooltipSide="top"
-                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                        onClick={() => {
-                            if (item.outputUrl) {
-                                if (onUseImage) {
-                                    void onUseImage(item);
-                                } else {
-                                    usePlaygroundStore.getState().applyImage(item.outputUrl);
+                            }}
+                        />
+                        <TooltipButton
+                            icon={<ImageIcon className="w-4 h-4" />}
+                            label="Use Image"
+                            tooltipContent="Use Image"
+                            tooltipSide="top"
+                            withProvider={false}
+                            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={() => {
+                                if (item.outputUrl) {
+                                    if (onUseImage) {
+                                        void onUseImage(item);
+                                    } else {
+                                        usePlaygroundStore.getState().applyImage(item.outputUrl);
+                                    }
+                                    toast({ title: "Image Added", description: "图片已添加为参考图" });
                                 }
-                                toast({ title: "Image Added", description: "图片已添加为参考图" });
-                            }
-                        }}
-                    />
-                    
-                    {/* <div className="w-[1px] h-4 bg-white/10 mx-0.5" /> */}
-                    <TooltipButton
-                        icon={<RefreshCw className="w-4 h-4" />}
-                        label="Rerun"
-                        tooltipContent="Rerun"
-                        tooltipSide="top"
-                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                        onClick={async () => {
-                            if (!item.config) return;
-                            const store = usePlaygroundStore.getState();
-                            const {
-                                applyImages,
-                                setUploadedImages,
-                                applyModel,
-                                applyPrompt,
-                                setSelectedPresetName,
-                                setViewMode,
-                                setActiveTab,
-                                config: currentConfig
-                            } = store;
+                            }}
+                        />
 
-                            // 1. 同步参考图 - 数据已规范化，直接从 config.sourceImageUrls 读取
-                            const sourceUrls = item.config?.sourceImageUrls || [];
-                            if (sourceUrls.length > 0) {
-                                await applyImages(sourceUrls);
-                            } else {
-                                setUploadedImages([]);
-                            }
+                        <TooltipButton
+                            icon={<RefreshCw className="w-4 h-4" />}
+                            label="Rerun"
+                            tooltipContent="Rerun"
+                            tooltipSide="top"
+                            withProvider={false}
+                            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={async () => {
+                                if (!item.config) return;
+                                const store = usePlaygroundStore.getState();
+                                const {
+                                    applyImages,
+                                    setUploadedImages,
+                                    applyModel,
+                                    applyPrompt,
+                                    setSelectedPresetName,
+                                    setViewMode,
+                                    setActiveTab,
+                                    config: currentConfig
+                                } = store;
 
-                            const recordConfig: GenerationConfig = {
-                                ...item.config,
-                                taskId: undefined,
-                            };
+                                const sourceUrls = item.config?.sourceImageUrls || [];
+                                if (sourceUrls.length > 0) {
+                                    await applyImages(sourceUrls);
+                                } else {
+                                    setUploadedImages([]);
+                                }
 
-                            // 2. 应用模型和参数
-                            const fullConfig: GenerationConfig = {
-                                ...currentConfig,
-                                ...recordConfig,
-                                prompt: recordConfig.prompt || '',
-                                width: recordConfig.width || currentConfig.width,
-                                height: recordConfig.height || currentConfig.height,
-                                model: recordConfig.model || currentConfig.model,
-                                isEdit: recordConfig.isEdit,
-                                editConfig: recordConfig.editConfig,
-                                parentId: recordConfig.parentId,
-                                sourceImageUrls: sourceUrls,
-                                // Rerun should create a new history group instead of reusing the old task bucket.
-                                taskId: undefined,
-                            };
+                                const recordConfig: GenerationConfig = {
+                                    ...item.config,
+                                    taskId: undefined,
+                                };
 
-                            applyModel(fullConfig.model, fullConfig);
-                            applyPrompt(fullConfig.prompt);
-                            setSelectedPresetName(recordConfig.presetName);
+                                const fullConfig: GenerationConfig = {
+                                    ...currentConfig,
+                                    ...recordConfig,
+                                    prompt: recordConfig.prompt || '',
+                                    width: recordConfig.width || currentConfig.width,
+                                    height: recordConfig.height || currentConfig.height,
+                                    model: recordConfig.model || currentConfig.model,
+                                    isEdit: recordConfig.isEdit,
+                                    editConfig: recordConfig.editConfig,
+                                    parentId: recordConfig.parentId,
+                                    sourceImageUrls: sourceUrls,
+                                    taskId: undefined,
+                                };
 
-                            // 3. 切换视图并触发生成
-                            setViewMode('dock');
-                            setActiveTab('history');
-                            await onGenerate({ configOverride: fullConfig });
+                                applyModel(fullConfig.model, fullConfig);
+                                applyPrompt(fullConfig.prompt);
+                                setSelectedPresetName(recordConfig.presetName);
 
-                            toast({ title: "Rerunning", description: "正在根据此图片重新生成..." });
-                        }}
-                    />
-                    <TooltipButton
-                        icon={<Download className="w-4 h-4" />}
-                        label="Download"
-                        tooltipContent="Download"
-                        tooltipSide="top"
-                        className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
-                        onClick={performDownload}
-                    />
-                </div>
+                                setViewMode('dock');
+                                setActiveTab('history');
+                                await onGenerate({ configOverride: fullConfig });
+
+                                toast({ title: "Rerunning", description: "正在根据此图片重新生成..." });
+                            }}
+                        />
+                        <TooltipButton
+                            icon={<Download className="w-4 h-4" />}
+                            label="Download"
+                            tooltipContent="Download"
+                            tooltipSide="top"
+                            withProvider={false}
+                            className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
+                            onClick={performDownload}
+                        />
+                    </div>
+                ) : null}
             </div>
         </div>
     );
-}
+});
+GalleryCard.displayName = 'GalleryCard';
 
 function GalleryHeaderTab({
     label,

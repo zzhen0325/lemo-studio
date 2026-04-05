@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Plus, X, BookmarkPlus, Check } from 'lucide-react';
 import {
   DropdownMenu,
@@ -16,7 +16,11 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useToast } from '@/hooks/common/use-toast';
-import { getMoodboardCardByMoodboardId } from '@/config/moodboard-cards';
+import {
+  getMoodboardCardByMoodboardId,
+  type MoodboardCard as MoodboardCardRecord,
+} from '@/config/moodboard-cards';
+import type { StyleStack } from '@/types/database';
 import { getApiBase } from '@/lib/api-base';
 import { resolveGalleryImageUrl } from '@/lib/gallery-asset';
 import { usePlaygroundMoodboards } from './hooks/usePlaygroundMoodboards';
@@ -30,18 +34,36 @@ interface AddToMoodboardMenuProps {
   className?: string;
   label?: string;
   tooltipContent?: string;
+  tooltipWithProvider?: boolean;
+  moodboardsData?: StyleStack[];
+  moodboardCardsData?: MoodboardCardRecord[];
+  onRefreshMoodboardCards?: () => Promise<void>;
 }
 
-export function AddToMoodboardMenu({
+interface AddToMoodboardMenuCoreProps {
+  imagePath: string;
+  className: string;
+  label: string;
+  tooltipContent: string;
+  tooltipWithProvider: boolean;
+  moodboards: StyleStack[];
+  moodboardCards: MoodboardCardRecord[];
+  refreshMoodboardCards: () => Promise<void>;
+}
+
+function AddToMoodboardMenuCore({
   imagePath,
-  className = "w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10",
-  label = "Add to Moodboard",
-  tooltipContent = "添加到情绪板",
-}: AddToMoodboardMenuProps) {
+  className,
+  label,
+  tooltipContent,
+  tooltipWithProvider,
+  moodboards,
+  moodboardCards,
+  refreshMoodboardCards,
+}: AddToMoodboardMenuCoreProps) {
   const deleteStyle = usePlaygroundStore((state) => state.deleteStyle);
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const { moodboards, moodboardCards, refreshMoodboardCards } = usePlaygroundMoodboards();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -74,7 +96,6 @@ export function AddToMoodboardMenu({
         return String(data.path);
       }));
 
-      // Combine with the current imagePath
       const imagePaths = [imagePath, ...uploadedPaths];
       await upsertMoodboardAsShortcut({
         name: newName.trim(),
@@ -118,14 +139,14 @@ export function AddToMoodboardMenu({
   const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
     const items = event.clipboardData.items;
     const files: File[] = [];
-    
+
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file) files.push(file);
       }
     }
-    
+
     if (files.length > 0) {
       setNewImageFiles(prev => [...prev, ...files]);
     }
@@ -146,6 +167,7 @@ export function AddToMoodboardMenu({
               tooltipContent={tooltipContent}
               tooltipSide="top"
               className={className}
+              withProvider={tooltipWithProvider}
             />
           </div>
         </DropdownMenuTrigger>
@@ -154,7 +176,7 @@ export function AddToMoodboardMenu({
             选择情绪板
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="bg-white/5" />
-          
+
           <DropdownMenuItem
             className="flex items-center gap-3 text-white hover:bg-white/10 rounded-xl cursor-pointer font-medium mb-1"
             onClick={() => {
@@ -256,9 +278,9 @@ export function AddToMoodboardMenu({
         <DialogContent className="max-w-[560px] border-white/10 bg-[#1C1C1C]/60 backdrop-blur-xl p-2 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] rounded-3xl overflow-hidden">
           <div className="mb-1 relative w-full overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src="/images/c.png" 
-              alt="Moodboard Cover" 
+            <img
+              src="/images/c.png"
+              alt="Moodboard Cover"
               className="h-60 w-full object-cover"
             />
             <div className="absolute top-4 right-4">
@@ -271,14 +293,14 @@ export function AddToMoodboardMenu({
                 <X size={10} className="text-white" />
               </Button>
             </div>
-             
+
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="font-serif text-4xl font-normal text-white ">
                 Create Moodboard
               </span>
             </div>
           </div>
-          
+
           <div className="flex flex-col gap-6 px-6 mt-2 w-full min-w-0">
             <div className="flex flex-col gap-3 w-full min-w-0">
               <label className="ml-1 text-xs font-bold text-white/70">Moodboard Name</label>
@@ -296,23 +318,21 @@ export function AddToMoodboardMenu({
                   <div className="flex gap-2 overflow-x-auto overflow-y-hidden">
                     <button
                       onClick={handleUploadClick}
-                      className={`flex flex-col h-24 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 hover:bg-white/10 transition-colors focus:outline-none focus:ring-none w-24`}
+                      className="flex flex-col h-24 shrink-0 items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 hover:bg-white/10 transition-colors focus:outline-none focus:ring-none w-24"
                     >
                       <Plus size={20} className="text-white/40 mb-1" />
                       <span className="text-[10px] text-white/40 text-center leading-tight">
-                        点击上传<br/>或粘贴
+                        点击上传<br />或粘贴
                       </span>
                     </button>
 
-                    {/* Show the currently selected image from the gallery/history */}
                     <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-white/30">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img 
+                      <img
                         src={resolveGalleryImageUrl(imagePath) || imagePath}
-                        alt="Current preview" 
+                        alt="Current preview"
                         className="h-full w-full object-cover"
                         onError={(e) => {
-                          // Fallback to raw value if resolver output is not loadable.
                           if (e.currentTarget.src !== imagePath) {
                             e.currentTarget.src = imagePath;
                           }
@@ -326,9 +346,9 @@ export function AddToMoodboardMenu({
                     {newImageFiles.map((file, index) => (
                       <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-white/10">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img 
-                          src={URL.createObjectURL(file)} 
-                          alt="preview" 
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt="preview"
                           className="h-full w-full object-cover"
                         />
                         <button
@@ -374,5 +394,70 @@ export function AddToMoodboardMenu({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function AddToMoodboardMenuWithInternalMoodboards({
+  imagePath,
+  className,
+  label,
+  tooltipContent,
+  tooltipWithProvider,
+}: {
+  imagePath: string;
+  className: string;
+  label: string;
+  tooltipContent: string;
+  tooltipWithProvider: boolean;
+}) {
+  const { moodboards, moodboardCards, refreshMoodboardCards } = usePlaygroundMoodboards();
+
+  return (
+    <AddToMoodboardMenuCore
+      imagePath={imagePath}
+      className={className}
+      label={label}
+      tooltipContent={tooltipContent}
+      tooltipWithProvider={tooltipWithProvider}
+      moodboards={moodboards}
+      moodboardCards={moodboardCards}
+      refreshMoodboardCards={refreshMoodboardCards}
+    />
+  );
+}
+
+export function AddToMoodboardMenu({
+  imagePath,
+  className = "w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10",
+  label = "Add to Moodboard",
+  tooltipContent = "添加到情绪板",
+  tooltipWithProvider = true,
+  moodboardsData,
+  moodboardCardsData,
+  onRefreshMoodboardCards,
+}: AddToMoodboardMenuProps) {
+  if (moodboardsData && moodboardCardsData && onRefreshMoodboardCards) {
+    return (
+      <AddToMoodboardMenuCore
+        imagePath={imagePath}
+        className={className}
+        label={label}
+        tooltipContent={tooltipContent}
+        tooltipWithProvider={tooltipWithProvider}
+        moodboards={moodboardsData}
+        moodboardCards={moodboardCardsData}
+        refreshMoodboardCards={onRefreshMoodboardCards}
+      />
+    );
+  }
+
+  return (
+    <AddToMoodboardMenuWithInternalMoodboards
+      imagePath={imagePath}
+      className={className}
+      label={label}
+      tooltipContent={tooltipContent}
+      tooltipWithProvider={tooltipWithProvider}
+    />
   );
 }

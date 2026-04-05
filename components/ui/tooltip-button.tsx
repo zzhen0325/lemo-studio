@@ -17,6 +17,7 @@ interface TooltipButtonProps {
     size?: "default" | "sm" | "lg" | "icon";
     className?: string;
     onClick?: React.MouseEventHandler<HTMLButtonElement>;
+    withProvider?: boolean;
 }
 
 export function TooltipButton({
@@ -29,25 +30,34 @@ export function TooltipButton({
     size = "icon",
     className = "",
     onClick,
+    withProvider = true,
 }: TooltipButtonProps) {
+    const content = (
+        <Tooltip delayDuration={tooltipDelay}>
+            <TooltipTrigger asChild>
+                <Button
+                    variant={variant}
+                    size={size}
+                    className={`rounded-lg ${className}`}
+                    aria-label={label}
+                    onClick={onClick}
+                >
+                    {icon}
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent side={tooltipSide} sideOffset={5}>
+                {tooltipContent}
+            </TooltipContent>
+        </Tooltip>
+    );
+
+    if (!withProvider) {
+        return content;
+    }
+
     return (
         <TooltipProvider delayDuration={tooltipDelay}>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        variant={variant}
-                        size={size}
-                        className={`rounded-lg ${className}`}
-                        aria-label={label}
-                        onClick={onClick}
-                    >
-                        {icon}
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent side={tooltipSide} sideOffset={5}>
-                    {tooltipContent}
-                </TooltipContent>
-            </Tooltip>
+            {content}
         </TooltipProvider>
     );
 }
