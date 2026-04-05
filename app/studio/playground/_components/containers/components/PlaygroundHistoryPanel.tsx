@@ -9,6 +9,7 @@ interface PlaygroundHistoryPanelProps {
   onLoadMore: () => void;
   hasMore: boolean;
   isLoading: boolean;
+  isLoadingMore: boolean;
   onRegenerate: (result: Generation) => void;
   onApplyModelFromHistory: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
@@ -26,6 +27,7 @@ export function PlaygroundHistoryPanel({
   onLoadMore,
   hasMore,
   isLoading,
+  isLoadingMore,
   onRegenerate,
   onApplyModelFromHistory,
   onDownload,
@@ -54,6 +56,7 @@ export function PlaygroundHistoryPanel({
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoading={isLoading}
+        isLoadingMore={isLoadingMore}
       />
     </div>
   );

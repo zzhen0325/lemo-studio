@@ -6,6 +6,7 @@ import type { PlaygroundState } from './playground-store.types';
 import type { StoreApi } from 'zustand';
 import {
   fetchGalleryPageFromApi,
+  GALLERY_PAGE_LIMIT,
   mergeUniqueGalleryItems,
   prependUniqueGalleryItems,
 } from './playground-store.helpers';
@@ -123,7 +124,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       let loadedSuccessfully = false;
       let hasMoreAfterLoad = false;
       try {
-        const limit = page === 1 ? 24 : 30;
+        const limit = GALLERY_PAGE_LIMIT;
         const currentState = get();
         const sortBy = currentState.gallerySortBy;
         const viewerUserId = useAuthStore.getState().actorId || undefined;
@@ -167,7 +168,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       try {
         const sortBy = state.gallerySortBy;
         const viewerUserId = useAuthStore.getState().actorId || undefined;
-        const data = await fetchGalleryPageFromApi(1, 24, { sortBy, viewerUserId });
+        const data = await fetchGalleryPageFromApi(1, GALLERY_PAGE_LIMIT, { sortBy, viewerUserId });
         if (!data) return;
 
         set((current) => {
@@ -200,7 +201,7 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
       try {
         const sortBy = state.gallerySortBy;
         const viewerUserId = useAuthStore.getState().actorId || undefined;
-        const data = await fetchGalleryPageFromApi(nextPage, 30, { sortBy, viewerUserId });
+        const data = await fetchGalleryPageFromApi(nextPage, GALLERY_PAGE_LIMIT, { sortBy, viewerUserId });
         if (!data) return;
 
         set((current) => {

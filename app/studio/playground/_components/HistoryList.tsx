@@ -87,6 +87,7 @@ const HistoryList = function HistoryList({
   onLoadMore,
   hasMore = false,
   isLoading = false,
+  isLoadingMore = false,
 }: HistoryListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const setPreviewImage = usePlaygroundStore((state) => state.setPreviewImage);
@@ -102,11 +103,11 @@ const HistoryList = function HistoryList({
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading && onLoadMore) {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore && onLoadMore) {
           onLoadMore();
         }
       },
-      { threshold: 0.1, root: scrollRef.current, rootMargin: '400px' }
+      { threshold: 0, root: scrollRef.current, rootMargin: '1200px 0px' }
     );
 
     if (loadMoreRef.current) {
@@ -114,7 +115,7 @@ const HistoryList = function HistoryList({
     }
 
     return () => observer.disconnect();
-  }, [hasMore, isLoading, onLoadMore]);
+  }, [hasMore, isLoading, isLoadingMore, onLoadMore]);
   const groupedHistory = useGroupedHistory(history);
   const visibilityResetSignal = `${layoutMode}|${history.length}|${groupedHistory.length}`;
   const visibleHistoryCount = useIncrementalVisibleCount(
@@ -554,14 +555,19 @@ const HistoryList = function HistoryList({
         </div>
 
         {/* Load More Sentinel & Indicator */}
-        <div ref={loadMoreRef} className="py-12 flex flex-col items-center justify-center gap-4">
-          {isLoading ? (
+        <div ref={loadMoreRef} className="min-h-24 py-12 flex flex-col items-center justify-center gap-4">
+          {isLoading || isLoadingMore ? (
             <div className="flex flex-col items-center gap-2">
               <LoadingSpinner size={24} className="text-white/20" />
-              <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Thinking...</span>
+              <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">
+                {history.length === 0 ? 'Thinking...' : 'Loading more...'}
+              </span>
             </div>
           ) : hasMore ? (
-            <div className="h-4" />
+            <div className="flex flex-col items-center gap-2 opacity-30">
+              <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
+              <span className="text-[10px] text-white font-mono uppercase tracking-widest">Scroll for more</span>
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-2 opacity-20">
               <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />

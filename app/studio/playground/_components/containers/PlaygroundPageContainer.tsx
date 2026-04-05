@@ -281,6 +281,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     size,
     setSize,
     isLoading: isHistoryLoading,
+    isLoadingMore: isHistoryLoadingMore,
     hasMore: hasMoreHistory,
     setHistory,
     getHistoryItem,
@@ -357,6 +358,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       activeTab,
       viewMode,
       isHistoryLoading,
+      isHistoryLoadingMore,
       hasMoreHistory,
     });
   }, [
@@ -368,6 +370,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     activeTab,
     viewMode,
     isHistoryLoading,
+    isHistoryLoadingMore,
     hasMoreHistory,
   ]);
 
@@ -3300,6 +3303,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
     return Boolean(document.querySelector('[data-moodboard-detail-open="true"]'));
   }, []);
+  const shouldShowGalleryFloatingInput =
+    viewMode === 'dock' &&
+    activeTab === 'gallery' &&
+    isFloatingInputVisible &&
+    !isImageModalOpen;
 
   return (
     <DndContext
@@ -3506,6 +3514,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                         onLoadMore={() => setSize(size + 1)}
                         hasMore={hasMoreHistory}
                         isLoading={isHistoryLoading}
+                        isLoadingMore={isHistoryLoadingMore}
                         onRegenerate={handleRegenerate}
                         onApplyModelFromHistory={(result) => {
                           if (result.config) {
@@ -3603,7 +3612,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           </main>
         </div>
 
-        {viewMode === 'dock' && activeTab === 'gallery' && isFloatingInputVisible && (
+        {shouldShowGalleryFloatingInput && (
           <div className="pointer-events-none fixed left-1/2 bottom-8 z-[1370] w-[50vw] max-w-[1200px] scale-75 -translate-x-1/2">
             <div
               key={floatingInputAnimationKey}

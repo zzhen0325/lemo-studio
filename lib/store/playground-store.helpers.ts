@@ -17,6 +17,7 @@ import {
 import type { SortBy } from '@/lib/server/service/history.service';
 
 const galleryInFlightRequests = new Map<string, Promise<{ history: Generation[]; hasMore: boolean } | null>>();
+export const GALLERY_PAGE_LIMIT = 24;
 export const PERSISTED_GALLERY_LIMIT = 120;
 
 export const fetchGalleryPageFromApi = async (

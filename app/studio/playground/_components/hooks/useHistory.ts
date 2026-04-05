@@ -116,6 +116,7 @@ export function useHistory() {
     const history = useMemo(() => data ? data.flatMap(page => page.history) : [], [data]);
     const isLoading = (!data && isValidating);
     const isRefreshing = (isValidating && data && data.length > 0);
+    const isLoadingMore = Boolean(isRefreshing);
     const isEmpty = (data?.[0]?.history?.length === 0);
     const hasMore = data ? data[data.length - 1].hasMore : true;
 
@@ -155,6 +156,7 @@ export function useHistory() {
         history,
         isLoading,
         isRefreshing,
+        isLoadingMore,
         isEmpty,
         hasMore,
         size,

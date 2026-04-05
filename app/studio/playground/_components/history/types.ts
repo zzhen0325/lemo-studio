@@ -17,6 +17,7 @@ export interface HistoryListProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoading?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export interface GroupedHistoryItem {

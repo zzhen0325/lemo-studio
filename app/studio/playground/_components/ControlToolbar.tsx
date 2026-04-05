@@ -17,6 +17,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { GenerationConfig, ImageSize } from "@/types/database";
 import type { UploadedImage } from "@/lib/playground/types";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
@@ -117,6 +123,7 @@ export default function ControlToolbar({
 
   const [selectValue, setSelectValue] = useState<string | undefined>(undefined);
   const [activeTab] = useState<'model' | 'preset'>('model');
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const availableModels = usePlaygroundAvailableModels();
   const getModelEntryById = useAPIConfigStore(state => state.getModelEntryById);
   const isEditMode = Boolean(config.isEdit) || variant === 'edit';
@@ -250,7 +257,7 @@ export default function ControlToolbar({
 
   const Inputbutton2 = "h-8 px-3 text-white rounded-xl bg-white/5 border border-white/10  hover:bg-white/5 hover:border-white/10 hover:border hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)] hover:text-white    transition-colors duration-200";
   const floatingDropdownClassName = isFloatingOverlay
-    ? "!z-[2000] scale-75 origin-top-left"
+    ? "!z-[2000] scale-75 origin-top-left mb-4 "
     : "";
   const floatingDropdownSideOffset = isFloatingOverlay ? -80 : 4;
 
@@ -368,59 +375,66 @@ export default function ControlToolbar({
             {!disableModelSelection && (
               <>
                 {(!isWorkflowModel(selectedModel) || !selectedPresetName) && (
-                  <DropdownMenu onOpenChange={(open) => onSelectorExpandedChange?.(open)}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        className={cn(Inputbutton2, isSelectorExpanded && activeTab === 'model' && "bg-white/10")}
-                      >
-                        {modelTriggerLabel}
-                        <ChevronDown className={cn(" h-4 w-4 opacity-50 transition-transform duration-200", isSelectorExpanded && activeTab === 'model' && "rotate-180")} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      className={cn("w-[280px] bg-black/60 border-white/10 backdrop-blur-xl rounded-2xl", floatingDropdownClassName)}
-                      align="start"
+                  <Select
+                    value={selectValue}
+                    onValueChange={handleUnifiedSelectChange}
+                    onOpenChange={(open) => {
+                      setIsModelDropdownOpen(open);
+                      onSelectorExpandedChange?.(open);
+                    }}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        Inputbutton2,
+                        "h-8 w-auto shrink-0 justify-between gap-2 border-white/10 bg-white/5 text-white focus:ring-0 focus:ring-offset-0 [&>span]:max-w-[140px]",
+                        isFloatingOverlay && " origin-top-left",
+                        (isModelDropdownOpen || isSelectorExpanded) && activeTab === 'model' && "bg-white/10"
+                      )}
+                    >
+                      <span className="truncate text-sm text-white">{modelTriggerLabel}</span>
+                    </SelectTrigger>
+                    <SelectContent
+                      position="popper"
                       sideOffset={floatingDropdownSideOffset}
+                      className={cn("w-[280px] border-white/10 bg-black/60 text-white backdrop-blur-xl rounded-2xl", floatingDropdownClassName)}
                     >
                       {selectableModels.map((model) => {
                         const info = MODEL_INFO[model.id] || { logo: '/models/default.svg', description: '' };
                         return (
-                          <DropdownMenuItem
+                          <SelectItem
                             key={model.id}
-                            className="text-white hover:bg-primary/20 rounded-lg cursor-pointer flex items-center gap-3 py-3 px-3"
-                            onClick={() => handleUnifiedSelectChange(model.id)}
+                            value={model.id}
+                            className="rounded-lg py-3 pl-3 pr-3 text-white focus:bg-primary/20 focus:text-white [&>span.absolute]:hidden"
                           >
-                            {/* 选中指示器 */}
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${selectValue === model.id ? 'bg-primary' : 'bg-transparent border border-white/30'}`} />
-                            {/* 模型 Logo */}
-                            <div className="relative w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                              <Image
-                                src={info.logo}
-                                alt={model.displayName}
-                                fill
-                                sizes="32px"
-                                className="object-cover"
-                                onError={(e) => {
-                                  // 如果图片加载失败，使用首字母作为占位
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  target.parentElement!.innerHTML = `<span class="text-white/60 text-sm font-medium">${model.displayName.charAt(0)}</span>`;
-                                }}
-                              />
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className={`h-2 w-2 shrink-0 rounded-full ${selectValue === model.id ? 'bg-primary' : 'border border-white/30 bg-transparent'}`} />
+                              <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-white/10">
+                                <Image
+                                  src={info.logo}
+                                  alt={model.displayName}
+                                  fill
+                                  sizes="32px"
+                                  className="object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.parentElement!.innerHTML = `<span class="flex h-full items-center justify-center text-white/60 text-sm font-medium">${model.displayName.charAt(0)}</span>`;
+                                  }}
+                                />
+                              </div>
+                              <div className="flex min-w-0 flex-1 flex-col">
+                                <span className="truncate text-sm font-medium text-white">{model.displayName}</span>
+                                <span className="truncate text-xs text-white/50">{info.description}</span>
+                              </div>
                             </div>
-                            {/* 模型名称和描述 */}
-                            <div className="flex flex-col flex-1 min-w-0">
-                              <span className="text-sm font-medium text-white truncate">{model.displayName}</span>
-                              <span className="text-xs text-white/50 truncate">{info.description}</span>
-                            </div>
-                          </DropdownMenuItem>
+                          </SelectItem>
                         );
                       })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </SelectContent>
+                  </Select>
                 )}
                 {isWorkflowModel(selectedModel) && selectedPresetName && hasBaseModelMapping && (
-                  <DropdownMenu>
+                  <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button
                         className={cn(Inputbutton2)}
@@ -481,7 +495,7 @@ export default function ControlToolbar({
           </div>
 
           {/* 尺寸按钮 */}
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button variant="default" className={Inputbutton2}>
                 {customAspectRatioLabel ?? currentAspectRatio}
