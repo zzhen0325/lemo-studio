@@ -680,7 +680,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const shortcutPreviewHasNext =
     shortcutPreviewCurrentIndex !== -1 && shortcutPreviewCurrentIndex < shortcutPreviewResults.length - 1;
   const hasStructuredShortcutSession = Boolean(activeShortcutTemplate?.optimizationSession);
-  const shouldHideHomeEntryCards = hasStructuredShortcutSession && isInputFocused;
+  const shouldHideHomeEntryCards = hasStructuredShortcutSession;
   const historyForPanel = useMemo(() => {
     if (describeOptimisticHistory.length === 0) {
       return filteredHistory;

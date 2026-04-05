@@ -123,13 +123,33 @@ export default function ControlToolbar({
   const selectableModels = React.useMemo(() => {
     // If not in edit mode, or if there are no images uploaded, show all models.
     // This prevents models being hidden when isEdit is accidentally true but no images are present.
-    if (!isEditMode || uploadedImages.length === 0) return availableModels;
-    return availableModels.filter((model) => {
-      const meta = getModelEntryById(model.id);
-      const supportsImageEdit = meta?.capabilities?.supportsImageEdit
-        ?? (meta?.capabilities?.supportsMultiImage ?? true);
-      return supportsImageEdit;
-    });
+    let baseModels = availableModels;
+    if (isEditMode && uploadedImages.length > 0) {
+      baseModels = availableModels.filter((model) => {
+        const meta = getModelEntryById(model.id);
+        const supportsImageEdit = meta?.capabilities?.supportsImageEdit
+          ?? (meta?.capabilities?.supportsMultiImage ?? true);
+        return supportsImageEdit;
+      });
+    }
+
+    const ORDER = [
+      'coze_seedream4_5',
+      'seed4_0402_v4_lemo',
+      MODEL_ID_FLUX_KLEIN,
+      'gemini-3-pro-image-preview'
+    ];
+
+    return baseModels
+      .filter(model => model.id !== 'gemini-3.1-flash-image-preview' && model.id !== 'gemini-2.5-flash-image')
+      .sort((a, b) => {
+        const idxA = ORDER.indexOf(a.id);
+        const idxB = ORDER.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
   }, [availableModels, getModelEntryById, isEditMode, uploadedImages.length]);
   const selectedModelMeta = getModelEntryById(selectedModel);
   const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
@@ -254,18 +274,6 @@ export default function ControlToolbar({
 
   // 模型信息映射：包含 logo 和描述
   const MODEL_INFO: Record<string, { logo: string; description: string }> = {
-    'gemini-3-pro-image-preview': {
-      logo: '/images/logos/google.png',
-      description: '暂不能用'
-    },
-    'gemini-3.1-flash-image-preview': {
-      logo: '/images/logos/google.png',
-      description: '暂不能用'
-    },
-    'gemini-2.5-flash-image': {
-      logo: '/images/logos/google.png',
-      description: '暂不能用'
-    },
     'coze_seedream4_5': {
       logo: '/images/logos/seed.png',
       description: 'Seedream 4.5'
@@ -277,6 +285,10 @@ export default function ControlToolbar({
     [MODEL_ID_FLUX_KLEIN]: {
       logo: '/images/logos/flux.png',
       description: 'ComfyUI Flux.2 Klein'
+    },
+    'gemini-3-pro-image-preview': {
+      logo: '/images/logos/google.png',
+      description: '暂不能用'
     }
   };
 
