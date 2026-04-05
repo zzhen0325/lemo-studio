@@ -71,6 +71,8 @@ export interface GenerationConfig {
   bannerFields?: BannerGenerationFields;
   bannerTextPositions?: BannerTextPositionInstruction[];
   bannerPromptFinal?: string;
+  moodboardTemplateId?: string;
+  moodboardTemplateName?: string;
   historyRecordType?: 'generation' | 'prompt_optimization' | 'image_description';
   promptCategory?: string;
   optimizationSource?: unknown;

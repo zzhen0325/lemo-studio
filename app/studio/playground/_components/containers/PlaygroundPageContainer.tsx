@@ -110,6 +110,11 @@ import {
   withoutPromptOptimizationSource,
 } from "@/app/studio/playground/_lib/prompt-history";
 import {
+  isHistoryEditGeneration,
+  normalizeHistoryConfigForGeneration,
+  withMoodboardTemplateMetadata,
+} from "@/app/studio/playground/_lib/history-tags";
+import {
   buildPromptFromShortcutEditorDocument,
   createShortcutEditorDocumentFromParts,
   createShortcutEditorDocumentFromText,
@@ -239,6 +244,34 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const moodboardByCardId = useMemo(() => {
     return new Map(moodboardCardEntries.map((entry) => [entry.shortcut.id, entry.moodboard]));
   }, [moodboardCardEntries]);
+  const getNextAutoMoodboardName = useCallback(() => {
+    const prefix = '新情绪板';
+    let maxIndex = 0;
+
+    moodboardCardEntries.forEach(({ moodboard }) => {
+      const name = (moodboard.name || '').trim();
+      if (!name) {
+        return;
+      }
+
+      if (name === prefix) {
+        maxIndex = Math.max(maxIndex, 1);
+        return;
+      }
+
+      const match = name.match(/^新情绪板\s+(\d+)$/);
+      if (!match?.[1]) {
+        return;
+      }
+
+      const parsed = Number.parseInt(match[1], 10);
+      if (Number.isFinite(parsed)) {
+        maxIndex = Math.max(maxIndex, parsed);
+      }
+    });
+
+    return `${prefix} ${Math.max(maxIndex + 1, 1)}`;
+  }, [moodboardCardEntries]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const describePanelRef = useRef<HTMLDivElement>(null);
@@ -275,6 +308,8 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
   const [describeOptimisticHistory, setDescribeOptimisticHistory] = useState<Generation[]>([]);
+  const [isPersistingDescribeHistory, setIsPersistingDescribeHistory] = useState(false);
+  const [describePersistenceFailed, setDescribePersistenceFailed] = useState(false);
   // const [isDescribeMode, setIsDescribeMode] = useState(false); // Refactored to viewMode
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
@@ -417,7 +452,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   }, [initPresets]);
 
   // Helper: save history using unified fields
-  const saveHistoryToBackend = React.useCallback(async (item: import('@/types/database').Generation) => {
+  const saveHistoryToBackend = React.useCallback(async (item: import('@/types/database').Generation): Promise<boolean> => {
     try {
       const gen = {
         id: item.id,
@@ -428,14 +463,20 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         status: item.status || 'completed',
         createdAt: item.createdAt || new Date().toISOString(),
       };
-      await fetch(`${getApiBase()}/history`, {
+      const response = await fetch(`${getApiBase()}/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(gen),
       });
+      if (!response.ok) {
+        console.error('Failed to save history: non-ok response', { id: item.id, status: response.status });
+        return false;
+      }
+      return true;
     } catch (error) {
       console.error('Failed to save history:', error);
       // Optional: Add toast notification if needed, but avoiding it to keep behavior identical to before
+      return false;
     }
   }, [effectiveUserId]);
 
@@ -659,6 +700,14 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return;
     }
 
+    if (isPersistingDescribeHistory) {
+      return;
+    }
+
+    if (describePersistenceFailed) {
+      return;
+    }
+
     const optimisticIds = new Set(describeOptimisticHistory.map((item) => item.id));
     const persistedCount = filteredHistory.reduce((count, item) => {
       return optimisticIds.has(item.id) ? count + 1 : count;
@@ -667,7 +716,20 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     if (persistedCount === optimisticIds.size) {
       setDescribeOptimisticHistory([]);
     }
-  }, [describeOptimisticHistory, filteredHistory]);
+  }, [describeOptimisticHistory, filteredHistory, isPersistingDescribeHistory, describePersistenceFailed]);
+
+  const normalizeGenerationConfigForHistory = useCallback((rawConfig: GenerationConfig): GenerationConfig => {
+    const isBannerGeneration = rawConfig.generationMode === 'banner';
+    const activeShortcut = isBannerGeneration ? null : activeShortcutTemplateRef.current?.shortcut;
+    const trimmedShortcutName = activeShortcut?.name?.trim();
+    const moodboardMetadata = trimmedShortcutName
+      ? { id: activeShortcut?.id, name: trimmedShortcutName }
+      : null;
+
+    return normalizeHistoryConfigForGeneration(
+      withMoodboardTemplateMetadata(rawConfig, moodboardMetadata),
+    );
+  }, []);
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
@@ -690,11 +752,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         ...currentConfig,
         ...(configOverride || {}),
         taskId: batchTaskId,
-        isEdit: true,
+        isEdit: false,
       };
+      const normalizedBannerConfig = normalizeGenerationConfigForHistory(bannerConfig);
 
       const uniqueId = await singleGenerate({
-        configOverride: bannerConfig,
+        configOverride: normalizedBannerConfig,
         fixedCreatedAt: startTime,
         isBackground: true,
         editConfig: undefined,
@@ -703,7 +766,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       });
 
       if (typeof uniqueId === 'string') {
-        const generated = await executeGeneration(uniqueId, batchTaskId, bannerConfig, startTime, sourceImageUrls);
+        const generated = await executeGeneration(uniqueId, batchTaskId, normalizedBannerConfig, startTime, sourceImageUrls);
         if (generated?.outputUrl) {
           const templateId = storeState.activeBannerData?.templateId || generated.config?.bannerTemplateId || 'banner-unknown';
           setBannerSessionHistory((prev) => [
@@ -776,6 +839,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       finalConfig = effectiveOptimizationSource
         ? withPromptOptimizationSource(finalConfig, effectiveOptimizationSource)
         : withoutPromptOptimizationSource(finalConfig);
+      finalConfig = normalizeGenerationConfigForHistory(finalConfig);
       // 优先使用显式传入的 sourceImageUrls（例如 rerun 场景），否则从当前 store 读取
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
       const sourceImageUrls = explicitSourceImageUrls
@@ -783,20 +847,19 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           .map(img => img.path || img.previewUrl)
           .filter((url): url is string => typeof url === 'string' && url.length > 0);
 
-      // 1. Immediately create and show the pending card
-      // 关键修复：普通生成显式禁用 isEdit，逻辑上它不是编辑。
-      // 使用显式合并逻辑，并保证 prompt 不为空
-      const displayConfigOverride: GenerationConfig = {
+      const promptForGeneration = (configOverride as Partial<GenerationConfig>)?.prompt
+        || finalConfig.prompt
+        || currentConfig.prompt
+        || '';
+      finalConfig = {
         ...finalConfig,
-        prompt: (configOverride as Partial<GenerationConfig>)?.prompt || finalConfig.prompt || currentConfig.prompt || '',
-        isEdit: false
+        prompt: promptForGeneration,
       };
 
       const pendingExecution = singleGenerate({
-        configOverride: displayConfigOverride,
+        configOverride: finalConfig,
         fixedCreatedAt: startTime,
         isBackground: true,
-        editConfig: undefined,
         taskId: batchTaskId,
         sourceImageUrls
       });
@@ -836,7 +899,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         );
       }, index * 1100);
     });
-  }, [batchSize, singleGenerate, executeGeneration, setViewMode, setActiveTab, setShowHistory]);
+  }, [batchSize, executeGeneration, normalizeGenerationConfigForHistory, setActiveTab, setShowHistory, setViewMode, singleGenerate]);
 
   const { optimizePrompt, isOptimizing } = usePromptOptimization();
 
@@ -1060,6 +1123,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const handleStyleUpload = async (files: File[] | FileList) => {
     const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (uploads.length === 0) return;
+    const autoMoodboardName = getNextAutoMoodboardName();
 
     toast({ title: "正在上传图片", description: `正在为新情绪板处理 ${uploads.length} 张图片...` });
 
@@ -1076,7 +1140,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       const imagePaths = await Promise.all(uploadPromises);
 
       await upsertMoodboardAsShortcut({
-        name: `新情绪板 ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        name: autoMoodboardName,
         prompt: '',
         imagePaths,
       });
@@ -2665,6 +2729,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
 
     setIsDescribing(true);
+    setDescribePersistenceFailed(false);
     setHasGenerated(true); // Trigger split layout immediately like generate
     setViewMode('dock');
     setActiveTab('history');
@@ -2779,11 +2844,23 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         setDescribeOptimisticHistory(newHistoryItems);
         setHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => !loadingIdSet.has(item.id))]);
 
-        // Also save each description to backend and sync to gallery
-        newHistoryItems.forEach(item => {
-          saveHistoryToBackend(item);
-          usePlaygroundStore.getState().addGalleryItem(item);
-        });
+        // Also save each description to backend and sync to gallery.
+        // Keep optimistic cards until persistence round completes to avoid pending->completed flicker/disappear.
+        setIsPersistingDescribeHistory(true);
+        try {
+          const persistResults = await Promise.all(newHistoryItems.map((item) => saveHistoryToBackend(item)));
+          newHistoryItems.forEach((item, index) => {
+            if (persistResults[index]) {
+              usePlaygroundStore.getState().addGalleryItem(item);
+            }
+          });
+          if (persistResults.some((result) => !result)) {
+            setDescribePersistenceFailed(true);
+            toast({ title: "历史同步延迟", description: "部分反推结果尚未写入服务器，当前先保留在本地列表中。", variant: "destructive" });
+          }
+        } finally {
+          setIsPersistingDescribeHistory(false);
+        }
 
         if (rejectedCount > 0 || results.length < loadingIds.length) {
           toast({ title: "描述部分完成", description: `已生成 ${results.length}/${loadingIds.length} 组描述卡片` });
@@ -2796,6 +2873,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     } catch (error) {
       console.error("Describe Error:", error);
       setDescribeOptimisticHistory([]);
+      setIsPersistingDescribeHistory(false);
       // Remove loading cards on error
       setHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => !loadingIdSet.has(item.id)));
       toast({ title: "描述失败", description: error instanceof Error ? error.message : "未知错误", variant: "destructive" });
@@ -2889,14 +2967,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       || (item?.config?.editConfig?.tldrawSnapshot as Record<string, unknown> | undefined)
     );
 
-    const isEditGeneration = (item?: Generation): boolean => Boolean(
-      item?.config?.isEdit
-      || item?.config?.imageEditorSession
-      || item?.config?.editConfig?.imageEditorSession
-      || item?.config?.editConfig?.originalImageUrl
-      || item?.config?.tldrawSnapshot
-      || item?.config?.editConfig?.tldrawSnapshot
-    );
+    const isEditGeneration = (item?: Generation): boolean => isHistoryEditGeneration(item?.config);
 
     let initialSession = getSessionFromGeneration(historyItem);
     let legacySnapshot = getLegacySnapshotFromGeneration(historyItem);
@@ -3225,6 +3296,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     handleShortcutOptimizationRegenerate,
     handleShortcutOptimizationVariantSelect, handleGenerateAllShortcutVariants
   ]);
+  const isMoodboardDetailDialogOpen = React.useCallback(() => {
+    if (typeof document === 'undefined') {
+      return false;
+    }
+    return Boolean(document.querySelector('[data-moodboard-detail-open="true"]'));
+  }, []);
+
   return (
     <DndContext
       sensors={sensors}
@@ -3236,6 +3314,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         onDragEnter={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (isMoodboardDetailDialogOpen()) {
+            setIsDraggingOver(false);
+            setIsDraggingOverPanel(false);
+            return;
+          }
 
           // 更严格的判定：只有真正拖入外部文件时才触发
           const hasFiles = e.dataTransfer?.types?.includes('Files');
@@ -3257,6 +3340,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         onDragOver={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (isMoodboardDetailDialogOpen()) {
+            setIsDraggingOver(false);
+            setIsDraggingOverPanel(false);
+            return;
+          }
           // 与 onDragEnter 保持一致的文件判定
           const hasFiles = e.dataTransfer?.types?.includes('Files');
           if (hasFiles && !isDraggingOver) setIsDraggingOver(true);
@@ -3264,6 +3352,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         onDragLeave={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (isMoodboardDetailDialogOpen()) {
+            setIsDraggingOver(false);
+            setIsDraggingOverPanel(false);
+            return;
+          }
           // Check if we are really leaving the window
           if (e.relatedTarget === null || (e.relatedTarget as Node).nodeName === 'HTML') {
             setIsDraggingOver(false);
@@ -3275,6 +3368,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         onDrop={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (isMoodboardDetailDialogOpen()) {
+            setIsDraggingOver(false);
+            setIsDraggingOverPanel(false);
+            return;
+          }
           setIsDraggingOver(false);
           setIsDraggingOverPanel(false);
 

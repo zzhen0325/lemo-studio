@@ -24,6 +24,7 @@ import { isWorkflowModel } from "@/lib/utils/model-utils";
 import { useAPIConfigStore } from "@/lib/store/api-config-store";
 import { getContextModelOptions } from "@/lib/model-center-ui";
 import { extractErrorMessage, parseErrorPayload } from "@/lib/error-message";
+import { normalizeHistoryConfigForGeneration } from "@/app/studio/playground/_lib/history-tags";
 
 export interface UnifiedModelConfig {
     id: string;
@@ -969,7 +970,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         let finalPresetName = combinedConfig.presetName;
         if (!finalPresetName && isWorkflow) finalPresetName = combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title;
 
-        const finalConfig: GenerationConfig = {
+        let finalConfig: GenerationConfig = {
             ...combinedConfig,
             loras: finalLoras,
             presetName: finalPresetName,
@@ -977,7 +978,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             workflowName: isWorkflow ? (combinedConfig.workflowName || usePlaygroundStore.getState().selectedWorkflowConfig?.viewComfyJSON?.title) : undefined,
             editConfig: displayEditConfig,
             isEdit,
-            parentId
+            parentId,
+            taskId,
+            sourceImageUrls,
+            localSourceIds,
         };
         if (
             finalConfig.historyRecordType === "prompt_optimization"
@@ -991,12 +995,13 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         ) {
             delete finalConfig.promptCategory;
         }
+        finalConfig = normalizeHistoryConfigForGeneration(finalConfig);
         setHasGenerated(true);
         const configForHistory = { ...finalConfig };
         if (!isWorkflow) { configForHistory.loras = undefined; configForHistory.workflowName = undefined; }
         const uniqueId = `gen-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
         const effectiveUserId = resolveEffectiveUserId();
-        const loadingGen: Generation = { id: uniqueId, userId: effectiveUserId, projectId: 'default', outputUrl: "", config: { ...configForHistory, sourceImageUrls, localSourceIds, baseModel: effectiveModel, editConfig: displayEditConfig, isEdit, parentId, taskId, isPreset: !!(finalConfig.presetName) }, status: 'pending', createdAt: generationTime };
+        const loadingGen: Generation = { id: uniqueId, userId: effectiveUserId, projectId: 'default', outputUrl: "", config: { ...configForHistory, sourceImageUrls, localSourceIds, baseModel: effectiveModel, taskId, isPreset: !!(finalConfig.presetName) }, status: 'pending', createdAt: generationTime };
         setHistoryEntries((prev: Generation[]) => [loadingGen, ...prev]);
         if (isBackground) return uniqueId;
         return await executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);

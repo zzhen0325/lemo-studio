@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import { getApiBase } from '@/lib/api-base';
+import { formatImageUrl, getApiBase } from '@/lib/api-base';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import {
   buildRuntimeMoodboardCards,
@@ -18,6 +18,18 @@ interface UsePlaygroundMoodboardsOptions {
 
 let moodboardCardRecordsCache: PersistedMoodboardCardRecord[] | null = null;
 let moodboardCardRecordsPromise: Promise<PersistedMoodboardCardRecord[]> | null = null;
+const moodboardCardRecordsSubscribers = new Set<(records: PersistedMoodboardCardRecord[]) => void>();
+const preloadedMoodboardImageUrls = new Set<string>();
+
+function publishMoodboardCardRecords(records: PersistedMoodboardCardRecord[]) {
+  moodboardCardRecordsSubscribers.forEach((subscriber) => {
+    try {
+      subscriber(records);
+    } catch (error) {
+      console.error('[usePlaygroundMoodboards] Failed to notify subscriber', error);
+    }
+  });
+}
 
 async function fetchEnabledMoodboardCards(): Promise<PersistedMoodboardCardRecord[]> {
   const response = await fetch(`${getApiBase()}/moodboard-cards?enabled=true`, {
@@ -42,6 +54,22 @@ export function usePlaygroundMoodboards(options: UsePlaygroundMoodboardsOptions 
   const [isLoadingMoodboardCards, setIsLoadingMoodboardCards] = React.useState(
     () => moodboardCardRecordsCache === null,
   );
+  const [hasResolvedInitialMoodboardCards, setHasResolvedInitialMoodboardCards] = React.useState(
+    () => !shouldInitializeMoodboards || moodboardCardRecordsCache !== null,
+  );
+
+  React.useEffect(() => {
+    const subscriber = (records: PersistedMoodboardCardRecord[]) => {
+      setPersistedMoodboardCards(records);
+      setHasResolvedInitialMoodboardCards(true);
+      setIsLoadingMoodboardCards(false);
+    };
+
+    moodboardCardRecordsSubscribers.add(subscriber);
+    return () => {
+      moodboardCardRecordsSubscribers.delete(subscriber);
+    };
+  }, []);
 
   const refreshMoodboardCards = React.useCallback(async () => {
     setIsLoadingMoodboardCards(true);
@@ -52,13 +80,16 @@ export function usePlaygroundMoodboards(options: UsePlaygroundMoodboardsOptions 
       const data = await moodboardCardRecordsPromise;
       moodboardCardRecordsCache = data;
       setPersistedMoodboardCards(data);
+      publishMoodboardCardRecords(data);
     } catch (error) {
       console.error('[usePlaygroundMoodboards] Failed to fetch moodboard cards', error);
       if (moodboardCardRecordsCache === null) {
         setPersistedMoodboardCards([]);
+        publishMoodboardCardRecords([]);
       }
     } finally {
       moodboardCardRecordsPromise = null;
+      setHasResolvedInitialMoodboardCards(true);
       setIsLoadingMoodboardCards(false);
     }
   }, []);
@@ -72,12 +103,14 @@ export function usePlaygroundMoodboards(options: UsePlaygroundMoodboardsOptions 
   React.useEffect(() => {
     if (!shouldInitializeMoodboards) {
       setIsLoadingMoodboardCards(false);
+      setHasResolvedInitialMoodboardCards(true);
       return;
     }
 
-    if (moodboardCardRecordsCache) {
+    if (moodboardCardRecordsCache !== null) {
       setPersistedMoodboardCards(moodboardCardRecordsCache);
       setIsLoadingMoodboardCards(false);
+      setHasResolvedInitialMoodboardCards(true);
       return;
     }
 
@@ -89,11 +122,45 @@ export function usePlaygroundMoodboards(options: UsePlaygroundMoodboardsOptions 
   }, [availableModels]);
 
   const moodboardCards = React.useMemo(() => {
+    if (
+      shouldInitializeMoodboards
+      && !hasResolvedInitialMoodboardCards
+      && moodboardCardRecordsCache === null
+    ) {
+      // 首轮线上数据未返回前，不先渲染本地兜底卡片，避免闪切。
+      return [];
+    }
+
     return buildRuntimeMoodboardCards({
       persistedShortcuts: persistedMoodboardCards,
       modelLabelById,
     });
-  }, [modelLabelById, persistedMoodboardCards]);
+  }, [hasResolvedInitialMoodboardCards, modelLabelById, persistedMoodboardCards, shouldInitializeMoodboards]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !hasResolvedInitialMoodboardCards) {
+      return;
+    }
+
+    moodboardCards.forEach((moodboardCard) => {
+      moodboardCard.imagePaths.forEach((rawPath) => {
+        const path = typeof rawPath === 'string' ? rawPath.trim() : '';
+        if (!path || path.startsWith('local:')) {
+          return;
+        }
+
+        const imageSrc = formatImageUrl(path);
+        if (!imageSrc || preloadedMoodboardImageUrls.has(imageSrc)) {
+          return;
+        }
+
+        preloadedMoodboardImageUrls.add(imageSrc);
+        const image = new window.Image();
+        image.decoding = 'async';
+        image.src = imageSrc;
+      });
+    });
+  }, [hasResolvedInitialMoodboardCards, moodboardCards]);
 
   const moodboards = React.useMemo(() => mergeMoodboardCards([], moodboardCards), [moodboardCards]);
 
@@ -112,5 +179,6 @@ export function usePlaygroundMoodboards(options: UsePlaygroundMoodboardsOptions 
     moodboardCardByCode,
     refreshMoodboardCards: invalidateAndRefreshMoodboardCards,
     isLoadingMoodboardCards,
+    hasResolvedInitialMoodboardCards,
   };
 }

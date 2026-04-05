@@ -110,7 +110,7 @@ const LEADING_CLOSERS_PATTERN = /^[\s"'`’”)\]\}）】]+/;
 const LEADING_SEPARATORS_PATTERN = /^[\s,;:，、]+/;
 const HEX_COLOR_PATTERN = /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i;
 const TEMPLATE_TOKEN_PATTERN = /{{\s*([a-zA-Z0-9_-]+)\s*}}/g;
-const LEGACY_CUSTOM_SHORTCUT_DESCRIPTION = "自定义快捷入口";
+const LEGACY_CUSTOM_SHORTCUT_DESCRIPTION = "Moodboard";
 const SHORTCUT_ASPECT_RATIOS: AspectRatio[] = [
   "1:1",
   "2:3",

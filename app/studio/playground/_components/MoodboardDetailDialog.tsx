@@ -42,6 +42,7 @@ import {
   buildShortcutFromDraft,
   buildShortcutPrompt,
   createShortcutPromptValues,
+  getShortcutById,
   type PlaygroundShortcut,
   type ShortcutPromptFieldDefinition,
   type ShortcutPromptValues,
@@ -130,6 +131,26 @@ function buildUniqueNewFieldDraft(
   }
 
   return draft;
+}
+
+function hasDroppableImageFiles(dataTransfer: DataTransfer | null | undefined) {
+  if (!dataTransfer) {
+    return false;
+  }
+
+  if (dataTransfer.files && dataTransfer.files.length > 0) {
+    return Array.from(dataTransfer.files).some((file) => file.type.startsWith('image/'));
+  }
+
+  if (dataTransfer.items && dataTransfer.items.length > 0) {
+    return Array.from(dataTransfer.items).some((item) => item.kind === 'file' && item.type.startsWith('image/'));
+  }
+
+  return false;
+}
+
+function normalizeImageFiles(files: Iterable<File>): File[] {
+  return Array.from(files).filter((file) => file.type.startsWith('image/'));
 }
 
 function InlinePromptPreview({
@@ -261,11 +282,18 @@ export function MoodboardDetailDialog({
   const [pendingInsertTokenRequest, setPendingInsertTokenRequest] = React.useState<ShortcutSlateInsertTokenRequest | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isDragOverUploadZone, setIsDragOverUploadZone] = React.useState(false);
+  const [isDeletingMoodboard, setIsDeletingMoodboard] = React.useState(false);
   const [isGeneratingPromptTemplate, setIsGeneratingPromptTemplate] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [isCollageEditorOpen, setIsCollageEditorOpen] = React.useState(false);
   const [selectedGalleryPreviewResult, setSelectedGalleryPreviewResult] = React.useState<Generation | undefined>(undefined);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const isBuiltinShortcut = React.useMemo(
+    () => Boolean(shortcut && getShortcutById(shortcut.id)),
+    [shortcut],
+  );
+  const canDeleteShortcut = Boolean(shortcut && !isBuiltinShortcut);
 
   // Helper to update a single prompt field
   const handleFieldChange = React.useCallback((key: string, value: string) => {
@@ -362,6 +390,12 @@ export function MoodboardDetailDialog({
     );
     setPendingInsertTokenRequest(null);
   }, [availableModels, moodboard, open, shortcut]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setIsDragOverUploadZone(false);
+    }
+  }, [open]);
 
   const draftPromptValues = React.useMemo(
     () => Object.fromEntries(
@@ -847,19 +881,19 @@ export function MoodboardDetailDialog({
     toast,
   ]);
 
-  const handleUploadImages = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadMoodboardFiles = React.useCallback(async (rawFiles: Iterable<File>) => {
     if (!moodboard) {
       return;
     }
 
-    const files = event.target.files;
-    if (!files || files.length === 0) {
+    const files = normalizeImageFiles(rawFiles);
+    if (files.length === 0) {
       return;
     }
 
     setIsUploading(true);
     try {
-      const uploadedPaths = await Promise.all(Array.from(files).map(async (file) => {
+      const uploadedPaths = await Promise.all(files.map(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
         const response = await fetch(`${getApiBase()}/upload`, {
@@ -890,11 +924,123 @@ export function MoodboardDetailDialog({
       });
     } finally {
       setIsUploading(false);
+      setIsDragOverUploadZone(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
   }, [galleryImages, moodboard, persistMoodboardOverlay, toast]);
+
+  const handleUploadImages = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    await uploadMoodboardFiles(files);
+  }, [uploadMoodboardFiles]);
+
+  const handleDialogDragEnter = React.useCallback((event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!hasDroppableImageFiles(event.dataTransfer)) {
+      return;
+    }
+
+    setIsDragOverUploadZone(true);
+  }, []);
+
+  const handleDialogDragOver = React.useCallback((event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!hasDroppableImageFiles(event.dataTransfer)) {
+      return;
+    }
+
+    setIsDragOverUploadZone(true);
+  }, []);
+
+  const handleDialogDragLeave = React.useCallback((event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOverUploadZone(false);
+  }, []);
+
+  const handleDialogDrop = React.useCallback((event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOverUploadZone(false);
+
+    if (!hasDroppableImageFiles(event.dataTransfer)) {
+      return;
+    }
+
+    const files = normalizeImageFiles(event.dataTransfer.files);
+    if (files.length === 0) {
+      return;
+    }
+
+    void uploadMoodboardFiles(files);
+  }, [uploadMoodboardFiles]);
+
+  const handleDeleteMoodboard = React.useCallback(async () => {
+    if (!canDeleteShortcut || !shortcut) {
+      return;
+    }
+
+    const confirmed = window.confirm(`确认删除 Moodboard「${shortcut.name}」吗？此操作不可恢复。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingMoodboard(true);
+    try {
+      let persistedId = shortcut.persistedId || null;
+      if (!persistedId) {
+        const lookupResponse = await fetch(`${getApiBase()}/moodboard-cards/code/${encodeURIComponent(shortcut.id)}`, {
+          cache: 'no-store',
+        });
+
+        if (lookupResponse.ok) {
+          const lookupData = await lookupResponse.json() as { id?: string };
+          persistedId = lookupData.id?.trim() || null;
+        } else if (lookupResponse.status !== 404) {
+          throw new Error(`Failed to load moodboard card: ${lookupResponse.status}`);
+        }
+      }
+
+      if (!persistedId) {
+        throw new Error('当前 Moodboard 未找到可删除的数据记录。');
+      }
+
+      const deleteResponse = await fetch(`${getApiBase()}/moodboard-cards/${persistedId}`, {
+        method: 'DELETE',
+      });
+
+      if (!deleteResponse.ok) {
+        const raw = await deleteResponse.text();
+        throw new Error(raw || `Delete failed: ${deleteResponse.status}`);
+      }
+
+      onOpenChange(false);
+      await onShortcutsChange?.();
+      toast({
+        title: 'Moodboard 已删除',
+        description: `已删除 ${shortcut.name}。`,
+      });
+    } catch (error) {
+      console.error('[MoodboardDetailDialog] Failed to delete moodboard', error);
+      toast({
+        title: '删除失败',
+        description: error instanceof Error ? error.message : '删除失败，请稍后重试。',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingMoodboard(false);
+    }
+  }, [canDeleteShortcut, onOpenChange, onShortcutsChange, shortcut, toast]);
 
   const handleRemoveImage = React.useCallback(async (path: string) => {
     if (!moodboard) {
@@ -941,7 +1087,14 @@ export function MoodboardDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="h-[70vh] max-w-[1200px] overflow-hidden rounded-3xl border border-white/10 bg-[#1C1C1C]/80 p-0 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+        <DialogContent
+          data-moodboard-detail-open="true"
+          onDragEnter={handleDialogDragEnter}
+          onDragOver={handleDialogDragOver}
+          onDragLeave={handleDialogDragLeave}
+          onDrop={handleDialogDrop}
+          className="h-[70vh] max-w-[1200px] overflow-hidden rounded-3xl border border-white/10 bg-[#1C1C1C]/80 p-0 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+        >
 
 
 
@@ -949,7 +1102,10 @@ export function MoodboardDetailDialog({
           <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_500px]">
             {/* Left Column: Gallery */}
             <div className="flex min-h-0 min-w-0 flex-col ">
-              <div className="h-full flex-1 overflow-y-auto px-4 py-8 custom-scrollbar">
+              <div className={cn(
+                'h-full flex-1 overflow-y-auto px-4 py-8 custom-scrollbar transition-all',
+                isDragOverUploadZone ? 'rounded-2xl border border-dashed border-[#E8FFB7]/35 bg-[#E8FFB7]/10' : '',
+              )}>
                 <div className="mb-6 flex items-center justify-between">
                   <span className="rounded-full  bg-white/5 px-3 py-1 text-xs text-white/60">
                     {galleryImages.length} images
@@ -1065,17 +1221,31 @@ export function MoodboardDetailDialog({
                           ) : null}
                         </div>
                       )}
-                      <Button
-                        type="button"
-                        variant="light"
-                        className={`h-8 rounded-md border border-white/10 bg-white/10 px-2 text-sm text-white hover:bg-white/10 ${!isEditMode ? 'mb-2' : ''}`}
-                        onClick={() => {
-                          setIsEditMode((prev) => !prev);
-                        }}
-                      >
-                        <PencilLine className="mr-1 h-4 w-4" />
-                        {isEditMode ? 'Cancel' : 'Edit'}
-                      </Button>
+                      <div className={cn('flex items-center gap-2', !isEditMode ? 'mb-2' : '')}>
+                        {canDeleteShortcut ? (
+                          <Button
+                            type="button"
+                            variant="light"
+                            className="h-8 rounded-md border border-red-400/20 bg-red-500/10 px-2 text-sm text-red-200 hover:bg-red-500/20"
+                            onClick={() => void handleDeleteMoodboard()}
+                            disabled={isDeletingMoodboard}
+                          >
+                            <Trash2 className="mr-1 h-4 w-4" />
+                            {isDeletingMoodboard ? 'Deleting...' : 'Delete'}
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="light"
+                          className="h-8 rounded-md border border-white/10 bg-white/10 px-2 text-sm text-white hover:bg-white/10"
+                          onClick={() => {
+                            setIsEditMode((prev) => !prev);
+                          }}
+                        >
+                          <PencilLine className="mr-1 h-4 w-4" />
+                          {isEditMode ? 'Cancel' : 'Edit'}
+                        </Button>
+                      </div>
                     </div>
 
                     {isEditMode && (

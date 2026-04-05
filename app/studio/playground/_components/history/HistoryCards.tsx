@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useDraggable } from '@dnd-kit/core';
 import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
+import { buildHistoryTags, isHistoryEditGeneration } from '@/app/studio/playground/_lib/history-tags';
 
 export function DescribeSourceImage({
   sourceImage,
@@ -195,14 +196,8 @@ export function HistoryCard({
 
   const config = result.config;
   const isWorkflow = isWorkflowModel(config?.model);
-  const isEditHistory = Boolean(
-    config?.isEdit
-    || config?.imageEditorSession
-    || config?.editConfig?.imageEditorSession
-    || config?.editConfig?.originalImageUrl
-    || config?.tldrawSnapshot
-    || config?.editConfig?.tldrawSnapshot
-  );
+  const historyTags = React.useMemo(() => buildHistoryTags(config), [config]);
+  const isEditHistory = isHistoryEditGeneration(config);
   const modelDisplayName = availableModels.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
   const baseModelDisplayName = config?.baseModel ? (availableModels.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
   const prompt = config?.prompt || '';
@@ -239,13 +234,7 @@ export function HistoryCard({
       >
         <div className="flex items-center justify-between gap-4 text-[12px] text-white/30 font-mono  tracking-tight px-1">
           <div className="flex items-center gap-4">
-            {(config?.isPreset && !isEditHistory) ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/20 text-primary border border-primary/30">
-                PRESET: {config.presetName}
-              </span>
-            ) : (
-              <span className="text-white/80">{modelDisplayName}</span>
-            )}
+            <span className="text-white/80">{modelDisplayName}</span>
 
             {isWorkflow && (
               <>
@@ -269,14 +258,19 @@ export function HistoryCard({
             <span className="opacity-40">/</span>
             <span className="text-white/40">{config?.width} x {config?.height}</span>
 
-            {isEditHistory && (
-              <>
+            {historyTags.map((tag) => (
+              <React.Fragment key={`${result.id}-${tag.kind}-${tag.label}`}>
                 <span className="opacity-40">/</span>
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
-                  EDIT
+                <span
+                  className={cn(
+                    "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-primary/20 text-primary border border-primary/30",
+                    tag.kind === 'edit' ? "font-bold" : "font-medium",
+                  )}
+                >
+                  {tag.label}
                 </span>
-              </>
-            )}
+              </React.Fragment>
+            ))}
 
             <span className="opacity-40">/</span>
             <span>{timeStr}</span>

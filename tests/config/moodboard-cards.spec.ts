@@ -209,7 +209,7 @@ describe('playground shortcut prompt builder', () => {
           id: 'shortcut-row-legacy-subtitle',
           code: 'legacy-subtitle',
           name: 'Legacy Subtitle',
-          cover_subtitle: '自定义快捷入口',
+          cover_subtitle: 'Moodboard',
           moodboard_description: 'Use this description instead',
         },
       ],

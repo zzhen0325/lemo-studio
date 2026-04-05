@@ -107,6 +107,7 @@ export const MoodboardView: React.FC<MoodboardViewProps> = ({
     moodboardCards,
     moodboards,
     refreshMoodboardCards,
+    isLoadingMoodboardCards,
   } = usePlaygroundMoodboards();
 
   React.useEffect(() => {
@@ -280,7 +281,7 @@ export const MoodboardView: React.FC<MoodboardViewProps> = ({
     <>
       <div className="relative flex h-full w-full flex-col bg-transparent p-8">
         <AnimatePresence>
-          {isDraggingProp ? (
+          {isDraggingProp && !selectedMoodboard && !isCreating ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -364,7 +365,11 @@ export const MoodboardView: React.FC<MoodboardViewProps> = ({
                           <Palette className="text-white/20" size={40} />
                         </div>
                         <p className="text-lg font-medium text-white/40">
-                          {searchQuery ? `未找到匹配 "${searchQuery}" 的情绪板` : '点击上方按钮，开始创建你的第一个 moodboard'}
+                          {isLoadingMoodboardCards && !searchQuery
+                            ? 'Moodboard 加载中...'
+                            : (searchQuery
+                              ? `未找到匹配 "${searchQuery}" 的情绪板`
+                              : '点击上方按钮，开始创建你的第一个 moodboard')}
                         </p>
                         {searchQuery ? (
                           <Button
