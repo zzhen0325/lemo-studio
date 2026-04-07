@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { createStore } from 'zustand/vanilla';
 
 import type { Generation, GenerationConfig } from '@/types/database';
 import type { PlaygroundState } from '@/lib/store/playground-store.types';
 import {
+  mergePersistedPlaygroundState,
   normalizePersistedGalleryState,
   partializePlaygroundState,
 } from '@/lib/store/playground-store.persist';
@@ -158,5 +161,92 @@ describe('normalizePersistedGalleryState', () => {
       hasMoreGallery: persisted.hasMoreGallery,
       _galleryLoaded: persisted._galleryLoaded,
     });
+  });
+});
+
+describe('mergePersistedPlaygroundState', () => {
+  it('repairs truncated gallery metadata before runtime hydration', () => {
+    const currentState = createState({
+      galleryItems: [],
+      galleryPage: 1,
+      hasMoreGallery: true,
+      _galleryLoaded: false,
+    });
+    const persistedState = {
+      galleryItems: Array.from({ length: PERSISTED_GALLERY_LIMIT + 30 }, (_, index) => createGeneration(index)),
+      galleryPage: 18,
+      hasMoreGallery: false,
+      _galleryLoaded: true,
+      viewMode: 'home',
+    };
+
+    const merged = mergePersistedPlaygroundState(persistedState, currentState);
+
+    expect(merged.galleryItems).toHaveLength(PERSISTED_GALLERY_LIMIT);
+    expect(merged.galleryPage).toBe(PERSISTED_GALLERY_LIMIT / GALLERY_PAGE_LIMIT);
+    expect(merged.hasMoreGallery).toBe(true);
+    expect(merged._galleryLoaded).toBe(true);
+    expect(merged.viewMode).toBe('home');
+  });
+});
+
+describe('zustand persist hydration', () => {
+  it('hydrates gallery runtime state with repaired pagination metadata', async () => {
+    const storageName = `playground-storage-hydrate-${Date.now()}`;
+
+    type TestHydrationState = {
+      galleryItems: Generation[];
+      galleryPage: number;
+      hasMoreGallery: boolean;
+      _galleryLoaded: boolean;
+      visitorId?: string;
+      viewMode: 'home' | 'dock';
+    };
+
+    localStorage.setItem(storageName, JSON.stringify({
+      state: {
+        galleryItems: Array.from({ length: PERSISTED_GALLERY_LIMIT + 15 }, (_, index) => createGeneration(index)),
+        galleryPage: 18,
+        hasMoreGallery: false,
+        _galleryLoaded: true,
+        visitorId: 'visitor-1',
+        viewMode: 'dock',
+      },
+    }));
+
+    try {
+      const store = createStore<TestHydrationState>()(
+        persist<TestHydrationState>(
+          (): TestHydrationState => ({
+            galleryItems: [],
+            galleryPage: 1,
+            hasMoreGallery: true,
+            _galleryLoaded: false,
+            visitorId: undefined,
+            viewMode: 'home',
+          }),
+          {
+            name: storageName,
+            storage: createJSONStorage(() => localStorage),
+            skipHydration: true,
+            merge: (persistedState, currentState) =>
+              mergePersistedPlaygroundState(persistedState, currentState),
+          },
+        ),
+      );
+
+      await store.persist.rehydrate();
+
+      expect(store.getState()).toMatchObject({
+        galleryPage: PERSISTED_GALLERY_LIMIT / GALLERY_PAGE_LIMIT,
+        hasMoreGallery: true,
+        _galleryLoaded: true,
+        visitorId: 'visitor-1',
+        viewMode: 'dock',
+      });
+      expect(store.getState().galleryItems).toHaveLength(PERSISTED_GALLERY_LIMIT);
+    } finally {
+      localStorage.removeItem(storageName);
+    }
   });
 });

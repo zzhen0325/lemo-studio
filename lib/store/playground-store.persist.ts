@@ -35,6 +35,10 @@ type PersistedGalleryState = Pick<
   'galleryItems' | 'galleryPage' | 'hasMoreGallery' | '_galleryLoaded'
 >;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export function normalizePersistedGalleryState(state: PersistedGalleryState): PersistedGalleryState {
   const persistedItems = sanitizeGalleryItemsForPersist(state.galleryItems);
 
@@ -54,6 +58,21 @@ export function normalizePersistedGalleryState(state: PersistedGalleryState): Pe
     galleryPage: Math.max(1, Math.ceil(persistedItems.length / GALLERY_PAGE_LIMIT)),
     hasMoreGallery: wasTruncated ? true : state.hasMoreGallery,
     _galleryLoaded: persistedItems.length > 0,
+  };
+}
+
+export function mergePersistedPlaygroundState<TState extends PersistedGalleryState>(
+  persistedState: unknown,
+  currentState: TState,
+): TState {
+  const mergedState = {
+    ...currentState,
+    ...(isRecord(persistedState) ? persistedState : {}),
+  } as TState;
+
+  return {
+    ...mergedState,
+    ...normalizePersistedGalleryState(mergedState),
   };
 }
 
