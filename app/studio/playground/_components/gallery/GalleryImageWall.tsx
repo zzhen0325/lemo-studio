@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { GenerateOptions } from '@studio/playground/_components/hooks/useGenerationService';
 import type { Generation } from '@/types/database';
 
 import { GalleryImageCard } from './GalleryImageCard';
+import {
+  hasGalleryOverflow,
+  shouldLoadMoreGallery,
+  shouldShowGalleryEndIndicator,
+} from './gallery-scroll';
 import { VirtualizedGalleryMasonry } from './VirtualizedGalleryMasonry';
 import { useGalleryContainerWidth } from './use-gallery-container-width';
 
@@ -27,8 +32,6 @@ interface GalleryImageWallProps {
   refreshMoodboardCards: () => Promise<void>;
 }
 
-const LOAD_MORE_THRESHOLD = 1600;
-
 export function GalleryImageWall({
   items,
   layoutKey,
@@ -47,17 +50,51 @@ export function GalleryImageWall({
   refreshMoodboardCards,
 }: GalleryImageWallProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const hasUserScrolledRef = useRef(false);
+  const [hasUserScrolled, setHasUserScrolled] = useState(false);
+  const [hasOverflowingContent, setHasOverflowingContent] = useState(false);
   const { width: containerWidth, columnsCount } = useGalleryContainerWidth(scrollContainerRef);
 
   const checkShouldLoadMore = useCallback(() => {
     const element = scrollContainerRef.current;
-    if (!element || isFetchingGallery || !hasMoreGallery) return;
+    if (!element) return;
 
-    const remaining = element.scrollHeight - element.scrollTop - element.clientHeight;
-    if (remaining <= LOAD_MORE_THRESHOLD) {
+    const nextHasOverflowingContent = hasGalleryOverflow(element.scrollHeight, element.clientHeight);
+    setHasOverflowingContent((current) =>
+      current === nextHasOverflowingContent ? current : nextHasOverflowingContent,
+    );
+
+    if (element.scrollTop > 0 && !hasUserScrolledRef.current) {
+      hasUserScrolledRef.current = true;
+      setHasUserScrolled(true);
+    }
+
+    if (
+      !isFetchingGallery &&
+      hasMoreGallery &&
+      shouldLoadMoreGallery({
+        scrollHeight: element.scrollHeight,
+        scrollTop: element.scrollTop,
+        clientHeight: element.clientHeight,
+        hasUserScrolled: hasUserScrolledRef.current,
+      })
+    ) {
       onLoadMore();
     }
   }, [hasMoreGallery, isFetchingGallery, onLoadMore]);
+
+  useEffect(() => {
+    hasUserScrolledRef.current = false;
+    setHasUserScrolled(false);
+    setHasOverflowingContent(false);
+  }, [layoutKey]);
+
+  const showEndOfGallery = shouldShowGalleryEndIndicator({
+    hasMoreGallery,
+    itemsLength: items.length,
+    hasOverflowingContent,
+    hasUserScrolled,
+  });
 
   useEffect(() => {
     const element = scrollContainerRef.current;
@@ -138,7 +175,7 @@ export function GalleryImageWall({
           </div>
         ) : hasMoreGallery ? (
           <div className="h-4" />
-        ) : items.length > 0 ? (
+        ) : showEndOfGallery ? (
           <div className="flex flex-col items-center gap-2 opacity-20">
             <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent" />
             <span className="text-[10px] text-white font-mono uppercase tracking-widest">
