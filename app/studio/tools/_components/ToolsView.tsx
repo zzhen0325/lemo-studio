@@ -102,7 +102,7 @@ const ToolsView: React.FC = () => {
                                         className="bg-black border-[#2e2e2e] hover:bg-black transition-colors cursor-pointer rounded-none group overflow-hidden"
                                         onClick={() => handleSelectTool(tool)}
                                     >
-                                        <div className="aspect-video relative bg-black/40">
+                                        <div className="aspect-video rounded-none relative bg-black/40">
                                             {/* 简单预览渲染 */}
                                             {tool.type === 'shader' && tool.fragmentShader && (
                                                 <WebGLRenderer
@@ -113,7 +113,7 @@ const ToolsView: React.FC = () => {
                                                 />
                                             )}
                                             {tool.type === 'component' && tool.component && (
-                                                <div className="w-full h-full relative isolate">
+                                                <div className="w-full h-full rounded-none relative isolate">
                                                     <tool.component
                                                         key={tool.id} // 强制隔离
                                                         isPreview
@@ -180,7 +180,7 @@ const ToolsView: React.FC = () => {
                             {/* Bottom Actions */}
                             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-4">
                                 <Button
-                                    className="rounded-2xl bg-white/10 border border-white/10 hover:bg-white/20 text-white gap-2 px-6"
+                                    className="rounded-2xl bg-black/10 backdrop-blur-md border border-white/10 hover:bg-white/20 text-white gap-2 px-6"
                                     onClick={handleExportImage}
                                 >
                                     <Download className="w-4 h-4" />
@@ -188,7 +188,7 @@ const ToolsView: React.FC = () => {
                                 </Button>
                                 <Button
                                     variant={isRecording ? "default" : "destructive"}
-                                    className={`rounded-2xl gap-2 px-6 ${!isRecording ? 'bg-white/10 border border-white/10 hover:bg-white/20 text-white' : ''}`}
+                                    className={`rounded-2xl gap-2 px-6 ${!isRecording ? 'bg-black/10 backdrop-blur-md  border border-white/10 hover:bg-white/20 text-white' : ''}`}
                                     onClick={handleToggleRecording}
                                 >
                                     <Video className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />

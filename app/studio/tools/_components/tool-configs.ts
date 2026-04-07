@@ -2,6 +2,8 @@ import dynamic from 'next/dynamic';
 
 const SpiralToolAdapter = dynamic(() => import('./adapters/SpiralToolAdapter'), { ssr: false });
 const ParticleStairsAdapter = dynamic(() => import('./adapters/ParticleStairsAdapter'), { ssr: false });
+const DataTunnelAdapter = dynamic(() => import('./adapters/DataTunnelAdapter'), { ssr: false });
+const OrganicBackgroundAdapter = dynamic(() => import('./adapters/OrganicBackgroundAdapter'), { ssr: false });
 
 export interface ToolComponentProps {
   onChange?: (id: string, value: number | string | boolean) => void;
@@ -49,6 +51,31 @@ export interface WebGLToolConfig {
 }
 
 export const WEBGL_TOOLS: WebGLToolConfig[] = [
+  {
+    id: 'organic-background',
+    name: 'Organic Background',
+    description: 'A soft, liquid organic shader surface with smooth lighting and gradient palette.',
+    type: 'component',
+    component: OrganicBackgroundAdapter,
+    parameters: [
+      { id: 'color1', name: 'Shadow (Valley)', type: 'color', defaultValue: '#000000', category: 'Gradient' },
+      { id: 'color2', name: 'Mid Dark', type: 'color', defaultValue: '#0048ff', category: 'Gradient' },
+      { id: 'color3', name: 'Mid Light', type: 'color', defaultValue: '#0088ff', category: 'Gradient' },
+      { id: 'color4', name: 'Highlight (Peak)', type: 'color', defaultValue: '#ffffff', category: 'Gradient' },
+
+      { id: 'speed', name: 'Flow Speed', type: 'number', min: 0, max: 0.4, step: 0.001, defaultValue: 0.1148, category: 'Fluid & Waves' },
+      { id: 'angle', name: 'Flow Angle', type: 'number', min: -Math.PI, max: Math.PI, step: 0.01, defaultValue: 1.08699, category: 'Fluid & Waves' },
+      { id: 'foldFrequency', name: 'Wave Scale', type: 'number', min: 0, max: 5, step: 0.001, defaultValue: 1.865, category: 'Fluid & Waves' },
+      { id: 'warpAmount', name: 'Liquid Warp', type: 'number', min: 0, max: 4, step: 0.01, defaultValue: 4.0, category: 'Fluid & Waves' },
+      { id: 'noiseScale', name: 'Noise Detail', type: 'number', min: 0, max: 3, step: 0.001, defaultValue: 0.714, category: 'Fluid & Waves' },
+      { id: 'connections', name: 'Organic Connections', type: 'number', min: 0, max: 1.5, step: 0.001, defaultValue: 0.8715, category: 'Fluid & Waves' },
+
+      { id: 'depth', name: 'Surface Softness', type: 'number', min: 0, max: 2.5, step: 0.01, defaultValue: 0.04, category: 'Lighting' },
+      { id: 'shadowWidth', name: 'Shadow Width', type: 'number', min: 0.01, max: 0.4, step: 0.001, defaultValue: 0.01, category: 'Lighting' },
+      { id: 'lightX', name: 'Light X', type: 'number', min: -2, max: 2, step: 0.001, defaultValue: 0.968, category: 'Lighting' },
+      { id: 'lightY', name: 'Light Y', type: 'number', min: -2, max: 2, step: 0.001, defaultValue: -0.36, category: 'Lighting' },
+    ]
+  },
   {
     id: 'deep-sea-flow',
     name: 'Deep Sea Flow',
@@ -121,6 +148,44 @@ void main() {
         defaultValue: 1.0,
         category: 'Simulation'
       }
+    ]
+  },
+  {
+    id: 'data-tunnel',
+    name: 'Data Tunnel',
+    description: 'A signal tunnel of flowing lines with bloom and color-layered trails.',
+    type: 'component',
+    component: DataTunnelAdapter,
+    parameters: [
+      { id: 'colorBg', name: 'Background', type: 'color', defaultValue: '#080808', category: 'Palette' },
+      { id: 'colorLine', name: 'Lines', type: 'color', defaultValue: '#373f48', category: 'Palette' },
+      { id: 'colorSignal', name: 'Signal 1', type: 'color', defaultValue: '#8fc9ff', category: 'Signal Colors' },
+      { id: 'useColor2', name: 'Use Signal 2', type: 'boolean', defaultValue: false, category: 'Signal Colors' },
+      { id: 'colorSignal2', name: 'Signal 2', type: 'color', defaultValue: '#ff0055', category: 'Signal Colors' },
+      { id: 'useColor3', name: 'Use Signal 3', type: 'boolean', defaultValue: false, category: 'Signal Colors' },
+      { id: 'colorSignal3', name: 'Signal 3', type: 'color', defaultValue: '#ffcc00', category: 'Signal Colors' },
+
+      { id: 'lineCount', name: 'Line Count', type: 'number', min: 10, max: 300, step: 1, defaultValue: 80, category: 'General' },
+      { id: 'globalRotation', name: 'Rotation (Deg)', type: 'number', min: -180, max: 180, step: 1, defaultValue: 0, category: 'General' },
+      { id: 'positionX', name: 'Position X', type: 'number', min: -200, max: 200, step: 1, defaultValue: -25, category: 'General' },
+      { id: 'positionY', name: 'Position Y', type: 'number', min: -100, max: 100, step: 1, defaultValue: 0, category: 'General' },
+
+      { id: 'spreadHeight', name: 'Spread Height', type: 'number', min: 10, max: 100, step: 0.01, defaultValue: 30.33, category: 'Geometry' },
+      { id: 'spreadDepth', name: 'Spread Depth', type: 'number', min: 0, max: 50, step: 0.01, defaultValue: 0, category: 'Geometry' },
+      { id: 'curveLength', name: 'Curve Length', type: 'number', min: 20, max: 150, step: 1, defaultValue: 50, category: 'Geometry' },
+      { id: 'straightLength', name: 'Straight Length', type: 'number', min: 20, max: 200, step: 1, defaultValue: 100, category: 'Geometry' },
+      { id: 'curvePower', name: 'Curve Power', type: 'number', min: 0.1, max: 3.0, step: 0.01, defaultValue: 0.8265, category: 'Geometry' },
+
+      { id: 'waveSpeed', name: 'Wave Speed', type: 'number', min: 0, max: 5, step: 0.01, defaultValue: 2.48, category: 'Lines' },
+      { id: 'waveHeight', name: 'Wave Height', type: 'number', min: 0, max: 5, step: 0.01, defaultValue: 0.145, category: 'Lines' },
+      { id: 'lineOpacity', name: 'Line Opacity', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 0.557, category: 'Lines' },
+
+      { id: 'signalCount', name: 'Signal Count', type: 'number', min: 0, max: 200, step: 1, defaultValue: 94, category: 'Signals' },
+      { id: 'speedGlobal', name: 'Speed', type: 'number', min: 0, max: 3, step: 0.01, defaultValue: 0.345, category: 'Signals' },
+      { id: 'trailLength', name: 'Trail Length', type: 'number', min: 0, max: 100, step: 1, defaultValue: 3, category: 'Signals' },
+
+      { id: 'bloomStrength', name: 'Bloom Strength', type: 'number', min: 0, max: 5, step: 0.01, defaultValue: 3.0, category: 'Bloom' },
+      { id: 'bloomRadius', name: 'Bloom Radius', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 0.5, category: 'Bloom' },
     ]
   },
   {
