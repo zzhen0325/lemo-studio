@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import HistoryList from '@/app/studio/playground/_components/HistoryList';
@@ -85,11 +85,16 @@ describe('HistoryList group key stability', () => {
     }
 
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver as unknown as typeof IntersectionObserver);
+    vi.useFakeTimers();
     groupedHistoryMock.mockReset();
     currentGroupedHistory = [];
     groupedHistoryMock.mockImplementation(() => currentGroupedHistory);
     mountCountById.clear();
     unmountCountById.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('keeps existing groups mounted when a new group is prepended', () => {
@@ -143,5 +148,69 @@ describe('HistoryList group key stability', () => {
 
     expect(mountCountById.get('a')).toBe(1);
     expect(unmountCountById.get('a') || 0).toBe(0);
+  });
+
+  it('does not replace existing history with the initial loading skeleton during refresh', () => {
+    const genA = createGeneration('a');
+    currentGroupedHistory = [
+      { type: 'image', key: 'task|a|image', items: [genA], startAt: genA.createdAt },
+    ];
+
+    render(
+      <HistoryList
+        history={[genA]}
+        onRegenerate={vi.fn()}
+        onDownload={vi.fn()}
+        onEdit={vi.fn()}
+        onImageClick={vi.fn()}
+        onUsePrompt={vi.fn()}
+        onBatchUse={vi.fn()}
+        onLayoutModeChange={vi.fn()}
+        onLoadMore={vi.fn()}
+        onClose={vi.fn()}
+        hasMore
+        isLoading
+        isLoadingMore={false}
+        variant="sidebar"
+        layoutMode="list"
+      />
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(screen.getByTestId('history-card-a')).toBeTruthy();
+    expect(screen.queryByText('Loading more...')).toBeNull();
+  });
+
+  it('shows bottom loading indicator only when paginating', () => {
+    const genA = createGeneration('a');
+    currentGroupedHistory = [
+      { type: 'image', key: 'task|a|image', items: [genA], startAt: genA.createdAt },
+    ];
+
+    render(
+      <HistoryList
+        history={[genA]}
+        onRegenerate={vi.fn()}
+        onDownload={vi.fn()}
+        onEdit={vi.fn()}
+        onImageClick={vi.fn()}
+        onUsePrompt={vi.fn()}
+        onBatchUse={vi.fn()}
+        onLayoutModeChange={vi.fn()}
+        onLoadMore={vi.fn()}
+        onClose={vi.fn()}
+        hasMore
+        isLoading={false}
+        isLoadingMore
+        variant="sidebar"
+        layoutMode="list"
+      />
+    );
+
+    expect(screen.getByText('Loading more...')).toBeTruthy();
+    expect(screen.getByTestId('history-card-a')).toBeTruthy();
   });
 });

@@ -24,6 +24,7 @@ import {
 
 const HISTORY_INITIAL_RENDER_COUNT = 60;
 const HISTORY_BATCH_RENDER_COUNT = 30;
+const HISTORY_LOADING_SKELETON_DELAY_MS = 140;
 
 function useIncrementalVisibleCount(
   totalCount: number,
@@ -143,6 +144,21 @@ const HistoryList = function HistoryList({
     return acc;
   }, [groupedHistory, history.length, visibleHistoryCount]);
 
+  const [shouldShowInitialSkeleton, setShouldShowInitialSkeleton] = React.useState(false);
+
+  useEffect(() => {
+    if (!isLoading || history.length > 0) {
+      setShouldShowInitialSkeleton(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShouldShowInitialSkeleton(true);
+    }, HISTORY_LOADING_SKELETON_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [history.length, isLoading]);
+
   const toggleGroupSelection = (items: Generation[]) => {
     const allSelected = items.every(item => selectedIds.has(item.id));
 
@@ -158,7 +174,7 @@ const HistoryList = function HistoryList({
   };
 
   if (history.length === 0) {
-    if (isLoading) {
+    if (shouldShowInitialSkeleton) {
       return <HistoryLoadingSkeleton layoutMode={layoutMode} />;
     }
     return null;
@@ -556,12 +572,10 @@ const HistoryList = function HistoryList({
 
         {/* Load More Sentinel & Indicator */}
         <div ref={loadMoreRef} className="min-h-24 py-12 flex flex-col items-center justify-center gap-4">
-          {isLoading || isLoadingMore ? (
+          {isLoadingMore ? (
             <div className="flex flex-col items-center gap-2">
               <LoadingSpinner size={24} className="text-white/20" />
-              <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">
-                {history.length === 0 ? 'Thinking...' : 'Loading more...'}
-              </span>
+              <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading more...</span>
             </div>
           ) : hasMore ? (
             <div className="flex flex-col items-center gap-2 opacity-30">

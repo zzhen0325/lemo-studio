@@ -23,14 +23,22 @@ export async function GET(request: NextRequest) {
       throw new HttpError(response.status, `Failed to fetch image: ${response.statusText}`);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
     const headers = new Headers();
     const contentType = response.headers.get('content-type');
-    if (contentType) {
-      headers.set('Content-Type', contentType);
-    }
+    if (contentType) headers.set('Content-Type', contentType);
+    const etag = response.headers.get('etag');
+    if (etag) headers.set('ETag', etag);
+    const lastModified = response.headers.get('last-modified');
+    if (lastModified) headers.set('Last-Modified', lastModified);
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) headers.set('Content-Length', contentLength);
     headers.set('Access-Control-Allow-Origin', '*');
+    headers.set('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400');
 
-    return binaryResponse(Buffer.from(arrayBuffer), { headers });
+    if (!response.body) {
+      const arrayBuffer = await response.arrayBuffer();
+      return binaryResponse(Buffer.from(arrayBuffer), { headers });
+    }
+    return new Response(response.body, { headers });
   });
 }

@@ -89,7 +89,7 @@ const ToolsView: React.FC = () => {
                         exit={{ opacity: 0, y: -20 }}
                         className="p-8 h-full overflow-y-auto"
                     >
-                        <div className="max-w-8xl mx-10 space-y-8  ">
+                        <div className="max-w-[80vw] mx-auto space-y-8  ">
                             <div className="flex items-center justify-center gap-3">
 
                                 <h2 className="text-3xl font-serif font-normal text-white">WebGL Tools Studio</h2>
@@ -116,6 +116,7 @@ const ToolsView: React.FC = () => {
                                                 <div className="w-full h-full relative isolate">
                                                     <tool.component
                                                         key={tool.id} // 强制隔离
+                                                        isPreview
                                                         {...tool.parameters.reduce((acc, p) => { acc[p.id] = p.defaultValue; return acc; }, {} as Record<string, number | string | boolean | undefined>)}
                                                     />
                                                 </div>

@@ -8,6 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFileUrl } from '@/src/storage/object-storage';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const key = request.nextUrl.searchParams.get('key');
@@ -30,8 +33,27 @@ export async function GET(request: NextRequest) {
     // 生成预签名 URL（有效期 1 小时）
     const presignedUrl = await getFileUrl(key, 3600);
 
-    // 重定向到预签名 URL
-    return NextResponse.redirect(presignedUrl);
+    const upstream = await fetch(presignedUrl, { cache: 'no-store' });
+    if (!upstream.ok || !upstream.body) {
+      return NextResponse.json(
+        { error: 'Failed to fetch image from storage', status: upstream.status },
+        { status: 502 }
+      );
+    }
+
+    const headers = new Headers();
+    const contentType = upstream.headers.get('content-type');
+    if (contentType) {
+      headers.set('Content-Type', contentType);
+    }
+    const contentLength = upstream.headers.get('content-length');
+    if (contentLength) {
+      headers.set('Content-Length', contentLength);
+    }
+
+    headers.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+
+    return new NextResponse(upstream.body, { headers });
   } catch (error) {
     console.error('Failed to get image from storage:', error);
     return NextResponse.json(

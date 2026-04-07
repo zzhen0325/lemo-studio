@@ -1,6 +1,7 @@
 import dynamic from 'next/dynamic';
 
 const SpiralToolAdapter = dynamic(() => import('./adapters/SpiralToolAdapter'), { ssr: false });
+const ParticleStairsAdapter = dynamic(() => import('./adapters/ParticleStairsAdapter'), { ssr: false });
 
 export interface ToolComponentProps {
   onChange?: (id: string, value: number | string | boolean) => void;
@@ -166,6 +167,29 @@ void main() {
       // but since I'm restricted, I'll use number with step 1.
       { id: 'pixelShape', name: 'Pixel Shape (Sq/Cir/Tri)', type: 'number', min: 0, max: 2, step: 1, defaultValue: 0, category: 'Geometry' },
       { id: 'imageScaleMode', name: 'Scale Mode (0:Fit, 1:Fill)', type: 'number', min: 0, max: 1, step: 1, defaultValue: 0, category: 'Geometry' },
+    ]
+  },
+  {
+    id: 'particle-stairs',
+    name: 'Particle Stairs',
+    description: 'A Perlin-noise driven rainfall that forms staircase-like motion trails.',
+    type: 'component',
+    component: ParticleStairsAdapter,
+    parameters: [
+      { id: 'particleCount', name: 'Particle Count', type: 'number', min: 0, max: 200000, step: 50, defaultValue: 4050, category: 'Simulation' },
+      { id: 'spawnRate', name: 'Spawn Rate', type: 'number', min: 0, max: 100, step: 1, defaultValue: 9, category: 'Simulation' },
+      { id: 'gravityAccel', name: 'Gravity Speed', type: 'number', min: 0, max: 10, step: 0.1, defaultValue: 0.5, category: 'Simulation' },
+      { id: 'stairCount', name: 'Stair Count', type: 'number', min: 10, max: 400, step: 1, defaultValue: 120, category: 'Geometry' },
+      { id: 'particleColor', name: 'Particle Color', type: 'color', defaultValue: '#76BA99', category: 'Palette' },
+      { id: 'usePalette', name: 'Use Palette', type: 'boolean', defaultValue: true, category: 'Palette' },
+      { id: 'color1', name: 'Palette 1', type: 'color', defaultValue: '#76BA99', category: 'Palette' },
+      { id: 'color2', name: 'Palette 2', type: 'color', defaultValue: '#ADCF9F', category: 'Palette' },
+      { id: 'color3', name: 'Palette 3', type: 'color', defaultValue: '#CED89E', category: 'Palette' },
+      { id: 'backgroundColor', name: 'Background Color', type: 'color', defaultValue: '#000000', category: 'Palette' },
+      { id: 'trailAlpha', name: 'Trail Fade', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 0.078, category: 'Appearance' },
+      { id: 'blur', name: 'Blur', type: 'number', min: 0, max: 20, step: 0.1, defaultValue: 1.25, category: 'Appearance' },
+      { id: 'seed', name: 'Seed', type: 'number', min: 1, max: 1000000, step: 1, defaultValue: 1337, category: 'Simulation' },
+      { id: 'noiseThreshold', name: 'Noise Threshold', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 0.4, category: 'Simulation' },
     ]
   }
 ];

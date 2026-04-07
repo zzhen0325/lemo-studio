@@ -282,6 +282,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     isLoadingMore: isHistoryLoadingMore,
     hasMore: hasMoreHistory,
     setHistory,
+    mutate: mutateHistory,
     getHistoryItem,
   } = useHistory();
   const historyController = useMemo(() => ({
@@ -2837,7 +2838,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
         // Remove loading cards and add real results
         setDescribeOptimisticHistory(newHistoryItems);
-        setHistory((prev: import('@/types/database').Generation[]) => [...newHistoryItems, ...prev.filter(item => !loadingIdSet.has(item.id))]);
 
         // Also save each description to backend and sync to gallery.
         // Keep optimistic cards until persistence round completes to avoid pending->completed flicker/disappear.
@@ -2849,6 +2849,9 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
               usePlaygroundStore.getState().addGalleryItem(item);
             }
           });
+          if (persistResults.some(Boolean)) {
+            await mutateHistory();
+          }
           if (persistResults.some((result) => !result)) {
             setDescribePersistenceFailed(true);
             toast({ title: "历史同步延迟", description: "部分反推结果尚未写入服务器，当前先保留在本地列表中。", variant: "destructive" });
@@ -2875,7 +2878,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, setHistory, toast, effectiveUserId, saveHistoryToBackend]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, toast, effectiveUserId, saveHistoryToBackend, mutateHistory]);
 
   const handleBatchUse = useCallback(async (results: Generation[]) => {
     if (!results || results.length === 0) return;

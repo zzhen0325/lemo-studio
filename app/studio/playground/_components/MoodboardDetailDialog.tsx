@@ -1222,7 +1222,7 @@ export function MoodboardDetailDialog({
                         </div>
                       )}
                       <div className={cn('flex items-center gap-2', !isEditMode ? 'mb-2' : '')}>
-                        {canDeleteShortcut ? (
+                        {canDeleteShortcut && isEditMode ? (
                           <Button
                             type="button"
                             variant="light"
