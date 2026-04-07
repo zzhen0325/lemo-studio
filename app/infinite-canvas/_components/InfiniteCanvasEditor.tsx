@@ -26,7 +26,6 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/common/use-toast';
 import { usePromptOptimization } from '@/hooks/ai/usePromptOptimization';
 import { ImageEditDialog, type ImageEditConfirmPayload } from '@/components/image-editor';
-import { useAPIConfigStore } from '@/lib/store/api-config-store';
 import {
   createProject,
   generateCanvasImage,
@@ -68,7 +67,6 @@ import {
 } from '../_lib/helpers';
 import {
   buildPromptOptimizationVariantsInput,
-  buildPromptOptimizationVariantsSystemPrompt,
   parsePromptOptimizationVariants,
   PROMPT_OPTIMIZATION_VARIANT_COUNT,
 } from '../_lib/prompt-optimization';
@@ -91,10 +89,7 @@ interface InfiniteCanvasEditorProps {
 
 export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditorProps) {
   const { toast } = useToast();
-  const optimizeSystemPrompt = useAPIConfigStore((state) => state.settings.services.optimize.systemPrompt);
-  const { optimizePrompt } = usePromptOptimization({
-    systemInstruction: buildPromptOptimizationVariantsSystemPrompt(optimizeSystemPrompt),
-  });
+  const { optimizePrompt } = usePromptOptimization();
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);

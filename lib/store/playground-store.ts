@@ -13,7 +13,10 @@ import {
 } from './playground-store.helpers';
 import { createBannerActions } from './playground-store.banner-actions';
 import { createLibraryActions } from './playground-store.library-actions';
-import { partializePlaygroundState } from './playground-store.persist';
+import {
+    normalizePersistedGalleryState,
+    partializePlaygroundState,
+} from './playground-store.persist';
 
 export const usePlaygroundStore = create<PlaygroundState>()(
     persist(
@@ -578,10 +581,14 @@ export const usePlaygroundStore = create<PlaygroundState>()(
         name: 'playground-storage',
         partialize: partializePlaygroundState,
         onRehydrateStorage: () => (state) => {
+            if (!state) return;
+
             // 确保 visitorId 在页面刷新后仍然存在
-            if (state && !state.visitorId) {
+            if (!state.visitorId) {
                 state.visitorId = uuidv4();
             }
+
+            Object.assign(state, normalizePersistedGalleryState(state));
         },
     }
     ));

@@ -5,13 +5,8 @@ import { selectModelsForContext } from '@/lib/model-center';
 
 export type AIModel = 'gemini' | 'doubao' | 'gpt' | 'auto';
 
-interface UsePromptOptimizationOptions {
-  systemInstruction?: string;
-}
-
 interface OptimizePromptCallOptions {
   profileId?: string;
-  systemInstruction?: string;
 }
 
 interface UsePromptOptimizationReturn {
@@ -25,7 +20,6 @@ interface UsePromptOptimizationReturn {
 }
 
 export function usePromptOptimization(
-  options: UsePromptOptimizationOptions = {},
 ): UsePromptOptimizationReturn {
   const { callText, callVision, isLoading: isOptimizing } = useAIService();
   const { toast } = useToast();
@@ -68,7 +62,6 @@ export function usePromptOptimization(
         const result = await callText({
           model: modelId,
           input: text,
-          systemPrompt: callOptions?.systemInstruction ?? options.systemInstruction,
           profileId: callOptions?.profileId || 'optimization',
         });
         resultText = result.text;

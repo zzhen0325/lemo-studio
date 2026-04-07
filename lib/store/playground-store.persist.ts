@@ -1,6 +1,10 @@
 import type { GenerationConfig } from '@/types/database';
 import type { PlaygroundState } from './playground-store.types';
-import { clearBannerMetadata, sanitizeGalleryItemsForPersist } from './playground-store.helpers';
+import {
+  clearBannerMetadata,
+  GALLERY_PAGE_LIMIT,
+  sanitizeGalleryItemsForPersist,
+} from './playground-store.helpers';
 import type { ImageEditorSessionSnapshot } from '@/components/image-editor/types';
 
 function sanitizeImageEditorSessionForPersist(
@@ -26,7 +30,36 @@ function sanitizeImageEditorSessionForPersist(
   };
 }
 
+type PersistedGalleryState = Pick<
+  PlaygroundState,
+  'galleryItems' | 'galleryPage' | 'hasMoreGallery' | '_galleryLoaded'
+>;
+
+export function normalizePersistedGalleryState(state: PersistedGalleryState): PersistedGalleryState {
+  const persistedItems = sanitizeGalleryItemsForPersist(state.galleryItems);
+
+  if (persistedItems.length === 0) {
+    return {
+      galleryItems: [],
+      galleryPage: 1,
+      hasMoreGallery: true,
+      _galleryLoaded: false,
+    };
+  }
+
+  const wasTruncated = state.galleryItems.length > persistedItems.length;
+
+  return {
+    galleryItems: persistedItems,
+    galleryPage: Math.max(1, Math.ceil(persistedItems.length / GALLERY_PAGE_LIMIT)),
+    hasMoreGallery: wasTruncated ? true : state.hasMoreGallery,
+    _galleryLoaded: persistedItems.length > 0,
+  };
+}
+
 export function partializePlaygroundState(state: PlaygroundState) {
+  const normalizedGalleryState = normalizePersistedGalleryState(state);
+
   return {
     config: (() => {
       const isBannerConfig = state.config?.generationMode === 'banner';
@@ -66,10 +99,7 @@ export function partializePlaygroundState(state: PlaygroundState) {
     styles: [],
     uploadedImages: [],
     describeImages: [],
-    galleryItems: sanitizeGalleryItemsForPersist(state.galleryItems),
-    galleryPage: state.galleryPage,
-    hasMoreGallery: state.hasMoreGallery,
+    ...normalizedGalleryState,
     galleryLastSyncAt: state.galleryLastSyncAt,
-    _galleryLoaded: state.galleryItems.length > 0 || state._galleryLoaded,
   };
 }

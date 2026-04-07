@@ -1,5 +1,4 @@
 import { getProvider } from '../../ai/modelRegistry';
-import { getSystemPrompt } from '../../../config/system-prompts';
 import type {
   VisionGenerationInput,
   ImageGenerationInput,
@@ -13,7 +12,6 @@ import { HttpError } from '../utils/http-error';
 import { ApiConfigService } from './api-config.service';
 import { DEFAULT_DATASET_LABEL_SYSTEM_PROMPT } from '../../constants/dataset-prompts';
 import { normalizeImageSizeToken, validateModelUsage } from '../../model-center';
-import { serviceSupportsSystemPrompt } from '../../api-config/types';
 
 export interface DescribeRequestBody {
   image: string;
@@ -122,7 +120,8 @@ export class AiService {
   }
 
   public async describe(body: DescribeRequestBody): Promise<{ text: string }> {
-    const { image, model, profileId, systemPrompt: explicitSystemPrompt, prompt, options } = body;
+    const { image, model, prompt, options } = body;
+    const explicitSystemPrompt = body.systemPrompt;
     const describeContext = body.context || 'service:describe';
 
     if (!image) {
@@ -159,30 +158,16 @@ export class AiService {
       throw new HttpError(400, `Model ${model} does not support vision tasks`);
     }
 
-    const canUseSystemPrompt = serviceSupportsSystemPrompt('describe', { providerId: '', modelId: model });
-
-    let resolvedSystemPrompt = canUseSystemPrompt ? explicitSystemPrompt : undefined;
-    if (canUseSystemPrompt && resolvedSystemPrompt === undefined && profileId) {
-      let providerIdForPrompt = 'unknown';
-      if (model.includes('gemini') || model.includes('google')) providerIdForPrompt = 'google';
-      else if (model.includes('doubao')) providerIdForPrompt = 'doubao';
-      else if (model.includes('deepseek')) providerIdForPrompt = 'deepseek';
-
-      resolvedSystemPrompt = getSystemPrompt(profileId, providerIdForPrompt);
-    }
-
     const params: VisionGenerationInput = {
       image,
       prompt,
-      systemPrompt: resolvedSystemPrompt,
       options,
     };
 
     const result = await (providerInstance as { describeImage: (p: VisionGenerationInput) => Promise<{ text: string }> }).describeImage(params);
     const text = result.text?.trim() || '';
     if (!text) {
-      const hasSystemPrompt = Boolean(resolvedSystemPrompt && resolvedSystemPrompt.trim());
-      throw new HttpError(502, `Model returned empty text (hasSystemPrompt=${hasSystemPrompt})`);
+      throw new HttpError(502, 'Model returned empty text');
     }
     return { text };
   }
@@ -343,7 +328,7 @@ export class AiService {
 
   // 文本生成，可能返回流式结果，由调用方决定如何包装 HTTP 响应
   public async generateText(body: TextRequestBody): Promise<{ text?: string; stream?: ReadableStream<Uint8Array> }> {
-    const { input, model, profileId, systemPrompt: explicitSystemPrompt, options } = body;
+    const { input, model, options } = body;
 
     if (!input) {
       throw new HttpError(400, 'Missing input text');
@@ -366,22 +351,8 @@ export class AiService {
 
     const providerInstance = getProvider(model, undefined, providers);
 
-    const canUseSystemPrompt = serviceSupportsSystemPrompt('optimize', { providerId: '', modelId: model });
-
-    let resolvedSystemPrompt = canUseSystemPrompt ? explicitSystemPrompt : undefined;
-    if (canUseSystemPrompt && resolvedSystemPrompt === undefined && profileId) {
-      let providerIdForPrompt = 'unknown';
-      if (model.includes('doubao')) providerIdForPrompt = 'doubao';
-      else if (model.includes('deepseek')) providerIdForPrompt = 'deepseek';
-      else if (model.includes('gemini')) providerIdForPrompt = 'google';
-      else if (model.includes('google')) providerIdForPrompt = 'google';
-
-      resolvedSystemPrompt = getSystemPrompt(profileId, providerIdForPrompt);
-    }
-
     const params: TextGenerationInput = {
       input,
-      systemPrompt: resolvedSystemPrompt,
       options,
     };
 

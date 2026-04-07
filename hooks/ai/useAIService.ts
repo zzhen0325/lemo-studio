@@ -106,16 +106,11 @@ export function useAIService() {
             // 获取优化服务的配置
             const optimizeConfig = getServiceConfig('optimize');
             const model = params.model || optimizeConfig.modelId;
-            const systemPrompt = resolveSystemPrompt(
-                'optimize',
-                model,
-                params.systemPrompt ?? optimizeConfig.systemPrompt
-            );
+            const { systemPrompt: _ignoredSystemPrompt, ...restParams } = params;
 
             const result = await clientGenerateText({
-                ...params,
+                ...restParams,
                 model,
-                systemPrompt
             });
             return result;
         } catch (error: unknown) {
@@ -133,16 +128,15 @@ export function useAIService() {
             const targetService: ServiceType = params.context === 'service:datasetLabel' ? 'datasetLabel' : 'describe';
             const describeConfig = getServiceConfig(targetService);
             const model = params.model || describeConfig.modelId;
-            const systemPrompt = resolveSystemPrompt(
-                targetService,
-                model,
-                params.systemPrompt ?? describeConfig.systemPrompt
-            );
+            const resolvedDatasetSystemPrompt = targetService === 'datasetLabel'
+                ? (params.systemPrompt ?? describeConfig.systemPrompt)?.trim() || undefined
+                : undefined;
+            const { systemPrompt: _ignoredSystemPrompt, ...restParams } = params;
 
             const result = await clientDescribeImage({
-                ...params,
+                ...restParams,
                 model,
-                systemPrompt
+                ...(resolvedDatasetSystemPrompt ? { systemPrompt: resolvedDatasetSystemPrompt } : {})
             } as ClientDescribeParams);
             return result;
         } catch (error: unknown) {

@@ -17,7 +17,6 @@ import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
 import {
-  BASE_SYSTEM_INSTRUCTION,
   VISION_DESCRIBE_SINGLE_SYSTEM_PROMPT,
   type GenerationConfig,
   type UploadedImage,
@@ -97,7 +96,6 @@ import {
 } from "@/app/studio/playground/_lib/kv-structured-optimization";
 import {
   buildPromptOptimizationVariantsInput,
-  buildPromptOptimizationVariantsSystemPrompt,
   parsePromptOptimizationVariants,
 } from "@/app/infinite-canvas/_lib/prompt-optimization";
 import {
@@ -2631,10 +2629,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       undefined,
       {
         profileId: 'prompt-optimization-variants',
-        systemInstruction: buildPromptOptimizationVariantsSystemPrompt(
-          BASE_SYSTEM_INSTRUCTION,
-          PROMPT_OPTIMIZATION_VARIANT_COUNT,
-        ),
       },
     );
 
