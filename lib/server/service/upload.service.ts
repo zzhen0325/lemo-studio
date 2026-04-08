@@ -4,7 +4,16 @@ import { ImageAssetsRepository } from '../repositories';
 import { HttpError } from '../utils/http-error';
 import { uploadBufferToCdn } from '../utils/cdn';
 
-const AllowedExt = ['png', 'jpg', 'jpeg'] as const;
+const AllowedExt = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'] as const;
+
+const MimeTypeMap: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+};
 
 const FileInfoSchema = z.object({
   name: z.string().min(1),
@@ -44,12 +53,15 @@ export class UploadService {
     const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "") || 'image';
     const fileName = `${nameWithoutExt}_${randomUUID()}.${ext}`;
     
+    // Use correct MIME type based on extension
+    const mimeType = MimeTypeMap[ext] || file.type || 'image/png';
+    
     // Upload to storage - get storage key and generate signed URL for immediate display
     const cdnRes = await uploadBufferToCdn(buffer, {
       fileName,
       dir: 'ljhwZthlaukjlkulzlp/Lemon8_Activity/lemon8_design/upload',
       region: 'SG',
-      mimeType: file.type,
+      mimeType,
       generateSignedUrl: true, // 生成预签名 URL 供前端即时显示
     });
 

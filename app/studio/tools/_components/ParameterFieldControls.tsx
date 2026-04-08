@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Plus } from 'lucide-react';
-import { getApiBase } from "@/lib/api-base";
+import { getApiBase, formatImageUrl } from "@/lib/api-base";
 import { useToast } from '@/hooks/common/use-toast';
 import type { ToolParameter } from './tool-configs';
 
@@ -167,6 +167,7 @@ const AestheticImagePicker: React.FC<{
 
             const payload = await res.json().catch(() => null);
             const path = typeof payload?.path === 'string' ? payload.path : '';
+            const url = typeof payload?.url === 'string' ? payload.url : '';
 
             if (!res.ok || !path) {
                 throw new Error(typeof payload?.error === 'string' ? payload.error : '上传失败');
@@ -177,6 +178,8 @@ const AestheticImagePicker: React.FC<{
                 previewUrlRef.current = null;
             }
 
+            // Store the storageKey (path) for persistence, but use URL for display
+            // The value will be processed by useImageSource or similar hooks
             onChange(path);
         } catch (error) {
             onChange('');
@@ -193,6 +196,9 @@ const AestheticImagePicker: React.FC<{
 
     const lowerValue = value.toLowerCase();
     const isVideo = lowerValue.endsWith('.mp4') || lowerValue.endsWith('.webm') || lowerValue.endsWith('.mov');
+    
+    // Convert storageKey to accessible URL for display
+    const displayUrl = formatImageUrl(value);
 
     return (
         <div className="space-y-2 group">
@@ -214,10 +220,10 @@ const AestheticImagePicker: React.FC<{
                 {value ? (
                     <>
                         {isVideo ? (
-                            <video src={value} className="w-full h-full object-cover" muted loop autoPlay playsInline />
+                            <video src={displayUrl} className="w-full h-full object-cover" muted loop autoPlay playsInline />
                         ) : (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={value} alt="Selected" className="absolute inset-0 w-full h-full object-cover" />
+                            <img src={displayUrl} alt="Selected" className="absolute inset-0 w-full h-full object-cover" />
                         )}
 
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/picker:opacity-100 transition-opacity flex items-center justify-center">
