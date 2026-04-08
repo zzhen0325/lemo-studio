@@ -208,7 +208,7 @@
   }
 
   .studio-panel-frost {
-    @apply border border-studio-border bg-studio-surface/60 backdrop-blur-xl;
+    @apply border-none bg-studio-surface/60 backdrop-blur-xl;
   }
 
   .studio-input {

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { X, Upload } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import type { RefObject } from "react";
+import { useCallback, useEffect, type ClipboardEvent, type RefObject } from "react";
 import type { UploadedImage } from "@/lib/playground/types";
 import { usePlaygroundStore } from "@/lib/store/playground-store";
 import { useImageSource } from "@/hooks/common/use-image-source";
@@ -40,14 +40,53 @@ export function DescribePanel({
   onDescribe,
 }: DescribePanelProps) {
   const { setPreviewImage } = usePlaygroundStore();
+  const handlePaste = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
+    const files: File[] = [];
+    const items = event.clipboardData?.items;
+
+    if (!items) {
+      return;
+    }
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+    }
+
+    if (files.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onDropFiles(files);
+  }, [onDropFiles]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    panelRef.current?.focus({ preventScroll: true });
+  }, [open, panelRef]);
+
   return (
     <AnimatePresence>
       {open && (
         <motion.div
           ref={panelRef}
+          role="region"
+          aria-label="Describe 图片面板"
+          tabIndex={-1}
           initial={{ opacity: 0, scale: 0.98, flexGrow: 0, height: 0 }}
           animate={{ opacity: 1, scale: 1, flexGrow: 1, height: "100%" }}
           exit={{ opacity: 0, scale: 0.98, flexGrow: 0, height: 0 }}
+          onPaste={handlePaste}
           className="flex w-full h-full z-20 py-2 overflow-hidden mt-2 mb-20"
         >
           <div className="w-full h-full flex flex-col items-center p-2 bg-white/10 border border-white/20 rounded-[30px]">
@@ -107,6 +146,11 @@ export function DescribePanel({
                     <p className={cn("text-sm font-normal", isDraggingOverPanel ? "text-primary" : "text-white")}>
                       {isDraggingOverPanel ? "松开以开始图像分析" : "拖动图片到此处 或 点击选择图片"}
                     </p>
+                    {!isDraggingOverPanel && (
+                      <p className="mt-1 text-xs text-white/50">
+                        支持直接粘贴截图或剪贴板图片
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (

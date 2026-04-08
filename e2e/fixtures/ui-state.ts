@@ -54,6 +54,45 @@ export const seededHistoryPage = {
   total: 2,
 };
 
+export function buildSeededHistoryPage(total: number) {
+  const baseHistory = [...seededHistoryPage.history];
+  const history = Array.from({ length: total }, (_, index) => {
+    if (index < baseHistory.length) {
+      return {
+        ...baseHistory[index],
+        id: `history-${String(index + 1).padStart(3, '0')}`,
+      };
+    }
+
+    const itemNumber = index + 1;
+    const minutesOffset = itemNumber * 5;
+    const createdAt = new Date(Date.parse(TEST_TIMESTAMP) + minutesOffset * 60 * 1000).toISOString();
+    const isTallCard = itemNumber % 3 !== 0;
+
+    return {
+      id: `history-${String(itemNumber).padStart(3, '0')}`,
+      userId: 'guest-ui-tester',
+      projectId: 'project-ui',
+      outputUrl: TEST_IMAGE_URL,
+      config: {
+        prompt: `Gallery scroll prompt ${itemNumber}`,
+        width: isTallCard ? 1024 : 1280,
+        height: isTallCard ? 1400 : 1024,
+        model: 'seedream-3.0',
+        sourceImageUrls: itemNumber % 4 === 0 ? [TEST_IMAGE_URL] : undefined,
+      },
+      status: 'completed',
+      createdAt,
+    };
+  });
+
+  return {
+    history,
+    hasMore: false,
+    total,
+  };
+}
+
 export const seededViewComfys = [
   {
     viewComfyJSON: {

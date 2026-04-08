@@ -93,7 +93,13 @@ export class ToolsPresetsService {
         timestamp,
       };
 
-      await this.toolPresetsRepository.upsert(id, { toolId, name, values, thumbnail: storageKey || thumbnailPath, timestamp });
+      await this.toolPresetsRepository.upsert(id, {
+        tool_id: toolId,
+        name,
+        values,
+        thumbnail: storageKey || thumbnailPath,
+        timestamp,
+      });
 
       return preset;
     } catch (error) {

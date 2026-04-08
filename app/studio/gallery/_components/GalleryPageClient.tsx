@@ -13,5 +13,9 @@ export default function GalleryPageClient() {
     setActiveTab("gallery");
   }, [setActiveTab, setViewMode]);
 
-  return <GalleryView />;
+  return (
+    <div data-testid="gallery-page-client-shell" className="flex min-h-0 flex-1 flex-col">
+      <GalleryView />
+    </div>
+  );
 }

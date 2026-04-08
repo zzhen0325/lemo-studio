@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import {
+  installCommonUiMocks,
   installDatasetUiMocks,
   installInfiniteCanvasEditorUiMocks,
   installInfiniteCanvasRootUiMocks,
@@ -9,6 +10,7 @@ import {
   installSettingsUiMocks,
   installToolsUiMocks,
 } from "./helpers/ui-mocks";
+import { buildSeededHistoryPage } from "./fixtures/ui-state";
 
 const PLAYGROUND_ROUTE = "/studio/playground";
 
@@ -16,6 +18,17 @@ async function gotoStudioShell(page: Page, route = PLAYGROUND_ROUTE) {
   await page.goto(route);
   await expect(page.locator("header")).toBeVisible();
   await expect(page.getByAltText("Lemo Studio")).toBeVisible();
+}
+
+async function installDenseGalleryUiMocks(page: Page, total = 96) {
+  await installCommonUiMocks(page);
+  await page.route("**/api/history**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json; charset=utf-8",
+      body: JSON.stringify(buildSeededHistoryPage(total)),
+    });
+  });
 }
 
 test.describe("Studio shell interactions", () => {
@@ -75,6 +88,80 @@ test.describe("Frontend visibility and interaction coverage", () => {
     await page.getByRole("button", { name: "Describe", exact: true }).click();
     await expect(page.getByText("拖动图片到此处 或 点击选择图片")).toBeVisible();
     await expect(page.getByPlaceholder("Search gallery prompts...")).toHaveCount(0);
+  });
+
+  test("standalone gallery route keeps a real internal scroll viewport", async ({ page }) => {
+    await installDenseGalleryUiMocks(page);
+    await page.goto("/studio/gallery");
+
+    await expect(page.getByPlaceholder("Search gallery prompts...")).toBeVisible();
+
+    const scrollContainer = page.getByTestId("gallery-scroll-container");
+    await expect(scrollContainer).toBeVisible();
+
+    await expect.poll(async () => {
+      return scrollContainer.getAttribute("data-gallery-viewport-ready");
+    }).toBe("true");
+
+    await expect.poll(async () => {
+      return scrollContainer.evaluate((element) => element.scrollHeight > element.clientHeight);
+    }).toBe(true);
+
+    const initialMetrics = await scrollContainer.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+    }));
+
+    expect(initialMetrics.scrollTop).toBe(0);
+
+    await scrollContainer.evaluate((element) => {
+      element.scrollTo({ top: 2200 });
+      element.dispatchEvent(new Event("scroll"));
+    });
+
+    await expect.poll(async () => {
+      return scrollContainer.evaluate((element) => element.scrollTop);
+    }).toBeGreaterThan(0);
+
+    await expect(page.locator('[data-gallery-item-key="history-048"]')).toBeVisible();
+  });
+
+  test("playground dock gallery keeps the shared internal scroll viewport", async ({ page }) => {
+    await installDenseGalleryUiMocks(page);
+    await gotoStudioShell(page);
+
+    await page.getByRole("button", { name: "Gallery", exact: true }).click();
+    await expect(page.getByPlaceholder("Search gallery prompts...")).toBeVisible();
+
+    const scrollContainer = page.getByTestId("gallery-scroll-container");
+    await expect(scrollContainer).toBeVisible();
+
+    await expect.poll(async () => {
+      return scrollContainer.getAttribute("data-gallery-viewport-ready");
+    }).toBe("true");
+
+    await expect.poll(async () => {
+      return scrollContainer.evaluate((element) => element.scrollHeight > element.clientHeight);
+    }).toBe(true);
+
+    const initialMetrics = await scrollContainer.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+    }));
+
+    expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight);
+
+    await scrollContainer.evaluate((element) => {
+      element.scrollTo({ top: 2200 });
+      element.dispatchEvent(new Event("scroll"));
+    });
+
+    await expect.poll(async () => {
+      return scrollContainer.evaluate((element) => element.scrollTop);
+    }).toBeGreaterThan(0);
+
+    await expect(page.locator('[data-gallery-item-key="history-048"]')).toBeVisible();
   });
 
   test("mapping editor keeps library, search, and delete dialog visible", async ({ page }) => {

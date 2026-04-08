@@ -9,9 +9,11 @@ interface MediaCanvasProps {
   mediaType: MediaType;
   params: GridParams;
   onReady?: (canvas: HTMLCanvasElement) => void;
+  renderWidth?: number;
+  renderHeight?: number;
 }
 
-const MediaCanvas: React.FC<MediaCanvasProps> = ({ mediaUrl, mediaType, params, onReady }) => {
+const MediaCanvas: React.FC<MediaCanvasProps> = ({ mediaUrl, mediaType, params, onReady, renderWidth, renderHeight }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -22,8 +24,8 @@ const MediaCanvas: React.FC<MediaCanvasProps> = ({ mediaUrl, mediaType, params, 
   useEffect(() => {
     if (!containerRef.current || !canvasRef.current) return;
 
-    const width = containerRef.current.clientWidth || 800;
-    const height = containerRef.current.clientHeight || 600;
+    const width = renderWidth || containerRef.current.clientWidth || 800;
+    const height = renderHeight || containerRef.current.clientHeight || 600;
 
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
@@ -31,7 +33,7 @@ const MediaCanvas: React.FC<MediaCanvasProps> = ({ mediaUrl, mediaType, params, 
       preserveDrawingBuffer: true,
       alpha: false // Changed to false to prevent bleed through black
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(renderWidth && renderHeight ? 1 : Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     rendererRef.current = renderer;
 
@@ -88,23 +90,24 @@ const MediaCanvas: React.FC<MediaCanvasProps> = ({ mediaUrl, mediaType, params, 
 
     const handleResize = () => {
       if (!containerRef.current || !rendererRef.current || !materialRef.current) return;
-      const w = containerRef.current.clientWidth;
-      const h = containerRef.current.clientHeight;
+      const w = renderWidth || containerRef.current.clientWidth;
+      const h = renderHeight || containerRef.current.clientHeight;
       rendererRef.current.setSize(w, h);
       materialRef.current.uniforms.uResolution.value.set(w, h);
     };
 
-    window.addEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(() => handleResize());
+    resizeObserver.observe(containerRef.current);
     onReady?.(canvasRef.current);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       cancelAnimationFrame(animationId);
       renderer.dispose();
       geometry.dispose();
       material.dispose();
     };
-  }, [onReady]);
+  }, [onReady, renderHeight, renderWidth]);
 
   // Load Media
   useEffect(() => {

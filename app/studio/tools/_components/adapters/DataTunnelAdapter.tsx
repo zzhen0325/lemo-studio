@@ -171,9 +171,10 @@ const DataTunnelAdapter: React.FC<ToolComponentProps> = (props) => {
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      const w = Math.max(2, Math.floor(rect.width));
-      const h = Math.max(2, Math.floor(rect.height));
+      const hasFixedRenderSize = typeof props.renderWidth === "number" && typeof props.renderHeight === "number";
+      const dpr = hasFixedRenderSize ? 1 : Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const w = Math.max(2, Math.floor(hasFixedRenderSize ? props.renderWidth! : rect.width));
+      const h = Math.max(2, Math.floor(hasFixedRenderSize ? props.renderHeight! : rect.height));
       renderer.setPixelRatio(dpr);
       renderer.setSize(w, h, false);
       composer.setSize(w, h);
@@ -415,7 +416,7 @@ const DataTunnelAdapter: React.FC<ToolComponentProps> = (props) => {
       bgMaterialRef.current = null;
       signalMaterialRef.current = null;
     };
-  }, [segmentCount, maxTrail]);
+  }, [maxTrail, props.renderHeight, props.renderWidth, segmentCount]);
 
   const prevLineCountRef = useRef<number | null>(null);
   const prevSignalCountRef = useRef<number | null>(null);

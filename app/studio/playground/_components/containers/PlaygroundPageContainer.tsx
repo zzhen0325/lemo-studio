@@ -95,6 +95,7 @@ import {
   type KvStructuredVariantId,
 } from "@/app/studio/playground/_lib/kv-structured-optimization";
 import {
+  buildPromptOptimizationVariantsInput,
   parsePromptOptimizationVariants,
 } from "@/app/infinite-canvas/_lib/prompt-optimization";
 import {
@@ -167,8 +168,21 @@ interface BannerSessionHistoryItem {
   templateId: string;
 }
 
+type PromptOptimizationRequestPrefix = "[Event kv]" | "[Text]";
 const KV_STRUCTURED_OPTIMIZATION_PARALLEL_REQUEST_COUNT = 4;
 const KV_STRUCTURED_HISTORY_BACKFILL_COUNT = 1;
+
+function prependPromptOptimizationRequestPrefix(
+  input: string,
+  prefix: PromptOptimizationRequestPrefix,
+) {
+  const trimmedInput = input.trim();
+  if (!trimmedInput) {
+    return "";
+  }
+
+  return `${prefix}\n${trimmedInput}`;
+}
 
 export const PlaygroundV2Page = function PlaygroundV2Page({
   onEditMapping,
@@ -2296,6 +2310,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       sourceValues,
       sourceRemovedFieldIds,
     );
+    const taggedOptimizationInput = prependPromptOptimizationRequestPrefix(
+      optimizationInput,
+      "[Event kv]",
+    );
     const EMPTY_RESULT_ERROR = "KV_STRUCTURED_EMPTY_RESULT";
     const NO_USABLE_VARIANT_ERROR = "KV_STRUCTURED_NO_USABLE_VARIANT";
     const optimizationTaskId = `prompt-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -2408,7 +2426,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     };
 
     const runSingleAttempt = async (attemptIndex: number): Promise<KvStructuredOptimizationAttemptResult> => {
-      const optimizedText = await optimizePrompt(optimizationInput, selectedAIModel);
+      const optimizedText = await optimizePrompt(taggedOptimizationInput, selectedAIModel);
       console.info(`[KV structured optimization] raw_response attempt_${attemptIndex + 1}`, optimizedText);
 
       if (!optimizedText) {
@@ -2598,8 +2616,16 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return;
     }
 
-    const optimizedText = await optimizePrompt(
+    const optimizationInput = buildPromptOptimizationVariantsInput(
       config.prompt,
+      PROMPT_OPTIMIZATION_VARIANT_COUNT,
+    );
+    const taggedOptimizationInput = prependPromptOptimizationRequestPrefix(
+      optimizationInput,
+      "[Text]",
+    );
+    const optimizedText = await optimizePrompt(
+      taggedOptimizationInput,
       selectedAIModel,
       undefined,
       undefined,

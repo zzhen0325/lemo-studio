@@ -6,8 +6,9 @@ import { Trash2, Plus, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { getApiBase } from "@/lib/api-base";
-
+import { useToast } from '@/hooks/common/use-toast';
 import { useImageUpload } from '@/hooks/common/use-image-upload';
+import { ParameterField } from './ParameterFieldControls';
 
 interface ParameterPanelProps {
     config: WebGLToolConfig;
@@ -17,181 +18,13 @@ interface ParameterPanelProps {
     onCaptureScreenshot?: () => Promise<string | null>;
 }
 
-// --- Aesthetic UI Components ---
-
-const AestheticSlider: React.FC<{
-    label: string;
-    value: number;
-    min: number;
-    max: number;
-    step: number;
-    onChange: (v: number) => void
-}> = ({ label, value, min, max, step, onChange }) => (
-    <div className="space-y-2.5 group">
-        <div className="flex items-center justify-between">
-            <label className="text-xs font-sans text-white/60  font-medium  group-hover:text-white transition-colors">
-                {label}
-            </label>
-            <span className="text-xs font-sans text-primary tabular-nums">
-                {Number(value) % 1 === 0 ? value : Number(value).toFixed(2)}
-            </span>
-        </div>
-        <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="w-full h-4 aesthetic-range"
-        />
-    </div>
-);
-
-const AestheticSwitch: React.FC<{
-    label: string;
-    checked: boolean;
-    onChange: (v: boolean) => void;
-}> = ({ label, checked, onChange }) => (
-    <div
-        className="flex items-center justify-between group cursor-pointer"
-        onClick={() => onChange(!checked)}
-    >
-        <span className="text-[11px] text-white/50 group-hover:text-white transition-colors">
-            {label}
-        </span>
-        <div className={`w-8 h-4 rounded-full transition-all duration-300 relative ${checked ? 'bg-blue-600' : 'bg-white/10'}`}>
-            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${checked ? 'left-[18px]' : 'left-0.5'}`} />
-        </div>
-    </div>
-);
-
-const AestheticColorSlot: React.FC<{
-    color: string;
-    index: number;
-    onChange: (v: string) => void;
-}> = ({ color, index, onChange }) => (
-    <div className="flex items-center gap-3 group">
-        <div className="relative w-full h-10 flex items-center px-4 rounded-xl bg-white/[0.03] border border-white/10 group-hover:border-white/20 transition-all cursor-pointer overflow-hidden">
-            <input
-                type="color"
-                value={color}
-                onChange={(e) => onChange(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-            <div
-                className="w-6 h-6 rounded-lg border border-white/20 shadow-lg shrink-0 transition-transform group-hover:scale-110"
-                style={{ backgroundColor: color }}
-            />
-            <span className="ml-3 text-[11px] font-mono text-white/60 group-hover:text-white transition-colors tracking-tight uppercase">
-                {color}
-            </span>
-            <span className="ml-auto text-[8px] text-white/10 group-hover:text-white/30 font-bold uppercase tracking-tighter">
-                Slot_{index + 1}
-            </span>
-        </div>
-    </div>
-);
-
-// --- Main Panel ---
-
-const AestheticImagePicker: React.FC<{
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-}> = ({ label, value, onChange }) => {
-    const { uploadFile } = useImageUpload();
-    const [isUploading, setIsUploading] = React.useState(false);
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        // Create local URL for immediate preview (optional, but good for UX)
-        const localUrl = URL.createObjectURL(file);
-        onChange(localUrl);
-
-        // Upload
-        setIsUploading(true);
-        await uploadFile(file, {
-            onSuccess: () => {
-                // Success
-                setIsUploading(false);
-            },
-            onError: () => {
-                setIsUploading(false);
-            }
-        });
-    };
-
-    return (
-        <div className="space-y-2 group">
-            <label className="text-[10px] text-white/30 uppercase font-bold tracking-wider group-hover:text-white/50 transition-colors">
-                {label}
-            </label>
-            <div
-                onClick={() => fileInputRef.current?.click()}
-                className="relative w-full aspect-video bg-white/[0.03] border border-white/10 rounded-xl overflow-hidden cursor-pointer hover:border-white/20 transition-all flex items-center justify-center group/picker"
-            >
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*,video/*"
-                    onChange={handleFileChange}
-                />
-
-                {value ? (
-                    <>
-                        {/* Try to show image or video thumbnail */}
-                        {(value.endsWith('.mp4') || value.endsWith('.webm') || value.startsWith('blob:')) && <video src={value} className="w-full h-full object-cover opacity-50" muted loop autoPlay playsInline />}
-                        {/* Fallback to image if not video ext, or overlay */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={value} alt="Selected" className="absolute inset-0 w-full h-full object-cover" />
-
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/picker:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-[10px] uppercase font-bold text-white tracking-widest">Change Media</span>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex flex-col items-center gap-2 opacity-40 group-hover/picker:opacity-80 transition-opacity">
-                        <div className="w-8 h-8 rounded-full border border-dashed border-white flex items-center justify-center">
-                            <Plus className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-[9px] uppercase tracking-widest">Select Media</span>
-                    </div>
-                )}
-
-                {isUploading && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm z-20">
-                        <div className="w-6 h-6 rounded-full border-2 border-white/20 border-t-blue-500 animate-spin" />
-                    </div>
-                )}
-            </div>
-            {value && (
-                <div className="flex justify-end">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onChange(''); }}
-                        className="text-[9px] text-red-400 hover:text-red-300 uppercase tracking-wider"
-                    >
-                        Clear
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// --- Main Panel ---
-
 const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChange, onLoadPreset, onCaptureScreenshot }) => {
-    // ... existing state ...
     const [presets, setPresets] = useState<ToolPreset[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [newPresetName, setNewPresetName] = useState('');
     const { uploadFile } = useImageUpload();
+    const { toast } = useToast();
 
     const fetchPresets = React.useCallback(async () => {
         try {
@@ -210,47 +43,77 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
         fetchPresets();
     }, [fetchPresets]);
 
+    const uploadScreenshot = async (dataUrl: string) => {
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], 'screenshot.png', { type: 'image/png' });
+
+        return new Promise<string>((resolve, reject) => {
+            let settled = false;
+            const timeoutId = window.setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new Error('截图上传超时'));
+            }, 15_000);
+
+            void uploadFile(file, {
+                onSuccess: (_tempId, path) => {
+                    if (settled) return;
+                    settled = true;
+                    window.clearTimeout(timeoutId);
+                    resolve(path);
+                },
+                onError: (_tempId, error) => {
+                    if (settled) return;
+                    settled = true;
+                    window.clearTimeout(timeoutId);
+                    reject(error instanceof Error ? error : new Error('截图上传失败'));
+                }
+            }).then((uploaded) => {
+                if (uploaded || settled) {
+                    return;
+                }
+                settled = true;
+                window.clearTimeout(timeoutId);
+                reject(new Error('截图上传失败'));
+            }).catch((error) => {
+                if (settled) return;
+                settled = true;
+                window.clearTimeout(timeoutId);
+                reject(error instanceof Error ? error : new Error('截图上传失败'));
+            });
+        });
+    };
+
     const handleSaveCurrent = async () => {
-        // ... existing handleSaveCurrent code
-        if (!newPresetName.trim() || isUploading) return;
+        if (isUploading) return;
+
+        const trimmedName = newPresetName.trim();
+        if (!trimmedName) {
+            toast({ title: "保存失败", description: "请先输入预设名称", variant: "destructive" });
+            return;
+        }
+
+        if (Object.values(values).some((value) => typeof value === 'string' && value.startsWith('blob:'))) {
+            toast({ title: "保存失败", description: "媒体仍在上传，请稍后再保存预设", variant: "destructive" });
+            return;
+        }
 
         setIsUploading(true);
 
         try {
             let screenshotPath = '';
 
-            // Capture screenshot if available
             if (onCaptureScreenshot) {
                 const dataUrl = await onCaptureScreenshot();
                 if (dataUrl) {
-                    const response = await fetch(dataUrl);
-                    const blob = await response.blob();
-                    const file = new File([blob], 'screenshot.png', { type: 'image/png' });
-
-                    // 使用统一上传逻辑
-                    const uploaded = await uploadFile(file, {
-                        onSuccess: (tempId, path) => {
-                            screenshotPath = path;
-                        }
-                    });
-
-                    // 等待上传完成（因为这里是保存 Preset，需要路径）
-                    // 虽然 useImageUpload 是后台上传，但对于 Preset 保存这种需要路径的操作，我们可以稍微等待
-                    // 或者修改 useImageUpload 支持同步返回 Promise
-                    if (uploaded) {
-                        // 轮询或者等待 path
-                        let attempts = 0;
-                        while (!screenshotPath && attempts < 10) {
-                            await new Promise(r => setTimeout(r, 500));
-                            attempts++;
-                        }
-                    }
+                    screenshotPath = await uploadScreenshot(dataUrl);
                 }
             }
 
             const formData = new FormData();
             formData.append('toolId', config.id);
-            formData.append('name', newPresetName.trim());
+            formData.append('name', trimmedName);
             formData.append('values', JSON.stringify(values));
             if (screenshotPath) {
                 formData.append('screenshotUrl', screenshotPath);
@@ -261,13 +124,22 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
                 body: formData
             });
 
-            if (res.ok) {
-                await fetchPresets();
-                setNewPresetName('');
-                setIsSaving(false);
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) {
+                throw new Error(typeof payload?.error === 'string' ? payload.error : '保存预设失败');
             }
+
+            await fetchPresets();
+            setNewPresetName('');
+            setIsSaving(false);
+            toast({ title: "保存成功", description: "参数预设已保存" });
         } catch (e) {
             console.error('Failed to save preset', e);
+            toast({
+                title: "保存失败",
+                description: e instanceof Error ? e.message : "保存预设失败，请稍后重试",
+                variant: "destructive"
+            });
         } finally {
             setIsUploading(false);
         }
@@ -281,9 +153,18 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
             });
             if (res.ok) {
                 setPresets(prev => prev.filter(p => p.id !== id));
+                toast({ title: "删除成功", description: "预设已删除" });
+                return;
             }
+            const payload = await res.json().catch(() => null);
+            throw new Error(typeof payload?.error === 'string' ? payload.error : '删除预设失败');
         } catch (e) {
             console.error('Failed to delete preset', e);
+            toast({
+                title: "删除失败",
+                description: e instanceof Error ? e.message : "删除预设失败，请稍后重试",
+                variant: "destructive"
+            });
         }
     };
 
@@ -300,7 +181,7 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
             grouped[category].push(param);
         });
 
-        const order = ['Input', 'Geometry', 'Simulation', 'Palette', 'Analysis', 'Parameters'];
+        const order = ['Input', 'Glass', 'Geometry', 'Environment', 'Lighting', 'Motion', 'Simulation', 'Palette', 'Analysis', 'Parameters'];
         const sortedKeys = Object.keys(grouped).sort((a, b) => {
             const idxA = order.indexOf(a);
             const idxB = order.indexOf(b);
@@ -457,41 +338,13 @@ const ParameterPanel: React.FC<ParameterPanelProps> = ({ config, values, onChang
 
                         <div className={`space-y-4 px-1 ${group.name === 'Palette' ? 'grid grid-cols-1 gap-2.5 space-y-0' : ''}`}>
                             {group.params.map((param, paramIndex) => (
-                                <React.Fragment key={param.id}>
-                                    {/* Image / Media Picker */}
-                                    {param.type === 'image' && (
-                                        <AestheticImagePicker
-                                            label={param.name}
-                                            value={values[param.id] as string}
-                                            onChange={(val) => onChange(param.id, val)}
-                                        />
-                                    )}
-
-                                    {param.type === 'number' && (
-                                        <AestheticSlider
-                                            label={param.name}
-                                            value={values[param.id] as number}
-                                            min={param.min || 0}
-                                            max={param.max || 1}
-                                            step={param.step || 0.01}
-                                            onChange={(val) => onChange(param.id, val)}
-                                        />
-                                    )}
-                                    {param.type === 'boolean' && (
-                                        <AestheticSwitch
-                                            label={param.name}
-                                            checked={values[param.id] as boolean}
-                                            onChange={(val) => onChange(param.id, val)}
-                                        />
-                                    )}
-                                    {param.type === 'color' && (
-                                        <AestheticColorSlot
-                                            color={values[param.id] as string}
-                                            index={paramIndex}
-                                            onChange={(val) => onChange(param.id, val)}
-                                        />
-                                    )}
-                                </React.Fragment>
+                                <ParameterField
+                                    key={param.id}
+                                    param={param}
+                                    value={values[param.id]}
+                                    index={paramIndex}
+                                    onChange={(value) => onChange(param.id, value)}
+                                />
                             ))}
                         </div>
                     </section>

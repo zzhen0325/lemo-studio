@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { GalleryImageCard } from './GalleryImageCard';
 import {
   hasGalleryOverflow,
+  isGalleryViewportReady,
   shouldLoadMoreGallery,
   shouldShowGalleryEndIndicator,
 } from './gallery-scroll';
@@ -56,6 +57,7 @@ export function GalleryImageWall({
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
   const [hasOverflowingContent, setHasOverflowingContent] = useState(false);
   const [isLoadingIndicatorVisible, setIsLoadingIndicatorVisible] = useState(false);
+  const [isViewportReady, setIsViewportReady] = useState(false);
   const loadingIndicatorStartAtRef = useRef<number | null>(null);
   const { width: containerWidth, columnsCount } = useGalleryContainerWidth(scrollContainerRef);
 
@@ -63,10 +65,23 @@ export function GalleryImageWall({
     const element = scrollContainerRef.current;
     if (!element) return;
 
-    const nextHasOverflowingContent = hasGalleryOverflow(element.scrollHeight, element.clientHeight);
+    const nextIsViewportReady = isGalleryViewportReady({
+      clientHeight: element.clientHeight,
+      containerWidth,
+      windowHeight: typeof window === 'undefined' ? 0 : window.innerHeight,
+    });
+    setIsViewportReady((current) => (current === nextIsViewportReady ? current : nextIsViewportReady));
+
+    const nextHasOverflowingContent = nextIsViewportReady
+      ? hasGalleryOverflow(element.scrollHeight, element.clientHeight)
+      : false;
     setHasOverflowingContent((current) =>
       current === nextHasOverflowingContent ? current : nextHasOverflowingContent,
     );
+
+    if (!nextIsViewportReady) {
+      return;
+    }
 
     if (element.scrollTop > 0 && !hasUserScrolledRef.current) {
       hasUserScrolledRef.current = true;
@@ -85,12 +100,13 @@ export function GalleryImageWall({
     ) {
       onLoadMore();
     }
-  }, [hasMoreGallery, isFetchingGallery, onLoadMore]);
+  }, [containerWidth, hasMoreGallery, isFetchingGallery, onLoadMore]);
 
   useEffect(() => {
     hasUserScrolledRef.current = false;
     setHasUserScrolled(false);
     setHasOverflowingContent(false);
+    setIsViewportReady(false);
   }, [layoutKey]);
 
   useEffect(() => {
@@ -126,12 +142,14 @@ export function GalleryImageWall({
     return () => window.clearTimeout(timer);
   }, [isFetchingGallery, isInitialLoading]);
 
-  const showEndOfGallery = shouldShowGalleryEndIndicator({
-    hasMoreGallery,
-    itemsLength: items.length,
-    hasOverflowingContent,
-    hasUserScrolled,
-  });
+  const showEndOfGallery =
+    isViewportReady &&
+    shouldShowGalleryEndIndicator({
+      hasMoreGallery,
+      itemsLength: items.length,
+      hasOverflowingContent,
+      hasUserScrolled,
+    });
 
   useEffect(() => {
     const element = scrollContainerRef.current;
@@ -175,7 +193,12 @@ export function GalleryImageWall({
   }, [checkShouldLoadMore]);
 
   return (
-    <div ref={scrollContainerRef} className="flex-1 flex flex-col w-full min-h-0 overflow-y-auto">
+    <div
+      ref={scrollContainerRef}
+      data-testid="gallery-scroll-container"
+      data-gallery-viewport-ready={isViewportReady ? 'true' : 'false'}
+      className="custom-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
+    >
       {isInitialLoading ? (
         <GallerySkeletonGrid columnsCount={columnsCount} />
       ) : (

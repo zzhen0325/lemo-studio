@@ -2,9 +2,31 @@ const GALLERY_SCROLL_OVERFLOW_MARGIN = 32;
 const GALLERY_AUTO_FILL_MIN_GAP = 120;
 const GALLERY_LOAD_MORE_MIN_THRESHOLD = 240;
 const GALLERY_LOAD_MORE_MAX_THRESHOLD = 480;
+const GALLERY_MIN_READY_VIEWPORT_HEIGHT = 180;
+const GALLERY_MAX_READY_VIEWPORT_OVERSHOOT = 96;
 
 export function hasGalleryOverflow(scrollHeight: number, clientHeight: number) {
   return scrollHeight > clientHeight + GALLERY_SCROLL_OVERFLOW_MARGIN;
+}
+
+export function isGalleryViewportReady({
+  clientHeight,
+  containerWidth,
+  windowHeight,
+}: {
+  clientHeight: number;
+  containerWidth: number;
+  windowHeight: number;
+}) {
+  if (containerWidth <= 0 || clientHeight < GALLERY_MIN_READY_VIEWPORT_HEIGHT) {
+    return false;
+  }
+
+  if (windowHeight > 0 && clientHeight > windowHeight + GALLERY_MAX_READY_VIEWPORT_OVERSHOOT) {
+    return false;
+  }
+
+  return true;
 }
 
 export function shouldAutoFillGallery(scrollHeight: number, clientHeight: number) {

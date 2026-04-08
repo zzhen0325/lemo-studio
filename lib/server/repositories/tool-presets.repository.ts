@@ -4,7 +4,7 @@ export type ToolPresetRecord = ToolPresetDoc;
 
 export class ToolPresetsRepository {
   public async listByToolId(toolId: string): Promise<ToolPresetRecord[]> {
-    return ToolPresetModel.find({ toolId }).sort({ timestamp: -1 }).lean();
+    return ToolPresetModel.find({ tool_id: toolId }).sort({ timestamp: -1 }).lean();
   }
 
   public async upsert(id: string, update: Partial<ToolPresetRecord>): Promise<void> {
@@ -12,6 +12,6 @@ export class ToolPresetsRepository {
   }
 
   public async deleteOwned(toolId: string, id: string): Promise<void> {
-    await ToolPresetModel.deleteOne({ _id: id, toolId });
+    await ToolPresetModel.deleteOne({ _id: id, tool_id: toolId });
   }
 }

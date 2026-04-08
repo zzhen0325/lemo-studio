@@ -925,7 +925,8 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
       try {
         const optimizationInput = buildPromptOptimizationVariantsInput(basePrompt);
-        const optimizedText = await optimizePrompt(optimizationInput, 'doubao');
+        const taggedOptimizationInput = `[Text]\n${optimizationInput}`;
+        const optimizedText = await optimizePrompt(taggedOptimizationInput, 'doubao');
         const variants = parsePromptOptimizationVariants(optimizedText || '');
 
         if (variants.length === 0) {
@@ -2221,7 +2222,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
             Redo
           </Button>
 
-          <Button size="sm" className="studio-action-button h-8 rounded-lg px-3 text-xs font-semibold" onClick={runSelectedNodes} disabled={running}>
+          {/* <Button size="sm" className="studio-action-button h-8 rounded-lg px-3 text-xs font-semibold" onClick={runSelectedNodes} disabled={running}>
             {running ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-1.5 h-3.5 w-3.5" />}
             运行
           </Button>
@@ -2234,7 +2235,7 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
             disabled={!running}
           >
             <Square className="mr-1.5 h-3.5 w-3.5" />停止
-          </Button>
+          </Button> */}
 
           <Button size="icon" variant="ghost" className="studio-icon-button h-8 w-8 rounded-lg" onClick={() => setViewport((current) => ({ ...current, scale: Math.min(2.4, current.scale * 1.1) }))}>
             <ZoomIn className="h-4 w-4" />
@@ -2251,13 +2252,13 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
       <div className="studio-panel-glass absolute right-4 top-20 z-20 w-[300px] rounded-2xl p-4">
         <div className="space-y-2 text-xs text-studio-muted">
           <p className="text-sm font-semibold text-studio-foreground">项目信息</p>
-          <p>节点数：{project.nodes.length}</p>
+          {/* <p>节点数：{project.nodes.length}</p>
           <p>连线数：{project.edges.length}</p>
           <p>历史输出：{project.history.length}</p>
-          <p>当前选中：{selectedNodeIds.length}</p>
-          <p className="rounded-lg border border-studio-accent/20 bg-studio-accent/10 p-2 text-[11px] text-studio-foreground dark:text-studio-accent">
+          <p>当前选中：{selectedNodeIds.length}</p> */}
+          {/* <p className="rounded-lg border border-studio-accent/20 bg-studio-accent/10 p-2 text-[11px] text-studio-foreground dark:text-studio-accent">
             节点参数（模型、比例、尺寸、批量、Seed）请直接在节点卡片中修改。
-          </p>
+          </p> */}
           <div className="space-y-1.5 pt-1">
             <p className="text-[11px] text-studio-foreground">对齐</p>
             <div className="grid grid-cols-3 gap-1">

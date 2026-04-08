@@ -300,11 +300,14 @@ export default function GalleryView({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="w-[95%] h-full mt-10 mx-auto bg-transparent flex flex-col overflow-hidden">
-        <div className="flex w-full overflow-hidden min-h-0 relative">
-          <div className="w-full flex flex-col overflow-hidden">
-            <div className="flex flex-col space-y-4 overflow-hidden">
-              <div className="flex flex-row items-center h-14 mt-4 justify-between gap-4">
+      <div
+        data-testid="gallery-view-root"
+        className="mx-auto flex min-h-0 flex-1 w-[95%] flex-col overflow-hidden bg-transparent pt-10"
+      >
+        <div data-testid="gallery-view-shell" className="relative flex min-h-0 flex-1 w-full overflow-hidden">
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <div data-testid="gallery-view-stack" className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
+              <div className="mt-4 flex h-14 shrink-0 flex-row items-center justify-between gap-4">
                 <div className="flex mb-0 items-center gap-5 font-serif">
                   <GalleryHeaderTab
                     label="Gallery"
@@ -383,7 +386,7 @@ export default function GalleryView({
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 rounded-t-xl overflow-hidden flex flex-col">
+              <div data-testid="gallery-view-body" className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-xl">
                 {activeInnerTab === 'gallery' ? (
                   <GalleryImageWall
                     items={filteredGalleryItems}
@@ -403,7 +406,7 @@ export default function GalleryView({
                     refreshMoodboardCards={refreshMoodboardCards}
                   />
                 ) : (
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex-1 min-h-0 overflow-y-auto">
                     <PromptListView items={renderedPromptItems} onUsePrompt={onUsePrompt} />
                   </div>
                 )}

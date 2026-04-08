@@ -4,9 +4,15 @@ const SpiralToolAdapter = dynamic(() => import('./adapters/SpiralToolAdapter'), 
 const ParticleStairsAdapter = dynamic(() => import('./adapters/ParticleStairsAdapter'), { ssr: false });
 const DataTunnelAdapter = dynamic(() => import('./adapters/DataTunnelAdapter'), { ssr: false });
 const OrganicBackgroundAdapter = dynamic(() => import('./adapters/OrganicBackgroundAdapter'), { ssr: false });
+const GlassLogoPanoramaAdapter = dynamic(() => import('./adapters/GlassLogoPanoramaAdapter'), { ssr: false });
+const PrideClockAdapter = dynamic(() => import('./adapters/PrideClockAdapter'), { ssr: false });
+const DitherAsciiToolAdapter = dynamic(() => import('./adapters/DitherAsciiToolAdapter'), { ssr: false });
 
 export interface ToolComponentProps {
   onChange?: (id: string, value: number | string | boolean) => void;
+  isPreview?: boolean;
+  renderWidth?: number;
+  renderHeight?: number;
   color1?: string;
   color2?: string;
   color3?: string;
@@ -16,7 +22,7 @@ export interface ToolComponentProps {
   [key: string]: any;
 }
 
-export type ToolParamType = 'number' | 'color' | 'boolean' | 'image';
+export type ToolParamType = 'number' | 'color' | 'boolean' | 'image' | 'text';
 
 export interface ToolParameter {
   id: string;
@@ -27,7 +33,8 @@ export interface ToolParameter {
   step?: number;
   defaultValue: string | number | boolean;
   category?: string;
-  // For image/select types
+  accept?: string;
+  placeholder?: string;
   options?: string[];
 }
 
@@ -44,13 +51,194 @@ export interface WebGLToolConfig {
   name: string;
   description: string;
   type: 'shader' | 'component';
+  supportsCanvasExport?: boolean;
   thumbnail?: string;
   fragmentShader?: string;
   component?: React.ComponentType<ToolComponentProps>;
   parameters: ToolParameter[];
 }
 
+export const TOOLS_EXPORT_WIDTH = 3840;
+export const TOOLS_EXPORT_HEIGHT = 2160;
+
 export const WEBGL_TOOLS: WebGLToolConfig[] = [
+  {
+    id: 'dither-ascii-effect',
+    name: 'Dither / ASCII Effect',
+    description: 'Grid-based halftone/dither renderer with multiple algorithm modes and a shape library (supports custom SVG path).',
+    type: 'component',
+    supportsCanvasExport: true,
+    component: DitherAsciiToolAdapter,
+    parameters: [
+      { id: 'sourceUrl', name: 'Source Image', type: 'image', defaultValue: '/images/3334.png', accept: 'image/*', category: 'Input' },
+      { id: 'cover', name: 'Cover Fit', type: 'boolean', defaultValue: true, category: 'Input' },
+      { id: 'customSvgUrl', name: 'Custom SVG', type: 'image', defaultValue: '', accept: '.svg,image/svg+xml', category: 'Input' },
+
+      {
+        id: 'mode',
+        name: 'Mode',
+        type: 'text',
+        defaultValue: 'halftone',
+        category: 'Algorithm Mode',
+        options: [
+          'flat',
+          'stretch_v',
+          'stretch_h',
+          'checker',
+          'glitch',
+          'melt',
+          'crosshatch',
+          'rotation',
+          'halftone',
+          'inv_halftone',
+          'random_size',
+          'random_rot',
+          'opacity',
+          'inv_opacity',
+          'threshold',
+          'flow',
+          'edges',
+          'jitter',
+          'posterize',
+          'interference',
+          'crt_scan',
+          'bio',
+          'eraser',
+        ],
+      },
+      { id: 'baseScale', name: 'Scale Factor', type: 'number', min: 0.1, max: 3.0, step: 0.025, defaultValue: 0.9, category: 'Algorithm Mode' },
+      { id: 'intensity', name: 'Effect Power', type: 'number', min: 0, max: 5.0, step: 0.05, defaultValue: 1.0, category: 'Algorithm Mode' },
+
+      {
+        id: 'shape',
+        name: 'Shape',
+        type: 'text',
+        defaultValue: 'circle',
+        category: 'Shape Geometry',
+        options: [
+          'custom',
+          'circle',
+          'rect',
+          'triangle',
+          'octagon',
+          'star',
+          'cross',
+          'rect_v',
+          'rect_h',
+          'hex_v',
+          'line_diag_r',
+          'line_diag_l',
+          'chevron',
+          'trapezoid',
+          'semi_top',
+          'semi_bottom',
+          'rect_hollow',
+          'spiral',
+          'concentric',
+          'gear',
+          'flower',
+          'shuriken',
+          'lightning',
+          'diamond_hollow',
+          'windmill',
+          'leaf',
+          'ghost',
+        ],
+      },
+
+      { id: 'cellSize', name: 'Cell Size', type: 'number', min: 4, max: 40, step: 1, defaultValue: 10, category: 'Grid & Color Settings' },
+      { id: 'gap', name: 'Gap', type: 'number', min: 0, max: 20, step: 0.25, defaultValue: 1, category: 'Grid & Color Settings' },
+      { id: 'contrast', name: 'Contrast', type: 'number', min: -100, max: 100, step: 1, defaultValue: 0, category: 'Grid & Color Settings' },
+      { id: 'bgColor', name: 'Background', type: 'color', defaultValue: '#111111', category: 'Grid & Color Settings' },
+      { id: 'useColor', name: 'Original Color', type: 'boolean', defaultValue: true, category: 'Grid & Color Settings' },
+      { id: 'monoColor', name: 'Foreground Color', type: 'color', defaultValue: '#ffffff', category: 'Grid & Color Settings' },
+    ]
+  },
+  {
+    id: 'glass-logo-panorama',
+    name: 'Glass Logo Panorama',
+    description: 'An extruded glass SVG suspended inside a rotating panoramic environment.',
+    type: 'component',
+    supportsCanvasExport: false,
+    component: GlassLogoPanoramaAdapter,
+    parameters: [
+      { id: 'backgroundUrl', name: 'Panorama Background', type: 'image', defaultValue: '/images/3334.png', accept: 'image/*', category: 'Input' },
+      { id: 'svgAssetUrl', name: 'SVG Logo File', type: 'image', defaultValue: '/images/1.svg', accept: '.svg,image/svg+xml', category: 'Input' },
+      { id: 'svgUrl', name: 'SVG URL Override', type: 'text', defaultValue: '', placeholder: 'https://example.com/logo.svg', category: 'Input' },
+
+      { id: 'color', name: 'Glass Tint', type: 'color', defaultValue: '#ffffff', category: 'Glass' },
+      { id: 'transmission', name: 'Transmission', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 1, category: 'Glass' },
+      { id: 'opacity', name: 'Opacity', type: 'number', min: 0.1, max: 1, step: 0.01, defaultValue: 1, category: 'Glass' },
+      { id: 'metalness', name: 'Metalness', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 0.1, category: 'Glass' },
+      { id: 'roughness', name: 'Roughness', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 0, category: 'Glass' },
+      { id: 'ior', name: 'Index of Refraction', type: 'number', min: 1, max: 2.33, step: 0.01, defaultValue: 2.33, category: 'Glass' },
+      { id: 'thickness', name: 'Glass Thickness', type: 'number', min: 0, max: 100, step: 0.1, defaultValue: 90, category: 'Glass' },
+
+      { id: 'extrudeDepth', name: 'Extrude Depth', type: 'number', min: 1, max: 500, step: 1, defaultValue: 1, category: 'Geometry' },
+      { id: 'bevelThickness', name: 'Bevel Thickness', type: 'number', min: 0, max: 100, step: 0.1, defaultValue: 50, category: 'Geometry' },
+      { id: 'bevelSize', name: 'Bevel Size', type: 'number', min: 0, max: 100, step: 0.1, defaultValue: 5, category: 'Geometry' },
+      { id: 'logoSize', name: 'Logo Size', type: 'number', min: 0.01, max: 5, step: 0.01, defaultValue: 0.3, category: 'Geometry' },
+
+      { id: 'bgScale', name: 'Background Scale', type: 'number', min: 0.1, max: 5, step: 0.01, defaultValue: 0.5, category: 'Environment' },
+      { id: 'bgSpeed', name: 'Background Speed', type: 'number', min: -0.5, max: 0.5, step: 0.01, defaultValue: 0.14, category: 'Environment' },
+      { id: 'lightIntensity', name: 'Main Light', type: 'number', min: 0, max: 10, step: 0.1, defaultValue: 2, category: 'Lighting' },
+
+      { id: 'autoRotate', name: 'Auto Rotate Logo', type: 'boolean', defaultValue: true, category: 'Motion' },
+      { id: 'followCursor', name: 'Follow Cursor', type: 'boolean', defaultValue: true, category: 'Motion' },
+      { id: 'cameraTiltFreedom', name: 'Camera Tilt Freedom', type: 'number', min: 0, max: 90, step: 1, defaultValue: 28, category: 'Motion' },
+    ]
+  },
+  {
+    id: 'pride-clock',
+    name: 'Pride Clock',
+    description: 'Apple-inspired pride clock with halftone contrast and rainbow radial overlay.',
+    type: 'component',
+    supportsCanvasExport: false,
+    component: PrideClockAdapter,
+    parameters: [
+      { id: 'useSystemTime', name: 'Use System Time', type: 'boolean', defaultValue: false, category: 'Input' },
+      { id: 'liveUpdate', name: 'Live Update', type: 'boolean', defaultValue: true, category: 'Input' },
+      { id: 'use12Hour', name: '12-Hour Mode', type: 'boolean', defaultValue: false, category: 'Input' },
+      { id: 'textTop', name: 'Text (Top)', type: 'text', defaultValue: 'Lemon8', category: 'Input' },
+      { id: 'textBottom', name: 'Text (Bottom)', type: 'text', defaultValue: '', category: 'Input' },
+      { id: 'hourOverride', name: 'Hour Override', type: 'number', min: 0, max: 23, step: 1, defaultValue: 9, category: 'Input' },
+      { id: 'minuteOverride', name: 'Minute Override', type: 'number', min: 0, max: 59, step: 1, defaultValue: 41, category: 'Input' },
+
+      { id: 'fontScale', name: 'Font Scale', type: 'number', min: 0.1, max: 0.9, step: 0.01, defaultValue: 0.45, category: 'Parameters' },
+      { id: 'lineHeight', name: 'Line Height', type: 'number', min: 0.5, max: 1.2, step: 0.01, defaultValue: 0.8, category: 'Parameters' },
+      { id: 'letterSpacingEm', name: 'Letter Spacing (em)', type: 'number', min: -0.2, max: 0.2, step: 0.001, defaultValue: -0.05, category: 'Parameters' },
+      { id: 'italic', name: 'Italic', type: 'boolean', defaultValue: true, category: 'Parameters' },
+      { id: 'fontWeight', name: 'Font Weight', type: 'number', min: 100, max: 1000, step: 10, defaultValue: 1000, category: 'Parameters' },
+
+      { id: 'lineCount', name: 'Line Count', type: 'number', min: 0, max: 600, step: 1, defaultValue: 0, category: 'Parameters' },
+      { id: 'lineThickness', name: 'Line Thickness', type: 'number', min: 0, max: 4, step: 0.05, defaultValue: 1, category: 'Parameters' },
+      { id: 'densityEm', name: 'Density (em)', type: 'number', min: 0.005, max: 0.2, step: 0.001, defaultValue: 0.05, category: 'Parameters' },
+      { id: 'contrastPct', name: 'Contrast (%)', type: 'number', min: 100, max: 4000, step: 50, defaultValue: 2000, category: 'Parameters' },
+      { id: 'opacity', name: 'Numbers Opacity', type: 'number', min: 0, max: 1, step: 0.01, defaultValue: 0.46, category: 'Parameters' },
+
+      { id: 'rotateDeg', name: 'Numbers Rotation (deg)', type: 'number', min: -45, max: 45, step: 0.1, defaultValue: 6, category: 'Motion' },
+
+      { id: 'hourTranslateXEm', name: 'Hour X (em)', type: 'number', min: -1, max: 1, step: 0.01, defaultValue: 0.2, category: 'Geometry' },
+      { id: 'minTranslateXEm', name: 'Minute X (em)', type: 'number', min: -1, max: 1, step: 0.01, defaultValue: -0.2, category: 'Geometry' },
+
+      { id: 'originXPct', name: 'Radial Origin X (%)', type: 'number', min: -300, max: 300, step: 1, defaultValue: -150, category: 'Geometry' },
+      { id: 'originYPct', name: 'Radial Origin Y (%)', type: 'number', min: -200, max: 200, step: 1, defaultValue: -25, category: 'Geometry' },
+
+      { id: 'innerLight', name: 'Inner Light', type: 'color', defaultValue: '#ffffff', category: 'Palette' },
+      { id: 'innerMid', name: 'Inner Mid', type: 'color', defaultValue: '#777777', category: 'Palette' },
+
+      { id: 'color1', name: 'Color 1', type: 'color', defaultValue: '#f7b232', category: 'Palette' },
+      { id: 'color2', name: 'Color 2', type: 'color', defaultValue: '#e12626', category: 'Palette' },
+      { id: 'color3', name: 'Color 3', type: 'color', defaultValue: '#733d2c', category: 'Palette' },
+      { id: 'color4', name: 'Color 4', type: 'color', defaultValue: '#2b1d1d', category: 'Palette' },
+      { id: 'color5', name: 'Color 5', type: 'color', defaultValue: '#511c69', category: 'Palette' },
+      { id: 'color6', name: 'Color 6', type: 'color', defaultValue: '#1c73c4', category: 'Palette' },
+      { id: 'color7', name: 'Color 7', type: 'color', defaultValue: '#a0cdfb', category: 'Palette' },
+      { id: 'color8', name: 'Color 8', type: 'color', defaultValue: '#69d6ad', category: 'Palette' },
+      { id: 'color9', name: 'Color 9', type: 'color', defaultValue: '#ffcd04', category: 'Palette' },
+      { id: 'color10', name: 'Color 10', type: 'color', defaultValue: '#fbaaaa', category: 'Palette' },
+    ]
+  },
   {
     id: 'organic-background',
     name: 'Organic Background',

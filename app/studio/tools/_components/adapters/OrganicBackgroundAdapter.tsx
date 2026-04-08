@@ -172,6 +172,8 @@ const OrganicBackgroundAdapter: React.FC<Props> = ({
   angle = 1.08699,
   connections = 0.8715,
   shadowWidth = 0.01,
+  renderWidth,
+  renderHeight,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -192,7 +194,7 @@ const OrganicBackgroundAdapter: React.FC<Props> = ({
     camera.position.z = 1;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isPreview ? 1.5 : 2));
+    renderer.setPixelRatio(renderWidth && renderHeight ? 1 : Math.min(window.devicePixelRatio || 1, isPreview ? 1.5 : 2));
     renderer.setClearColor(0x000000, 1);
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
@@ -228,8 +230,8 @@ const OrganicBackgroundAdapter: React.FC<Props> = ({
     const clock = new THREE.Clock();
 
     const resize = (w: number, h: number) => {
-      const width = Math.max(1, Math.floor(w));
-      const height = Math.max(1, Math.floor(h));
+      const width = Math.max(1, Math.floor(renderWidth ?? w));
+      const height = Math.max(1, Math.floor(renderHeight ?? h));
       renderer.setSize(width, height, false);
       material.uniforms.uResolution.value.set(width, height);
     };
@@ -280,7 +282,7 @@ const OrganicBackgroundAdapter: React.FC<Props> = ({
       geometryRef.current = null;
       clockRef.current = null;
     };
-  }, [isPreview]);
+  }, [isPreview, renderHeight, renderWidth]);
 
   useEffect(() => {
     const material = materialRef.current;

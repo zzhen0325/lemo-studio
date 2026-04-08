@@ -92,8 +92,8 @@ const PixelGridAdapter: React.FC<ToolComponentProps> = (props) => {
                 mediaUrl={mediaUrl}
                 mediaType={mediaType}
                 params={params}
-            // Optional: expose onReady if ToolsView needs access to the canvas strictly
-            // onReady={(canvas) => ...} 
+                renderWidth={props.renderWidth}
+                renderHeight={props.renderHeight}
             />
         </div>
     );

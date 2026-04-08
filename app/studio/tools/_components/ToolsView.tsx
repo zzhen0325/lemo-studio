@@ -1,14 +1,78 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Video, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import WebGLRenderer from './WebGLRenderer';
 import ParameterPanel from './ParameterPanel';
-import { WEBGL_TOOLS, WebGLToolConfig } from './tool-configs';
+import { TOOLS_EXPORT_HEIGHT, TOOLS_EXPORT_WIDTH, WEBGL_TOOLS, WebGLToolConfig } from './tool-configs';
 import { useToast } from "@/hooks/common/use-toast";
+
+const TOOLS_RECORDING_FPS = 60;
+const FOUR_K_PIXELS = TOOLS_EXPORT_WIDTH * TOOLS_EXPORT_HEIGHT;
+
+type RecordingProfile = {
+    mimeType?: string;
+    videoBitsPerSecond: number;
+    extension: 'mp4' | 'webm';
+    label: string;
+};
+
+const getMp4RecordingProfiles = (canvas: HTMLCanvasElement): RecordingProfile[] => {
+    const pixels = Math.max(canvas.width * canvas.height, FOUR_K_PIXELS);
+    const isFourK = pixels >= FOUR_K_PIXELS;
+
+    return [
+        {
+            mimeType: 'video/mp4;codecs=avc1.640033,mp4a.40.2',
+            videoBitsPerSecond: isFourK ? 60_000_000 : 24_000_000,
+            extension: 'mp4',
+            label: 'MP4 H.264 High'
+        },
+        {
+            mimeType: 'video/mp4;codecs=avc1.640032,mp4a.40.2',
+            videoBitsPerSecond: isFourK ? 52_000_000 : 22_000_000,
+            extension: 'mp4',
+            label: 'MP4 H.264'
+        },
+        {
+            mimeType: 'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+            videoBitsPerSecond: isFourK ? 40_000_000 : 18_000_000,
+            extension: 'mp4',
+            label: 'MP4 H.264 Baseline'
+        },
+        {
+            mimeType: 'video/mp4',
+            videoBitsPerSecond: isFourK ? 32_000_000 : 16_000_000,
+            extension: 'mp4',
+            label: 'MP4'
+        }
+    ];
+};
+
+const createMp4MediaRecorder = (stream: MediaStream, canvas: HTMLCanvasElement) => {
+    const profiles = getMp4RecordingProfiles(canvas);
+
+    for (const profile of profiles) {
+        if (profile.mimeType && !MediaRecorder.isTypeSupported(profile.mimeType)) {
+            continue;
+        }
+
+        try {
+            const recorder = new MediaRecorder(stream, {
+                mimeType: profile.mimeType,
+                videoBitsPerSecond: profile.videoBitsPerSecond,
+            });
+            return { recorder, profile };
+        } catch {
+            continue;
+        }
+    }
+
+    return null;
+};
 
 const ToolsView: React.FC = () => {
     const [selectedTool, setSelectedTool] = useState<WebGLToolConfig | null>(null);
@@ -18,6 +82,7 @@ const ToolsView: React.FC = () => {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recordTimerRef = useRef<number | null>(null);
     const [isRecording, setIsRecording] = useState(false);
+    const canCanvasExport = selectedTool?.supportsCanvasExport !== false;
 
     const handleSelectTool = (tool: WebGLToolConfig) => {
         setSelectedTool(tool);
@@ -43,9 +108,29 @@ const ToolsView: React.FC = () => {
         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
 
+    const stopRecording = () => {
+        if (recordTimerRef.current) {
+            window.clearTimeout(recordTimerRef.current);
+            recordTimerRef.current = null;
+        }
+        mediaRecorderRef.current?.stop();
+        setIsRecording(false);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (recordTimerRef.current) {
+                window.clearTimeout(recordTimerRef.current);
+            }
+            if (mediaRecorderRef.current?.state === 'recording') {
+                mediaRecorderRef.current.stop();
+            }
+        };
+    }, []);
+
     const handleExportImage = async () => {
         const canvas = canvasContainerRef.current?.querySelector('canvas');
-        if (!canvas) {
+        if (!canCanvasExport || !canvas) {
             toast({ title: "导出失败", description: "未找到可导出的画布" });
             return;
         }
@@ -64,52 +149,50 @@ const ToolsView: React.FC = () => {
 
     const handleToggleRecording = () => {
         if (isRecording) {
-            if (recordTimerRef.current) {
-                window.clearTimeout(recordTimerRef.current);
-                recordTimerRef.current = null;
-            }
-            mediaRecorderRef.current?.stop();
-            setIsRecording(false);
+            stopRecording();
             return;
         }
 
         const canvas = canvasContainerRef.current?.querySelector('canvas');
-        if (!canvas) {
+        if (!canCanvasExport || !canvas) {
             toast({ title: "录制失败", description: "未找到可录制的画布" });
             return;
         }
 
-        const stream = canvas.captureStream(60);
-        const mimeCandidates = [
-            'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-            'video/mp4;codecs=avc1.42E01E',
-            'video/mp4',
-            'video/webm;codecs=vp9,opus',
-            'video/webm;codecs=vp8,opus',
-            'video/webm',
-        ];
-        const mimeType = mimeCandidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
-        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        const stream = canvas.captureStream(TOOLS_RECORDING_FPS);
+        const [track] = stream.getVideoTracks();
+        if (track && 'contentHint' in track) {
+            track.contentHint = 'detail';
+        }
+
+        const recordingSetup = createMp4MediaRecorder(stream, canvas);
+        if (!recordingSetup) {
+            stream.getTracks().forEach((t) => t.stop());
+            toast({ title: "录制失败", description: "当前浏览器不支持 MP4 编码导出" });
+            return;
+        }
+
+        const { recorder, profile } = recordingSetup;
         const chunks: Blob[] = [];
 
         recorder.ondataavailable = (e) => {
             if (e.data && e.data.size > 0) chunks.push(e.data);
         };
         recorder.onstop = () => {
-            const type = mimeType || recorder.mimeType || 'video/webm';
+            const type = recorder.mimeType || profile.mimeType || 'video/mp4';
             const blob = new Blob(chunks, { type });
             stream.getTracks().forEach((t) => t.stop());
+            mediaRecorderRef.current = null;
 
             if (blob.size === 0) {
                 toast({ title: "录制失败", description: "导出内容为空，请稍后重试" });
                 return;
             }
 
-            const ext = type.includes('mp4') ? 'mp4' : 'webm';
-            downloadBlob(blob, `${selectedTool?.id || 'tool'}-${Date.now()}.${ext}`);
+            downloadBlob(blob, `${selectedTool?.id || 'tool'}-${Date.now()}.mp4`);
             toast({
                 title: "录制成功",
-                description: ext === 'mp4' ? "MP4 已保存（10s）" : "当前浏览器不支持 MP4，已保存 WebM（10s）",
+                description: `${profile.label} 高码率 MP4 已保存（10s）`,
             });
         };
 
@@ -121,7 +204,10 @@ const ToolsView: React.FC = () => {
             recordTimerRef.current = null;
             setIsRecording(false);
         }, 10_000);
-        toast({ title: "开始录制", description: "默认录制 10s，结束后自动导出" });
+        toast({
+            title: "开始录制",
+            description: `默认录制 10s，使用 ${profile.label} 高码率导出 ${TOOLS_EXPORT_WIDTH}x${TOOLS_EXPORT_HEIGHT}`,
+        });
     };
 
     return (
@@ -200,7 +286,12 @@ const ToolsView: React.FC = () => {
                                     variant="outline"
                                     size="icon"
                                     className="rounded-full bg-black/40 border-white/20 text-white hover:bg-black/60"
-                                    onClick={() => setSelectedTool(null)}
+                                    onClick={() => {
+                                        if (isRecording) {
+                                            stopRecording();
+                                        }
+                                        setSelectedTool(null);
+                                    }}
                                 >
                                     <ArrowLeft className="w-5 h-5" />
                                 </Button>
@@ -214,16 +305,20 @@ const ToolsView: React.FC = () => {
                                     <WebGLRenderer
                                         shader={selectedTool.fragmentShader}
                                         uniforms={paramValues as Record<string, number>}
-                                        width={3840}
-                                        height={2160}
+                                        width={TOOLS_EXPORT_WIDTH}
+                                        height={TOOLS_EXPORT_HEIGHT}
                                         className="max-w-full max-h-full aspect-video rounded-2xl "
                                     />
                                 )}
                                 {selectedTool.type === 'component' && selectedTool.component && (
-                                    <selectedTool.component
-                                        {...paramValues}
-                                        onChange={handleParamChange}
-                                    />
+                                    <div className="w-full max-w-full max-h-full aspect-video rounded-2xl overflow-hidden">
+                                        <selectedTool.component
+                                            {...paramValues}
+                                            onChange={handleParamChange}
+                                            renderWidth={TOOLS_EXPORT_WIDTH}
+                                            renderHeight={TOOLS_EXPORT_HEIGHT}
+                                        />
+                                    </div>
                                 )}
                             </div>
 
@@ -232,6 +327,7 @@ const ToolsView: React.FC = () => {
                                 <Button
                                     className="rounded-2xl bg-black/10 backdrop-blur-md border border-white/10 hover:bg-white/20 text-white gap-2 px-6"
                                     onClick={handleExportImage}
+                                    disabled={!canCanvasExport}
                                 >
                                     <Download className="w-4 h-4" />
                                     Capture PNG
@@ -240,6 +336,7 @@ const ToolsView: React.FC = () => {
                                     variant={isRecording ? "default" : "destructive"}
                                     className={`rounded-2xl gap-2 px-6 ${!isRecording ? 'bg-black/10 backdrop-blur-md  border border-white/10 hover:bg-white/20 text-white' : ''}`}
                                     onClick={handleToggleRecording}
+                                    disabled={!canCanvasExport}
                                 >
                                     <Video className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
                                     {isRecording ? 'Stop Recording' : 'Record Video'}
@@ -265,9 +362,9 @@ const ToolsView: React.FC = () => {
                                
                                     <h4 className="text-xs font-medium text-white/40 uppercase mb-2">Export Info</h4>
                                     <p className="text-xs text-white/60">
-                                        Export Resolution: {selectedTool.type === 'shader' ? '3840x2160 (4K)' : 'Canvas Size'}
+                                        Export Resolution: {TOOLS_EXPORT_WIDTH}x{TOOLS_EXPORT_HEIGHT} (4K)
                                     </p>
-                                    <p className="text-xs text-white/60">Format: PNG / MP4</p>
+                                    <p className="text-xs text-white/60">{canCanvasExport ? 'Format: PNG / MP4' : 'Format: preview only for this tool'}</p>
                                 
                             </div>
                         </div>

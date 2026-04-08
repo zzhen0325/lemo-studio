@@ -137,6 +137,7 @@ pnpm build
 - `docs/architecture/second-round-refactor.md`: 当前最重要的分层与重构约束。
 - `docs/product-philosophy-and-technical-plan.md`: 产品主线、模块关系与领域术语。
 - `docs/testing/ui-interaction-test-plan.md`: 当前前端交互专项测试口径。
+- `docs/features/gallery.md`: Gallery 模块文档（职责、边界、数据流与接口）。
 - `docs/wiki/README.md`: 旧版技术 wiki，仅作历史背景参考，不应覆盖当前根目录文档和现行代码结构。
 
 仓库还自带一些代理技能，位于 `.agent/skills/`，包括但不限于：
@@ -150,6 +151,67 @@ pnpm build
 
 如果任务与这些能力强相关，优先复用已有 skill，而不是重新发明流程。
 
+## 文档协作与索引
+
+本项目使用 `docs/` 目录沉淀模块级技术逻辑、职责边界、依赖关系与更新记录。文档属于变更的一部分，不是可选项。
+
+### 模块文档索引
+
+- `docs/features/playground-home.md`: Playground 首页（入口编排与切换）。
+- `docs/features/describe.md`: Describe（图片转 prompt）。
+- `docs/features/edit.md`: Edit（图片编辑与再次生成）。
+- `docs/features/history.md`: History（历史记录面板）。
+- `docs/features/gallery.md`: Gallery（图库）模块说明文档。
+- `docs/features/moodboard.md`: Moodboard（情绪板/风格素材集合）。
+- `docs/features/tools.md`: Tools（实时视觉工具与 presets）。
+- `docs/features/dataset.md`: Dataset（素材库与集合管理）。
+
+后续新增模块文档时，必须同步补充到这里。
+
+### 修改流程
+
+修改任意模块时，按以下顺序执行：
+
+1. 先阅读 `docs/` 中对应模块文档。
+2. 先理解模块职责和边界，再修改代码。
+3. 尽量做最小范围修改，避免无文档重构。
+4. 修改后检查文档是否也需要同步更新。
+5. 如果逻辑、依赖、接口、影响范围发生变化，必须更新对应文档。
+6. 如果新增了模块文档，必须补充到本文件的“模块文档索引”中。
+
+### 文档更新规则
+
+如果代码逻辑发生变化，至少检查以下章节是否需要更新：
+
+- 背景
+- 模块职责
+- 核心流程
+- 输入 / 输出
+- 依赖关系
+- 状态 / 数据流
+- 关键规则
+- 边界 / 非职责范围
+- 修改影响范围
+- 更新记录
+
+### 新增模块规则
+
+新增模块时，必须：
+
+1. 在 `docs/features/` 下新增对应模块文档。
+2. 使用统一的模块文档结构（包含上述“文档更新规则”的章节）。
+3. 在本文件的“模块文档索引”中补充入口。
+4. 清楚写明：负责什么 / 不负责什么 / 谁依赖它 / 改动它可能影响什么。
+
+### 冲突处理
+
+如果发现代码和文档不一致：
+
+1. 先核对当前代码真实行为。
+2. 以实际实现为依据进行确认。
+3. 修改完成后，把文档更新到与代码一致。
+4. 不要保留已知不一致状态。
+
 ## 提交前自检清单
 
 - 改动是否放在正确目录，没有把临时文件落到根目录。
@@ -160,6 +222,7 @@ pnpm build
 - SWR 与 Zustand 的职责是否被混淆。
 - 变更文件是否超过体积阈值；如果超过，是否已先拆分。
 - 新 provider 是否进入 `lib/ai/providers/`，并保持惰性加载。
+- 逻辑、依赖、接口或影响范围变更后，相关 `docs/` 是否同步更新。
 - 是否按改动范围运行了合适的验证命令，例如 `pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:e2e`、`pnpm ci:check`。
 - 是否清理了 `.next/`、`report/`、Playwright 输出和其他运行时产物。
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getGalleryLoadMoreThreshold,
   hasGalleryOverflow,
+  isGalleryViewportReady,
   shouldAutoFillGallery,
   shouldLoadMoreGallery,
   shouldShowGalleryEndIndicator,
@@ -65,5 +66,39 @@ describe('gallery-scroll helpers', () => {
   it('detects whether the gallery can really overflow', () => {
     expect(hasGalleryOverflow(1000, 980)).toBe(false);
     expect(hasGalleryOverflow(1050, 980)).toBe(true);
+  });
+
+  it('requires a bounded viewport before auto-fill logic can run', () => {
+    expect(
+      isGalleryViewportReady({
+        clientHeight: 0,
+        containerWidth: 1200,
+        windowHeight: 900,
+      }),
+    ).toBe(false);
+
+    expect(
+      isGalleryViewportReady({
+        clientHeight: 160,
+        containerWidth: 1200,
+        windowHeight: 900,
+      }),
+    ).toBe(false);
+
+    expect(
+      isGalleryViewportReady({
+        clientHeight: 620,
+        containerWidth: 1200,
+        windowHeight: 900,
+      }),
+    ).toBe(true);
+
+    expect(
+      isGalleryViewportReady({
+        clientHeight: 1040,
+        containerWidth: 1200,
+        windowHeight: 900,
+      }),
+    ).toBe(false);
   });
 });

@@ -99,4 +99,20 @@ describe('GalleryView loading behavior', () => {
     expect(screen.getByTestId('gallery-wall-ready')).toBeTruthy();
     expect(screen.queryByTestId('gallery-wall-loading')).toBeNull();
   });
+
+  it('keeps the gallery content inside a bounded flex chain', () => {
+    storeState.galleryItems = [createGeneration('bounded-item')];
+    storeState.isFetchingGallery = false;
+
+    render(<GalleryView />);
+
+    expect(screen.getByTestId('gallery-view-root').className).toContain('flex-1');
+    expect(screen.getByTestId('gallery-view-root').className).toContain('min-h-0');
+    expect(screen.getByTestId('gallery-view-shell').className).toContain('flex-1');
+    expect(screen.getByTestId('gallery-view-shell').className).toContain('min-h-0');
+    expect(screen.getByTestId('gallery-view-stack').className).toContain('flex-1');
+    expect(screen.getByTestId('gallery-view-stack').className).toContain('min-h-0');
+    expect(screen.getByTestId('gallery-view-body').className).toContain('flex-1');
+    expect(screen.getByTestId('gallery-view-body').className).toContain('min-h-0');
+  });
 });
