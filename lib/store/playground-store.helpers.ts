@@ -1,6 +1,5 @@
 import type { BannerModeActiveData } from '@/lib/playground/types';
-import type { Generation, GenerationConfig } from '@/types/database';
-import { getApiBase } from '@/lib/api-base';
+import type { GenerationConfig } from '@/types/database';
 import { DEFAULT_BANNER_TEMPLATE_ID, getBannerTemplateById } from '@/config/banner-templates';
 import {
   buildBannerPrompt,
@@ -13,93 +12,6 @@ import {
   pickBannerFieldsForHistory,
   pickBannerTextPositionsForHistory,
 } from '@/lib/prompt/banner-prompt';
-
-import type { SortBy } from '@/lib/server/service/history.service';
-
-const galleryInFlightRequests = new Map<string, Promise<{ history: Generation[]; hasMore: boolean } | null>>();
-export const GALLERY_PAGE_LIMIT = 24;
-export const PERSISTED_GALLERY_LIMIT = 120;
-
-export const fetchGalleryPageFromApi = async (
-  page: number, 
-  limit: number, 
-  options?: { sortBy?: SortBy; viewerUserId?: string }
-) => {
-  const cacheKey = `${page}-${limit}-${options?.sortBy || 'recent'}-${options?.viewerUserId || ''}`;
-  const pending = galleryInFlightRequests.get(cacheKey);
-  if (pending) return pending;
-
-  const request = (async () => {
-    const url = new URL(`${getApiBase()}/history`, typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1');
-    url.searchParams.set('page', page.toString());
-    url.searchParams.set('limit', limit.toString());
-    url.searchParams.set('lightweight', '1');
-    url.searchParams.set('minimal', '1');
-    
-    if (options?.sortBy) {
-      url.searchParams.set('sortBy', options.sortBy);
-    }
-    if (options?.viewerUserId) {
-      url.searchParams.set('viewerUserId', options.viewerUserId);
-    }
-
-    const res = await fetch(url.toString());
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    return {
-      history: Array.isArray(data.history) ? (data.history as Generation[]) : [],
-      hasMore: Boolean(data.hasMore),
-    };
-  })();
-
-  galleryInFlightRequests.set(cacheKey, request);
-  try {
-    return await request;
-  } finally {
-    galleryInFlightRequests.delete(cacheKey);
-  }
-};
-
-export const mergeUniqueGalleryItems = (existing: Generation[], incoming: Generation[]) => {
-  const existingIds = new Set(existing.map(item => item.id));
-  const uniqueIncoming = incoming.filter(item => !existingIds.has(item.id));
-  return [...existing, ...uniqueIncoming];
-};
-
-export const prependUniqueGalleryItems = (existing: Generation[], incoming: Generation[]) => {
-  const existingIds = new Set(existing.map(item => item.id));
-  const uniqueIncoming = incoming.filter(item => !existingIds.has(item.id));
-  return [...uniqueIncoming, ...existing];
-};
-
-export const sanitizeUrlsForPersist = (urls?: (string | undefined | null)[]) =>
-  urls
-    ?.filter((url): url is string => typeof url === 'string' && url.length > 0)
-    .map(url => (url.startsWith('data:') || url.length > 1000) ? '' : url)
-    .filter(Boolean) as string[] | undefined;
-
-export const sanitizeGalleryItemsForPersist = (items: Generation[]) =>
-  items
-    .slice(0, PERSISTED_GALLERY_LIMIT)
-    .map((item) => ({
-      id: item.id,
-      userId: item.userId,
-      projectId: item.projectId,
-      outputUrl: item.outputUrl,
-      status: item.status,
-      createdAt: item.createdAt,
-      config: {
-        prompt: item.config?.prompt || '',
-        model: item.config?.model || '',
-        presetName: item.config?.presetName,
-        width: Number(item.config?.width) || 1024,
-        height: Number(item.config?.height) || 1024,
-        sourceImageUrls: sanitizeUrlsForPersist(item.config?.sourceImageUrls),
-        promptCategory: item.config?.promptCategory,
-        historyRecordType: item.config?.historyRecordType,
-      },
-    }));
 
 export const clearBannerMetadata = (config: GenerationConfig): GenerationConfig => {
   const nextConfig = { ...config };

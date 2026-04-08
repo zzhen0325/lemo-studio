@@ -1,21 +1,12 @@
 import type { Preset, StyleStack } from '@/lib/playground/types';
-import type { Generation } from '@/types/database';
 import { getApiBase } from '../api-base';
 import type { IViewComfy } from '../providers/view-comfy-provider';
 import type { PlaygroundState } from './playground-store.types';
 import type { StoreApi } from 'zustand';
 import {
-  fetchGalleryPageFromApi,
-  GALLERY_PAGE_LIMIT,
-  mergeUniqueGalleryItems,
-  prependUniqueGalleryItems,
-} from './playground-store.helpers';
-import {
   buildShortcutMoodboard,
   getShortcutByMoodboardId,
 } from '@/config/moodboard-cards';
-import type { SortBy } from '@/lib/server/service/history.service';
-import { useAuthStore } from './auth-store';
 
 type PlaygroundSet = StoreApi<PlaygroundState>['setState'];
 type PlaygroundGet = StoreApi<PlaygroundState>['getState'];
@@ -41,20 +32,6 @@ function resolveEditableStyle(styles: StyleStack[], styleId: string): StyleStack
 
 export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pick<
   PlaygroundState,
-  | 'galleryItems'
-  | 'galleryPage'
-  | 'hasMoreGallery'
-  | 'isFetchingGallery'
-  | 'isSyncingGalleryLatest'
-  | 'galleryLastSyncAt'
-  | 'isPrefetchingGallery'
-  | 'galleryPrefetch'
-  | 'gallerySortBy'
-  | 'setGallerySortBy'
-  | 'fetchGallery'
-  | 'syncGalleryLatest'
-  | 'prefetchGalleryNext'
-  | 'addGalleryItem'
   | 'deleteHistory'
   | 'presets'
   | 'initPresets'
@@ -76,172 +53,6 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
   | 'addImageToStyle'
 > {
   return {
-    galleryItems: [],
-    galleryPage: 1,
-    hasMoreGallery: true,
-    isFetchingGallery: false,
-    isSyncingGalleryLatest: false,
-    galleryLastSyncAt: null,
-    isPrefetchingGallery: false,
-    galleryPrefetch: null,
-    gallerySortBy: 'recent' as SortBy,
-    setGallerySortBy: (sortBy: SortBy) => {
-      set({
-        gallerySortBy: sortBy,
-        galleryItems: [],
-        galleryPage: 1,
-        hasMoreGallery: true,
-        _galleryLoaded: false,
-      });
-      get().fetchGallery(1);
-    },
-    fetchGallery: async (page = 1) => {
-      const state = get();
-      if (page > 1 && page <= state.galleryPage) return;
-      if (state.isFetchingGallery || (page === 1 && state._galleryLoaded)) return;
-
-      if (page > 1 && state.galleryPrefetch?.page === page) {
-        const cachedPage = state.galleryPrefetch;
-        set((current) => ({
-          galleryItems: mergeUniqueGalleryItems(current.galleryItems, cachedPage.items),
-          galleryPage: page,
-          hasMoreGallery: cachedPage.hasMore,
-          galleryPrefetch: null
-        }));
-
-        if (cachedPage.hasMore) {
-          void get().prefetchGalleryNext();
-        }
-        return;
-      }
-
-      if (page === 1) {
-        set({ isFetchingGallery: true, galleryPrefetch: null });
-      } else {
-        set({ isFetchingGallery: true });
-      }
-
-      let loadedSuccessfully = false;
-      let hasMoreAfterLoad = false;
-      try {
-        const limit = GALLERY_PAGE_LIMIT;
-        const currentState = get();
-        const sortBy = currentState.gallerySortBy;
-        const viewerUserId = useAuthStore.getState().actorId || undefined;
-        const data = await fetchGalleryPageFromApi(page, limit, { sortBy, viewerUserId });
-        if (!data) return;
-
-        loadedSuccessfully = true;
-        hasMoreAfterLoad = data.hasMore;
-
-        set((current) => ({
-          galleryItems: page === 1
-            ? data.history
-            : mergeUniqueGalleryItems(current.galleryItems, data.history),
-          galleryPage: page,
-          hasMoreGallery: data.hasMore,
-          galleryLastSyncAt: page === 1 ? Date.now() : current.galleryLastSyncAt,
-          galleryPrefetch:
-            current.galleryPrefetch && current.galleryPrefetch.page > page
-              ? current.galleryPrefetch
-              : null
-        }));
-      } catch (error) {
-        console.error("Failed to fetch gallery", error);
-      } finally {
-        set({ isFetchingGallery: false });
-        if (page === 1 && loadedSuccessfully) set({ _galleryLoaded: true });
-        if (loadedSuccessfully && hasMoreAfterLoad) {
-          void get().prefetchGalleryNext();
-        }
-      }
-    },
-    syncGalleryLatest: async () => {
-      const state = get();
-      if (state.isFetchingGallery || state.isSyncingGalleryLatest) return;
-      if (state.galleryItems.length === 0) return;
-
-      const now = Date.now();
-      if (state.galleryLastSyncAt && now - state.galleryLastSyncAt < 15_000) return;
-
-      set({ isSyncingGalleryLatest: true });
-      try {
-        const sortBy = state.gallerySortBy;
-        const viewerUserId = useAuthStore.getState().actorId || undefined;
-        const data = await fetchGalleryPageFromApi(1, GALLERY_PAGE_LIMIT, { sortBy, viewerUserId });
-        if (!data) return;
-
-        set((current) => {
-          const merged = prependUniqueGalleryItems(current.galleryItems, data.history);
-          const hasNewItems = merged.length > current.galleryItems.length;
-          return {
-            galleryItems: merged,
-            hasMoreGallery: current.galleryPage > 1 ? current.hasMoreGallery : data.hasMore,
-            galleryLastSyncAt: Date.now(),
-            galleryPrefetch: hasNewItems ? null : current.galleryPrefetch,
-            _galleryLoaded: merged.length > 0
-          };
-        });
-      } catch (error) {
-        console.error("Failed to sync latest gallery", error);
-      } finally {
-        set({ isSyncingGalleryLatest: false });
-      }
-    },
-    prefetchGalleryNext: async () => {
-      const state = get();
-      if (state.activeTab !== 'gallery') return;
-      if (!state.hasMoreGallery || state.isFetchingGallery || state.isPrefetchingGallery || state.isSyncingGalleryLatest) return;
-
-      const nextPage = state.galleryPage + 1;
-      if (state.galleryPrefetch?.page === nextPage) return;
-      if (state.galleryPrefetch && state.galleryPrefetch.page > nextPage) return;
-
-      set({ isPrefetchingGallery: true });
-      try {
-        const sortBy = state.gallerySortBy;
-        const viewerUserId = useAuthStore.getState().actorId || undefined;
-        const data = await fetchGalleryPageFromApi(nextPage, GALLERY_PAGE_LIMIT, { sortBy, viewerUserId });
-        if (!data) return;
-
-        set((current) => {
-          if (current.galleryPage >= nextPage) {
-            if (current.galleryPrefetch?.page === nextPage) {
-              return { galleryPrefetch: null };
-            }
-            return {};
-          }
-
-          if (current.galleryPrefetch && current.galleryPrefetch.page >= nextPage) {
-            return {};
-          }
-
-          return {
-            galleryPrefetch: {
-              page: nextPage,
-              items: data.history,
-              hasMore: data.hasMore
-            }
-          };
-        });
-      } catch (error) {
-        console.error("Failed to prefetch gallery", error);
-      } finally {
-        set({ isPrefetchingGallery: false });
-      }
-    },
-
-    addGalleryItem: (item: Generation) => {
-      set((state) => {
-        if (state.galleryItems.some(i => i.id === item.id)) return state;
-        return {
-          galleryItems: [item, ...state.galleryItems],
-          _galleryLoaded: true,
-          galleryLastSyncAt: Date.now()
-        };
-      });
-    },
-
     deleteHistory: async (ids: string[]) => {
       try {
         const res = await fetch(`${getApiBase()}/history`, {
@@ -253,14 +64,6 @@ export function createLibraryActions(set: PlaygroundSet, get: PlaygroundGet): Pi
         if (res.ok) {
           set((state) => ({
             generationHistory: state.generationHistory.filter(item => !ids.includes(item.id)),
-            galleryItems: state.galleryItems.filter(item => !ids.includes(item.id)),
-            galleryPrefetch: state.galleryPrefetch
-              ? {
-                ...state.galleryPrefetch,
-                items: state.galleryPrefetch.items.filter(item => !ids.includes(item.id))
-              }
-              : null,
-            _galleryLoaded: state.galleryItems.some(item => !ids.includes(item.id))
           }));
         }
       } catch (error) {

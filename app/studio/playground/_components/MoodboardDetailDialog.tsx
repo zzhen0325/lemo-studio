@@ -270,7 +270,6 @@ export function MoodboardDetailDialog({
   const deleteStyle = usePlaygroundStore((state) => state.deleteStyle);
   const currentConfig = usePlaygroundStore((state) => state.config);
   const generationHistory = usePlaygroundStore((state) => state.generationHistory);
-  const galleryItems = usePlaygroundStore((state) => state.galleryItems);
 
   const [draftName, setDraftName] = React.useState('');
   const [draftDescription, setDraftDescription] = React.useState('');
@@ -449,8 +448,8 @@ export function MoodboardDetailDialog({
     return draftPrompt || moodboard?.prompt || '';
   }, [draftPrompt, draftShortcut, moodboard?.prompt, promptPreview]);
   const imageRecordLookup = React.useMemo(
-    () => buildGenerationOutputLookup([...galleryItems, ...generationHistory]),
-    [galleryItems, generationHistory],
+    () => buildGenerationOutputLookup(generationHistory),
+    [generationHistory],
   );
   const galleryPreviewResults = React.useMemo<Generation[]>(() => {
     if (!moodboard) {

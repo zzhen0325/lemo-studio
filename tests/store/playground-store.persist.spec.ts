@@ -1,252 +1,68 @@
 import { describe, expect, it } from 'vitest';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { createStore } from 'zustand/vanilla';
 
-import type { Generation, GenerationConfig } from '@/types/database';
+import type { GenerationConfig } from '@/types/database';
 import type { PlaygroundState } from '@/lib/store/playground-store.types';
 import {
   mergePersistedPlaygroundState,
-  normalizePersistedGalleryState,
   partializePlaygroundState,
 } from '@/lib/store/playground-store.persist';
-import {
-  GALLERY_PAGE_LIMIT,
-  PERSISTED_GALLERY_LIMIT,
-} from '@/lib/store/playground-store.helpers';
 
-function createConfig(index: number): GenerationConfig {
+function createConfig(): GenerationConfig {
   return {
-    prompt: `Prompt ${index}`,
+    prompt: 'Prompt 0',
     width: 1024,
     height: 1024,
     model: 'coze_seedream4_5',
-    presetName: `Preset ${index}`,
     sourceImageUrls: [
-      `upload/source-${index}.png`,
+      '/upload/source-0.png',
       'data:image/png;base64,abc',
       ''.padEnd(1201, 'x'),
     ],
-    promptCategory: 'standard_generation',
-    historyRecordType: 'generation',
-    loras: [{ model_name: 'lora.safetensors', strength: 0.6 }],
-    workflowName: 'workflow',
-  };
-}
-
-function createGeneration(index: number): Generation {
-  return {
-    id: `gen-${index}`,
-    userId: 'user-1',
-    projectId: 'default',
-    outputUrl: `upload/output-${index}.png`,
-    config: createConfig(index),
-    status: 'completed',
-    createdAt: `2026-04-05T00:${String(index % 60).padStart(2, '0')}:00.000Z`,
-    llmResponse: 'raw response',
   };
 }
 
 function createState(overrides: Partial<PlaygroundState> = {}): PlaygroundState {
   return {
-    config: createConfig(0),
+    config: createConfig(),
     selectedModel: 'coze_seedream4_5',
     selectedWorkflowConfig: undefined,
     selectedLoras: [],
     isAspectRatioLocked: false,
     viewMode: 'dock',
     visitorId: 'visitor-1',
-    generationHistory: [],
-    presets: [],
-    styles: [],
-    uploadedImages: [],
-    describeImages: [],
-    galleryItems: [],
-    galleryPage: 1,
-    hasMoreGallery: true,
-    galleryLastSyncAt: 123,
-    _galleryLoaded: false,
+    generationHistory: [{ id: 'history-1' } as never],
+    presets: [{ id: 'preset-1' } as never],
+    styles: [{ id: 'style-1' } as never],
+    uploadedImages: [{ id: 'upload-1' } as never],
+    describeImages: [{ id: 'describe-1' } as never],
     ...overrides,
   } as unknown as PlaygroundState;
 }
 
 describe('partializePlaygroundState', () => {
-  it('heals truncated gallery cache metadata and keeps only compact fields', () => {
-    const galleryItems = Array.from({ length: PERSISTED_GALLERY_LIMIT + 15 }, (_, index) => createGeneration(index));
-    const state = createState({
-      galleryItems,
-      galleryPage: 18,
-      hasMoreGallery: false,
-      _galleryLoaded: true,
-    });
+  it('keeps persisted config compact and drops volatile collections', () => {
+    const persisted = partializePlaygroundState(createState());
 
-    const persisted = partializePlaygroundState(state);
-
-    expect(persisted.galleryItems).toHaveLength(PERSISTED_GALLERY_LIMIT);
-    expect(persisted.galleryPage).toBe(PERSISTED_GALLERY_LIMIT / GALLERY_PAGE_LIMIT);
-    expect(persisted.hasMoreGallery).toBe(true);
-    expect(persisted._galleryLoaded).toBe(true);
-
-    const first = persisted.galleryItems[0];
-    expect(first).toMatchObject({
-      id: 'gen-0',
-      userId: 'user-1',
-      projectId: 'default',
-      outputUrl: 'upload/output-0.png',
-      status: 'completed',
-      createdAt: '2026-04-05T00:00:00.000Z',
-      config: {
-        prompt: 'Prompt 0',
-        model: 'coze_seedream4_5',
-        presetName: 'Preset 0',
-        width: 1024,
-        height: 1024,
-        promptCategory: 'standard_generation',
-        historyRecordType: 'generation',
-      },
-    });
-
-    expect(first.config.sourceImageUrls).toEqual(['upload/source-0.png']);
-    const compactConfig = first.config as Record<string, unknown>;
-    expect('loras' in compactConfig).toBe(false);
-    expect('workflowName' in compactConfig).toBe(false);
-  });
-
-  it('preserves a real end-of-gallery state when cache is not truncated', () => {
-    const galleryItems = Array.from({ length: GALLERY_PAGE_LIMIT * 2 }, (_, index) => createGeneration(index));
-    const state = createState({
-      galleryItems,
-      galleryPage: 99,
-      hasMoreGallery: false,
-      _galleryLoaded: true,
-    });
-
-    const persisted = partializePlaygroundState(state);
-
-    expect(persisted.galleryItems).toHaveLength(galleryItems.length);
-    expect(persisted.galleryPage).toBe(2);
-    expect(persisted.hasMoreGallery).toBe(false);
-    expect(persisted._galleryLoaded).toBe(true);
-  });
-
-  it('resets empty gallery cache back to initial paging semantics', () => {
-    const persisted = partializePlaygroundState(createState({
-      galleryItems: [],
-      galleryPage: 8,
-      hasMoreGallery: false,
-      _galleryLoaded: true,
-    }));
-
-    expect(persisted.galleryItems).toEqual([]);
-    expect(persisted.galleryPage).toBe(1);
-    expect(persisted.hasMoreGallery).toBe(true);
-    expect(persisted._galleryLoaded).toBe(false);
-  });
-});
-
-describe('normalizePersistedGalleryState', () => {
-  it('matches the gallery metadata written by partialize for shared rehydrate behavior', () => {
-    const state = createState({
-      galleryItems: Array.from({ length: PERSISTED_GALLERY_LIMIT + 30 }, (_, index) => createGeneration(index)),
-      galleryPage: 42,
-      hasMoreGallery: false,
-      _galleryLoaded: true,
-    });
-
-    const normalized = normalizePersistedGalleryState(state);
-    const persisted = partializePlaygroundState(state);
-
-    expect(normalized).toEqual({
-      galleryItems: persisted.galleryItems,
-      galleryPage: persisted.galleryPage,
-      hasMoreGallery: persisted.hasMoreGallery,
-      _galleryLoaded: persisted._galleryLoaded,
-    });
+    expect(persisted.config.sourceImageUrls).toEqual(['/upload/source-0.png', '', '']);
+    expect(persisted.generationHistory).toEqual([]);
+    expect(persisted.uploadedImages).toEqual([]);
+    expect(persisted.describeImages).toEqual([]);
+    expect(persisted.presets).toEqual([]);
+    expect(persisted.styles).toEqual([]);
   });
 });
 
 describe('mergePersistedPlaygroundState', () => {
-  it('repairs truncated gallery metadata before runtime hydration', () => {
-    const currentState = createState({
-      galleryItems: [],
-      galleryPage: 1,
-      hasMoreGallery: true,
-      _galleryLoaded: false,
-    });
-    const persistedState = {
-      galleryItems: Array.from({ length: PERSISTED_GALLERY_LIMIT + 30 }, (_, index) => createGeneration(index)),
-      galleryPage: 18,
-      hasMoreGallery: false,
-      _galleryLoaded: true,
-      viewMode: 'home',
-    };
-
-    const merged = mergePersistedPlaygroundState(persistedState, currentState);
-
-    expect(merged.galleryItems).toHaveLength(PERSISTED_GALLERY_LIMIT);
-    expect(merged.galleryPage).toBe(PERSISTED_GALLERY_LIMIT / GALLERY_PAGE_LIMIT);
-    expect(merged.hasMoreGallery).toBe(true);
-    expect(merged._galleryLoaded).toBe(true);
-    expect(merged.viewMode).toBe('home');
-  });
-});
-
-describe('zustand persist hydration', () => {
-  it('hydrates gallery runtime state with repaired pagination metadata', async () => {
-    const storageName = `playground-storage-hydrate-${Date.now()}`;
-
-    type TestHydrationState = {
-      galleryItems: Generation[];
-      galleryPage: number;
-      hasMoreGallery: boolean;
-      _galleryLoaded: boolean;
-      visitorId?: string;
-      viewMode: 'home' | 'dock';
-    };
-
-    localStorage.setItem(storageName, JSON.stringify({
-      state: {
-        galleryItems: Array.from({ length: PERSISTED_GALLERY_LIMIT + 15 }, (_, index) => createGeneration(index)),
-        galleryPage: 18,
-        hasMoreGallery: false,
-        _galleryLoaded: true,
-        visitorId: 'visitor-1',
-        viewMode: 'dock',
+  it('shallow-merges persisted values without reintroducing gallery cache state', () => {
+    const merged = mergePersistedPlaygroundState(
+      {
+        viewMode: 'home',
+        visitorId: 'visitor-2',
       },
-    }));
+      createState({ viewMode: 'dock', visitorId: 'visitor-1' }),
+    );
 
-    try {
-      const store = createStore<TestHydrationState>()(
-        persist<TestHydrationState>(
-          (): TestHydrationState => ({
-            galleryItems: [],
-            galleryPage: 1,
-            hasMoreGallery: true,
-            _galleryLoaded: false,
-            visitorId: undefined,
-            viewMode: 'home',
-          }),
-          {
-            name: storageName,
-            storage: createJSONStorage(() => localStorage),
-            skipHydration: true,
-            merge: (persistedState, currentState) =>
-              mergePersistedPlaygroundState(persistedState, currentState),
-          },
-        ),
-      );
-
-      await store.persist.rehydrate();
-
-      expect(store.getState()).toMatchObject({
-        galleryPage: PERSISTED_GALLERY_LIMIT / GALLERY_PAGE_LIMIT,
-        hasMoreGallery: true,
-        _galleryLoaded: true,
-        visitorId: 'visitor-1',
-        viewMode: 'dock',
-      });
-      expect(store.getState().galleryItems).toHaveLength(PERSISTED_GALLERY_LIMIT);
-    } finally {
-      localStorage.removeItem(storageName);
-    }
+    expect(merged.viewMode).toBe('home');
+    expect(merged.visitorId).toBe('visitor-2');
   });
 });

@@ -201,14 +201,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const setSelectedWorkflowConfig = usePlaygroundStore(s => s.setSelectedWorkflowConfig);
   const selectedLoras = usePlaygroundStore(s => s.selectedLoras);
   const setSelectedLoras = usePlaygroundStore(s => s.setSelectedLoras);
-  const fetchGallery = usePlaygroundStore(s => s.fetchGallery);
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const applyModel = usePlaygroundStore(s => s.applyModel);
   const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
   const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
-  const galleryItems = usePlaygroundStore(s => s.galleryItems);
   const actorId = useAuthStore((state) => state.actorId);
   const currentUser = useAuthStore((state) => state.currentUser);
   const ensureSession = useAuthStore((state) => state.ensureSession);
@@ -290,14 +288,9 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     getHistoryItem,
   }), [getHistoryItem, setHistory]);
   const moodboardImageRecordLookup = useMemo(
-    () => buildGenerationOutputLookup([...galleryItems, ...generationHistory, ...filteredHistory]),
-    [filteredHistory, galleryItems, generationHistory],
+    () => buildGenerationOutputLookup([...generationHistory, ...filteredHistory]),
+    [filteredHistory, generationHistory],
   );
-
-  useEffect(() => {
-    // 预加载图库 (之前图库只有在切换到图库标签且组件挂载后才加载)
-    fetchGallery(1);
-  }, [fetchGallery]);
 
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel>('auto'); // 默认使用settings中的配置
   const [isWorkflowDialogOpen, setIsWorkflowDialogOpen] = useState(false);
@@ -2842,11 +2835,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         setIsPersistingDescribeHistory(true);
         try {
           const persistResults = await Promise.all(newHistoryItems.map((item) => saveHistoryToBackend(item)));
-          newHistoryItems.forEach((item, index) => {
-            if (persistResults[index]) {
-              usePlaygroundStore.getState().addGalleryItem(item);
-            }
-          });
           if (persistResults.some(Boolean)) {
             await mutateHistory();
           }

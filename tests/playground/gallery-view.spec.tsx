@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import GalleryView from '@/app/studio/playground/_components/GalleryView';
+import type { GalleryFeedResult, GalleryItemViewModel } from '@/lib/gallery/types';
 import type { Generation } from '@/types/database';
 
 vi.mock('framer-motion', () => ({
@@ -32,36 +33,61 @@ vi.mock('@studio/playground/_components/hooks/usePlaygroundMoodboards', () => ({
   }),
 }));
 
-vi.mock('@studio/playground/_components/gallery/GalleryImageWall', () => ({
-  GalleryImageWall: ({
-    isInitialLoading,
-    items,
-  }: {
-    isInitialLoading: boolean;
-    items: Generation[];
-  }) => (
-    <div data-testid={isInitialLoading ? 'gallery-wall-loading' : 'gallery-wall-ready'}>
-      {items.length}
-    </div>
+vi.mock('@/components/gallery/GalleryMasonryWall', () => ({
+  GalleryMasonryWall: ({ items }: { items: unknown[] }) => (
+    <div data-testid="gallery-wall-ready">{items.length}</div>
   ),
 }));
 
-const storeState = {
-  galleryItems: [] as Generation[],
-  fetchGallery: vi.fn(async () => undefined),
-  syncGalleryLatest: vi.fn(async () => undefined),
-  prefetchGalleryNext: vi.fn(async () => undefined),
-  galleryPage: 1,
-  hasMoreGallery: true,
-  isFetchingGallery: false,
-  activeTab: 'gallery' as const,
-  gallerySortBy: 'recent' as const,
-  setGallerySortBy: vi.fn(),
-  applyPrompt: vi.fn(),
+vi.mock('@/components/gallery/GalleryPromptGrid', () => ({
+  GalleryPromptGrid: ({ items }: { items: unknown[] }) => (
+    <div data-testid="gallery-prompt-grid">{items.length}</div>
+  ),
+}));
+
+const feedState: GalleryFeedResult = {
+  items: [] as never[],
+  promptItems: [] as never[],
+  filterOptions: {
+    models: [],
+    presets: [],
+  },
+  hasMore: true,
+  isInitialLoading: false,
+  isLoadingMore: false,
+  isRefreshing: false,
+  loadMore: vi.fn(async () => undefined),
+  revalidateLatest: vi.fn(async () => undefined),
 };
 
+const useGalleryFeedMock = vi.fn((options: { sortBy: string }) => {
+  void options;
+  return feedState;
+});
+
+vi.mock('@/lib/gallery/use-gallery-feed', () => ({
+  useGalleryFeed: (options: { sortBy: string }) => useGalleryFeedMock(options),
+}));
+
 vi.mock('@/lib/store/playground-store', () => ({
-  usePlaygroundStore: (selector: (state: typeof storeState) => unknown) => selector(storeState),
+  usePlaygroundStore: {
+    getState: () => ({
+      applyPrompt: vi.fn(),
+      applyImage: vi.fn(async () => undefined),
+      applyImages: vi.fn(async () => undefined),
+      setUploadedImages: vi.fn(),
+      applyModel: vi.fn(),
+      setSelectedPresetName: vi.fn(),
+      setViewMode: vi.fn(),
+      setActiveTab: vi.fn(),
+      config: {
+        prompt: '',
+        width: 1024,
+        height: 1024,
+        model: 'coze_seedream4_5',
+      },
+    }),
+  },
 }));
 
 function createGeneration(id: string): Generation {
@@ -81,33 +107,58 @@ function createGeneration(id: string): Generation {
   };
 }
 
+function createViewModel(id: string): GalleryItemViewModel {
+  const raw = createGeneration(id);
+
+  return {
+    id: raw.id,
+    raw,
+    displayUrl: raw.outputUrl || '',
+    downloadUrl: raw.outputUrl || '',
+    moodboardImagePath: raw.outputUrl || '',
+    prompt: raw.config?.prompt || '',
+    promptCategory: 'standard_generation',
+    promptCategoryLabel: '普通生成',
+    model: raw.config?.model || 'Unknown Model',
+    presetName: raw.config?.presetName || '',
+    createdAt: raw.createdAt,
+    width: raw.config?.width || 1024,
+    height: raw.config?.height || 1024,
+    imageLoadKey: `${raw.id}:${raw.outputUrl}`,
+    searchText: (raw.config?.prompt || '').toLowerCase(),
+    isPromptVisible: true,
+    isImageVisible: true,
+  };
+}
+
 describe('GalleryView loading behavior', () => {
   beforeEach(() => {
-    storeState.fetchGallery.mockClear();
-    storeState.syncGalleryLatest.mockClear();
-    storeState.prefetchGalleryNext.mockClear();
-    storeState.setGallerySortBy.mockClear();
-    storeState.applyPrompt.mockClear();
+    useGalleryFeedMock.mockClear();
+    feedState.loadMore = vi.fn(async () => undefined);
+    feedState.revalidateLatest = vi.fn(async () => undefined);
   });
 
-  it('keeps cached gallery items visible while a background fetch is in flight', () => {
-    storeState.galleryItems = [createGeneration('cached-item')];
-    storeState.isFetchingGallery = true;
+  it('uses the shared gallery feed hook with the default recent sort', () => {
+    feedState.items = [createViewModel('cached-item')];
+    feedState.promptItems = [createViewModel('cached-item')];
+    feedState.isInitialLoading = false;
 
     render(<GalleryView />);
 
     expect(screen.getByTestId('gallery-wall-ready')).toBeTruthy();
-    expect(screen.queryByTestId('gallery-wall-loading')).toBeNull();
+    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent' });
   });
 
   it('keeps the gallery content inside a bounded flex chain', () => {
-    storeState.galleryItems = [createGeneration('bounded-item')];
-    storeState.isFetchingGallery = false;
+    feedState.items = [createViewModel('bounded-item')];
+    feedState.promptItems = [createViewModel('bounded-item')];
+    feedState.isInitialLoading = false;
 
-    render(<GalleryView />);
+    render(<GalleryView mode="standalone" />);
 
     expect(screen.getByTestId('gallery-view-root').className).toContain('flex-1');
     expect(screen.getByTestId('gallery-view-root').className).toContain('min-h-0');
+    expect(screen.getByTestId('gallery-view-root').getAttribute('data-gallery-mode')).toBe('standalone');
     expect(screen.getByTestId('gallery-view-shell').className).toContain('flex-1');
     expect(screen.getByTestId('gallery-view-shell').className).toContain('min-h-0');
     expect(screen.getByTestId('gallery-view-stack').className).toContain('flex-1');

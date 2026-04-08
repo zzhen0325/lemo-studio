@@ -7,7 +7,7 @@ import {
   shouldAutoFillGallery,
   shouldLoadMoreGallery,
   shouldShowGalleryEndIndicator,
-} from '@/app/studio/playground/_components/gallery/gallery-scroll';
+} from '@/lib/gallery/scroll-helpers';
 
 describe('gallery-scroll helpers', () => {
   it('caps the load-more threshold within a predictable range', () => {

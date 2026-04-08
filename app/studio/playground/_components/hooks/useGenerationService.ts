@@ -301,9 +301,6 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
 
 
     // Helper: Save to history.json
-
-    const addGalleryItem = usePlaygroundStore(s => s.addGalleryItem);
-
     const ensureHistoryIdentity = useCallback((uniqueId: string, next: Generation, existing?: Generation): Generation => ({
         ...next,
         id: uniqueId,
@@ -343,15 +340,6 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         });
         const normalizedRecord = recordToPersist ?? ensureHistoryIdentity(uniqueId, result);
 
-        // 如果成功生成，同步到 Gallery 状态
-        if (normalizedRecord.status === 'completed') {
-            addGalleryItem({
-                ...normalizedRecord,
-                id: uniqueId,
-                status: 'completed'
-            });
-        }
-
         // Internal helper to avoid re-render issues
         const saveToBackend = async (data: Generation) => {
             try {
@@ -371,7 +359,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         if (normalizedRecord.status === 'completed') {
             setIsGenerating(false);
         }
-    }, [addGalleryItem, ensureHistoryIdentity, toast, upsertHistoryEntry]);
+    }, [ensureHistoryIdentity, toast, upsertHistoryEntry]);
 
     const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const uploadedSourceUrls = usePlaygroundStore.getState().uploadedImages

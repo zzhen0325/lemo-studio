@@ -38,7 +38,6 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             // 防重复加载标志
             _presetsLoading: false,
             _presetsLoaded: false,
-            _galleryLoaded: false,
             hasGenerated: false,
             showHistory: false,
             showGallery: false,
@@ -514,16 +513,6 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     visitorId: undefined,
                     bannerModeBackup: null,
                     activeBannerData: null,
-                    galleryItems: [],
-                    galleryPage: 1,
-                    hasMoreGallery: true,
-                    isFetchingGallery: false,
-                    isSyncingGalleryLatest: false,
-                    galleryLastSyncAt: null,
-                    isPrefetchingGallery: false,
-                    galleryPrefetch: null,
-                    gallerySortBy: 'recent',
-                    _galleryLoaded: false,
                 });
             },
 

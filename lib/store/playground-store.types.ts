@@ -11,7 +11,6 @@ import type {
 import type { Generation, GenerationConfig, EditPresetConfig } from "@/types/database";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { SelectedLora } from "@/lib/playground/types";
-import type { SortBy } from "@/lib/server/service/history.service";
 
 export type PlaygroundViewMode = "home" | "dock";
 export type PlaygroundTab = "history" | "gallery" | "describe" | "style" | "banner";
@@ -103,25 +102,10 @@ export interface PlaygroundState {
   previewLayoutId: string | null;
   setPreviewImage: (url: string | null, layoutId?: string | null) => void;
 
-  galleryItems: Generation[];
-  galleryPage: number;
-  hasMoreGallery: boolean;
-  isFetchingGallery: boolean;
-  isSyncingGalleryLatest: boolean;
-  galleryLastSyncAt: number | null;
-  isPrefetchingGallery: boolean;
-  galleryPrefetch: { page: number; items: Generation[]; hasMore: boolean } | null;
-  gallerySortBy: SortBy;
-  setGallerySortBy: (sortBy: SortBy) => void;
-  fetchGallery: (page?: number) => Promise<void>;
-  syncGalleryLatest: () => Promise<void>;
-  prefetchGalleryNext: () => Promise<void>;
-  addGalleryItem: (item: Generation) => void;
   deleteHistory: (ids: string[]) => Promise<void>;
 
   _presetsLoading: boolean;
   _presetsLoaded: boolean;
-  _galleryLoaded: boolean;
 
   bannerModeBackup: {
     config: GenerationConfig;

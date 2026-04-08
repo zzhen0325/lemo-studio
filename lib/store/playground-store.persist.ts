@@ -1,10 +1,6 @@
 import type { GenerationConfig } from '@/types/database';
 import type { PlaygroundState } from './playground-store.types';
-import {
-  clearBannerMetadata,
-  GALLERY_PAGE_LIMIT,
-  sanitizeGalleryItemsForPersist,
-} from './playground-store.helpers';
+import { clearBannerMetadata } from './playground-store.helpers';
 import type { ImageEditorSessionSnapshot } from '@/components/image-editor/types';
 
 function sanitizeImageEditorSessionForPersist(
@@ -30,55 +26,25 @@ function sanitizeImageEditorSessionForPersist(
   };
 }
 
-type PersistedGalleryState = Pick<
-  PlaygroundState,
-  'galleryItems' | 'galleryPage' | 'hasMoreGallery' | '_galleryLoaded'
->;
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-export function normalizePersistedGalleryState(state: PersistedGalleryState): PersistedGalleryState {
-  const persistedItems = sanitizeGalleryItemsForPersist(state.galleryItems);
-
-  if (persistedItems.length === 0) {
-    return {
-      galleryItems: [],
-      galleryPage: 1,
-      hasMoreGallery: true,
-      _galleryLoaded: false,
-    };
-  }
-
-  const wasTruncated = state.galleryItems.length > persistedItems.length;
-
-  return {
-    galleryItems: persistedItems,
-    galleryPage: Math.max(1, Math.ceil(persistedItems.length / GALLERY_PAGE_LIMIT)),
-    hasMoreGallery: wasTruncated ? true : state.hasMoreGallery,
-    _galleryLoaded: persistedItems.length > 0,
-  };
+export function normalizePersistedGalleryState<TState>(state: TState): TState {
+  return state;
 }
 
-export function mergePersistedPlaygroundState<TState extends PersistedGalleryState>(
+export function mergePersistedPlaygroundState<TState>(
   persistedState: unknown,
   currentState: TState,
 ): TState {
-  const mergedState = {
+  return {
     ...currentState,
     ...(isRecord(persistedState) ? persistedState : {}),
   } as TState;
-
-  return {
-    ...mergedState,
-    ...normalizePersistedGalleryState(mergedState),
-  };
 }
 
 export function partializePlaygroundState(state: PlaygroundState) {
-  const normalizedGalleryState = normalizePersistedGalleryState(state);
-
   return {
     config: (() => {
       const isBannerConfig = state.config?.generationMode === 'banner';
@@ -118,7 +84,5 @@ export function partializePlaygroundState(state: PlaygroundState) {
     styles: [],
     uploadedImages: [],
     describeImages: [],
-    ...normalizedGalleryState,
-    galleryLastSyncAt: state.galleryLastSyncAt,
   };
 }
