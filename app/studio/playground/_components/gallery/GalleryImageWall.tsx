@@ -5,6 +5,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { GenerateOptions } from '@studio/playground/_components/hooks/useGenerationService';
 import type { Generation } from '@/types/database';
 
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+
 import { GalleryImageCard } from './GalleryImageCard';
 import {
   hasGalleryOverflow,
@@ -53,6 +55,8 @@ export function GalleryImageWall({
   const hasUserScrolledRef = useRef(false);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
   const [hasOverflowingContent, setHasOverflowingContent] = useState(false);
+  const [isLoadingIndicatorVisible, setIsLoadingIndicatorVisible] = useState(false);
+  const loadingIndicatorStartAtRef = useRef<number | null>(null);
   const { width: containerWidth, columnsCount } = useGalleryContainerWidth(scrollContainerRef);
 
   const checkShouldLoadMore = useCallback(() => {
@@ -88,6 +92,39 @@ export function GalleryImageWall({
     setHasUserScrolled(false);
     setHasOverflowingContent(false);
   }, [layoutKey]);
+
+  useEffect(() => {
+    if (isInitialLoading) {
+      loadingIndicatorStartAtRef.current = null;
+      setIsLoadingIndicatorVisible(false);
+      return;
+    }
+
+    if (isFetchingGallery) {
+      loadingIndicatorStartAtRef.current = Date.now();
+      setIsLoadingIndicatorVisible(true);
+      return;
+    }
+
+    const startedAt = loadingIndicatorStartAtRef.current;
+    if (!startedAt) {
+      setIsLoadingIndicatorVisible(false);
+      return;
+    }
+
+    const minVisibleMs = 350;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= minVisibleMs) {
+      setIsLoadingIndicatorVisible(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsLoadingIndicatorVisible(false);
+    }, minVisibleMs - elapsed);
+
+    return () => window.clearTimeout(timer);
+  }, [isFetchingGallery, isInitialLoading]);
 
   const showEndOfGallery = shouldShowGalleryEndIndicator({
     hasMoreGallery,
@@ -167,11 +204,11 @@ export function GalleryImageWall({
         />
       )}
 
-      <div className="py-12 flex flex-col items-center justify-center gap-4">
-        {isFetchingGallery && !isInitialLoading ? (
+      <div className="min-h-24 py-12 flex flex-col items-center justify-center gap-4">
+        {isLoadingIndicatorVisible ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Thinking...</span>
+            <LoadingSpinner size={24} className="text-white/20" />
+            <span className="text-[10px] text-white/20 font-mono uppercase tracking-widest">Loading more...</span>
           </div>
         ) : hasMoreGallery ? (
           <div className="h-4" />

@@ -55,14 +55,14 @@ export function usePromptOptimization(
           model: modelId,
           image,
           input: text,
-          profileId: callOptions?.profileId || 'optimization-with-image',
+          ...(callOptions?.profileId ? { profileId: callOptions.profileId } : {}),
         });
         resultText = result.text;
       } else {
         const result = await callText({
           model: modelId,
           input: text,
-          profileId: callOptions?.profileId || 'optimization',
+          ...(callOptions?.profileId ? { profileId: callOptions.profileId } : {}),
         });
         resultText = result.text;
       }

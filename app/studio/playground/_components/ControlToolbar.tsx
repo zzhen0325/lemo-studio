@@ -142,7 +142,7 @@ export default function ControlToolbar({
 
     const ORDER = [
       'coze_seedream4_5',
-      'seed4_0402_v4_lemo',
+      'seed4_0407_lemo',
       MODEL_ID_FLUX_KLEIN,
       'gemini-3-pro-image-preview'
     ];
@@ -160,7 +160,7 @@ export default function ControlToolbar({
   }, [availableModels, getModelEntryById, isEditMode, uploadedImages.length]);
   const selectedModelMeta = getModelEntryById(selectedModel);
   const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
-    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_0402_v4_lemo', 'coze_seedream4_5'].includes(selectedModel);
+    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_0407_lemo', 'coze_seedream4_5'].includes(selectedModel);
   const selectedAllowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
     ? selectedModelMeta.capabilities.allowedImageSizes
     : (['1K', '2K', '4K'] as const);
@@ -233,7 +233,7 @@ export default function ControlToolbar({
       }
 
       const supportsImageSize = modelMeta?.capabilities?.supportsImageSize
-        ?? ['coze_seedream4_5', 'seed4_0402_v4_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
+        ?? ['coze_seedream4_5', 'seed4_0407_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
 
       if (supportsImageSize) {
         const allowed = modelMeta?.capabilities?.allowedImageSizes?.length
@@ -285,7 +285,7 @@ export default function ControlToolbar({
       logo: '/images/logos/seed.png',
       description: 'Seedream 4.5'
     },
-    'seed4_0402_v4_lemo': {
+    'seed4_0407_lemo': {
       logo: '/images/logos/seed.png',
       description: '生成lemo选这个'
     },

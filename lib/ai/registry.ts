@@ -73,12 +73,12 @@ export const REGISTRY: RegistryItem[] = [
         }
     },
     {
-        id: 'seed4_0402_v4_lemo',
+        id: 'seed4_0407_lemo',
         providerType: 'bytedance-afr',
         task: ['image'],
         defaultConfig: {
             providerId: 'bytedance',
-            modelId: 'seed4_0402_v4_lemo'
+            modelId: 'seed4_0407_lemo'
         }
     },
     {

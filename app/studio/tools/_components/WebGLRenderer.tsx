@@ -19,7 +19,7 @@ const WebGLRenderer: React.FC<WebGLRendererProps> = ({ shader, uniforms, classNa
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const gl = canvas.getContext('webgl');
+        const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true, antialias: true });
         if (!gl) {
             console.error('WebGL not supported');
             return;

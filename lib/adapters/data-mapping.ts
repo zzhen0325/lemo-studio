@@ -23,7 +23,7 @@ export const RATIO_BASED_MODELS = new Set<string>([
   'gemini-3-pro-image-preview',
   'gemini-3.1-flash-image-preview',
   'gemini-2.5-flash-image',
-  'seed4_0402_v4_lemo',
+  'seed4_0407_lemo',
   'coze_seed4',
   'coze_seedream4_5'
 ]);
@@ -67,7 +67,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
   } else if (model === 'Nano banana' || model === 'nanobanana' || model === 'nano banana') {
     model = 'gemini-2.5-flash-image';
   } else if (model === 'Seed 4.2' || model === '3D Lemo Seed_4' || model === 'Seed4 ') {
-    model = 'seed4_0402_v4_lemo';
+    model = 'seed4_0407_lemo';
   } else if (model === 'Seed 4.0') {
     model = 'seed4_lemo1230';
   } else if (model === 'Seed 3' || model === '3D Lemo seed3') {
@@ -84,8 +84,7 @@ export function toUnifiedConfigFromLegacy(input: GenerationConfig): GenerationCo
     const inferred = inferRatioImageSize(width, height);
     let imageSize = input.imageSize || inferred?.imageSize;
 
-    // Default to 2K for Seed 4.2 if no resolution specified
-    if (model === 'seed4_0402_v4_lemo' && !input.imageSize) {
+    if (model === 'seed4_0407_lemo' && !input.imageSize) {
       imageSize = '2K';
     }
 

@@ -16,6 +16,7 @@ const ToolsView: React.FC = () => {
     const { toast } = useToast();
     const canvasContainerRef = useRef<HTMLDivElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recordTimerRef = useRef<number | null>(null);
     const [isRecording, setIsRecording] = useState(false);
 
     const handleSelectTool = (tool: WebGLToolConfig) => {
@@ -31,47 +32,96 @@ const ToolsView: React.FC = () => {
         setParamValues(prev => ({ ...prev, [id]: value }));
     };
 
-    const handleExportImage = () => {
-        const canvas = canvasContainerRef.current?.querySelector('canvas');
-        if (!canvas) return;
+    const waitNextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-        const dataUrl = canvas.toDataURL('image/png');
+    const downloadBlob = (blob: Blob, filename: string) => {
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `${selectedTool?.id || 'tool'}-${Date.now()}.png`;
+        link.href = url;
+        link.download = filename;
         link.click();
-        toast({ title: "导出成功", description: "图片已保存" });
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    const handleExportImage = async () => {
+        const canvas = canvasContainerRef.current?.querySelector('canvas');
+        if (!canvas) {
+            toast({ title: "导出失败", description: "未找到可导出的画布" });
+            return;
+        }
+
+        await waitNextFrame();
+
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
+        if (!blob || blob.size === 0) {
+            toast({ title: "导出失败", description: "导出内容为空，请稍后重试" });
+            return;
+        }
+
+        downloadBlob(blob, `${selectedTool?.id || 'tool'}-${Date.now()}.png`);
+        toast({ title: "导出成功", description: "PNG 已保存" });
     };
 
     const handleToggleRecording = () => {
         if (isRecording) {
+            if (recordTimerRef.current) {
+                window.clearTimeout(recordTimerRef.current);
+                recordTimerRef.current = null;
+            }
             mediaRecorderRef.current?.stop();
             setIsRecording(false);
             return;
         }
 
         const canvas = canvasContainerRef.current?.querySelector('canvas');
-        if (!canvas) return;
+        if (!canvas) {
+            toast({ title: "录制失败", description: "未找到可录制的画布" });
+            return;
+        }
 
-        const stream = canvas.captureStream(60); // 60 FPS
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        const stream = canvas.captureStream(60);
+        const mimeCandidates = [
+            'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+            'video/mp4;codecs=avc1.42E01E',
+            'video/mp4',
+            'video/webm;codecs=vp9,opus',
+            'video/webm;codecs=vp8,opus',
+            'video/webm',
+        ];
+        const mimeType = mimeCandidates.find((t) => MediaRecorder.isTypeSupported(t)) ?? '';
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         const chunks: Blob[] = [];
 
-        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
         recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${selectedTool?.id || 'tool'}-${Date.now()}.webm`;
-            link.click();
-            toast({ title: "录制成功", description: "视频已保存" });
+            const type = mimeType || recorder.mimeType || 'video/webm';
+            const blob = new Blob(chunks, { type });
+            stream.getTracks().forEach((t) => t.stop());
+
+            if (blob.size === 0) {
+                toast({ title: "录制失败", description: "导出内容为空，请稍后重试" });
+                return;
+            }
+
+            const ext = type.includes('mp4') ? 'mp4' : 'webm';
+            downloadBlob(blob, `${selectedTool?.id || 'tool'}-${Date.now()}.${ext}`);
+            toast({
+                title: "录制成功",
+                description: ext === 'mp4' ? "MP4 已保存（10s）" : "当前浏览器不支持 MP4，已保存 WebM（10s）",
+            });
         };
 
-        recorder.start();
+        recorder.start(1000);
         mediaRecorderRef.current = recorder;
         setIsRecording(true);
-        toast({ title: "开始录制", description: "正在捕获画布动画..." });
+        recordTimerRef.current = window.setTimeout(() => {
+            if (recorder.state === 'recording') recorder.stop();
+            recordTimerRef.current = null;
+            setIsRecording(false);
+        }, 10_000);
+        toast({ title: "开始录制", description: "默认录制 10s，结束后自动导出" });
     };
 
     return (
@@ -164,8 +214,8 @@ const ToolsView: React.FC = () => {
                                     <WebGLRenderer
                                         shader={selectedTool.fragmentShader}
                                         uniforms={paramValues as Record<string, number>}
-                                        width={1920}
-                                        height={1080}
+                                        width={3840}
+                                        height={2160}
                                         className="max-w-full max-h-full aspect-video rounded-2xl "
                                     />
                                 )}
@@ -214,8 +264,10 @@ const ToolsView: React.FC = () => {
                             <div className=" p-4 bg-[#0f1016] backdrop-blur-xl rounded-xl ">
                                
                                     <h4 className="text-xs font-medium text-white/40 uppercase mb-2">Export Info</h4>
-                                    <p className="text-xs text-white/60">Export Resolution: 1920x1080 (HD)</p>
-                                    <p className="text-xs text-white/60">Format: PNG / WebM</p>
+                                    <p className="text-xs text-white/60">
+                                        Export Resolution: {selectedTool.type === 'shader' ? '3840x2160 (4K)' : 'Canvas Size'}
+                                    </p>
+                                    <p className="text-xs text-white/60">Format: PNG / MP4</p>
                                 
                             </div>
                         </div>

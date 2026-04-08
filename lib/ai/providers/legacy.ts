@@ -1134,7 +1134,7 @@ export class BytedanceAfrProvider implements ImageProvider {
       height,
       seed: -1,
     };
-    if (this.config.modelId === "seed4_0402_v4_lemo") {
+    if (this.config.modelId === "seed4_0407_lemo") {
       reqJson.Prompt = prompt;
     } else {
       reqJson.string = prompt;

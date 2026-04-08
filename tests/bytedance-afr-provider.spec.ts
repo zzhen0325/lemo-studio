@@ -29,7 +29,7 @@ describe("BytedanceAfrProvider", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses submit_task_v2 + batch_get_result_v2 for seed4_0402_v4_lemo", async () => {
+  it("uses submit_task_v2 + batch_get_result_v2 for seed4_0407_lemo", async () => {
     env.NODE_ENV = "test";
     process.env.GATEWAY_BASE_URL = "https://effect.bytedance.net";
     process.env.BYTEDANCE_AID = "6834";
@@ -62,7 +62,7 @@ describe("BytedanceAfrProvider", () => {
 
     const provider = new BytedanceAfrProvider({
       providerId: "bytedance",
-      modelId: "seed4_0402_v4_lemo",
+      modelId: "seed4_0407_lemo",
     });
 
     await provider.generateImage({
@@ -80,7 +80,7 @@ describe("BytedanceAfrProvider", () => {
     expect(String(submitUrl)).toContain("/media/api/pic/submit_task_v2");
     const submitForm = new URLSearchParams(String(submitOptions?.body || ""));
     const reqJson = JSON.parse(String(submitForm.get("req_json") || "{}"));
-    expect(submitForm.get("req_key")).toBe("seed4_0402_v4_lemo");
+    expect(submitForm.get("req_key")).toBe("seed4_0407_lemo");
     expect(reqJson).toEqual({
       width: 1024,
       height: 1024,
@@ -91,7 +91,7 @@ describe("BytedanceAfrProvider", () => {
     const [pollUrl, pollOptions] = fetchMock.mock.calls[1];
     expect(String(pollUrl)).toContain("/media/api/pic/batch_get_result_v2");
     const pollForm = new URLSearchParams(String(pollOptions?.body || ""));
-    expect(pollForm.get("req_key")).toBe("seed4_0402_v4_lemo");
+    expect(pollForm.get("req_key")).toBe("seed4_0407_lemo");
     expect(pollForm.get("task_ids")).toBe("test-task-id");
   });
 
@@ -104,7 +104,7 @@ describe("BytedanceAfrProvider", () => {
 
     const provider = new BytedanceAfrProvider({
       providerId: "bytedance",
-      modelId: "seed4_0402_v4_lemo",
+      modelId: "seed4_0407_lemo",
     });
 
     await expect(provider.generateImage({

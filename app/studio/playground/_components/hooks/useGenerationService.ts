@@ -33,7 +33,7 @@ export interface UnifiedModelConfig {
 
 export const FALLBACK_AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'coze_seedream4_5', displayName: 'Seedream 4.5' },
-    { id: 'seed4_0402_v4_lemo', displayName: 'Lemo Seed' },
+    { id: 'seed4_0407_lemo', displayName: 'Lemo Seed' },
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
     { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
 ];

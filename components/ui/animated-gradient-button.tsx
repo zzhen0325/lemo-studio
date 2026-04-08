@@ -101,7 +101,7 @@ const AnimatedButton = React.forwardRef<HTMLButtonElement, AnimatedButtonProps>(
       iconLeft,
       iconRight,
       loading = false,
-      disableWhileLoading = false,
+      disableWhileLoading = true,
       className,
       onClick,
       disabled,

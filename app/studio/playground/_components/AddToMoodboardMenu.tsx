@@ -275,7 +275,7 @@ function AddToMoodboardMenuCore({
           setIsCreating(true);
         }
       }}>
-        <DialogContent className="max-w-[560px] border-white/10 bg-[#1C1C1C]/60 backdrop-blur-xl p-2 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] rounded-3xl overflow-hidden">
+        <DialogContent className="!z-[1340] max-w-[560px] border-white/10 bg-[#1C1C1C]/80 backdrop-blur-xl p-2 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] rounded-3xl overflow-hidden">
           <div className="mb-1 relative w-full overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

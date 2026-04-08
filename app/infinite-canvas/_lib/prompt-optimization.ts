@@ -4,6 +4,8 @@ export const PROMPT_OPTIMIZATION_SEPARATOR = '|||';
 function cleanupPromptVariant(value: string) {
   return value
     .trim()
+    .replace(/^\s*#{1,6}\s*(?:结果|输出|方案|版本)\s*(?:[一二三四五六七八九十]+|\d+)\s*[:：\-、.]*\s*\n+/i, '')
+    .replace(/^\s*(?:#{1,6}\s*)?(?:结果|输出|方案|版本)\s*(?:[一二三四五六七八九十]+|\d+)\s*[:：\-、.]+\s*/i, '')
     .replace(/^[\s"'“”`]+|[\s"'“”`]+$/g, '')
     .replace(/^\d+\s*[\.\)、]\s*/, '')
     .replace(/^[-*]\s*/, '')
@@ -13,6 +15,16 @@ function cleanupPromptVariant(value: string) {
 function splitNumberedVariants(text: string) {
   const matches = Array.from(
     text.matchAll(/(?:^|\n)\s*(?:\d+\s*[\.\)、]|[-*])\s*([\s\S]*?)(?=(?:\n\s*(?:\d+\s*[\.\)、]|[-*])\s)|$)/g),
+  );
+
+  return matches
+    .map((match) => cleanupPromptVariant(match[1] || ''))
+    .filter(Boolean);
+}
+
+function splitHeadingVariants(text: string) {
+  const matches = Array.from(
+    text.matchAll(/(?:^|\n)\s*#{1,6}\s*(?:结果|输出|方案|版本)\s*(?:[一二三四五六七八九十]+|\d+)\s*[:：\-、.]*\s*\n+([\s\S]*?)(?=(?:\n\s*#{1,6}\s*(?:结果|输出|方案|版本)\s*(?:[一二三四五六七八九十]+|\d+)\s*[:：\-、.]*\s*\n+)|$)/gi),
   );
 
   return matches
@@ -38,20 +50,14 @@ export function buildPromptOptimizationVariantsSystemPrompt(
 
 export function buildPromptOptimizationVariantsInput(
   text: string,
-  resultCount = PROMPT_OPTIMIZATION_VARIANT_COUNT,
+  _resultCount = PROMPT_OPTIMIZATION_VARIANT_COUNT,
 ) {
   const trimmed = text.trim();
   if (!trimmed) {
     return '';
   }
 
-  return [
-    '请严格基于下面这段用户原始内容进行优化，不要脱离原意，不要替换主题，只能做表达、细节、构图和风格层面的增强。',
-    `请输出 ${resultCount} 个不同方向但都忠于原始内容的结果。`,
-    '<用户原始内容>',
-    trimmed,
-    '</用户原始内容>',
-  ].join('\n');
+  return trimmed;
 }
 
 export function parsePromptOptimizationVariants(
@@ -76,6 +82,11 @@ export function parsePromptOptimizationVariants(
   const numbered = splitNumberedVariants(trimmed);
   if (numbered.length > 0) {
     return numbered.slice(0, resultCount);
+  }
+
+  const headed = splitHeadingVariants(trimmed);
+  if (headed.length > 0) {
+    return headed.slice(0, resultCount);
   }
 
   const paragraphSplit = trimmed

@@ -8,7 +8,7 @@ export interface UiModelOption {
 }
 
 const DISPLAY_NAME_OVERRIDES: Record<string, string> = {
-    seed4_0402_v4_lemo: 'Lemo Seed',
+    seed4_0407_lemo: 'Lemo Seed',
 };
 
 export function getUiModelDisplayName(id: string, displayName?: string): string {

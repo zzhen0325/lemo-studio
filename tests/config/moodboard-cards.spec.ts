@@ -153,7 +153,7 @@ describe('playground shortcut prompt builder', () => {
             'https://example.com/gallery/maorong-1.webp',
             'https://example.com/gallery/maorong-2.webp',
           ],
-          model_id: 'seed4_0402_v4_lemo',
+          model_id: 'seed4_0407_lemo',
           default_aspect_ratio: '3:4',
           default_width: 1792,
           default_height: 2400,
@@ -165,7 +165,7 @@ describe('playground shortcut prompt builder', () => {
           moodboard_description: '毛绒质感定制模板',
         },
       ],
-      modelLabelById: new Map([['seed4_0402_v4_lemo', 'Seed 4.2 Lemo']]),
+      modelLabelById: new Map([['seed4_0407_lemo', 'Lemo Seed']]),
     });
 
     const shortcut = runtimeShortcuts.find((item) => item.id === 'maorong');

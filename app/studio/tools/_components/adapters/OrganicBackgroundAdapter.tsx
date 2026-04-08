@@ -191,7 +191,7 @@ const OrganicBackgroundAdapter: React.FC<Props> = ({
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
     camera.position.z = 1;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isPreview ? 1.5 : 2));
     renderer.setClearColor(0x000000, 1);
     renderer.domElement.style.width = '100%';
