@@ -26,6 +26,45 @@ import { useDraggable } from '@dnd-kit/core';
 import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
 import { buildHistoryTags, isHistoryEditGeneration } from '@/app/studio/playground/_lib/history-tags';
 
+function resolveHistoryModelDisplayName(
+  config: Generation['config'],
+  availableModels: Array<{ id: string; displayName: string }>,
+): string {
+  const trim = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+  const modelId = trim(config?.model);
+  const baseModelId = trim(config?.baseModel);
+  const workflowName = trim(config?.workflowName);
+
+  if (modelId) {
+    const matchedModel = availableModels.find((model) => model.id === modelId);
+    if (matchedModel?.displayName) {
+      return matchedModel.displayName;
+    }
+
+    if (isWorkflowModel(modelId) && workflowName) {
+      return workflowName;
+    }
+
+    if (baseModelId) {
+      const matchedBaseModel = availableModels.find((model) => model.id === baseModelId);
+      return matchedBaseModel?.displayName || baseModelId;
+    }
+
+    return modelId;
+  }
+
+  if (baseModelId) {
+    const matchedBaseModel = availableModels.find((model) => model.id === baseModelId);
+    return matchedBaseModel?.displayName || baseModelId;
+  }
+
+  if (workflowName) {
+    return workflowName;
+  }
+
+  return 'Unknown';
+}
+
 export function DescribeSourceImage({
   sourceImage,
   generationId,
@@ -209,7 +248,10 @@ export const HistoryCard = React.memo(function HistoryCard({
   const isWorkflow = isWorkflowModel(config?.model);
   const historyTags = React.useMemo(() => buildHistoryTags(config), [config]);
   const isEditHistory = isHistoryEditGeneration(config);
-  const modelDisplayName = availableModels.find(m => m.id === config?.model)?.displayName || config?.model || 'Unknown';
+  const modelDisplayName = React.useMemo(
+    () => resolveHistoryModelDisplayName(config, availableModels),
+    [availableModels, config],
+  );
   const baseModelDisplayName = config?.baseModel ? (availableModels.find(m => m.id === config.baseModel)?.displayName || config.baseModel) : undefined;
   const prompt = config?.prompt || '';
   const timeStr = new Date(result.createdAt).toLocaleString();

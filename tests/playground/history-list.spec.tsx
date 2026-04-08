@@ -8,7 +8,14 @@ import type { Generation } from '@/types/database';
 const groupedHistoryMock = vi.fn();
 const mountCountById = new Map<string, number>();
 const unmountCountById = new Map<string, number>();
-let currentGroupedHistory: Array<{ type: string; key: string; items: Generation[]; startAt: string }> = [];
+let currentGroupedHistory: Array<{
+  type: string;
+  key: string;
+  items: Generation[];
+  startAt: string;
+  sourceImage?: string;
+  originalPrompt?: string;
+}> = [];
 
 const storeState = {
   setPreviewImage: vi.fn(),
@@ -70,6 +77,25 @@ function createGeneration(id: string): Generation {
   };
 }
 
+function createBaseProps() {
+  return {
+    onRegenerate: vi.fn(),
+    onDownload: vi.fn(),
+    onEdit: vi.fn(),
+    onImageClick: vi.fn(),
+    onUsePrompt: vi.fn(),
+    onBatchUse: vi.fn(),
+    onLayoutModeChange: vi.fn(),
+    onLoadMore: vi.fn(),
+    onClose: vi.fn(),
+    hasMore: false,
+    isLoading: false,
+    isLoadingMore: false,
+    variant: 'sidebar' as const,
+    layoutMode: 'list' as const,
+  };
+}
+
 describe('HistoryList group key stability', () => {
   beforeEach(() => {
     class MockIntersectionObserver {
@@ -107,21 +133,7 @@ describe('HistoryList group key stability', () => {
       { type: 'image', key: 'task|b|image', items: [genB], startAt: genB.createdAt },
     ];
 
-    const baseProps = {
-      onRegenerate: vi.fn(),
-      onDownload: vi.fn(),
-      onEdit: vi.fn(),
-      onImageClick: vi.fn(),
-      onUsePrompt: vi.fn(),
-      onBatchUse: vi.fn(),
-      onLayoutModeChange: vi.fn(),
-      onLoadMore: vi.fn(),
-      onClose: vi.fn(),
-      hasMore: false,
-      isLoading: false,
-      variant: 'sidebar' as const,
-      layoutMode: 'list' as const,
-    };
+    const baseProps = createBaseProps();
 
     const { rerender } = render(
       <HistoryList
@@ -212,5 +224,78 @@ describe('HistoryList group key stability', () => {
 
     expect(screen.getByText('Loading more...')).toBeTruthy();
     expect(screen.getByTestId('history-card-a')).toBeTruthy();
+  });
+
+  it('keeps already rendered history items visible when more pages arrive', () => {
+    const initialHistory = Array.from({ length: 80 }, (_, index) => createGeneration(`item-${index + 1}`));
+    currentGroupedHistory = initialHistory.map((item) => ({
+      type: 'image',
+      key: `task|${item.id}|image`,
+      items: [item],
+      startAt: item.createdAt,
+    }));
+
+    const baseProps = createBaseProps();
+    const { rerender } = render(
+      <HistoryList
+        history={initialHistory}
+        {...baseProps}
+      />
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(20);
+    });
+
+    expect(screen.getByTestId('history-card-item-80')).toBeTruthy();
+
+    const nextHistory = Array.from({ length: 90 }, (_, index) => createGeneration(`item-${index + 1}`));
+    currentGroupedHistory = nextHistory.map((item) => ({
+      type: 'image',
+      key: `task|${item.id}|image`,
+      items: [item],
+      startAt: item.createdAt,
+    }));
+
+    rerender(
+      <HistoryList
+        history={nextHistory}
+        {...baseProps}
+      />
+    );
+
+    expect(screen.getByTestId('history-card-item-80')).toBeTruthy();
+  });
+
+  it('uses Generate ALL only for describe prompt groups', () => {
+    const describeItem = createGeneration('describe');
+    const optimizationItem = createGeneration('optimization');
+
+    currentGroupedHistory = [
+      {
+        type: 'text',
+        key: 'task|describe|text',
+        items: [describeItem],
+        startAt: describeItem.createdAt,
+        sourceImage: 'upload/describe.png',
+      },
+      {
+        type: 'optimization',
+        key: 'task|optimization|optimization',
+        items: [optimizationItem],
+        startAt: optimizationItem.createdAt,
+        originalPrompt: 'original prompt',
+      },
+    ];
+
+    render(
+      <HistoryList
+        history={[describeItem, optimizationItem]}
+        {...createBaseProps()}
+      />
+    );
+
+    expect(screen.getByText('Generate ALL')).toBeTruthy();
+    expect(screen.getByText('Use ALL')).toBeTruthy();
   });
 });

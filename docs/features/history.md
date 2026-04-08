@@ -7,7 +7,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 ## 模块职责
 
 - 在 Playground 内提供历史记录的分组展示、无限滚动分页加载与筛选/布局切换。
-- 提供单条/批量动作：Rerun、Use Prompt/Use All、Edit、Download、Add to Moodboard、批量删除。
+- 提供单条/批量动作：Rerun、Use Prompt/Use All、Describe 分组的 Generate ALL、Edit、Download、Add to Moodboard、批量删除。
 - 将用户交互（like/download/edit/moodboard_add 等）写入交互统计接口（如有接入）。
 
 ## 核心流程
@@ -64,6 +64,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 - History 与 Gallery 共用同一后端数据源：修改 history 查询/写入/删除语义需同时评估两个视图的影响。
 - 用户归属由服务端从 session 推导；删除与更新必须按 owner 限制范围。
+- 读取历史记录时如需规范化输出图/参考图 URL，只能补丁式更新 URL 相关字段，不能覆盖已有 `config` 元数据（如 prompt、model、workflow/edit 标记）。
 
 ## 边界 / 非职责范围
 
@@ -79,4 +80,4 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 ## 更新记录
 
 - 2026-04-08：补充 History 模块文档，梳理入口、SWR 数据流、API 依赖与边界。
-
+- 2026-04-08：补充历史记录 URL 规范化的配置保留规则，并明确 Describe 分组批量动作文案为 `Generate ALL`。

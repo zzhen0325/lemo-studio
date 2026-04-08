@@ -2870,7 +2870,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     if (!results || results.length === 0) return;
     toast({ title: "批量生成中", description: `即将开始 ${results.length} 个生成任务...` });
     
-    // Use ALL 仅复用每张卡片的 prompt，始终使用当前模型配置进行文生图。
+    // Generate ALL 仅复用每张卡片的 prompt，始终使用当前模型配置进行文生图。
     for (const result of results) {
       const currentStoreConfig = usePlaygroundStore.getState().config;
       const prompt = result.config?.prompt || '';

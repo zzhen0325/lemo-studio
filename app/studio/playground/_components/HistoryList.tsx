@@ -33,9 +33,31 @@ function useIncrementalVisibleCount(
   resetSignal: string
 ) {
   const [visibleCount, setVisibleCount] = React.useState(() => Math.min(totalCount, initialCount));
+  const previousResetSignalRef = React.useRef(resetSignal);
 
   useEffect(() => {
-    setVisibleCount(Math.min(totalCount, initialCount));
+    const didResetSignalChange = previousResetSignalRef.current !== resetSignal;
+    previousResetSignalRef.current = resetSignal;
+
+    setVisibleCount((prev) => {
+      if (totalCount === 0) {
+        return 0;
+      }
+
+      if (didResetSignalChange) {
+        return Math.min(totalCount, initialCount);
+      }
+
+      if (prev === 0) {
+        return Math.min(totalCount, initialCount);
+      }
+
+      if (totalCount < prev) {
+        return totalCount;
+      }
+
+      return prev;
+    });
   }, [initialCount, resetSignal, totalCount]);
 
   useEffect(() => {
@@ -118,7 +140,7 @@ const HistoryList = function HistoryList({
     return () => observer.disconnect();
   }, [hasMore, isLoading, isLoadingMore, onLoadMore]);
   const groupedHistory = useGroupedHistory(history);
-  const visibilityResetSignal = `${layoutMode}|${history.length}|${groupedHistory.length}`;
+  const visibilityResetSignal = `${variant}|${layoutMode}`;
   const visibleHistoryCount = useIncrementalVisibleCount(
     history.length,
     HISTORY_INITIAL_RENDER_COUNT,
@@ -494,7 +516,7 @@ const HistoryList = function HistoryList({
                                 }
                               }}
                             >
-                              <span className="text-md hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]">Use ALL</span>
+                              <span className="text-md hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]">Generate ALL</span>
                             </Button>
                           </div>
                         )}

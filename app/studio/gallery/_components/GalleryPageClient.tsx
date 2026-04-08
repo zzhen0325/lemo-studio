@@ -1,6 +1,11 @@
 "use client";
 
-import GalleryView from "@studio/playground/_components/GalleryView";
+import dynamic from "next/dynamic";
+
+const GalleryView = dynamic(() => import("@studio/playground/_components/GalleryView"), {
+  loading: () => <div className="flex h-full items-center justify-center text-white">Thinking...</div>,
+  ssr: false,
+});
 
 export default function GalleryPageClient() {
   return (

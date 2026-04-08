@@ -35,6 +35,8 @@ function createRepositoryMock() {
           width: 1024,
           height: 1024,
           model: 'coze_seedream4_5',
+          baseModel: 'flux_klein',
+          workflowName: 'Flux Workflow',
           sourceImageUrls: ['storage/source-1.png'],
         },
         status: 'completed',
@@ -97,5 +99,30 @@ describe('HistoryService lightweight mode', () => {
     expect(normalizeAssetMock).toHaveBeenCalled();
     expect(getBatchInteractionDataMock).toHaveBeenCalledTimes(1);
     expect(result.history[0].outputUrl).toBe('https://signed.example/normalized/key.png');
+  });
+
+  it('preserves existing config fields when persisting normalized source image urls', async () => {
+    const repository = createRepositoryMock();
+    const service = new HistoryService(repository as never);
+
+    await service.getHistory({
+      page: 1,
+      limit: 24,
+      sortBy: 'recent',
+      viewerUserId: 'viewer-1',
+    });
+
+    expect(repository.update).toHaveBeenCalledWith('gen-1', {
+      output_url: 'normalized/key.png',
+      config: {
+        prompt: 'prompt',
+        width: 1024,
+        height: 1024,
+        model: 'coze_seedream4_5',
+        baseModel: 'flux_klein',
+        workflowName: 'Flux Workflow',
+        sourceImageUrls: ['normalized/key.png'],
+      },
+    });
   });
 });

@@ -62,9 +62,12 @@ export function GalleryImageCard({
       onKeyDown={handleKeyDown}
       className="group relative flex cursor-pointer flex-col overflow-hidden border-[0.8px] border-black bg-black/20 transition-all duration-300 hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
     >
-      <div className="relative flex w-full items-center justify-center bg-white/5">
+      <div 
+        className="relative w-full bg-white/5"
+        style={{ aspectRatio: item.width && item.height ? `${item.width} / ${item.height}` : '1 / 1' }}
+      >
         {item.raw.status === 'pending' ? (
-          <div className="flex w-full flex-col items-center justify-center space-y-3 p-8">
+          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 p-8">
             <div className="h-9 w-9 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             <span className="animate-pulse text-[10px] font-medium uppercase tracking-widest text-white/30">
               Generating
@@ -74,8 +77,7 @@ export function GalleryImageCard({
           <Image
             src={item.displayUrl}
             alt="Generated masterwork"
-            width={item.width}
-            height={item.height}
+            fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw"
             quality={25}
             loading="lazy"
@@ -84,7 +86,7 @@ export function GalleryImageCard({
             blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
             unoptimized
             className={cn(
-              'h-auto w-full object-cover transition-all duration-700 group-hover:scale-105',
+              'object-cover transition-all duration-700 group-hover:scale-105',
               isLoaded ? 'opacity-100 blur-0' : 'opacity-0 blur-xl',
             )}
             onLoad={handleImageLoaded}

@@ -107,9 +107,9 @@ function GallerySkeletonGrid({ columnsCount }: { columnsCount: number }) {
   const cols = Math.max(columnsCount, 1);
 
   return (
-    <div data-testid="gallery-skeleton-grid" className="flex w-full gap-3">
+    <div data-testid="gallery-skeleton-grid" className="flex w-full gap-[1px]">
       {Array.from({ length: cols }).map((_, colIdx) => (
-        <div key={`gallery-skeleton-col-${colIdx}`} className="flex min-w-0 flex-1 flex-col gap-3">
+        <div key={`gallery-skeleton-col-${colIdx}`} className="flex min-w-0 flex-1 flex-col gap-[1px]">
           {Array.from({ length: 3 }).map((__, itemIdx) => (
             <div
               key={`gallery-skeleton-item-${colIdx}-${itemIdx}`}
@@ -163,8 +163,8 @@ export function GalleryMasonryWall({
     {
       width: viewport.width,
       columnCount: columnsCount,
-      columnGutter: 12,
-      rowGutter: 12,
+      columnGutter: 1,
+      rowGutter: 1,
     },
     [columnsCount, layoutKey],
   );

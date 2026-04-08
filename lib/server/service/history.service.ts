@@ -112,7 +112,12 @@ export class HistoryService {
    * - Stores storage keys in database (permanent)
    * - Returns presigned URLs for display (temporary)
    */
-  private async normalizeGenerationUrls(itemId: string, outputUrl?: string, sourceImageUrls: string[] = []) {
+  private async normalizeGenerationUrls(
+    itemId: string,
+    outputUrl?: string,
+    sourceImageUrls: string[] = [],
+    existingConfig: Record<string, unknown> = {},
+  ) {
     // Process output URL
     let outputStorageKey: string | undefined;
     let outputDisplayUrl: string | undefined;
@@ -166,6 +171,7 @@ export class HistoryService {
       }
       if (sourceStorageKeys.some((key, index) => key !== sourceImageUrls[index])) {
         updatePayload.config = {
+          ...existingConfig,
           sourceImageUrls: sourceStorageKeys,
         };
       }
@@ -304,6 +310,7 @@ export class HistoryService {
             item.id,
             outputUrl,
             sourceImageUrls,
+            config,
           );
 
         return {
