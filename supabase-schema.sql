@@ -166,12 +166,25 @@ CREATE TABLE IF NOT EXISTS tool_presets (
   name VARCHAR(255) NOT NULL,
   values JSONB,
   thumbnail TEXT,
-  timestamp INTEGER,
+  timestamp BIGINT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS tool_presets_tool_id_idx ON tool_presets(tool_id);
+
+-- 修复已存在的表：将 timestamp 从 INTEGER 改为 BIGINT
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'tool_presets' 
+    AND column_name = 'timestamp' 
+    AND data_type = 'integer'
+  ) THEN
+    ALTER TABLE tool_presets ALTER COLUMN timestamp TYPE BIGINT;
+  END IF;
+END $$;
 
 -- ==========================================
 -- 8. 数据集条目表
