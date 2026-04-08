@@ -35,13 +35,16 @@ export class ToolsPresetsService {
   public async listPresets(toolId: string): Promise<ToolPreset[]> {
     try {
       const presets = await this.toolPresetsRepository.listByToolId(toolId);
-      return Promise.all(presets.map(async (p) => ({
-        id: String(p._id),
-        name: p.name,
-        values: (p.values || {}) as Record<string, unknown>,
-        thumbnail: await this.normalizeThumbnail(String(p._id), p.thumbnail),
-        timestamp: p.timestamp || 0,
-      })));
+      return Promise.all(presets.map(async (p) => {
+        const presetId = String(p._id || p.id || '');
+        return {
+          id: presetId,
+          name: p.name,
+          values: (p.values || {}) as Record<string, unknown>,
+          thumbnail: await this.normalizeThumbnail(presetId, p.thumbnail),
+          timestamp: p.timestamp || 0,
+        };
+      }));
     } catch (error) {
       console.error('Failed to fetch tool presets', error);
       throw new HttpError(500, 'Failed to fetch presets');
@@ -112,7 +115,7 @@ export class ToolsPresetsService {
   public async deletePreset(toolId: string, id: string): Promise<void> {
     try {
       await this.toolPresetsRepository.deleteOwned(toolId, id);
-      await this.imageAssetsRepository.deleteMany({ 'meta.presetId': id, 'meta.toolId': toolId });
+      // Note: image_assets cleanup is not needed as preset thumbnails are stored directly in tool_presets table
     } catch (error) {
       console.error('Failed to delete preset', error);
       throw new HttpError(500, 'Failed to delete preset');

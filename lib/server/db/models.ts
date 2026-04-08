@@ -799,7 +799,7 @@ export const ToolPresetModel = {
   async create(doc: Partial<ToolPresetDoc>): Promise<ToolPresetDoc> {
     const { data, error } = await getClient()
       .from('tool_presets')
-      .insert(doc as Record<string, unknown>)
+      .insert(toSnakeCase(doc as Record<string, unknown>))
       .select()
       .single();
     if (error) throw error;
@@ -807,11 +807,12 @@ export const ToolPresetModel = {
   },
 
   async updateOne(filter: Record<string, unknown>, update: any, options?: { upsert?: boolean }): Promise<{ modifiedCount?: number }> {
-    const updateData = extractUpdateData(update);
-    const id = filter.id || filter._id;
+    const normalizedFilter = normalizeFilter(filter);
+    const updateData = toSnakeCase(extractUpdateData(update));
+    const id = normalizedFilter.id;
     
     if (options?.upsert) {
-      const existing = await this.findOne(filter);
+      const existing = await this.findOne(normalizedFilter);
       if (!existing) {
         await this.create({ ...updateData, id: id as string });
         return { modifiedCount: 1 };
