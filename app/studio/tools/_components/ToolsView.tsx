@@ -9,6 +9,7 @@ import WebGLRenderer from './WebGLRenderer';
 import ParameterPanel from './ParameterPanel';
 import { TOOLS_EXPORT_HEIGHT, TOOLS_EXPORT_WIDTH, WEBGL_TOOLS, WebGLToolConfig } from './tool-configs';
 import { useToast } from "@/hooks/common/use-toast";
+import { formatImageUrl } from "@/lib/api-base";
 
 const TOOLS_RECORDING_FPS = 60;
 const FOUR_K_PIXELS = TOOLS_EXPORT_WIDTH * TOOLS_EXPORT_HEIGHT;
@@ -96,6 +97,25 @@ const ToolsView: React.FC = () => {
     const handleParamChange = (id: string, value: number | string | boolean) => {
         setParamValues(prev => ({ ...prev, [id]: value }));
     };
+
+    // Process paramValues for adapter: convert storageKey to accessible URL for image parameters
+    const getProcessedParamValues = (tool: WebGLToolConfig | null, values: Record<string, number | string | boolean>) => {
+        if (!tool) return values;
+        
+        const processed = { ...values };
+        tool.parameters.forEach(param => {
+            if (param.type === 'image') {
+                const value = processed[param.id];
+                if (typeof value === 'string' && value) {
+                    // Convert storageKey to accessible URL
+                    processed[param.id] = formatImageUrl(value);
+                }
+            }
+        });
+        return processed;
+    };
+
+    const processedParamValues = getProcessedParamValues(selectedTool, paramValues);
 
     const waitNextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
@@ -313,7 +333,7 @@ const ToolsView: React.FC = () => {
                                 {selectedTool.type === 'component' && selectedTool.component && (
                                     <div className="w-full max-w-full max-h-full aspect-video rounded-2xl overflow-hidden">
                                         <selectedTool.component
-                                            {...paramValues}
+                                            {...processedParamValues}
                                             onChange={handleParamChange}
                                             renderWidth={TOOLS_EXPORT_WIDTH}
                                             renderHeight={TOOLS_EXPORT_HEIGHT}
