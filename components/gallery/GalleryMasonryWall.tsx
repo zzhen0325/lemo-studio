@@ -166,7 +166,7 @@ export function GalleryMasonryWall({
       columnGutter: 1,
       rowGutter: 1,
     },
-    [columnsCount, layoutKey],
+    [columnsCount, layoutKey, viewport.width],
   );
   const resizeObserver = useResizeObserver(positioner);
   const inflightLoadMoreRef = useRef(false);

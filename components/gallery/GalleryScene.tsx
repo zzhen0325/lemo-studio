@@ -54,7 +54,9 @@ export function GalleryScene({
 
   const hasActiveFilters =
     selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0;
-  const galleryLayoutKey = `${mode}|${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}`;
+  
+  const firstGalleryItemId = filteredGalleryItems[0]?.id ?? 'empty';
+  const galleryLayoutKey = `${mode}|${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}|${firstGalleryItemId}`;
 
   useEffect(() => {
     if (activeInnerTab !== 'gallery' || feed.items.length === 0) {
