@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthStore } from '@/lib/store/auth-store';
+import { usePlaygroundStore } from '@/lib/store/playground-store';
 import type { SortBy } from '@/lib/server/service/history.service';
 import type { Generation } from '@/types/database';
 import { getApiBase } from '@/lib/api-base';
@@ -8,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import { buildGalleryFilterOptions, resolveGalleryItems } from './resolve-gallery-item';
 import type { GalleryFeedPage, GalleryFeedResult } from './types';
+import { dedupeHistoryItems, mergeDisplayHistoryItems } from '@/lib/history-utils';
 
 const GALLERY_PAGE_LIMIT = 24;
 const GALLERY_SYNC_THROTTLE_MS = 15_000;
@@ -74,20 +76,27 @@ function createGalleryFeedKey(
   return buildGalleryFeedRequestUrl(pageIndex + 1, sortBy, viewerUserId);
 }
 
-function dedupeHistoryItems(items: Generation[]) {
-  const seenIds = new Set<string>();
-  const deduped: Generation[] = [];
+export function getGalleryFeedLoadingState({
+  data,
+  error,
+  isValidating,
+  size,
+}: {
+  data?: GalleryFeedPage[];
+  error?: unknown;
+  isValidating: boolean;
+  size: number;
+}) {
+  const hasSettledFirstRequest = Boolean(data) || Boolean(error);
+  const isInitialLoading = !hasSettledFirstRequest && isValidating;
+  const isLoadingMore = Boolean(data && size > data.length && isValidating);
+  const isRefreshing = Boolean(data && data.length > 0 && isValidating && !isLoadingMore);
 
-  for (const item of items) {
-    const key = item.id?.trim() || `${item.createdAt}-${item.outputUrl || ''}`;
-    if (seenIds.has(key)) {
-      continue;
-    }
-    seenIds.add(key);
-    deduped.push(item);
-  }
-
-  return deduped;
+  return {
+    isInitialLoading,
+    isLoadingMore,
+    isRefreshing,
+  };
 }
 
 export function useGalleryFeed({
@@ -97,6 +106,7 @@ export function useGalleryFeed({
 }): GalleryFeedResult {
   const actorId = useAuthStore((state) => state.actorId);
   const ensureSession = useAuthStore((state) => state.ensureSession);
+  const optimisticHistory = usePlaygroundStore((state) => state.generationHistory);
   const lastLatestSyncAtRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -105,6 +115,7 @@ export function useGalleryFeed({
 
   const {
     data,
+    error,
     size,
     setSize,
     isValidating,
@@ -128,18 +139,32 @@ export function useGalleryFeed({
   );
 
   const pages = data || [];
-  const historyItems = useMemo(
+  const serverHistoryItems = useMemo(
     () => dedupeHistoryItems(pages.flatMap((page) => page.history)),
     [pages],
+  );
+  const historyItems = useMemo(
+    () => mergeDisplayHistoryItems({
+      optimisticItems: optimisticHistory,
+      serverItems: serverHistoryItems,
+    }),
+    [optimisticHistory, serverHistoryItems],
   );
   const resolvedItems = useMemo(() => resolveGalleryItems(historyItems), [historyItems]);
   const items = useMemo(() => resolvedItems.filter((item) => item.isImageVisible), [resolvedItems]);
   const promptItems = useMemo(() => resolvedItems.filter((item) => item.isPromptVisible), [resolvedItems]);
   const filterOptions = useMemo(() => buildGalleryFilterOptions(resolvedItems), [resolvedItems]);
 
-  const isInitialLoading = !data && isValidating;
-  const isLoadingMore = Boolean(data && size > data.length && isValidating);
-  const isRefreshing = Boolean(data && data.length > 0 && isValidating && !isLoadingMore);
+  const {
+    isInitialLoading,
+    isLoadingMore,
+    isRefreshing,
+  } = getGalleryFeedLoadingState({
+    data,
+    error,
+    isValidating,
+    size,
+  });
   const hasMore = pages.length > 0 ? pages[pages.length - 1]?.hasMore ?? true : true;
 
   const loadMore = useCallback(async () => {

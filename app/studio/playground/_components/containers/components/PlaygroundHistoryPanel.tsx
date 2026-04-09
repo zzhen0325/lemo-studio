@@ -11,11 +11,12 @@ interface PlaygroundHistoryPanelProps {
   isLoading: boolean;
   isLoadingMore: boolean;
   onRegenerate: (result: Generation) => void;
-  onApplyModelFromHistory: (result: Generation) => void;
   onDownload: (imageUrl: string) => void;
   onEdit: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onUsePrompt: (result: Generation) => void;
+  onUseAll: (result: Generation) => void | Promise<void>;
+  onUseModel: (result: Generation) => void | Promise<void>;
   onBatchUse: (results: Generation[]) => void;
 }
 
@@ -29,11 +30,12 @@ export function PlaygroundHistoryPanel({
   isLoading,
   isLoadingMore,
   onRegenerate,
-  onApplyModelFromHistory,
   onDownload,
   onEdit,
   onImageClick,
   onUsePrompt,
+  onUseAll,
+  onUseModel,
   onBatchUse,
 }: PlaygroundHistoryPanelProps) {
   return (
@@ -41,14 +43,13 @@ export function PlaygroundHistoryPanel({
       <HistoryList
         variant="sidebar"
         history={history}
-        onRegenerate={(result) => {
-          onApplyModelFromHistory(result);
-          onRegenerate(result);
-        }}
+        onRegenerate={onRegenerate}
         onDownload={onDownload}
         onEdit={onEdit}
         onImageClick={onImageClick}
         onUsePrompt={onUsePrompt}
+        onUseAll={onUseAll}
+        onUseModel={onUseModel}
         onBatchUse={onBatchUse}
         layoutMode={historyLayoutMode}
         onLayoutModeChange={onHistoryLayoutModeChange}

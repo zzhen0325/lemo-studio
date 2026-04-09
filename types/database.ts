@@ -94,6 +94,8 @@ export interface ViewerState {
   hasLiked: boolean;
 }
 
+export type ClientHistorySyncState = 'generating' | 'syncing' | 'persist_failed';
+
 export interface Generation {
   id: string;
   userId: string;
@@ -106,6 +108,10 @@ export interface Generation {
   progress?: number;
   progressStage?: string;
   createdAt: string;
+
+  // Client-only optimistic sync state for History / Gallery overlays.
+  clientSyncState?: ClientHistorySyncState;
+  persistError?: string;
   
   // 交互统计
   interactionStats?: InteractionStats;

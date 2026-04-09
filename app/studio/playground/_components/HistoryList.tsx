@@ -103,6 +103,8 @@ const HistoryList = function HistoryList({
   onEdit,
   onImageClick,
   onUsePrompt,
+  onUseAll,
+  onUseModel,
   onBatchUse,
   variant = 'default',
   onLayoutModeChange,
@@ -390,6 +392,8 @@ const HistoryList = function HistoryList({
                         onEdit={onEdit}
                         onImageClick={onImageClick}
                         onUsePrompt={onUsePrompt}
+                        onUseAll={onUseAll}
+                        onUseModel={onUseModel}
                         onRefImageClick={(url, id) => {
                           setPreviewImage(url, id);
                         }}
@@ -441,6 +445,8 @@ const HistoryList = function HistoryList({
                           onEdit={onEdit}
                           onImageClick={onImageClick}
                           onUsePrompt={onUsePrompt}
+                          onUseAll={onUseAll}
+                          onUseModel={onUseModel}
                           onRefImageClick={(url, id) => {
                             setPreviewImage(url, id);
                           }}

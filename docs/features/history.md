@@ -21,7 +21,8 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 - `useHistory` 使用 `useSWRInfinite` 分页拉取历史列表（默认 limit=50）。
 - 触底加载下一页，`hasMore` 控制是否继续。
-- 通过 SWR `mutate`/controller 可在生成完成后局部更新列表，避免整页刷新。
+- 服务端 SWR 只承载已持久化的 history 真值；本地生成中的 optimistic 记录通过 Playground store 的 overlay 叠加到 History 面板，不再直接写回 SWR page。
+- 生成完成但尚未被服务端 feed 接管的记录会显示 `Syncing...`，持久化失败会显示 `Save failed`，避免记录“出现后消失”。
 
 ### 删除与交互
 
@@ -57,14 +58,17 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 ## 状态 / 数据流
 
-- History 列表数据由 SWR 管理（服务端数据）；选择态、面板 UI 状态等属于本地 UI 状态。
-- 生成完成后会写入 `/api/history` 并通过 SWR/局部 controller 同步回列表。
+- History 列表展示数据 = `optimistic overlay + SWR history`，按记录 id 去重并优先展示服务端真值。
+- Zustand 仅保存本地 overlay 与 UI 状态；SWR 只保存服务端 history 真值。
+- 生成、Describe、Prompt Optimization 等本地记录先进入 overlay，再异步写入 `/api/history`；服务端记录出现后会自然覆盖本地 overlay 版本。
 
 ## 关键规则
 
 - History 与 Gallery 共用同一后端数据源：修改 history 查询/写入/删除语义需同时评估两个视图的影响。
 - 用户归属由服务端从 session 推导；删除与更新必须按 owner 限制范围。
 - 读取历史记录时如需规范化输出图/参考图 URL，只能补丁式更新 URL 相关字段，不能覆盖已有 `config` 元数据（如 prompt、model、workflow/edit 标记）。
+- `Use All`、`Use Model`、`Rerun` 现在统一走 Playground 容器的参数回填入口，避免卡片内部各自拼装配置造成 workflow、preset、reference image、edit 状态不一致。
+- workflow 历史记录回填时必须保持 `config.model = Workflow`、`config.baseModel = 原底模` 的组合；否则 UI 虽然显示选中了 workflow，再次生成仍可能误走普通文生图链路。
 
 ## 边界 / 非职责范围
 
@@ -79,5 +83,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 ## 更新记录
 
+- 2026-04-09：History 面板改为 `optimistic overlay + SWR truth` 双层合成；生成中与保存失败态不再直接写入 SWR page，并新增 `Syncing...` / `Save failed` 可见状态。
+- 2026-04-09：`Use All` / `Use Model` / `Rerun` 的参数回填统一收口到页面级 handler，修正 workflow 记录与 prompt optimization 记录回填不一致的问题。
 - 2026-04-08：补充 History 模块文档，梳理入口、SWR 数据流、API 依赖与边界。
 - 2026-04-08：补充历史记录 URL 规范化的配置保留规则，并明确 Describe 分组批量动作文案为 `Generate ALL`。

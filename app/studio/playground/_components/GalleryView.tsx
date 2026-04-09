@@ -15,11 +15,13 @@ export default function GalleryView({
   onSelectItem,
   onUsePrompt,
   onUseImage,
+  onRerun,
   historyController,
 }: {
   onSelectItem?: (item: Generation, items?: Generation[]) => void;
   onUsePrompt?: (item: Generation) => void;
   onUseImage?: (item: Generation) => void | Promise<void>;
+  onRerun?: (item: Generation) => Promise<void>;
   historyController?: Pick<PlaygroundHistoryController, 'setHistory' | 'getHistoryItem'>;
 }) {
   const [sortBy, setSortBy] = useState<Exclude<SortBy, 'interactionPriority'>>('recent');
@@ -76,6 +78,11 @@ export default function GalleryView({
       return;
     }
 
+    if (onRerun) {
+      await onRerun(item);
+      return;
+    }
+
     const store = usePlaygroundStore.getState();
     const {
       applyImages,
@@ -125,7 +132,7 @@ export default function GalleryView({
       title: 'Rerunning',
       description: '正在根据此图片重新生成...',
     });
-  }, [handleGenerate, toast]);
+  }, [handleGenerate, onRerun, toast]);
 
   return (
     <GalleryScene

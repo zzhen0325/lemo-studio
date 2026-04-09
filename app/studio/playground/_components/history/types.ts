@@ -8,6 +8,8 @@ export interface HistoryListProps {
   onEdit?: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onUsePrompt?: (result: Generation) => void;
+  onUseAll?: (result: Generation) => void | Promise<void>;
+  onUseModel?: (result: Generation) => void | Promise<void>;
   isGenerating?: boolean;
   variant?: 'default' | 'sidebar';
   onBatchUse?: (results: Generation[], sourceImage?: string) => void;

@@ -328,6 +328,26 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         [ensureHistoryIdentity, setHistoryEntries],
     );
 
+    const markHistoryPersistState = useCallback((
+        uniqueId: string,
+        clientSyncState: Generation['clientSyncState'],
+        persistError?: string,
+    ) => {
+        upsertHistoryEntry(uniqueId, (existing) => ({
+            ...(existing || {
+                id: uniqueId,
+                userId: resolveEffectiveUserId(),
+                projectId: 'default',
+                outputUrl: '',
+                config: usePlaygroundStore.getState().config,
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+            }),
+            clientSyncState,
+            persistError,
+        }));
+    }, [resolveEffectiveUserId, upsertHistoryEntry]);
+
     const updateHistoryAndSave = useCallback((uniqueId: string, result: Generation) => {
         let recordToPersist: Generation | null = null;
         upsertHistoryEntry(uniqueId, (existing) => {
@@ -343,13 +363,22 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         // Internal helper to avoid re-render issues
         const saveToBackend = async (data: Generation) => {
             try {
-                await fetch(`${getApiBase()}/history`, {
+                const response = await fetch(`${getApiBase()}/history`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                 });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                markHistoryPersistState(uniqueId, 'syncing');
             } catch (err) {
                 console.error('Failed to save history:', err);
+                markHistoryPersistState(
+                    uniqueId,
+                    'persist_failed',
+                    err instanceof Error ? err.message : 'Failed to save history',
+                );
                 toast({ title: "保存历史失败", description: err instanceof Error ? err.message : "未知错误", variant: "destructive" });
             }
         };
@@ -359,7 +388,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         if (normalizedRecord.status === 'completed') {
             setIsGenerating(false);
         }
-    }, [ensureHistoryIdentity, toast, upsertHistoryEntry]);
+    }, [ensureHistoryIdentity, markHistoryPersistState, toast, upsertHistoryEntry]);
 
     const handleUnifiedImageGen = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const uploadedSourceUrls = usePlaygroundStore.getState().uploadedImages
@@ -534,6 +563,8 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                         outputUrl: previewUrl,
                         status: 'completed',
                         config: { ...(existing?.config || finalGenConfig), ...finalGenConfig },
+                        clientSyncState: 'syncing',
+                        persistError: undefined,
                     }));
 
                     const saveTask = (async () => {
@@ -571,6 +602,11 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                             shouldRevokePreview = savedPath !== previewUrl;
                         } catch (err) {
                             console.error("Failed to save streamed image:", err);
+                            markHistoryPersistState(
+                                uniqueId,
+                                'persist_failed',
+                                err instanceof Error ? err.message : 'Failed to save streamed image',
+                            );
                         } finally {
                             if (shouldRevokePreview) revokeIfBlobUrl(previewUrl);
                         }
@@ -610,6 +646,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                 config: finalGenConfig,
                 status: 'completed',
                 createdAt: generationTime,
+                clientSyncState: 'syncing',
             };
             upsertHistoryEntry(uniqueId, (existing) => ({
                 ...(existing ?? previewGen),
@@ -628,7 +665,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                         localSourceIds: effectiveLocalIds,
                         baseModel: modelId,
                     });
-                    if (!savedPath) return;
+                    if (!savedPath) {
+                        markHistoryPersistState(uniqueId, 'persist_failed', 'Failed to save image output');
+                        return;
+                    }
                     updateHistoryAndSave(uniqueId, {
                         ...previewGen,
                         outputUrl: savedPath,
@@ -636,6 +676,11 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                     shouldRevokePreview = savedPath !== previewUrl;
                 } catch (err) {
                     console.error("Unified save-image background task failed:", err);
+                    markHistoryPersistState(
+                        uniqueId,
+                        'persist_failed',
+                        err instanceof Error ? err.message : 'Failed to save generated image',
+                    );
                 } finally {
                     if (shouldRevokePreview) revokeIfBlobUrl(previewUrl);
                 }
@@ -643,7 +688,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             return previewGen;
         }
         throw new Error(`${selectedModel} returned empty result`);
-    }, [selectedModel, defaultImageModelId, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, normalizeGeminiInputImage, resolveEffectiveUserId, getModelEntryById, getHistoryItem, upsertHistoryEntry]);
+    }, [selectedModel, defaultImageModelId, updateHistoryAndSave, callImage, toast, saveImageToOutputs, toPreviewUrl, revokeIfBlobUrl, fetchImageAsDataUrl, normalizeGeminiInputImage, resolveEffectiveUserId, getModelEntryById, getHistoryItem, upsertHistoryEntry, markHistoryPersistState]);
 
     const handleWorkflow = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         if (!selectedWorkflowConfig) throw new Error("未选择工作流");
@@ -749,6 +794,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                 config: { ...toUnifiedConfigFromLegacy(currentConfig), model: MODEL_ID_WORKFLOW, baseModel: currentConfig.model || MODEL_ID_WORKFLOW, workflowName: selectedWorkflowConfig.viewComfyJSON.title, loras: usePlaygroundStore.getState().selectedLoras, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId },
                                 status: 'completed',
                                 createdAt: generationTime,
+                                clientSyncState: 'syncing',
                             };
                             upsertHistoryEntry(uniqueId, (existing) => ({
                                 ...(existing ?? previewGen),
@@ -768,7 +814,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                         localSourceIds: effectiveLocalIds,
                                         baseModel: currentConfig.model || MODEL_ID_WORKFLOW,
                                     });
-                                    if (!savedPath) return;
+                                    if (!savedPath) {
+                                        markHistoryPersistState(uniqueId, 'persist_failed', 'Failed to save workflow output');
+                                        return;
+                                    }
                                     updateHistoryAndSave(uniqueId, {
                                         ...previewGen,
                                         outputUrl: savedPath,
@@ -776,6 +825,11 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                     shouldRevokePreview = true;
                                 } catch (e) {
                                     console.error("Workflow save-image background task failed:", e);
+                                    markHistoryPersistState(
+                                        uniqueId,
+                                        'persist_failed',
+                                        e instanceof Error ? e.message : 'Failed to save workflow image',
+                                    );
                                 } finally {
                                     if (shouldRevokePreview) URL.revokeObjectURL(previewUrl);
                                 }
@@ -787,7 +841,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             });
         });
         return previewResult;
-    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs, resolveEffectiveUserId, upsertHistoryEntry]);
+    }, [selectedWorkflowConfig, updateHistoryAndSave, runComfyWorkflow, blobToDataURL, saveImageToOutputs, resolveEffectiveUserId, upsertHistoryEntry, markHistoryPersistState]);
 
     const handleFluxKlein = useCallback(async (uniqueId: string, taskId: string, currentConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const effectiveSourceUrls = sourceImageUrls.length > 0 ? sourceImageUrls : usePlaygroundStore.getState().uploadedImages.map(img => img.path || img.previewUrl);
@@ -822,6 +876,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                 config: { ...toUnifiedConfigFromLegacy(currentConfig), model: MODEL_ID_FLUX_KLEIN, baseModel: MODEL_ID_FLUX_KLEIN, presetName: currentConfig.presetName, sourceImageUrls: effectiveSourceUrls, localSourceIds: effectiveLocalIds, editConfig: currentConfig.editConfig, isEdit: currentConfig.isEdit, parentId: currentConfig.parentId, taskId: currentConfig.taskId || taskId },
                                 status: 'completed',
                                 createdAt: generationTime,
+                                clientSyncState: 'syncing',
                             };
                             upsertHistoryEntry(uniqueId, (existing) => ({
                                 ...(existing ?? previewGen),
@@ -841,7 +896,10 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                         localSourceIds: effectiveLocalIds,
                                         baseModel: MODEL_ID_FLUX_KLEIN,
                                     });
-                                    if (!savedPath) return;
+                                    if (!savedPath) {
+                                        markHistoryPersistState(uniqueId, 'persist_failed', 'Failed to save FluxKlein output');
+                                        return;
+                                    }
                                     updateHistoryAndSave(uniqueId, {
                                         ...previewGen,
                                         outputUrl: savedPath,
@@ -849,6 +907,11 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
                                     shouldRevokePreview = true;
                                 } catch (e) {
                                     console.error("FluxKlein save-image background task failed:", e);
+                                    markHistoryPersistState(
+                                        uniqueId,
+                                        'persist_failed',
+                                        e instanceof Error ? e.message : 'Failed to save FluxKlein image',
+                                    );
                                 } finally {
                                     if (shouldRevokePreview) URL.revokeObjectURL(previewUrl);
                                 }
@@ -860,7 +923,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
             });
         });
         return previewResult;
-    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave, resolveEffectiveUserId, upsertHistoryEntry]);
+    }, [runFluxKleinWorkflow, blobToDataURL, saveImageToOutputs, updateHistoryAndSave, resolveEffectiveUserId, upsertHistoryEntry, markHistoryPersistState]);
 
     const executeGeneration = useCallback(async (uniqueId: string, taskId: string, finalConfig: GenerationConfig, generationTime: string, sourceImageUrls: string[] = [], localSourceId?: string, localSourceIds: string[] = []) => {
         const unifiedCfg = toUnifiedConfigFromLegacy(finalConfig);
@@ -987,11 +1050,11 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         if (!isWorkflow) { configForHistory.loras = undefined; configForHistory.workflowName = undefined; }
         const uniqueId = `gen-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
         const effectiveUserId = resolveEffectiveUserId();
-        const loadingGen: Generation = { id: uniqueId, userId: effectiveUserId, projectId: 'default', outputUrl: "", config: { ...configForHistory, sourceImageUrls, localSourceIds, baseModel: effectiveModel, taskId, isPreset: !!(finalConfig.presetName) }, status: 'pending', createdAt: generationTime };
+        const loadingGen: Generation = { id: uniqueId, userId: effectiveUserId, projectId: 'default', outputUrl: "", config: { ...configForHistory, sourceImageUrls, localSourceIds, baseModel: effectiveModel, taskId, isPreset: !!(finalConfig.presetName) }, status: 'pending', createdAt: generationTime, clientSyncState: 'generating' };
         setHistoryEntries((prev: Generation[]) => [loadingGen, ...prev]);
         if (isBackground) return uniqueId;
         return await executeGeneration(uniqueId, taskId, finalConfig, generationTime, sourceImageUrls, localSourceId, localSourceIds);
-    }, [setHasGenerated, setHistoryEntries, executeGeneration, toast, resolveEffectiveUserId]);
+    }, [setHasGenerated, setHistoryEntries, executeGeneration, toast, resolveEffectiveUserId, markHistoryPersistState]);
 
     const syncHistoryConfig = useCallback(async (updates: { id?: string; taskId?: string; config: Partial<GenerationConfig> }) => {
         const { id, taskId, config: newConfig } = updates;

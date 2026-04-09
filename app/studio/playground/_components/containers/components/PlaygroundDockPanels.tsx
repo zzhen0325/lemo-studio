@@ -23,6 +23,7 @@ interface PlaygroundDockPanelsProps {
   onImageClick: (result: import("@/types/database").Generation) => void;
   onUsePrompt?: (result: import("@/types/database").Generation) => void;
   onUseImage?: (result: import("@/types/database").Generation) => void | Promise<void>;
+  onRerun?: (result: import("@/types/database").Generation) => Promise<void>;
   onShortcutQuickApply?: (moodboardCard: MoodboardCard) => void;
   onMoodboardApply?: () => void;
   isGenerating: boolean;
@@ -38,6 +39,7 @@ export function PlaygroundDockPanels({
   onImageClick,
   onUsePrompt,
   onUseImage,
+  onRerun,
   onShortcutQuickApply,
   onMoodboardApply,
   isGenerating,
@@ -62,6 +64,7 @@ export function PlaygroundDockPanels({
                 onSelectItem={onImageClick}
                 onUsePrompt={onUsePrompt}
                 onUseImage={onUseImage}
+                onRerun={onRerun}
                 historyController={historyController}
               />
             </Suspense>

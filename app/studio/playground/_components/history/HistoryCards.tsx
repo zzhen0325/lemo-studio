@@ -203,6 +203,8 @@ export const HistoryCard = React.memo(function HistoryCard({
   onImageClick,
   onRefImageClick,
   onUsePrompt,
+  onUseAll,
+  onUseModel,
   layoutMode = 'list',
   isSelectionMode,
   isSelected,
@@ -219,6 +221,8 @@ export const HistoryCard = React.memo(function HistoryCard({
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onRefImageClick: (url: string, id: string) => void;
   onUsePrompt?: (result: Generation) => void;
+  onUseAll?: (result: Generation) => void | Promise<void>;
+  onUseModel?: (result: Generation) => void | Promise<void>;
   layoutMode?: 'grid' | 'list';
   isSelectionMode?: boolean;
   isSelected?: boolean;
@@ -335,6 +339,20 @@ export const HistoryCard = React.memo(function HistoryCard({
                   {result.progress ? `${Math.round(result.progress)}%` : 'Generating...'}
                   {result.progressStage ? ` - ${result.progressStage}` : ''}
                 </span>
+              </>
+            )}
+
+            {result.status !== 'pending' && result.clientSyncState === 'syncing' && (
+              <>
+                <span className="opacity-40">/</span>
+                <span className="text-amber-300/80 font-medium">Syncing...</span>
+              </>
+            )}
+
+            {result.clientSyncState === 'persist_failed' && (
+              <>
+                <span className="opacity-40">/</span>
+                <span className="text-red-400 font-medium">Save failed</span>
               </>
             )}
           </div>
@@ -560,6 +578,11 @@ export const HistoryCard = React.memo(function HistoryCard({
                     return;
                   }
 
+                  if (onUseAll) {
+                    void onUseAll(result);
+                    return;
+                  }
+
                   if (config) {
                     const effectiveModel = config.baseModel || config.model || '';
                     // 1. 回填模型和参数
@@ -684,6 +707,18 @@ export const HistoryCard = React.memo(function HistoryCard({
                   {allResults.length}
                 </div>
               )}
+
+              {result.status !== 'pending' && result.clientSyncState === 'syncing' && (
+                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded-md border border-amber-400/20 text-[10px] text-amber-200 font-mono z-20 shadow-lg">
+                  Syncing
+                </div>
+              )}
+
+              {result.clientSyncState === 'persist_failed' && (
+                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 backdrop-blur-md rounded-md border border-red-400/30 text-[10px] text-red-300 font-mono z-20 shadow-lg">
+                  Save failed
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -735,6 +770,10 @@ export const HistoryCard = React.memo(function HistoryCard({
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
+              if (onUseModel) {
+                void onUseModel(result);
+                return;
+              }
               if (result.config) {
                 const effectiveModel = result.config.baseModel || result.config.model;
                 applyModel(effectiveModel, {
@@ -842,6 +881,18 @@ export const TextHistoryCard = React.memo(function TextHistoryCard({
         <span className="block w-1 h-1 rounded-full bg-white/20" />
         {result.status === 'pending' ? 'Thinking...' : title}
       </div>
+
+      {result.status !== 'pending' && result.clientSyncState === 'syncing' && (
+        <div className="mb-3 text-[10px] uppercase font-medium text-amber-300/80">
+          Syncing...
+        </div>
+      )}
+
+      {result.clientSyncState === 'persist_failed' && (
+        <div className="mb-3 text-[10px] uppercase font-medium text-red-400">
+          Save failed
+        </div>
+      )}
 
       <div className="flex-1 overflow-hidden">
         {result.status === 'pending' ? (

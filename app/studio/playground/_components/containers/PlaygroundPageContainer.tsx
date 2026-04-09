@@ -125,6 +125,11 @@ import {
   buildGenerationOutputLookup,
   getMoodboardImageMatchKey,
 } from "@/app/studio/playground/_lib/moodboard-image-match";
+import {
+  mergeDisplayHistoryItems,
+  removeHistoryItemsById,
+  upsertHistoryItems,
+} from "@/lib/history-utils";
 
 
 import gsap from "gsap";
@@ -207,6 +212,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
   const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
+  const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
   const actorId = useAuthStore((state) => state.actorId);
   const currentUser = useAuthStore((state) => state.currentUser);
   const ensureSession = useAuthStore((state) => state.ensureSession);
@@ -279,17 +285,29 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     isLoading: isHistoryLoading,
     isLoadingMore: isHistoryLoadingMore,
     hasMore: hasMoreHistory,
-    setHistory,
     mutate: mutateHistory,
-    getHistoryItem,
   } = useHistory();
-  const historyController = useMemo(() => ({
-    setHistory,
-    getHistoryItem,
-  }), [getHistoryItem, setHistory]);
-  const moodboardImageRecordLookup = useMemo(
-    () => buildGenerationOutputLookup([...generationHistory, ...filteredHistory]),
+  const combinedHistory = useMemo(
+    () => mergeDisplayHistoryItems({
+      optimisticItems: generationHistory,
+      serverItems: filteredHistory,
+    }),
     [filteredHistory, generationHistory],
+  );
+  const getCombinedHistoryItem = useCallback((matcher: string | ((item: Generation) => boolean)) => {
+    const localFirstHistory = [...generationHistory, ...filteredHistory];
+    if (typeof matcher === 'string') {
+      return localFirstHistory.find((item) => item.id === matcher);
+    }
+    return localFirstHistory.find(matcher);
+  }, [filteredHistory, generationHistory]);
+  const historyController = useMemo(() => ({
+    setHistory: setGenerationHistory,
+    getHistoryItem: getCombinedHistoryItem,
+  }), [getCombinedHistoryItem, setGenerationHistory]);
+  const moodboardImageRecordLookup = useMemo(
+    () => buildGenerationOutputLookup(combinedHistory),
+    [combinedHistory],
   );
 
   const [selectedAIModel, setSelectedAIModel] = useState<AIModel>('auto'); // 默认使用settings中的配置
@@ -300,9 +318,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const [isStackHovered, setIsStackHovered] = useState(false);
   const [isPresetManagerOpen, setIsPresetManagerOpen] = useState(false);
   const [isDescribing, setIsDescribing] = useState(false);
-  const [describeOptimisticHistory, setDescribeOptimisticHistory] = useState<Generation[]>([]);
-  const [isPersistingDescribeHistory, setIsPersistingDescribeHistory] = useState(false);
-  const [describePersistenceFailed, setDescribePersistenceFailed] = useState(false);
   // const [isDescribeMode, setIsDescribeMode] = useState(false); // Refactored to viewMode
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverPanel, setIsDraggingOverPanel] = useState(false);
@@ -463,26 +478,50 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       });
       if (!response.ok) {
         console.error('Failed to save history: non-ok response', { id: item.id, status: response.status });
+        setGenerationHistory((prev) => prev.map((current) => (
+          current.id === item.id
+            ? { ...current, clientSyncState: 'persist_failed', persistError: `HTTP ${response.status}` }
+            : current
+        )));
         return false;
       }
+      setGenerationHistory((prev) => prev.map((current) => (
+        current.id === item.id
+          ? { ...current, clientSyncState: 'syncing', persistError: undefined }
+          : current
+      )));
       return true;
     } catch (error) {
       console.error('Failed to save history:', error);
+      setGenerationHistory((prev) => prev.map((current) => (
+        current.id === item.id
+          ? {
+            ...current,
+            clientSyncState: 'persist_failed',
+            persistError: error instanceof Error ? error.message : 'Unknown error',
+          }
+          : current
+      )));
       // Optional: Add toast notification if needed, but avoiding it to keep behavior identical to before
       return false;
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, setGenerationHistory]);
 
   const prependHistoryItems = React.useCallback((items: Generation[]) => {
     if (items.length === 0) {
       return;
     }
 
-    setHistory((prev: Generation[]) => [...items, ...prev]);
-    items.forEach((item) => {
+    const optimisticItems = items.map((item) => ({
+      ...item,
+      clientSyncState: item.clientSyncState || 'syncing',
+      persistError: undefined,
+    }));
+    setGenerationHistory((prev) => upsertHistoryItems(prev, optimisticItems));
+    optimisticItems.forEach((item) => {
       void saveHistoryToBackend(item);
     });
-  }, [saveHistoryToBackend, setHistory]);
+  }, [saveHistoryToBackend, setGenerationHistory]);
 
   useEffect(() => {
     const fetchWorkflows = async () => {
@@ -642,7 +681,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     hasPrev,
     hasNext,
   } = useResultModalState({
-    filteredHistory,
+    filteredHistory: combinedHistory,
     viewMode,
     ensureDockMode: () => {
       setViewMode('dock');
@@ -676,40 +715,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     shortcutPreviewCurrentIndex !== -1 && shortcutPreviewCurrentIndex < shortcutPreviewResults.length - 1;
   const hasStructuredShortcutSession = Boolean(activeShortcutTemplate?.optimizationSession);
   const shouldHideHomeEntryCards = hasStructuredShortcutSession;
-  const historyForPanel = useMemo(() => {
-    if (describeOptimisticHistory.length === 0) {
-      return filteredHistory;
-    }
-
-    const optimisticIds = new Set(describeOptimisticHistory.map((item) => item.id));
-    return [
-      ...describeOptimisticHistory,
-      ...filteredHistory.filter((item) => !optimisticIds.has(item.id)),
-    ];
-  }, [describeOptimisticHistory, filteredHistory]);
-
-  useEffect(() => {
-    if (describeOptimisticHistory.length === 0) {
-      return;
-    }
-
-    if (isPersistingDescribeHistory) {
-      return;
-    }
-
-    if (describePersistenceFailed) {
-      return;
-    }
-
-    const optimisticIds = new Set(describeOptimisticHistory.map((item) => item.id));
-    const persistedCount = filteredHistory.reduce((count, item) => {
-      return optimisticIds.has(item.id) ? count + 1 : count;
-    }, 0);
-
-    if (persistedCount === optimisticIds.size) {
-      setDescribeOptimisticHistory([]);
-    }
-  }, [describeOptimisticHistory, filteredHistory, isPersistingDescribeHistory, describePersistenceFailed]);
+  const historyForPanel = combinedHistory;
 
   const normalizeGenerationConfigForHistory = useCallback((rawConfig: GenerationConfig): GenerationConfig => {
     const isBannerGeneration = rawConfig.generationMode === 'banner';
@@ -1365,8 +1371,19 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       const restoredDocument = createShortcutEditorDocumentFromText(restoredPrompt);
       const restoredConfig = withPromptOptimizationSource(
         {
-          ...withoutPromptOptimizationSource(usePlaygroundStore.getState().config),
+          ...withoutPromptOptimizationSource({
+            ...usePlaygroundStore.getState().config,
+            ...result.config,
+          }),
           prompt: restoredPrompt,
+          model: result.config?.model || usePlaygroundStore.getState().config.model,
+          baseModel: result.config?.baseModel || result.config?.model || usePlaygroundStore.getState().config.baseModel,
+          width: result.config?.width || usePlaygroundStore.getState().config.width,
+          height: result.config?.height || usePlaygroundStore.getState().config.height,
+          imageSize: result.config?.imageSize || usePlaygroundStore.getState().config.imageSize,
+          aspectRatio: result.config?.aspectRatio || usePlaygroundStore.getState().config.aspectRatio,
+          isPreset: false,
+          presetName: undefined,
         },
         {
           ...optimizationSource,
@@ -1383,7 +1400,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         appliedPrompt: restoredPrompt,
         editorDocument: restoredDocument,
       });
-      updateConfig(restoredConfig);
+      applyModel(restoredConfig.baseModel || restoredConfig.model, restoredConfig);
 
       toast({
         title: "优化方案已回填",
@@ -1397,7 +1414,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       title: "提示词已应用",
       description: "已将此条提示词填充到输入框",
     });
-  }, [applyModel, applyPlainHistoryPrompt, moodboardCardByCode, setSelectedPresetName, setSelectedWorkflowConfig, toast, updateConfig]);
+  }, [applyModel, applyPlainHistoryPrompt, moodboardCardByCode, setSelectedPresetName, setSelectedWorkflowConfig, toast]);
 
   const handleUseGalleryPrompt = useCallback((result: Generation) => {
     handleUseHistoryPrompt(result);
@@ -2716,7 +2733,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
 
     setIsDescribing(true);
-    setDescribePersistenceFailed(false);
     setHasGenerated(true); // Trigger split layout immediately like generate
     setViewMode('dock');
     setActiveTab('history');
@@ -2752,11 +2768,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       },
       status: 'pending',
       createdAt: startTime,
+      clientSyncState: 'generating',
     }));
 
-    // Insert loading cards
-    setHistory((prev: import('@/types/database').Generation[]) => [...loadingCards, ...prev]);
-    setDescribeOptimisticHistory(loadingCards);
+    setGenerationHistory((prev) => upsertHistoryItems(prev, loadingCards));
 
     try {
       // 1. Convert the first image to base64 if needed, or use existing base64
@@ -2825,25 +2840,26 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           },
           status: 'completed',
           createdAt: startTime,
+          clientSyncState: 'syncing',
         }));
 
-        // Remove loading cards and add real results
-        setDescribeOptimisticHistory(newHistoryItems);
+        setGenerationHistory((prev) => upsertHistoryItems(
+          removeHistoryItemsById(prev, loadingIds),
+          newHistoryItems,
+        ));
 
         // Also save each description to backend and sync to gallery.
         // Keep optimistic cards until persistence round completes to avoid pending->completed flicker/disappear.
-        setIsPersistingDescribeHistory(true);
         try {
           const persistResults = await Promise.all(newHistoryItems.map((item) => saveHistoryToBackend(item)));
           if (persistResults.some(Boolean)) {
             await mutateHistory();
           }
           if (persistResults.some((result) => !result)) {
-            setDescribePersistenceFailed(true);
             toast({ title: "历史同步延迟", description: "部分反推结果尚未写入服务器，当前先保留在本地列表中。", variant: "destructive" });
           }
         } finally {
-          setIsPersistingDescribeHistory(false);
+          setGenerationHistory((prev) => removeHistoryItemsById(prev, loadingIds));
         }
 
         if (rejectedCount > 0 || results.length < loadingIds.length) {
@@ -2856,15 +2872,144 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       }
     } catch (error) {
       console.error("Describe Error:", error);
-      setDescribeOptimisticHistory([]);
-      setIsPersistingDescribeHistory(false);
-      // Remove loading cards on error
-      setHistory((prev: import('@/types/database').Generation[]) => prev.filter(item => !loadingIdSet.has(item.id)));
+      setGenerationHistory((prev) => prev.filter((item) => !loadingIdSet.has(item.id)));
       toast({ title: "描述失败", description: error instanceof Error ? error.message : "未知错误", variant: "destructive" });
     } finally {
       setIsDescribing(false);
     }
-  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, toast, effectiveUserId, saveHistoryToBackend, mutateHistory]);
+  }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, toast, effectiveUserId, saveHistoryToBackend, mutateHistory, setGenerationHistory]);
+
+  const getRecordSourceImageUrls = useCallback((recordConfig?: Partial<GenerationConfig>) => (
+    recordConfig?.sourceImageUrls
+      || (recordConfig?.editConfig?.referenceImages?.map((image) => image.dataUrl) || [])
+  ), []);
+
+  const findWorkflowForRecord = useCallback((recordConfig?: Partial<GenerationConfig>) => {
+    const workflowName = recordConfig?.workflowName || recordConfig?.presetName;
+    if (!workflowName) {
+      return undefined;
+    }
+
+    return workflows.find((workflow) => (
+      workflow.viewComfyJSON.title === workflowName
+      || workflow.viewComfyJSON.id === workflowName
+    ));
+  }, [workflows]);
+
+  const buildReplayConfigFromRecord = useCallback((result: Generation) => {
+    const originalRecordConfig = { ...(result.config || {}) };
+    delete originalRecordConfig.taskId;
+
+    const currentStoreConfig = { ...usePlaygroundStore.getState().config };
+    delete currentStoreConfig.taskId;
+
+    const sourceImageUrls = getRecordSourceImageUrls(originalRecordConfig);
+    const localSourceIds = originalRecordConfig.localSourceIds || [];
+    const normalizedConfig = normalizeHistoryConfigForGeneration({
+      ...currentStoreConfig,
+      ...originalRecordConfig,
+      prompt: originalRecordConfig.prompt || '',
+      width: originalRecordConfig.width || 1024,
+      height: originalRecordConfig.height || 1024,
+      model: originalRecordConfig.model || currentStoreConfig.model,
+      baseModel: originalRecordConfig.baseModel || currentStoreConfig.baseModel,
+      loras: originalRecordConfig.loras || [],
+      sourceImageUrls,
+      localSourceIds,
+      taskId: undefined,
+    } as GenerationConfig);
+
+    return {
+      fullConfig: normalizedConfig,
+      sourceImageUrls,
+      localSourceIds,
+    };
+  }, [getRecordSourceImageUrls]);
+
+  const applyHistoryRecordContext = useCallback(async (
+    result: Generation,
+    mode: 'full' | 'model' = 'full',
+  ) => {
+    const { fullConfig, sourceImageUrls, localSourceIds } = buildReplayConfigFromRecord(result);
+    const currentStoreConfig = usePlaygroundStore.getState().config;
+    const nextPrompt = mode === 'full' ? (fullConfig.prompt || '') : (currentStoreConfig.prompt || '');
+    const effectiveModel = String(fullConfig.baseModel || fullConfig.model || defaultImageModelId);
+    const matchedWorkflow = findWorkflowForRecord(result.config);
+    const appliedPresetName = fullConfig.presetName || (matchedWorkflow ? matchedWorkflow.viewComfyJSON.title : undefined);
+
+    setActiveShortcutTemplate(null);
+
+    if (matchedWorkflow) {
+      const appliedConfig = withoutPromptOptimizationSource({
+        ...currentStoreConfig,
+        ...fullConfig,
+        prompt: nextPrompt,
+        model: MODEL_ID_WORKFLOW,
+        baseModel: effectiveModel,
+        workflowName: matchedWorkflow.viewComfyJSON.title,
+        loras: fullConfig.loras || [],
+        isPreset: !!appliedPresetName,
+        presetName: appliedPresetName,
+        taskId: undefined,
+      });
+      setSelectedWorkflowConfig(matchedWorkflow, fullConfig.presetName || matchedWorkflow.viewComfyJSON.title);
+      setSelectedModel(MODEL_ID_WORKFLOW);
+      updateConfig(appliedConfig);
+      setSelectedPresetName(appliedConfig.presetName);
+
+      if (mode === 'full') {
+        if (sourceImageUrls.length > 0) {
+          await usePlaygroundStore.getState().applyImages(sourceImageUrls);
+        } else {
+          usePlaygroundStore.getState().setUploadedImages([]);
+        }
+      }
+
+      return {
+        fullConfig: appliedConfig,
+        sourceImageUrls,
+        localSourceIds,
+      };
+    } else {
+      const appliedConfig = withoutPromptOptimizationSource({
+        ...fullConfig,
+        prompt: nextPrompt,
+        model: effectiveModel,
+        baseModel: effectiveModel,
+        workflowName: undefined,
+        loras: fullConfig.loras || [],
+        isPreset: !!appliedPresetName,
+        presetName: appliedPresetName,
+        taskId: undefined,
+      });
+      setSelectedWorkflowConfig(undefined);
+      applyModel(effectiveModel, appliedConfig);
+      setSelectedPresetName(appliedConfig.presetName);
+
+      if (mode === 'full') {
+        if (sourceImageUrls.length > 0) {
+          await usePlaygroundStore.getState().applyImages(sourceImageUrls);
+        } else {
+          usePlaygroundStore.getState().setUploadedImages([]);
+        }
+      }
+
+      return {
+        fullConfig: appliedConfig,
+        sourceImageUrls,
+        localSourceIds,
+      };
+    }
+  }, [
+    applyModel,
+    buildReplayConfigFromRecord,
+    defaultImageModelId,
+    findWorkflowForRecord,
+    setSelectedModel,
+    setSelectedPresetName,
+    setSelectedWorkflowConfig,
+    updateConfig,
+  ]);
 
   const handleBatchUse = useCallback(async (results: Generation[]) => {
     if (!results || results.length === 0) return;
@@ -2897,38 +3042,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
 
   const handleRegenerate = async (result: Generation) => {
-    // 1. 从原始记录配置中提取参数，显式排除 taskId，确保 rerun 产生新分组
-    const originalRecordConfig = { ...(result.config || {}) };
-    delete originalRecordConfig.taskId;
+    const {
+      fullConfig,
+      sourceImageUrls,
+      localSourceIds,
+    } = await applyHistoryRecordContext(result, 'full');
 
-    // 2. 从当前状态中提取通用配置，同样显式排除可能存在的陈旧 taskId
-    const currentStoreConfig = { ...usePlaygroundStore.getState().config };
-    delete currentStoreConfig.taskId;
-
-    // 3. 构建完整的 rerun 配置，以原始记录的参数为准
-    const fullConfig: GenerationConfig = {
-      ...currentStoreConfig,
-      ...originalRecordConfig,
-      // 显式确保这些字段保持原始记录的状态
-      prompt: originalRecordConfig.prompt || '',
-      width: originalRecordConfig.width || 1024,
-      height: originalRecordConfig.height || 1024,
-      model: originalRecordConfig.model || currentStoreConfig.model,
-      baseModel: originalRecordConfig.baseModel || currentStoreConfig.baseModel,
-      loras: originalRecordConfig.loras || [],
-      isEdit: originalRecordConfig.isEdit || false,
-      editConfig: originalRecordConfig.editConfig,
-      parentId: originalRecordConfig.parentId,
-      // 显式让 taskId 为空，让 handleGenerate 生成一个全新的 ID
-      taskId: undefined,
-    };
-
-    // 4. 计算应该使用的参考图列表
-    const sourceImageUrls = originalRecordConfig.sourceImageUrls ||
-      (originalRecordConfig.editConfig?.referenceImages?.map(img => img.dataUrl) || []);
-    const localSourceIds = originalRecordConfig.localSourceIds || [];
-
-    // 5. 执行生成
     await handleGenerate({
       configOverride: fullConfig,
       sourceImageUrls,
@@ -2939,6 +3058,22 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const handleDownload = (imageUrl: string) => {
     downloadImage(imageUrl, `PlaygroundV2-${Date.now()}.png`);
   };
+
+  const handleUseHistoryAll = useCallback(async (result: Generation) => {
+    await applyHistoryRecordContext(result, 'full');
+    toast({
+      title: "参数已回填",
+      description: "已恢复此条记录的完整生成上下文。",
+    });
+  }, [applyHistoryRecordContext, toast]);
+
+  const handleUseHistoryModel = useCallback(async (result: Generation) => {
+    await applyHistoryRecordContext(result, 'model');
+    toast({
+      title: "模型参数已回填",
+      description: "已恢复模型、尺寸与相关参数，当前输入内容保持不变。",
+    });
+  }, [applyHistoryRecordContext, toast]);
 
   const handleEditImage = useCallback((historyItem: Generation, isAgain?: boolean) => {
     const getSessionFromGeneration = (item?: Generation): ImageEditorSessionSnapshot | undefined => (
@@ -2987,7 +3122,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           break;
         }
 
-        const parentGeneration = getHistoryItem(parentRecordId);
+        const parentGeneration = getCombinedHistoryItem(parentRecordId);
         if (!parentGeneration) {
           break;
         }
@@ -3032,7 +3167,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       imageEditorSession: initialSession,
     });
     setSelectedPresetName(undefined);
-  }, [config.aspectRatio, config.imageSize, defaultImageModelId, getHistoryItem, selectedModel, setSelectedPresetName, updateConfig]);
+  }, [config.aspectRatio, config.imageSize, defaultImageModelId, getCombinedHistoryItem, selectedModel, setSelectedPresetName, updateConfig]);
 
   const handleEditUploadedImage = useCallback(() => {
     const imageToEdit = usePlaygroundStore.getState().uploadedImages[0];
@@ -3499,19 +3634,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                         isLoading={isHistoryLoading}
                         isLoadingMore={isHistoryLoadingMore}
                         onRegenerate={handleRegenerate}
-                        onApplyModelFromHistory={(result) => {
-                          if (result.config) {
-                            applyModel(result.config.model, {
-                              ...result.config,
-                              loras: result.config.loras || [],
-                              presetName: result.config.presetName,
-                            });
-                          }
-                        }}
                         onDownload={handleDownload}
                         onEdit={handleEditImage}
                         onImageClick={openImageModal}
                         onUsePrompt={handleUseHistoryPrompt}
+                        onUseAll={handleUseHistoryAll}
+                        onUseModel={handleUseHistoryModel}
                         onBatchUse={handleBatchUse}
                       />
                     )}
@@ -3525,6 +3653,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                   onImageClick={openImageModal}
                   onUsePrompt={handleUseGalleryPrompt}
                   onUseImage={handleUseGalleryImage}
+                  onRerun={handleRegenerate}
                   onShortcutQuickApply={handleShortcutQuickApply}
                   onMoodboardApply={() => setViewMode('home')}
                   isGenerating={isGenerating}
