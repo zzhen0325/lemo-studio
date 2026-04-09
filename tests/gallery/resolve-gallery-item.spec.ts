@@ -34,6 +34,7 @@ describe('resolveGalleryItem', () => {
   it('normalizes display and download urls, thumbnail, and prompt metadata', () => {
     const item = resolveGalleryItem(createGeneration(), 0);
 
+    expect(item.previewUrl).toBe('/api/storage/image?key=ljhwZthlaukjlkulzlp%2Fgallery%2Foutput.png&w=384&q=72&format=webp');
     expect(item.displayUrl).toBe('/api/storage/image?key=ljhwZthlaukjlkulzlp%2Fgallery%2Foutput.png');
     expect(item.downloadUrl).toBe(item.displayUrl);
     expect(item.thumbnailUrl).toBe('/api/storage/image?key=ljhwZthlaukjlkulzlp%2Fgallery%2Freference.png');

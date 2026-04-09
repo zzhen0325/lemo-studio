@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   getGalleryPromptCategory,
   type GalleryPromptCategory,
@@ -11,6 +12,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { GalleryFilterPanel } from './GalleryFilterPanel';
 import { GalleryMasonryWall } from './GalleryMasonryWall';
 import { GalleryPromptGrid } from './GalleryPromptGrid';
+import { GalleryStaticWall } from './GalleryStaticWall';
 import { GalleryToolbar } from './GalleryToolbar';
 
 export function GalleryScene({
@@ -20,6 +22,10 @@ export function GalleryScene({
   sortBy,
   onSortByChange,
 }: GallerySceneProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const useStaticLocalFixtureWall =
+    pathname === '/studio/gallery/local' && searchParams.get('wall') !== 'masonry';
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
@@ -90,17 +96,26 @@ export function GalleryScene({
 
               <div data-testid="gallery-view-body" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-t-xl">
                 {activeInnerTab === 'gallery' ? (
-                  <GalleryMasonryWall
-                    items={filteredGalleryItems}
-                    layoutKey={galleryLayoutKey}
-                    isInitialLoading={feed.isInitialLoading}
-                    isLoadingMore={feed.isLoadingMore}
-                    hasMore={feed.hasMore}
-                    onLoadMore={feed.loadMore}
-                    actions={actions}
-                    moodboardData={moodboardData}
-                    allItems={filteredGalleryItems.map((item) => item.raw)}
-                  />
+                  useStaticLocalFixtureWall ? (
+                    <GalleryStaticWall
+                      items={filteredGalleryItems}
+                      actions={actions}
+                      moodboardData={moodboardData}
+                      allItems={filteredGalleryItems.map((item) => item.raw)}
+                    />
+                  ) : (
+                    <GalleryMasonryWall
+                      items={filteredGalleryItems}
+                      layoutKey={galleryLayoutKey}
+                      isInitialLoading={feed.isInitialLoading}
+                      isLoadingMore={feed.isLoadingMore}
+                      hasMore={feed.hasMore}
+                      onLoadMore={feed.loadMore}
+                      actions={actions}
+                      moodboardData={moodboardData}
+                      allItems={filteredGalleryItems.map((item) => item.raw)}
+                    />
+                  )
                 ) : (
                   <GalleryPromptGrid items={filteredPromptItems} actions={actions} />
                 )}

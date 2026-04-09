@@ -94,6 +94,7 @@ function createViewModel(raw: Generation): GalleryItemViewModel {
   return {
     id: raw.id,
     raw,
+    previewUrl: raw.outputUrl || '',
     displayUrl: raw.outputUrl || '',
     downloadUrl: `https://download.example.com/${raw.id}.png`,
     moodboardImagePath: raw.outputUrl || '',
@@ -168,21 +169,36 @@ describe('GalleryImageCard', () => {
     expect(actions.onDownload).toHaveBeenCalledWith(raw, 'https://download.example.com/image-2.png');
   });
 
-  it('shows a thumbnail fallback when the main image fails to load', () => {
+  it('falls back from preview to full image and thumbnail in virtualized mode', () => {
     const raw = createGeneration('image-3');
     raw.config.sourceImageUrls = ['https://example.com/fallback.png'];
     const item = createViewModel(raw);
+    item.previewUrl = 'https://example.com/preview.png';
     const actions = createActions();
 
-    render(<GalleryImageCard item={item} actions={actions} moodboardData={moodboardData} />);
+    render(
+      <GalleryImageCard
+        item={item}
+        actions={actions}
+        moodboardData={moodboardData}
+        renderMode="virtualized"
+      />,
+    );
 
-    fireEvent.error(screen.getByAltText('Generated masterwork'));
-    expect(screen.getByTestId('gallery-card-loading-image-3')).toBeTruthy();
+    const preview = screen.getByAltText('Generated masterwork');
+    expect(preview.getAttribute('src')).toBe('https://example.com/preview.png');
 
-    const fallback = screen.getByAltText('Fallback preview');
-    fireEvent.load(fallback);
+    fireEvent.error(preview);
+    const fullImage = screen.getByAltText('Generated masterwork');
+    expect(fullImage.getAttribute('src')).toBe(raw.outputUrl);
 
-    expect(fallback.className).toContain('opacity-100');
+    fireEvent.error(fullImage);
+    const thumbnail = screen.getByAltText('Generated masterwork');
+    expect(thumbnail.getAttribute('src')).toBe('https://example.com/fallback.png');
+
+    fireEvent.load(thumbnail);
+
+    expect(thumbnail.className).toContain('duration-150');
   });
 
   it('shows an explicit error fallback when no preview can be loaded', () => {

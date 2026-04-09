@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import React from "react";
+import { usePathname } from "next/navigation";
 
 interface PageTransitionProps {
     children: React.ReactNode;
@@ -9,6 +10,17 @@ interface PageTransitionProps {
 }
 
 export default function PageTransition({ children, className }: PageTransitionProps) {
+    const pathname = usePathname();
+    const shouldDisableTransition = pathname === "/studio/gallery/local";
+
+    if (shouldDisableTransition) {
+        return (
+            <div className={`w-full h-full ${className || ''}`}>
+                {children}
+            </div>
+        );
+    }
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 15 }}

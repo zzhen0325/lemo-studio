@@ -26,6 +26,7 @@ export interface GalleryFeedPage {
 export interface GalleryItemViewModel {
   id: string;
   raw: Generation;
+  previewUrl?: string;
   displayUrl: string;
   downloadUrl: string;
   moodboardImagePath: string;

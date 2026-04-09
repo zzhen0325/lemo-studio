@@ -4,7 +4,7 @@ import {
   getPromptCardThumbnailSource,
   shouldShowInGalleryImageWall,
 } from '@/app/studio/playground/_lib/prompt-history';
-import { resolveGalleryImageUrl } from '@/lib/gallery-asset';
+import { resolveGalleryImageUrl, resolveGalleryPreviewUrl } from '@/lib/gallery-asset';
 import type { Generation } from '@/types/database';
 import type { GalleryFilterState, GalleryItemViewModel } from './types';
 
@@ -22,6 +22,7 @@ export function resolveGalleryItem(item: Generation, index: number): GalleryItem
   const prompt = item.config?.prompt?.trim() || '';
   const promptCategory = getGalleryPromptCategory(item.config);
   const outputUrl = item.outputUrl || '';
+  const previewUrl = resolveGalleryPreviewUrl(outputUrl);
   const displayUrl = resolveGalleryImageUrl(outputUrl);
   const sourceImage = item.config?.sourceImageUrls?.[0];
   const sourceImageUrl = sourceImage ? resolveGalleryImageUrl(sourceImage) : undefined;
@@ -31,6 +32,7 @@ export function resolveGalleryItem(item: Generation, index: number): GalleryItem
   return {
     id,
     raw: item,
+    previewUrl,
     displayUrl,
     downloadUrl: displayUrl,
     moodboardImagePath: outputUrl,

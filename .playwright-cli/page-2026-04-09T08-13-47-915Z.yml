@@ -1,0 +1,89 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - img "Lemo Studio" [ref=e6] [cursor=pointer]
+      - navigation [ref=e8]:
+        - button "Playground" [ref=e9] [cursor=pointer]:
+          - generic "Playground" [ref=e10]:
+            - generic [ref=e11]:
+              - generic [ref=e12]: P
+              - generic [ref=e13]: l
+              - generic [ref=e14]: a
+              - generic [ref=e15]: "y"
+              - generic [ref=e16]: g
+              - generic [ref=e17]: r
+              - generic [ref=e18]: o
+              - generic [ref=e19]: u
+              - generic [ref=e20]: "n"
+              - generic [ref=e21]: d
+        - button "Infinite Canvas" [ref=e22] [cursor=pointer]:
+          - generic "Infinite Canvas" [ref=e23]:
+            - generic [ref=e24]:
+              - generic [ref=e25]: I
+              - generic [ref=e26]: "n"
+              - generic [ref=e27]: f
+              - generic [ref=e28]: i
+              - generic [ref=e29]: "n"
+              - generic [ref=e30]: i
+              - generic [ref=e31]: t
+              - generic [ref=e32]: e
+            - generic [ref=e33]:
+              - generic [ref=e34]: C
+              - generic [ref=e35]: a
+              - generic [ref=e36]: "n"
+              - generic [ref=e37]: v
+              - generic [ref=e38]: a
+              - generic [ref=e39]: s
+        - button "Tools" [ref=e40] [cursor=pointer]:
+          - generic "Tools" [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e43]: T
+              - generic [ref=e44]: o
+              - generic [ref=e45]: o
+              - generic [ref=e46]: l
+              - generic [ref=e47]: s
+        - button "Dataset" [ref=e48] [cursor=pointer]:
+          - generic "Dataset" [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: D
+              - generic [ref=e52]: a
+              - generic [ref=e53]: t
+              - generic [ref=e54]: a
+              - generic [ref=e55]: s
+              - generic [ref=e56]: e
+              - generic [ref=e57]: t
+      - button "Sign In" [ref=e59] [cursor=pointer]
+    - main [ref=e60]:
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - button "Gallery" [ref=e70] [cursor=pointer]:
+            - generic "Gallery" [ref=e71]:
+              - generic [ref=e72]:
+                - generic [ref=e73]: G
+                - generic [ref=e74]: a
+                - generic [ref=e75]: l
+                - generic [ref=e76]: l
+                - generic [ref=e77]: e
+                - generic [ref=e78]: r
+                - generic [ref=e79]: "y"
+          - button "Prompt" [ref=e80] [cursor=pointer]:
+            - generic "Prompt" [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e83]: P
+                - generic [ref=e84]: r
+                - generic [ref=e85]: o
+                - generic [ref=e86]: m
+                - generic [ref=e87]: p
+                - generic [ref=e88]: t
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - img [ref=e91]
+            - textbox "Search gallery prompts..." [ref=e94]
+          - button "最新" [ref=e95] [cursor=pointer]:
+            - generic [ref=e96]: 最新
+            - img
+          - button "Filters" [ref=e97] [cursor=pointer]:
+            - img
+            - generic [ref=e98]: Filters
+  - region "Notifications alt+T"
+  - alert [ref=e132]

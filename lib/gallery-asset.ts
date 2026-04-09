@@ -11,6 +11,65 @@
 
 import { getApiBase, extractStorageKeyFromPresignedUrl, STORAGE_KEY_PREFIX } from './api-base';
 
+const GALLERY_PREVIEW_DEFAULT_WIDTH = 384;
+const GALLERY_PREVIEW_DEFAULT_QUALITY = 72;
+const STORAGE_IMAGE_PATH_SUFFIX = '/storage/image';
+
+interface StorageImageOptions {
+  width?: number;
+  quality?: number;
+  format?: 'webp' | 'jpeg' | 'png';
+}
+
+function buildStorageImageUrl(storageKey: string, options?: StorageImageOptions): string {
+  const apiBase = getApiBase();
+  const params = new URLSearchParams({
+    key: storageKey,
+  });
+
+  if (options?.width) {
+    params.set('w', String(options.width));
+  }
+  if (options?.quality) {
+    params.set('q', String(options.quality));
+  }
+  if (options?.format) {
+    params.set('format', options.format);
+  }
+
+  return `${apiBase}/storage/image?${params.toString()}`;
+}
+
+function extractStorageKeyFromGalleryUrl(url: string): string | null {
+  if (!url) {
+    return null;
+  }
+
+  if (url.startsWith(STORAGE_KEY_PREFIX)) {
+    return url;
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return extractStorageKeyFromPresignedUrl(url);
+  }
+
+  if (!url.startsWith('/')) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(url, 'http://placeholder.local');
+    if (!parsed.pathname.endsWith(STORAGE_IMAGE_PATH_SUFFIX)) {
+      return null;
+    }
+
+    const key = parsed.searchParams.get('key');
+    return key?.startsWith(STORAGE_KEY_PREFIX) ? key : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Gallery 专用图片解析函数
  * 
@@ -33,9 +92,9 @@ export function resolveGalleryImageUrl(url: string | undefined | null): string {
   }
   
   // 3. 处理 storageKey 格式（ljhwZthlaukjlkulzlp/...）
-  if (url.startsWith(STORAGE_KEY_PREFIX)) {
-    const apiBase = getApiBase();
-    return `${apiBase}/storage/image?key=${encodeURIComponent(url)}`;
+  const storageKey = extractStorageKeyFromGalleryUrl(url);
+  if (storageKey) {
+    return buildStorageImageUrl(storageKey);
   }
   
   // 4. 处理本地静态资源（以 / 开头）
@@ -45,15 +104,6 @@ export function resolveGalleryImageUrl(url: string | undefined | null): string {
   
   // 5. 处理 HTTP(S) URL
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    // 尝试从 presigned URL 中提取 storageKey
-    const storageKey = extractStorageKeyFromPresignedUrl(url);
-    
-    if (storageKey) {
-      // 成功提取 storageKey，转换为 /storage/image
-      const apiBase = getApiBase();
-      return `${apiBase}/storage/image?key=${encodeURIComponent(storageKey)}`;
-    }
-    
     // 6. 普通第三方外链，直接返回原始 URL
     return url;
   }
@@ -69,4 +119,25 @@ export function resolveGalleryImageUrls(urls: (string | undefined | null)[]): st
   return urls
     .filter((url): url is string => typeof url === 'string' && url.length > 0)
     .map(resolveGalleryImageUrl);
+}
+
+export function resolveGalleryPreviewUrl(url: string | undefined | null): string {
+  if (!url) {
+    return '';
+  }
+
+  const storageKey = extractStorageKeyFromGalleryUrl(url);
+  if (storageKey) {
+    return buildStorageImageUrl(storageKey, {
+      width: GALLERY_PREVIEW_DEFAULT_WIDTH,
+      quality: GALLERY_PREVIEW_DEFAULT_QUALITY,
+      format: 'webp',
+    });
+  }
+
+  if (url.startsWith('local:') || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('/')) {
+    return resolveGalleryImageUrl(url);
+  }
+
+  return resolveGalleryImageUrl(url);
 }

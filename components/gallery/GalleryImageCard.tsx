@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Download, Image as ImageIcon, ImageOff, RefreshCw, Type } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
 import { TooltipButton } from '@/components/ui/tooltip-button';
 import type { GalleryActionHandlers, GalleryItemViewModel, GalleryMoodboardData } from '@/lib/gallery/types';
@@ -24,6 +25,7 @@ interface GalleryImageCardProps {
   actions: GalleryActionHandlers;
   allItems?: import('@/types/database').Generation[];
   moodboardData: GalleryMoodboardData;
+  renderMode?: 'default' | 'virtualized';
 }
 
 export function GalleryImageCard({
@@ -31,52 +33,76 @@ export function GalleryImageCard({
   actions,
   allItems,
   moodboardData,
+  renderMode = 'default',
 }: GalleryImageCardProps) {
+  const pathname = usePathname();
+  const disableLocalFixtureImageMotion = pathname === '/studio/gallery/local';
+  const useLightweightImageRendering = renderMode === 'virtualized' || disableLocalFixtureImageMotion;
+  const imageCandidates = useMemo(() => {
+    const candidates = [
+      useLightweightImageRendering ? (item.previewUrl || item.displayUrl) : item.displayUrl,
+      useLightweightImageRendering && item.previewUrl && item.previewUrl !== item.displayUrl
+        ? item.displayUrl
+        : undefined,
+      item.thumbnailUrl,
+    ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0);
+
+    return candidates.filter((url, index) => candidates.indexOf(url) === index);
+  }, [item.displayUrl, item.previewUrl, item.thumbnailUrl, useLightweightImageRendering]);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(() => (imageCandidates.length > 0 ? 0 : -1));
+  const activeImageUrl = activeImageIndex >= 0 ? imageCandidates[activeImageIndex] : '';
   const [imageState, setImageState] = useState<GalleryImageLoadState>(() => (
-    loadedGalleryImageKeys.has(item.imageLoadKey) ? 'loaded' : (item.displayUrl ? 'loading' : 'error')
+    activeImageUrl ? (loadedGalleryImageKeys.has(activeImageUrl) ? 'loaded' : 'loading') : 'error'
   ));
-  const [thumbnailState, setThumbnailState] = useState<GalleryImageLoadState>(() => (
-    item.thumbnailUrl ? 'loading' : 'error'
-  ));
+  const primaryImagePlaceholder = useLightweightImageRendering || imageState === 'loaded' ? 'empty' : 'blur';
 
   useEffect(() => {
-    setImageState(loadedGalleryImageKeys.has(item.imageLoadKey) ? 'loaded' : (item.displayUrl ? 'loading' : 'error'));
-    setThumbnailState(item.thumbnailUrl ? 'loading' : 'error');
-  }, [item.displayUrl, item.imageLoadKey, item.thumbnailUrl]);
+    const nextImageUrl = imageCandidates[0];
+    setActiveImageIndex(nextImageUrl ? 0 : -1);
+    setImageState(nextImageUrl ? (loadedGalleryImageKeys.has(nextImageUrl) ? 'loaded' : 'loading') : 'error');
+  }, [imageCandidates]);
+
+  const moveToNextImageCandidate = useCallback(() => {
+    const nextIndex = activeImageIndex + 1;
+    if (nextIndex >= imageCandidates.length) {
+      setImageState('error');
+      return;
+    }
+
+    const nextImageUrl = imageCandidates[nextIndex];
+    setActiveImageIndex(nextIndex);
+    setImageState(loadedGalleryImageKeys.has(nextImageUrl) ? 'loaded' : 'loading');
+  }, [activeImageIndex, imageCandidates]);
 
   useEffect(() => {
     const currentImage = imageRef.current;
-    if (!currentImage || imageState === 'loaded') {
+    if (!currentImage || !activeImageUrl || imageState !== 'loading') {
       return;
     }
 
     if (currentImage.complete) {
       if (currentImage.naturalWidth > 0) {
-        loadedGalleryImageKeys.add(item.imageLoadKey);
+        loadedGalleryImageKeys.add(activeImageUrl);
         setImageState('loaded');
       } else {
-        setImageState('error');
+        moveToNextImageCandidate();
       }
     }
-  }, [imageState, item.imageLoadKey]);
+  }, [activeImageUrl, imageState, moveToNextImageCandidate]);
 
   const handleImageLoaded = useCallback(() => {
-    loadedGalleryImageKeys.add(item.imageLoadKey);
+    if (!activeImageUrl) {
+      return;
+    }
+
+    loadedGalleryImageKeys.add(activeImageUrl);
     setImageState('loaded');
-  }, [item.imageLoadKey]);
+  }, [activeImageUrl]);
 
   const handleImageError = useCallback(() => {
-    setImageState('error');
-  }, []);
-
-  const handleThumbnailLoaded = useCallback(() => {
-    setThumbnailState('loaded');
-  }, []);
-
-  const handleThumbnailError = useCallback(() => {
-    setThumbnailState('error');
-  }, []);
+    moveToNextImageCandidate();
+  }, [moveToNextImageCandidate]);
 
   const handleSelect = useCallback(() => {
     if (item.raw.status === 'pending') {
@@ -93,22 +119,14 @@ export function GalleryImageCard({
     handleSelect();
   }, [handleSelect]);
 
-  const showPrimaryImage = item.raw.status !== 'pending' && Boolean(item.displayUrl) && imageState !== 'error';
-  const showThumbnailFallback =
-    item.raw.status !== 'pending'
-    && imageState === 'error'
-    && Boolean(item.thumbnailUrl)
-    && thumbnailState !== 'error';
+  const showPrimaryImage = item.raw.status !== 'pending' && Boolean(activeImageUrl) && imageState !== 'error';
   const showVisiblePlaceholder =
-    item.raw.status !== 'pending'
-    && (
-      imageState === 'loading'
-      || (imageState === 'error' && Boolean(item.thumbnailUrl) && thumbnailState === 'loading')
-    );
+    !useLightweightImageRendering
+    && item.raw.status !== 'pending'
+    && imageState === 'loading';
   const showErrorFallback =
     item.raw.status !== 'pending'
-    && imageState === 'error'
-    && (!item.thumbnailUrl || thumbnailState === 'error');
+    && imageState === 'error';
 
   return (
     <div
@@ -145,48 +163,42 @@ export function GalleryImageCard({
             ) : null}
 
             {showPrimaryImage ? (
-              <Image
-                ref={imageRef}
-                src={item.displayUrl}
-                alt="Generated masterwork"
-                fill
-                sizes={GALLERY_IMAGE_SIZES}
-                quality={25}
-                loading={imageState === 'loaded' ? 'eager' : 'lazy'}
-                fetchPriority={imageState === 'loaded' ? 'auto' : 'low'}
-                decoding={imageState === 'loaded' ? 'auto' : 'async'}
-                placeholder={imageState === 'loaded' ? 'empty' : 'blur'}
-                blurDataURL={imageState === 'loaded' ? undefined : BLUR_DATA_URL}
-                unoptimized
-                className={cn(
-                  'object-cover transition-all duration-700 group-hover:scale-105',
-                  imageState === 'loaded' ? 'opacity-100 blur-0' : 'opacity-0 blur-xl',
-                )}
-                onLoad={handleImageLoaded}
-                onLoadingComplete={handleImageLoaded}
-                onError={handleImageError}
-              />
-            ) : null}
-
-            {showThumbnailFallback ? (
-              <Image
-                src={item.thumbnailUrl!}
-                alt="Fallback preview"
-                fill
-                sizes={GALLERY_IMAGE_SIZES}
-                quality={25}
-                loading={thumbnailState === 'loaded' ? 'eager' : 'lazy'}
-                fetchPriority={thumbnailState === 'loaded' ? 'auto' : 'low'}
-                decoding={thumbnailState === 'loaded' ? 'auto' : 'async'}
-                unoptimized
-                className={cn(
-                  'object-cover transition-all duration-500 group-hover:scale-105',
-                  thumbnailState === 'loaded' ? 'opacity-100' : 'opacity-0',
-                )}
-                onLoad={handleThumbnailLoaded}
-                onLoadingComplete={handleThumbnailLoaded}
-                onError={handleThumbnailError}
-              />
+              useLightweightImageRendering ? (
+                <img
+                  ref={imageRef}
+                  src={activeImageUrl}
+                  alt="Generated masterwork"
+                  loading={imageState === 'loaded' ? 'eager' : 'lazy'}
+                  decoding="async"
+                  draggable={false}
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-150 ease-out group-hover:scale-105"
+                  onLoad={handleImageLoaded}
+                  onError={handleImageError}
+                />
+              ) : (
+                <Image
+                  ref={imageRef}
+                  src={activeImageUrl}
+                  alt="Generated masterwork"
+                  fill
+                  sizes={GALLERY_IMAGE_SIZES}
+                  quality={25}
+                  loading={imageState === 'loaded' ? 'eager' : 'lazy'}
+                  fetchPriority={imageState === 'loaded' ? 'auto' : 'low'}
+                  decoding={imageState === 'loaded' ? 'auto' : 'async'}
+                  placeholder={primaryImagePlaceholder}
+                  blurDataURL={primaryImagePlaceholder === 'blur' ? BLUR_DATA_URL : undefined}
+                  unoptimized
+                  className={cn(
+                    'object-cover group-hover:scale-105',
+                    'transition-all duration-700',
+                    imageState === 'loaded' ? 'opacity-100 blur-0' : 'opacity-0 blur-xl',
+                  )}
+                  onLoad={handleImageLoaded}
+                  onLoadingComplete={handleImageLoaded}
+                  onError={handleImageError}
+                />
+              )
             ) : null}
 
             {showErrorFallback ? (

@@ -6,14 +6,64 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { getFileUrl } from '@/src/storage/object-storage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const STORAGE_KEY_PREFIX = 'ljhwZthlaukjlkulzlp/';
+const MAX_PREVIEW_WIDTH = 1024;
+const DEFAULT_PREVIEW_QUALITY = 72;
+
+function parsePreviewWidth(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const width = Number(value);
+  if (!Number.isFinite(width)) {
+    return null;
+  }
+
+  return Math.min(Math.max(Math.round(width), 64), MAX_PREVIEW_WIDTH);
+}
+
+function parsePreviewQuality(value: string | null): number {
+  if (!value) {
+    return DEFAULT_PREVIEW_QUALITY;
+  }
+
+  const quality = Number(value);
+  if (!Number.isFinite(quality)) {
+    return DEFAULT_PREVIEW_QUALITY;
+  }
+
+  return Math.min(Math.max(Math.round(quality), 30), 90);
+}
+
+function resolvePreviewFormat(value: string | null): 'webp' | 'jpeg' | 'png' {
+  if (value === 'jpeg' || value === 'png') {
+    return value;
+  }
+
+  return 'webp';
+}
+
+function canResizeImage(contentType: string | null): boolean {
+  if (!contentType) {
+    return false;
+  }
+
+  return /^image\/(avif|heic|jpeg|jpg|png|tiff|webp)$/i.test(contentType);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const key = request.nextUrl.searchParams.get('key');
+    const previewWidth = parsePreviewWidth(request.nextUrl.searchParams.get('w'));
+    const previewQuality = parsePreviewQuality(request.nextUrl.searchParams.get('q'));
+    const previewFormat = resolvePreviewFormat(request.nextUrl.searchParams.get('format'));
 
     if (!key) {
       return NextResponse.json(
@@ -23,7 +73,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 只处理 storage key 格式
-    if (!key.startsWith('ljhwZthlaukjlkulzlp/')) {
+    if (!key.startsWith(STORAGE_KEY_PREFIX)) {
       return NextResponse.json(
         { error: 'Invalid storage key format' },
         { status: 400 }
@@ -53,7 +103,43 @@ export async function GET(request: NextRequest) {
 
     headers.set('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
 
-    return new NextResponse(upstream.body, { headers });
+    if (!previewWidth || !canResizeImage(contentType)) {
+      return new NextResponse(upstream.body, { headers });
+    }
+
+    const originalBuffer = Buffer.from(await upstream.arrayBuffer());
+
+    try {
+      const previewBuffer = await sharp(originalBuffer, { limitInputPixels: false })
+        .rotate()
+        .resize({
+          width: previewWidth,
+          withoutEnlargement: true,
+          fit: 'inside',
+        })
+        [previewFormat](previewFormat === 'png'
+          ? { quality: previewQuality, compressionLevel: 9 }
+          : previewFormat === 'jpeg'
+            ? { quality: previewQuality, mozjpeg: true }
+            : { quality: previewQuality, effort: 4 })
+        .toBuffer();
+
+      headers.set(
+        'Content-Type',
+        previewFormat === 'png'
+          ? 'image/png'
+          : previewFormat === 'jpeg'
+            ? 'image/jpeg'
+            : 'image/webp',
+      );
+      headers.set('Content-Length', String(previewBuffer.byteLength));
+
+      return new NextResponse(new Uint8Array(previewBuffer), { headers });
+    } catch (error) {
+      console.warn('Failed to generate preview image, falling back to original asset:', error);
+      headers.set('Content-Length', String(originalBuffer.byteLength));
+      return new NextResponse(new Uint8Array(originalBuffer), { headers });
+    }
   } catch (error) {
     console.error('Failed to get image from storage:', error);
     return NextResponse.json(

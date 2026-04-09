@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -268,7 +269,36 @@ interface GalleryMasonryWallProps {
   allItems?: import('@/types/database').Generation[];
 }
 
-export function GalleryMasonryWall({
+function GalleryMasonryWallFallback({
+  itemsLength,
+  isInitialLoading,
+}: {
+  itemsLength: number;
+  isInitialLoading: boolean;
+}) {
+  return (
+    <div
+      data-testid="gallery-scroll-container"
+      data-gallery-viewport-ready="false"
+      className="custom-scrollbar flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-scroll"
+    >
+      <div
+        data-testid="gallery-masonry-container"
+        className="flex min-h-0 min-w-0 w-full flex-none flex-col"
+      >
+        {isInitialLoading || itemsLength > 0 ? (
+          <GallerySkeletonGrid columnsCount={4} />
+        ) : (
+          <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
+            No gallery items yet
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GalleryMasonryWallClient({
   items,
   layoutKey,
   isInitialLoading,
@@ -347,6 +377,7 @@ export function GalleryMasonryWall({
         actions={actions}
         moodboardData={moodboardData}
         allItems={allItems}
+        renderMode="virtualized"
       />
     ),
     [actions, allItems, moodboardData],
@@ -446,4 +477,23 @@ export function GalleryMasonryWall({
       </div>
     </div>
   );
+}
+
+export function GalleryMasonryWall(props: GalleryMasonryWallProps) {
+  const [isClientReady, setIsClientReady] = useState(false);
+
+  useEffect(() => {
+    setIsClientReady(true);
+  }, []);
+
+  if (!isClientReady || typeof ResizeObserver === 'undefined') {
+    return (
+      <GalleryMasonryWallFallback
+        itemsLength={props.items.length}
+        isInitialLoading={props.isInitialLoading}
+      />
+    );
+  }
+
+  return <GalleryMasonryWallClient {...props} />;
 }
