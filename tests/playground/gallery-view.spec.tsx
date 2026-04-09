@@ -34,8 +34,8 @@ vi.mock('@studio/playground/_components/hooks/usePlaygroundMoodboards', () => ({
 }));
 
 vi.mock('@/components/gallery/GalleryMasonryWall', () => ({
-  GalleryMasonryWall: ({ items }: { items: unknown[] }) => (
-    <div data-testid="gallery-wall-ready">{items.length}</div>
+  GalleryMasonryWall: ({ items, layoutKey }: { items: unknown[]; layoutKey: string }) => (
+    <div data-testid="gallery-wall-ready" data-layout-key={layoutKey}>{items.length}</div>
   ),
 }));
 
@@ -154,16 +154,34 @@ describe('GalleryView loading behavior', () => {
     feedState.promptItems = [createViewModel('bounded-item')];
     feedState.isInitialLoading = false;
 
-    render(<GalleryView mode="standalone" />);
+    render(<GalleryView />);
 
     expect(screen.getByTestId('gallery-view-root').className).toContain('flex-1');
     expect(screen.getByTestId('gallery-view-root').className).toContain('min-h-0');
-    expect(screen.getByTestId('gallery-view-root').getAttribute('data-gallery-mode')).toBe('standalone');
+    expect(screen.getByTestId('gallery-view-root').className).toContain('min-w-0');
     expect(screen.getByTestId('gallery-view-shell').className).toContain('flex-1');
     expect(screen.getByTestId('gallery-view-shell').className).toContain('min-h-0');
+    expect(screen.getByTestId('gallery-view-shell').className).toContain('min-w-0');
     expect(screen.getByTestId('gallery-view-stack').className).toContain('flex-1');
     expect(screen.getByTestId('gallery-view-stack').className).toContain('min-h-0');
+    expect(screen.getByTestId('gallery-view-stack').className).toContain('min-w-0');
     expect(screen.getByTestId('gallery-view-body').className).toContain('flex-1');
     expect(screen.getByTestId('gallery-view-body').className).toContain('min-h-0');
+    expect(screen.getByTestId('gallery-view-body').className).toContain('min-w-0');
+  });
+
+  it('keeps the masonry layout key stable when the first gallery item changes', () => {
+    feedState.items = [createViewModel('first-item-a'), createViewModel('first-item-b')];
+    feedState.promptItems = [createViewModel('first-item-a'), createViewModel('first-item-b')];
+    feedState.isInitialLoading = false;
+
+    const { rerender } = render(<GalleryView />);
+    const initialLayoutKey = screen.getByTestId('gallery-wall-ready').getAttribute('data-layout-key');
+
+    feedState.items = [createViewModel('first-item-c'), createViewModel('first-item-b')];
+    feedState.promptItems = [createViewModel('first-item-c'), createViewModel('first-item-b')];
+    rerender(<GalleryView />);
+
+    expect(screen.getByTestId('gallery-wall-ready').getAttribute('data-layout-key')).toBe(initialLayoutKey);
   });
 });

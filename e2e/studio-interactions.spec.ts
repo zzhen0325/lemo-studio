@@ -90,41 +90,12 @@ test.describe("Frontend visibility and interaction coverage", () => {
     await expect(page.getByPlaceholder("Search gallery prompts...")).toHaveCount(0);
   });
 
-  test("standalone gallery route keeps a real internal scroll viewport", async ({ page }) => {
-    await installDenseGalleryUiMocks(page);
+  test("legacy standalone gallery route redirects to playground", async ({ page }) => {
+    await installPlaygroundUiMocks(page);
     await page.goto("/studio/gallery");
 
-    await expect(page.getByPlaceholder("Search gallery prompts...")).toBeVisible();
-
-    const scrollContainer = page.getByTestId("gallery-scroll-container");
-    await expect(scrollContainer).toBeVisible();
-
-    await expect.poll(async () => {
-      return scrollContainer.getAttribute("data-gallery-viewport-ready");
-    }).toBe("true");
-
-    await expect.poll(async () => {
-      return scrollContainer.evaluate((element) => element.scrollHeight > element.clientHeight);
-    }).toBe(true);
-
-    const initialMetrics = await scrollContainer.evaluate((element) => ({
-      clientHeight: element.clientHeight,
-      scrollHeight: element.scrollHeight,
-      scrollTop: element.scrollTop,
-    }));
-
-    expect(initialMetrics.scrollTop).toBe(0);
-
-    await scrollContainer.evaluate((element) => {
-      element.scrollTo({ top: 2200 });
-      element.dispatchEvent(new Event("scroll"));
-    });
-
-    await expect.poll(async () => {
-      return scrollContainer.evaluate((element) => element.scrollTop);
-    }).toBeGreaterThan(0);
-
-    await expect(page.locator('[data-gallery-item-key="history-048"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/studio\/playground$/);
+    await expect(page.locator("header")).toBeVisible();
   });
 
   test("playground dock gallery keeps the shared internal scroll viewport", async ({ page }) => {

@@ -11,19 +11,45 @@ import type { GalleryActionHandlers, GalleryItemViewModel, GalleryMoodboardData 
 import type { Generation } from '@/types/database';
 
 vi.mock('next/image', () => ({
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement> & {
-    fill?: boolean;
-    fetchPriority?: string;
-    blurDataURL?: string;
-    unoptimized?: boolean;
-  }) => {
-    const nextProps = { ...props };
-    delete nextProps.fill;
-    delete nextProps.fetchPriority;
-    delete nextProps.blurDataURL;
-    delete nextProps.unoptimized;
-    return <img alt={props.alt || ''} {...nextProps} />;
-  },
+  default: React.forwardRef((
+    props: React.ImgHTMLAttributes<HTMLImageElement> & {
+      fill?: boolean;
+      fetchPriority?: string;
+      blurDataURL?: string;
+      unoptimized?: boolean;
+      quality?: number;
+      onLoadingComplete?: (img: HTMLImageElement) => void;
+    },
+    ref: React.ForwardedRef<HTMLImageElement>,
+  ) => {
+    const {
+      fill,
+      fetchPriority,
+      blurDataURL,
+      onLoadingComplete,
+      quality,
+      unoptimized,
+      onLoad,
+      ...rest
+    } = props;
+    void fill;
+    void fetchPriority;
+    void blurDataURL;
+    void quality;
+    void unoptimized;
+
+    return (
+      <img
+        ref={ref}
+        alt={props.alt || ''}
+        {...rest}
+        onLoad={(event) => {
+          onLoad?.(event);
+          onLoadingComplete?.(event.currentTarget);
+        }}
+      />
+    );
+  }),
 }));
 
 vi.mock('@studio/playground/_components/AddToMoodboardMenu', () => ({
@@ -79,6 +105,7 @@ function createViewModel(raw: Generation): GalleryItemViewModel {
     createdAt: raw.createdAt,
     width: raw.config?.width || 1024,
     height: raw.config?.height || 1024,
+    thumbnailUrl: raw.config?.sourceImageUrls?.[0],
     imageLoadKey: `${raw.id}:${raw.outputUrl}`,
     searchText: (raw.config?.prompt || '').toLowerCase(),
     isPromptVisible: true,
@@ -139,5 +166,36 @@ describe('GalleryImageCard', () => {
     fireEvent.click(screen.getByLabelText('Download'));
 
     expect(actions.onDownload).toHaveBeenCalledWith(raw, 'https://download.example.com/image-2.png');
+  });
+
+  it('shows a thumbnail fallback when the main image fails to load', () => {
+    const raw = createGeneration('image-3');
+    raw.config.sourceImageUrls = ['https://example.com/fallback.png'];
+    const item = createViewModel(raw);
+    const actions = createActions();
+
+    render(<GalleryImageCard item={item} actions={actions} moodboardData={moodboardData} />);
+
+    fireEvent.error(screen.getByAltText('Generated masterwork'));
+    expect(screen.getByTestId('gallery-card-loading-image-3')).toBeTruthy();
+
+    const fallback = screen.getByAltText('Fallback preview');
+    fireEvent.load(fallback);
+
+    expect(fallback.className).toContain('opacity-100');
+  });
+
+  it('shows an explicit error fallback when no preview can be loaded', () => {
+    const raw = createGeneration('image-4');
+    const item = createViewModel(raw);
+    item.thumbnailUrl = undefined;
+    const actions = createActions();
+
+    render(<GalleryImageCard item={item} actions={actions} moodboardData={moodboardData} />);
+
+    fireEvent.error(screen.getByAltText('Generated masterwork'));
+
+    expect(screen.getByTestId('gallery-card-error-image-4')).toBeTruthy();
+    expect(screen.getByText('Preview unavailable')).toBeTruthy();
   });
 });

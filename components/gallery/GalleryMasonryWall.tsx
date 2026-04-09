@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type RefObject,
+} from 'react';
 import { useInfiniteLoader, useMasonry, usePositioner, useResizeObserver } from 'masonic';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
@@ -11,19 +18,127 @@ import {
 import type { GalleryActionHandlers, GalleryItemViewModel, GalleryMoodboardData } from '@/lib/gallery/types';
 import { GalleryImageCard } from './GalleryImageCard';
 
+const GALLERY_COLUMN_WIDTH = 170;
+const GALLERY_COLUMN_GUTTER = 1;
+const GALLERY_MAX_COLUMN_COUNT = 8;
+
 function getGalleryColumnsCount(containerWidth: number) {
-  if (containerWidth >= 1536) return 8;
-  if (containerWidth >= 1280) return 7;
-  if (containerWidth >= 1024) return 6;
-  if (containerWidth >= 768) return 5;
-  if (containerWidth >= 640) return 3;
-  return 1;
+  return Math.min(
+    Math.floor((containerWidth + GALLERY_COLUMN_GUTTER) / (GALLERY_COLUMN_WIDTH + GALLERY_COLUMN_GUTTER)),
+    GALLERY_MAX_COLUMN_COUNT,
+  ) || 1;
 }
 
-function useScrollViewport(scrollContainerRef: RefObject<HTMLDivElement>) {
-  const [viewport, setViewport] = useState({
-    width: 0,
-    height: 0,
+function useElementHeight<T extends HTMLElement>(elementRef: RefObject<T | null>) {
+  const [height, setHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const element = elementRef.current;
+    if (!element) {
+      return;
+    }
+
+    let frameId = 0;
+    const updateHeight = () => {
+      frameId = 0;
+      setHeight((current) => {
+        const nextHeight = element.clientHeight;
+        return current === nextHeight ? current : nextHeight;
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (frameId !== 0) {
+        return;
+      }
+      frameId = window.requestAnimationFrame(updateHeight);
+    };
+
+    scheduleUpdate();
+
+    const observer = new ResizeObserver(() => {
+      scheduleUpdate();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [elementRef]);
+
+  return height;
+}
+
+function useElementWidth<T extends HTMLElement>(elementRef: RefObject<T | null>) {
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const element = elementRef.current;
+    if (!element) {
+      return;
+    }
+
+    let frameId = 0;
+    const updateWidth = () => {
+      frameId = 0;
+      setWidth((current) => {
+        const nextWidth = element.clientWidth;
+        return current === nextWidth ? current : nextWidth;
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (frameId !== 0) {
+        return;
+      }
+      frameId = window.requestAnimationFrame(updateWidth);
+    };
+
+    scheduleUpdate();
+
+    const observer = new ResizeObserver(() => {
+      scheduleUpdate();
+    });
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [elementRef]);
+
+  return width;
+}
+
+function useWindowWidth() {
+  const [windowWidth, setWindowWidth] = useState(() => (
+    typeof window === 'undefined' ? 0 : window.innerWidth
+  ));
+
+  useLayoutEffect(() => {
+    const updateWidth = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    updateWidth();
+    window.addEventListener('resize', updateWidth, { passive: true });
+
+    return () => {
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
+
+  return windowWidth;
+}
+
+function useScrollViewport(scrollContainerRef: RefObject<HTMLDivElement | null>) {
+  const height = useElementHeight(scrollContainerRef);
+  const [scrollState, setScrollState] = useState({
     scrollTop: 0,
     isScrolling: false,
   });
@@ -36,22 +151,15 @@ function useScrollViewport(scrollContainerRef: RefObject<HTMLDivElement>) {
     }
 
     let frameId = 0;
-    const updateViewport = () => {
+    const syncScrollTop = () => {
       frameId = 0;
-      setViewport((current) => {
+      setScrollState((current) => {
         const next = {
-          width: element.clientWidth,
-          height: element.clientHeight,
           scrollTop: element.scrollTop,
           isScrolling: current.isScrolling,
         };
 
-        if (
-          current.width === next.width
-          && current.height === next.height
-          && current.scrollTop === next.scrollTop
-          && current.isScrolling === next.isScrolling
-        ) {
+        if (current.scrollTop === next.scrollTop && current.isScrolling === next.isScrolling) {
           return current;
         }
 
@@ -59,38 +167,41 @@ function useScrollViewport(scrollContainerRef: RefObject<HTMLDivElement>) {
       });
     };
 
-    const scheduleUpdate = () => {
+    const scheduleSync = () => {
       if (frameId !== 0) {
         return;
       }
-      frameId = window.requestAnimationFrame(updateViewport);
+      frameId = window.requestAnimationFrame(syncScrollTop);
     };
 
     const handleScroll = () => {
-      setViewport((current) => current.isScrolling ? current : { ...current, isScrolling: true });
+      setScrollState((current) => {
+        if (current.scrollTop === element.scrollTop && current.isScrolling) {
+          return current;
+        }
+
+        return {
+          scrollTop: element.scrollTop,
+          isScrolling: true,
+        };
+      });
 
       if (scrollingTimeoutRef.current !== null) {
         window.clearTimeout(scrollingTimeoutRef.current);
       }
 
       scrollingTimeoutRef.current = window.setTimeout(() => {
-        setViewport((current) => current.isScrolling ? { ...current, isScrolling: false } : current);
+        setScrollState((current) => current.isScrolling ? { ...current, isScrolling: false } : current);
       }, 120);
 
-      scheduleUpdate();
+      scheduleSync();
     };
 
-    scheduleUpdate();
+    scheduleSync();
     element.addEventListener('scroll', handleScroll, { passive: true });
-
-    const observer = new ResizeObserver(() => {
-      scheduleUpdate();
-    });
-    observer.observe(element);
 
     return () => {
       element.removeEventListener('scroll', handleScroll);
-      observer.disconnect();
       if (frameId !== 0) {
         window.cancelAnimationFrame(frameId);
       }
@@ -100,14 +211,34 @@ function useScrollViewport(scrollContainerRef: RefObject<HTMLDivElement>) {
     };
   }, [scrollContainerRef]);
 
-  return viewport;
+  return {
+    height,
+    ...scrollState,
+  };
+}
+
+function resolveGridWidth(
+  masonryContainerRef: MutableRefObject<HTMLDivElement | null>,
+  measuredWidth: number,
+  fallbackWidth: number,
+) {
+  if (measuredWidth > 0) {
+    return measuredWidth;
+  }
+
+  const offsetWidth = masonryContainerRef.current?.offsetWidth ?? 0;
+  if (offsetWidth > 0) {
+    return offsetWidth;
+  }
+
+  return fallbackWidth;
 }
 
 function GallerySkeletonGrid({ columnsCount }: { columnsCount: number }) {
   const cols = Math.max(columnsCount, 1);
 
   return (
-    <div data-testid="gallery-skeleton-grid" className="flex w-full gap-[1px]">
+    <div data-testid="gallery-skeleton-grid" className="flex min-w-0 w-full gap-[1px]">
       {Array.from({ length: cols }).map((_, colIdx) => (
         <div key={`gallery-skeleton-col-${colIdx}`} className="flex min-w-0 flex-1 flex-col gap-[1px]">
           {Array.from({ length: 3 }).map((__, itemIdx) => (
@@ -149,31 +280,49 @@ export function GalleryMasonryWall({
   allItems,
 }: GalleryMasonryWallProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const masonryContainerRef = useRef<HTMLDivElement>(null);
+  const masonryGridRef = useRef<HTMLElement | null>(null);
+  const windowWidth = useWindowWidth();
   const viewport = useScrollViewport(scrollContainerRef);
+  const masonryContainerWidth = useElementWidth(masonryContainerRef);
+  const measuredGridWidth = resolveGridWidth(masonryContainerRef, masonryContainerWidth, 0);
   const [hasUserScrolled, setHasUserScrolled] = useState(false);
   const [hasOverflowingContent, setHasOverflowingContent] = useState(false);
-  const columnsCount = getGalleryColumnsCount(viewport.width);
+  const [stableGridWidth, setStableGridWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    if (measuredGridWidth <= 0) {
+      return;
+    }
+
+    setStableGridWidth((current) => current === measuredGridWidth ? current : measuredGridWidth);
+  }, [measuredGridWidth]);
+
+  const gridWidth = measuredGridWidth || stableGridWidth || windowWidth;
+  const columnsCount = getGalleryColumnsCount(gridWidth);
   const isViewportReady = isGalleryViewportReady({
     clientHeight: viewport.height,
-    containerWidth: viewport.width,
+    containerWidth: gridWidth,
     windowHeight: typeof window === 'undefined' ? 0 : window.innerHeight,
   });
+  const isMasonryReady = isViewportReady && gridWidth > 0;
 
   const positioner = usePositioner(
     {
-      width: viewport.width,
-      columnCount: columnsCount,
-      columnGutter: 1,
-      rowGutter: 1,
+      width: Math.max(gridWidth, 1),
+      columnWidth: GALLERY_COLUMN_WIDTH,
+      columnGutter: GALLERY_COLUMN_GUTTER,
+      rowGutter: GALLERY_COLUMN_GUTTER,
+      maxColumnCount: GALLERY_MAX_COLUMN_COUNT,
     },
-    [columnsCount, layoutKey, viewport.width],
+    [layoutKey],
   );
   const resizeObserver = useResizeObserver(positioner);
   const inflightLoadMoreRef = useRef(false);
 
   const maybeLoadMore = useInfiniteLoader(
     useCallback(async () => {
-      if (!isViewportReady || !hasMore || isLoadingMore || inflightLoadMoreRef.current) {
+      if (!isMasonryReady || !hasMore || isLoadingMore || inflightLoadMoreRef.current) {
         return;
       }
 
@@ -183,7 +332,7 @@ export function GalleryMasonryWall({
       } finally {
         inflightLoadMoreRef.current = false;
       }
-    }, [hasMore, isLoadingMore, isViewportReady, onLoadMore]),
+    }, [hasMore, isLoadingMore, isMasonryReady, onLoadMore]),
     {
       minimumBatchSize: Math.max(columnsCount, 1),
       threshold: Math.max(columnsCount * 2, 8),
@@ -219,6 +368,8 @@ export function GalleryMasonryWall({
     },
     role: 'grid',
     tabIndex: -1,
+    className: 'min-w-0 w-full',
+    containerRef: masonryGridRef,
     itemStyle: {
       willChange: 'transform',
     },
@@ -234,15 +385,15 @@ export function GalleryMasonryWall({
       setHasUserScrolled(true);
     }
 
-    if (!isViewportReady) {
+    if (!isMasonryReady) {
       setHasOverflowingContent(false);
       return;
     }
 
     setHasOverflowingContent(hasGalleryOverflow(element.scrollHeight, element.clientHeight));
-  }, [isViewportReady, items.length, viewport.height, viewport.scrollTop, viewport.width]);
+  }, [isMasonryReady, items.length, viewport.height, viewport.scrollTop, gridWidth]);
 
-  const showEndOfGallery = isViewportReady && shouldShowGalleryEndIndicator({
+  const showEndOfGallery = isMasonryReady && shouldShowGalleryEndIndicator({
     hasMoreGallery: hasMore,
     itemsLength: items.length,
     hasOverflowingContent,
@@ -253,20 +404,31 @@ export function GalleryMasonryWall({
     <div
       ref={scrollContainerRef}
       data-testid="gallery-scroll-container"
-      data-gallery-viewport-ready={isViewportReady ? 'true' : 'false'}
-      className="custom-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
+      data-gallery-viewport-ready={isMasonryReady ? 'true' : 'false'}
+      className="custom-scrollbar flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-y-scroll"
     >
-      {isInitialLoading ? (
-        <GallerySkeletonGrid columnsCount={columnsCount} />
-      ) : items.length === 0 ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
-          No gallery items yet
-        </div>
-      ) : (
-        masonry
-      )}
+      <div
+        ref={masonryContainerRef}
+        data-testid="gallery-masonry-container"
+        className="flex min-h-0 min-w-0 w-full flex-none flex-col"
+      >
+        {isInitialLoading || !isMasonryReady ? (
+          <GallerySkeletonGrid columnsCount={columnsCount} />
+        ) : items.length === 0 ? (
+          <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
+            No gallery items yet
+          </div>
+        ) : (
+          <div
+            data-testid="gallery-masonry-grid-shell"
+            className="min-h-0 min-w-0 w-full"
+          >
+            {masonry}
+          </div>
+        )}
+      </div>
 
-      <div className="flex min-h-24 flex-col items-center justify-center gap-4 py-12">
+      <div className="flex min-h-24 min-w-0 w-full flex-col items-center justify-center gap-4 py-12">
         {isLoadingMore ? (
           <div className="flex flex-col items-center gap-2">
             <LoadingSpinner size={24} className="text-white/20" />

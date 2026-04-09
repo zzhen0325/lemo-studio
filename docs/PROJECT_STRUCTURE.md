@@ -14,7 +14,7 @@ Do not place temporary scripts, test drafts, or generated screenshots in root.
 
 - `app/`: Next.js App Router pages/layouts（前端渲染层）
   - `app/api/`: Next.js 原生后端路由（唯一业务 API 实现）
-  - `app/studio/`: studio 主业务路由（`/studio/playground`、`/studio/mapping-editor`、`/studio/gallery`、`/studio/tools`、`/studio/dataset`、`/studio/settings`）
+  - `app/studio/`: studio 主业务路由（`/studio/playground`、`/studio/mapping-editor`、`/studio/tools`、`/studio/dataset`、`/studio/settings`）
   - `app/studio/*/_components`: route-private components（settings/tools/dataset/mapping-editor/auth）
 - `components/`: reusable cross-route components（UI primitives, visual effects, motion/animate helpers）
 - `lib/`: shared business logic, API adapters, stores

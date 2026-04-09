@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Download, Image as ImageIcon, RefreshCw, Type } from 'lucide-react';
+import { Download, Image as ImageIcon, ImageOff, RefreshCw, Type } from 'lucide-react';
 import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
 import { TooltipButton } from '@/components/ui/tooltip-button';
 import type { GalleryActionHandlers, GalleryItemViewModel, GalleryMoodboardData } from '@/lib/gallery/types';
 import { cn } from '@/lib/utils';
 
 const loadedGalleryImageKeys = new Set<string>();
+const GALLERY_IMAGE_SIZES =
+  "(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw";
+const BLUR_DATA_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+type GalleryImageLoadState = 'loading' | 'loaded' | 'error';
 
 export function clearGalleryImageLoadCacheForTests() {
   loadedGalleryImageKeys.clear();
@@ -27,16 +32,51 @@ export function GalleryImageCard({
   allItems,
   moodboardData,
 }: GalleryImageCardProps) {
-  const [isLoaded, setIsLoaded] = useState(() => loadedGalleryImageKeys.has(item.imageLoadKey));
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [imageState, setImageState] = useState<GalleryImageLoadState>(() => (
+    loadedGalleryImageKeys.has(item.imageLoadKey) ? 'loaded' : (item.displayUrl ? 'loading' : 'error')
+  ));
+  const [thumbnailState, setThumbnailState] = useState<GalleryImageLoadState>(() => (
+    item.thumbnailUrl ? 'loading' : 'error'
+  ));
 
   useEffect(() => {
-    setIsLoaded(loadedGalleryImageKeys.has(item.imageLoadKey));
-  }, [item.imageLoadKey]);
+    setImageState(loadedGalleryImageKeys.has(item.imageLoadKey) ? 'loaded' : (item.displayUrl ? 'loading' : 'error'));
+    setThumbnailState(item.thumbnailUrl ? 'loading' : 'error');
+  }, [item.displayUrl, item.imageLoadKey, item.thumbnailUrl]);
+
+  useEffect(() => {
+    const currentImage = imageRef.current;
+    if (!currentImage || imageState === 'loaded') {
+      return;
+    }
+
+    if (currentImage.complete) {
+      if (currentImage.naturalWidth > 0) {
+        loadedGalleryImageKeys.add(item.imageLoadKey);
+        setImageState('loaded');
+      } else {
+        setImageState('error');
+      }
+    }
+  }, [imageState, item.imageLoadKey]);
 
   const handleImageLoaded = useCallback(() => {
     loadedGalleryImageKeys.add(item.imageLoadKey);
-    setIsLoaded(true);
+    setImageState('loaded');
   }, [item.imageLoadKey]);
+
+  const handleImageError = useCallback(() => {
+    setImageState('error');
+  }, []);
+
+  const handleThumbnailLoaded = useCallback(() => {
+    setThumbnailState('loaded');
+  }, []);
+
+  const handleThumbnailError = useCallback(() => {
+    setThumbnailState('error');
+  }, []);
 
   const handleSelect = useCallback(() => {
     if (item.raw.status === 'pending') {
@@ -53,6 +93,23 @@ export function GalleryImageCard({
     handleSelect();
   }, [handleSelect]);
 
+  const showPrimaryImage = item.raw.status !== 'pending' && Boolean(item.displayUrl) && imageState !== 'error';
+  const showThumbnailFallback =
+    item.raw.status !== 'pending'
+    && imageState === 'error'
+    && Boolean(item.thumbnailUrl)
+    && thumbnailState !== 'error';
+  const showVisiblePlaceholder =
+    item.raw.status !== 'pending'
+    && (
+      imageState === 'loading'
+      || (imageState === 'error' && Boolean(item.thumbnailUrl) && thumbnailState === 'loading')
+    );
+  const showErrorFallback =
+    item.raw.status !== 'pending'
+    && imageState === 'error'
+    && (!item.thumbnailUrl || thumbnailState === 'error');
+
   return (
     <div
       data-testid={`gallery-card-${item.id}`}
@@ -60,9 +117,9 @@ export function GalleryImageCard({
       tabIndex={0}
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
-      className="group relative flex cursor-pointer flex-col overflow-hidden border-[0.8px] border-black bg-black/20 transition-all duration-300 hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
+      className="group relative flex w-full cursor-pointer flex-col overflow-hidden border-[0.8px] border-black bg-black/20 transition-all duration-300 hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
     >
-      <div 
+      <div
         className="relative w-full bg-white/5"
         style={{ aspectRatio: item.width && item.height ? `${item.width} / ${item.height}` : '1 / 1' }}
       >
@@ -74,23 +131,76 @@ export function GalleryImageCard({
             </span>
           </div>
         ) : (
-          <Image
-            src={item.displayUrl}
-            alt="Generated masterwork"
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, (max-width: 1536px) 20vw, 15vw"
-            quality={25}
-            loading="lazy"
-            fetchPriority="low"
-            placeholder="blur"
-            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-            unoptimized
-            className={cn(
-              'object-cover transition-all duration-700 group-hover:scale-105',
-              isLoaded ? 'opacity-100 blur-0' : 'opacity-0 blur-xl',
-            )}
-            onLoad={handleImageLoaded}
-          />
+          <>
+            {showVisiblePlaceholder ? (
+              <div
+                data-testid={`gallery-card-loading-${item.id}`}
+                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-white/8 via-white/5 to-black/20 p-6 text-center"
+              >
+                <div className="h-10 w-10 animate-pulse rounded-full border border-white/10 bg-white/5" />
+                <span className="text-[10px] font-medium uppercase tracking-widest text-white/35">
+                  Loading preview
+                </span>
+              </div>
+            ) : null}
+
+            {showPrimaryImage ? (
+              <Image
+                ref={imageRef}
+                src={item.displayUrl}
+                alt="Generated masterwork"
+                fill
+                sizes={GALLERY_IMAGE_SIZES}
+                quality={25}
+                loading={imageState === 'loaded' ? 'eager' : 'lazy'}
+                fetchPriority={imageState === 'loaded' ? 'auto' : 'low'}
+                decoding={imageState === 'loaded' ? 'auto' : 'async'}
+                placeholder={imageState === 'loaded' ? 'empty' : 'blur'}
+                blurDataURL={imageState === 'loaded' ? undefined : BLUR_DATA_URL}
+                unoptimized
+                className={cn(
+                  'object-cover transition-all duration-700 group-hover:scale-105',
+                  imageState === 'loaded' ? 'opacity-100 blur-0' : 'opacity-0 blur-xl',
+                )}
+                onLoad={handleImageLoaded}
+                onLoadingComplete={handleImageLoaded}
+                onError={handleImageError}
+              />
+            ) : null}
+
+            {showThumbnailFallback ? (
+              <Image
+                src={item.thumbnailUrl!}
+                alt="Fallback preview"
+                fill
+                sizes={GALLERY_IMAGE_SIZES}
+                quality={25}
+                loading={thumbnailState === 'loaded' ? 'eager' : 'lazy'}
+                fetchPriority={thumbnailState === 'loaded' ? 'auto' : 'low'}
+                decoding={thumbnailState === 'loaded' ? 'auto' : 'async'}
+                unoptimized
+                className={cn(
+                  'object-cover transition-all duration-500 group-hover:scale-105',
+                  thumbnailState === 'loaded' ? 'opacity-100' : 'opacity-0',
+                )}
+                onLoad={handleThumbnailLoaded}
+                onLoadingComplete={handleThumbnailLoaded}
+                onError={handleThumbnailError}
+              />
+            ) : null}
+
+            {showErrorFallback ? (
+              <div
+                data-testid={`gallery-card-error-${item.id}`}
+                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-white/8 via-white/5 to-black/20 p-6 text-center"
+              >
+                <ImageOff className="h-8 w-8 text-white/25" />
+                <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-white/35">
+                  Preview unavailable
+                </span>
+              </div>
+            ) : null}
+          </>
         )}
 
         {item.sourceImageUrl ? (

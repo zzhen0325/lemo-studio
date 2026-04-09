@@ -49,8 +49,14 @@ export function PlaygroundDockPanels({
   return (
     <>
       {viewMode === 'dock' && activeTab === 'gallery' && (
-        <div className="relative z-30 flex h-full min-h-0 w-full overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 pl-20 md:pl-28 lg:pl-28">
-          <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+        <div
+          data-testid="playground-dock-gallery-shell"
+          className="relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 overflow-hidden pl-20 md:pl-28 lg:pl-28"
+        >
+          <div
+            data-testid="playground-dock-gallery-content"
+            className="relative flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
+          >
             <Suspense fallback={<div className="flex w-[90%] items-center justify-center h-full text-white">Thinking...</div>}>
               <GalleryView
                 onSelectItem={onImageClick}

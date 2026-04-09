@@ -5,7 +5,6 @@ export const STUDIO_ROUTES = {
   tools: "/studio/tools",
   dataset: "/studio/dataset",
   settings: "/studio/settings",
-  gallery: "/studio/gallery",
 } as const;
 
 export type StudioRoute = (typeof STUDIO_ROUTES)[keyof typeof STUDIO_ROUTES];

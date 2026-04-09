@@ -16,13 +16,11 @@ export default function GalleryView({
   onUsePrompt,
   onUseImage,
   historyController,
-  mode = 'dock',
 }: {
   onSelectItem?: (item: Generation, items?: Generation[]) => void;
   onUsePrompt?: (item: Generation) => void;
   onUseImage?: (item: Generation) => void | Promise<void>;
   historyController?: Pick<PlaygroundHistoryController, 'setHistory' | 'getHistoryItem'>;
-  mode?: 'standalone' | 'dock';
 }) {
   const [sortBy, setSortBy] = useState<Exclude<SortBy, 'interactionPriority'>>('recent');
   const feed = useGalleryFeed({ sortBy });
@@ -131,7 +129,6 @@ export default function GalleryView({
 
   return (
     <GalleryScene
-      mode={mode}
       feed={feed}
       sortBy={sortBy}
       onSortByChange={setSortBy}

@@ -17,7 +17,6 @@ export function GalleryScene({
   feed,
   actions,
   moodboardData,
-  mode,
   sortBy,
   onSortByChange,
 }: GallerySceneProps) {
@@ -54,9 +53,7 @@ export function GalleryScene({
 
   const hasActiveFilters =
     selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0;
-  
-  const firstGalleryItemId = filteredGalleryItems[0]?.id ?? 'empty';
-  const galleryLayoutKey = `${mode}|${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}|${firstGalleryItemId}`;
+  const galleryLayoutKey = `${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}`;
 
   useEffect(() => {
     if (activeInnerTab !== 'gallery' || feed.items.length === 0) {
@@ -74,12 +71,11 @@ export function GalleryScene({
     <TooltipProvider delayDuration={100}>
       <div
         data-testid="gallery-view-root"
-        data-gallery-mode={mode}
-        className="mx-auto flex min-h-0 w-[95%] flex-1 flex-col overflow-hidden bg-transparent pt-10"
+        className="mx-auto flex min-h-0 min-w-0 w-full max-w-[95%] flex-1 flex-col overflow-hidden bg-transparent pt-10"
       >
-        <div data-testid="gallery-view-shell" className="relative flex min-h-0 w-full flex-1 overflow-hidden">
-          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-            <div data-testid="gallery-view-stack" className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
+        <div data-testid="gallery-view-shell" className="relative flex min-h-0 min-w-0 w-full flex-1 overflow-hidden">
+          <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+            <div data-testid="gallery-view-stack" className="flex min-h-0 min-w-0 flex-1 flex-col space-y-4 overflow-hidden">
               <GalleryToolbar
                 activeTab={activeInnerTab}
                 onActiveTabChange={setActiveInnerTab}
@@ -92,7 +88,7 @@ export function GalleryScene({
                 hasActiveFilters={hasActiveFilters}
               />
 
-              <div data-testid="gallery-view-body" className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-xl">
+              <div data-testid="gallery-view-body" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-t-xl">
                 {activeInnerTab === 'gallery' ? (
                   <GalleryMasonryWall
                     items={filteredGalleryItems}

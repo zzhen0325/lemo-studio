@@ -1,29 +1,19 @@
-import React from 'react';
-import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@studio/playground/_components/GalleryView', () => ({
-  default: () => <div data-testid="mock-gallery-view" />,
+const { redirectMock } = vi.hoisted(() => ({
+  redirectMock: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  redirect: redirectMock,
 }));
 
 import GalleryPage from '@/app/studio/gallery/page';
-import GalleryPageClient from '@/app/studio/gallery/_components/GalleryPageClient';
 
-describe('Gallery route shell', () => {
-  it('keeps the standalone gallery route inside a bounded flex shell', () => {
-    render(<GalleryPage />);
+describe('Gallery route redirect', () => {
+  it('redirects the legacy standalone gallery route to playground', () => {
+    GalleryPage();
 
-    const routeShell = screen.getByTestId('gallery-route-shell');
-    expect(routeShell.className).toContain('flex-1');
-    expect(routeShell.className).toContain('min-h-0');
-  });
-
-  it('provides a bounded client shell before rendering GalleryView', () => {
-    render(<GalleryPageClient />);
-
-    const clientShell = screen.getByTestId('gallery-page-client-shell');
-    expect(clientShell.className).toContain('flex-1');
-    expect(clientShell.className).toContain('min-h-0');
-    expect(screen.getByTestId('mock-gallery-view')).toBeTruthy();
+    expect(redirectMock).toHaveBeenCalledWith('/studio/playground');
   });
 });

@@ -76,7 +76,6 @@ export interface GallerySceneProps {
   feed: GalleryFeedResult;
   actions: GalleryActionHandlers;
   moodboardData: GalleryMoodboardData;
-  mode: 'standalone' | 'dock';
   sortBy: Exclude<SortBy, 'interactionPriority'>;
   onSortByChange: (sortBy: Exclude<SortBy, 'interactionPriority'>) => void;
 }
