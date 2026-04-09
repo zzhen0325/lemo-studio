@@ -16,9 +16,10 @@ import {
   generateNonce,
   generateTimestamp,
 } from "../utils";
-import { getConfiguredSiteBaseUrl, readLocalPublicImage } from "../imageInput";
+import { buildAbsoluteSiteUrl, getConfiguredSiteBaseUrl, readLocalPublicImage, toBlobFromImageInput } from "../imageInput";
 import { uploadToCoze } from "../cozeUploader";
 import { getFileUrl } from "@/src/storage/object-storage";
+import { extractStorageKeyFromPresignedUrl, getApiBase } from "@/lib/api-base";
 
 type DoubaoResponseContentItem = { type?: string; text?: string };
 type DoubaoResponseOutputItem = {
@@ -41,6 +42,7 @@ type CozePromptImagePayload = {
 type CozeWorkflowReferenceImagesPayload = string[];
 
 const warnedBytedanceAfrFallback = new Set<string>();
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
 function getRequestHost(input: string): string {
   try {
@@ -137,6 +139,67 @@ function isLikelyBase64(value: string): boolean {
   return /^[A-Za-z0-9+/=]+$/.test(sanitized);
 }
 
+function buildAbsoluteCozeImageUrl(rawPath: string): string | null {
+  const siteAbsoluteUrl = buildAbsoluteSiteUrl(rawPath);
+  if (siteAbsoluteUrl) {
+    return siteAbsoluteUrl;
+  }
+
+  try {
+    const apiBase = getApiBase();
+    const apiUrl = new URL(apiBase, "http://placeholder.local");
+    if (apiUrl.origin === "http://placeholder.local") {
+      return null;
+    }
+    return new URL(rawPath, `${apiUrl.origin}/`).toString();
+  } catch {
+    return null;
+  }
+}
+
+async function inlineCozeImageInput(imageInput: string): Promise<string | null> {
+  try {
+    const blob = await toBlobFromImageInput(imageInput);
+    const arrayBuffer = typeof blob.arrayBuffer === "function"
+      ? await blob.arrayBuffer()
+      : await new Response(blob).arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return `data:${blob.type || "image/png"};base64,${buffer.toString("base64")}`;
+  } catch (error) {
+    console.warn("[buildCozeImagePayload] failed_to_inline_image_input", {
+      imageInput,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+function shouldInlineCozeHttpImage(imageInput: string): boolean {
+  try {
+    const parsed = new URL(imageInput);
+    if (LOOPBACK_HOSTS.has(parsed.hostname)) {
+      return true;
+    }
+
+    if (parsed.pathname.endsWith("/api/storage/image") || parsed.pathname.endsWith("/storage/image")) {
+      return true;
+    }
+
+    if (extractStorageKeyFromPresignedUrl(imageInput)) {
+      return true;
+    }
+
+    const configuredSiteBaseUrl = getConfiguredSiteBaseUrl();
+    if (!configuredSiteBaseUrl) {
+      return false;
+    }
+
+    return new URL(configuredSiteBaseUrl).origin === parsed.origin;
+  } catch {
+    return false;
+  }
+}
+
 async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImagePayload> {
   if (!imageInput) {
     throw new Error("Coze API requires image input");
@@ -151,16 +214,38 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
 
   if (imageInput.startsWith("/")) {
     const localImage = await readLocalPublicImage(imageInput);
-    if (!localImage) {
-      throw new Error(`Invalid local image path: ${imageInput}`);
+    if (localImage) {
+      return {
+        url: `data:${localImage.mimeType};base64,${localImage.data}`,
+        file_type: "image",
+      };
     }
-    return {
-      url: `data:${localImage.mimeType};base64,${localImage.data}`,
-      file_type: "image",
-    };
+
+    const absoluteUrl = buildAbsoluteCozeImageUrl(imageInput);
+    if (absoluteUrl) {
+      const inlined = await inlineCozeImageInput(absoluteUrl);
+      if (inlined) {
+        return {
+          url: inlined,
+          file_type: "image",
+        };
+      }
+    }
+
+    throw new Error(`Invalid local image path: ${imageInput}`);
   }
 
   if (/^https?:\/\//i.test(imageInput)) {
+    if (shouldInlineCozeHttpImage(imageInput)) {
+      const inlined = await inlineCozeImageInput(imageInput);
+      if (inlined) {
+        return {
+          url: inlined,
+          file_type: "image",
+        };
+      }
+    }
+
     return {
       url: imageInput,
       file_type: "image",
@@ -183,6 +268,13 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
       key: imageInput,
       resolvedUrl: presignedUrl.substring(0, 50) + '...',
     });
+    const inlined = await inlineCozeImageInput(presignedUrl);
+    if (inlined) {
+      return {
+        url: inlined,
+        file_type: "image",
+      };
+    }
     return {
       url: presignedUrl,
       file_type: "image",

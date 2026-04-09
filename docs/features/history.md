@@ -83,6 +83,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 ## 更新记录
 
+- 2026-04-09：`Use All` / `Rerun` 回填的存储参考图在发送给 `coze_seed4` 前会优先由服务端转成内联 `data:` 图片，避免 gallery/history 里的签名存储 URL 或同源 `/api/storage/image` 被上游判成不支持格式。
 - 2026-04-09：History 面板改为 `optimistic overlay + SWR truth` 双层合成；生成中与保存失败态不再直接写入 SWR page，并新增 `Syncing...` / `Save failed` 可见状态。
 - 2026-04-09：`Use All` / `Use Model` / `Rerun` 的参数回填统一收口到页面级 handler，修正 workflow 记录与 prompt optimization 记录回填不一致的问题。
 - 2026-04-08：补充 History 模块文档，梳理入口、SWR 数据流、API 依赖与边界。

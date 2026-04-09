@@ -3,6 +3,9 @@ import type { APIProviderConfig } from "@/lib/api-config/types";
 import { CozeWorkflowImageProvider } from "@/lib/ai/providers";
 import { getProvider } from "@/lib/ai/modelRegistry";
 
+const ONE_PIXEL_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX6sAAAAASUVORK5CYII=";
+
 describe("CozeWorkflowImageProvider", () => {
   const originalSeedToken = process.env.LEMO_COZE_SEED_API_TOKEN;
   const originalSeedRunUrl = process.env.LEMO_COZE_SEED_RUN_URL;
@@ -191,5 +194,66 @@ describe("CozeWorkflowImageProvider", () => {
     const body = JSON.parse(String(options?.body));
     expect(body.reference_images).toEqual(["data:image/png;base64,AAAA"]);
     expect(body.size).toBe("2048x2048");
+  });
+
+  it("inlines storage-backed reference image URLs before calling Coze workflow", async () => {
+    process.env.LEMO_COZE_SEED_API_TOKEN = "seed-token";
+
+    const storageProxyUrl =
+      "http://127.0.0.1:3001/api/storage/image?key=ljhwZthlaukjlkulzlp%2Fgallery%2Freference.png";
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === storageProxyUrl) {
+        return new Response(
+          Uint8Array.from(Buffer.from(ONE_PIXEL_PNG_BASE64, "base64")),
+          {
+            status: 200,
+            headers: {
+              "content-type": "image/png",
+            },
+          },
+        );
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        headers: init?.headers,
+        text: async () =>
+          JSON.stringify({
+            data: {
+              output: [
+                {
+                  url: "https://example.com/generated/output.png",
+                },
+              ],
+            },
+          }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new CozeWorkflowImageProvider({
+      providerId: "coze",
+      modelId: "coze_seedream4_5",
+      apiKey: "legacy-token",
+      baseURL: "https://custom.coze.site/run",
+    });
+
+    const result = await provider.generateImage({
+      prompt: "rerun with gallery reference",
+      width: 1024,
+      height: 1024,
+      images: [storageProxyUrl],
+    });
+
+    expect(result.images).toEqual(["https://example.com/generated/output.png"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const [, options] = fetchMock.mock.calls[1];
+    const body = JSON.parse(String(options?.body));
+    expect(body.reference_images).toHaveLength(1);
+    expect(String(body.reference_images[0])).toMatch(/^data:image\/png;base64,/);
   });
 });
