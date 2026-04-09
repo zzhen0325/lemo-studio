@@ -136,6 +136,9 @@
     "tar": "7.5.10"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp"
+    ],
     "overrides": {
       "@byted-service/env": "file:vendor/byted-service-env-1.17.22.tgz",
       "@byted-service/logid": "file:vendor/byted-service-logid-1.1.1.tgz"
