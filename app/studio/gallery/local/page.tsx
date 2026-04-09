@@ -4,8 +4,10 @@ import GalleryLocalFixtureShell from './_components/GalleryLocalFixtureShell';
 
 export const dynamic = 'force-dynamic';
 
+const FIXTURE_REPEAT_COUNT = 10;
+
 export default async function LocalGalleryFixturePage() {
-  const generations = await loadTestGalleryFixtureGenerations();
+  const generations = await loadTestGalleryFixtureGenerations(48, FIXTURE_REPEAT_COUNT);
   const items = resolveGalleryItems(generations).filter((item) => item.isImageVisible);
 
   return <GalleryLocalFixtureShell items={items} />;

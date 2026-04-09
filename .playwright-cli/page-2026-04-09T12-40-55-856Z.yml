@@ -1,0 +1,200 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - img "Lemo Studio" [ref=e6] [cursor=pointer]
+      - navigation [ref=e8]:
+        - button "Playground" [ref=e9] [cursor=pointer]:
+          - generic "Playground" [ref=e10]:
+            - generic [ref=e11]:
+              - generic [ref=e12]: P
+              - generic [ref=e13]: l
+              - generic [ref=e14]: a
+              - generic [ref=e15]: "y"
+              - generic [ref=e16]: g
+              - generic [ref=e17]: r
+              - generic [ref=e18]: o
+              - generic [ref=e19]: u
+              - generic [ref=e20]: "n"
+              - generic [ref=e21]: d
+        - button "Infinite Canvas" [ref=e22] [cursor=pointer]:
+          - generic "Infinite Canvas" [ref=e23]:
+            - generic [ref=e24]:
+              - generic [ref=e25]: I
+              - generic [ref=e26]: "n"
+              - generic [ref=e27]: f
+              - generic [ref=e28]: i
+              - generic [ref=e29]: "n"
+              - generic [ref=e30]: i
+              - generic [ref=e31]: t
+              - generic [ref=e32]: e
+            - generic [ref=e33]:
+              - generic [ref=e34]: C
+              - generic [ref=e35]: a
+              - generic [ref=e36]: "n"
+              - generic [ref=e37]: v
+              - generic [ref=e38]: a
+              - generic [ref=e39]: s
+        - button "Tools" [ref=e40] [cursor=pointer]:
+          - generic "Tools" [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e43]: T
+              - generic [ref=e44]: o
+              - generic [ref=e45]: o
+              - generic [ref=e46]: l
+              - generic [ref=e47]: s
+        - button "Dataset" [ref=e48] [cursor=pointer]:
+          - generic "Dataset" [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: D
+              - generic [ref=e52]: a
+              - generic [ref=e53]: t
+              - generic [ref=e54]: a
+              - generic [ref=e55]: s
+              - generic [ref=e56]: e
+              - generic [ref=e57]: t
+      - button "Sign In" [ref=e59] [cursor=pointer]
+    - main [ref=e60]:
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - button "Gallery" [ref=e70] [cursor=pointer]:
+              - generic "Gallery" [ref=e71]:
+                - generic [ref=e72]:
+                  - generic [ref=e73]: G
+                  - generic [ref=e74]: a
+                  - generic [ref=e75]: l
+                  - generic [ref=e76]: l
+                  - generic [ref=e77]: e
+                  - generic [ref=e78]: r
+                  - generic [ref=e79]: "y"
+            - button "Prompt" [ref=e80] [cursor=pointer]:
+              - generic "Prompt" [ref=e81]:
+                - generic [ref=e82]:
+                  - generic [ref=e83]: P
+                  - generic [ref=e84]: r
+                  - generic [ref=e85]: o
+                  - generic [ref=e86]: m
+                  - generic [ref=e87]: p
+                  - generic [ref=e88]: t
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - img [ref=e91]
+              - textbox "Search gallery prompts..." [ref=e94]
+            - button "最新" [ref=e95] [cursor=pointer]:
+              - generic [ref=e96]: 最新
+              - img
+            - button "Filters" [ref=e97] [cursor=pointer]:
+              - img
+              - generic [ref=e98]: Filters
+        - generic [ref=e100]:
+          - grid [ref=e103]:
+            - gridcell [ref=e104]
+            - gridcell [ref=e105]
+            - gridcell [ref=e106]
+            - gridcell [ref=e107]
+            - gridcell [ref=e108]
+            - gridcell [ref=e109]
+            - gridcell [ref=e110]
+            - gridcell [ref=e111]
+            - gridcell [ref=e112]
+            - gridcell [ref=e113]
+            - gridcell [ref=e114]
+            - gridcell [ref=e115]
+            - gridcell [ref=e116]
+            - gridcell [ref=e117]
+            - gridcell [ref=e118]
+            - gridcell [ref=e119]
+            - gridcell [ref=e120]
+            - gridcell "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e121]:
+              - button "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e122] [cursor=pointer]:
+                - generic [ref=e123]:
+                  - img "Generated masterwork" [ref=e124]
+                  - generic [ref=e125]:
+                    - button "Add to Moodboard" [ref=e127]:
+                      - img
+                    - button "Use Prompt" [ref=e128]:
+                      - img
+                    - button "Use Image" [ref=e129]:
+                      - img
+                    - button "Rerun" [ref=e130]:
+                      - img
+                    - button "Download" [ref=e131]:
+                      - img
+            - gridcell "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e132]:
+              - button "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e133] [cursor=pointer]:
+                - generic [ref=e134]:
+                  - img "Generated masterwork" [ref=e135]
+                  - generic [ref=e136]:
+                    - button "Add to Moodboard" [ref=e138]:
+                      - img
+                    - button "Use Prompt" [ref=e139]:
+                      - img
+                    - button "Use Image" [ref=e140]:
+                      - img
+                    - button "Rerun" [ref=e141]:
+                      - img
+                    - button "Download" [ref=e142]:
+                      - img
+            - gridcell "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e143]:
+              - button "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e144] [cursor=pointer]:
+                - generic [ref=e145]:
+                  - img "Generated masterwork" [ref=e146]
+                  - generic [ref=e147]:
+                    - button "Add to Moodboard" [ref=e149]:
+                      - img
+                    - button "Use Prompt" [ref=e150]:
+                      - img
+                    - button "Use Image" [ref=e151]:
+                      - img
+                    - button "Rerun" [ref=e152]:
+                      - img
+                    - button "Download" [ref=e153]:
+                      - img
+            - gridcell "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e154]:
+              - button "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e155] [cursor=pointer]:
+                - generic [ref=e156]:
+                  - img "Generated masterwork" [ref=e157]
+                  - generic [ref=e158]:
+                    - button "Add to Moodboard" [ref=e160]:
+                      - img
+                    - button "Use Prompt" [ref=e161]:
+                      - img
+                    - button "Use Image" [ref=e162]:
+                      - img
+                    - button "Rerun" [ref=e163]:
+                      - img
+                    - button "Download" [ref=e164]:
+                      - img
+            - gridcell "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e165]:
+              - button "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e166] [cursor=pointer]:
+                - generic [ref=e167]:
+                  - img "Generated masterwork" [ref=e168]
+                  - generic [ref=e169]:
+                    - button "Add to Moodboard" [ref=e171]:
+                      - img
+                    - button "Use Prompt" [ref=e172]:
+                      - img
+                    - button "Use Image" [ref=e173]:
+                      - img
+                    - button "Rerun" [ref=e174]:
+                      - img
+                    - button "Download" [ref=e175]:
+                      - img
+            - gridcell "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e176]:
+              - button "Generated masterwork Add to Moodboard Use Prompt Use Image Rerun Download" [ref=e177] [cursor=pointer]:
+                - generic [ref=e178]:
+                  - img "Generated masterwork" [ref=e179]
+                  - generic [ref=e180]:
+                    - button "Add to Moodboard" [ref=e182]:
+                      - img
+                    - button "Use Prompt" [ref=e183]:
+                      - img
+                    - button "Use Image" [ref=e184]:
+                      - img
+                    - button "Rerun" [ref=e185]:
+                      - img
+                    - button "Download" [ref=e186]:
+                      - img
+          - generic [ref=e190]: End of Gallery
+  - region "Notifications alt+T"
+  - alert [ref=e192]

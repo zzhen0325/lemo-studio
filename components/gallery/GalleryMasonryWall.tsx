@@ -401,9 +401,6 @@ function GalleryMasonryWallClient({
     tabIndex: -1,
     className: 'min-w-0 w-full',
     containerRef: masonryGridRef,
-    itemStyle: {
-      willChange: 'transform',
-    },
   });
 
   useLayoutEffect(() => {

@@ -38,6 +38,15 @@ export function GalleryImageCard({
   const pathname = usePathname();
   const disableLocalFixtureImageMotion = pathname === '/studio/gallery/local';
   const useLightweightImageRendering = renderMode === 'virtualized' || disableLocalFixtureImageMotion;
+  const disableHeavyCardCompositeEffects = renderMode === 'virtualized' || disableLocalFixtureImageMotion;
+  const hoverImageScaleClass = disableHeavyCardCompositeEffects ? '' : 'group-hover:scale-105';
+  const hoverOverlayMotionClass = disableHeavyCardCompositeEffects
+    ? 'group-focus-within:opacity-100 group-hover:opacity-100'
+    : 'group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100';
+  const toolbarBackdropClass = disableHeavyCardCompositeEffects ? 'bg-black/75' : 'bg-black/50 backdrop-blur-xl';
+  const sourcePreviewMotionClass = disableHeavyCardCompositeEffects
+    ? 'group-focus-within:opacity-100 group-hover:opacity-100'
+    : 'group-focus-within:opacity-100 group-focus-within:scale-110 group-hover:scale-110 group-hover:opacity-100';
   const imageCandidates = useMemo(() => {
     const candidates = [
       useLightweightImageRendering ? (item.previewUrl || item.displayUrl) : item.displayUrl,
@@ -171,7 +180,10 @@ export function GalleryImageCard({
                   loading={imageState === 'loaded' ? 'eager' : 'lazy'}
                   decoding="async"
                   draggable={false}
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-150 ease-out group-hover:scale-105"
+                  className={cn(
+                    'absolute inset-0 h-full w-full object-cover transition-transform duration-150 ease-out',
+                    hoverImageScaleClass,
+                  )}
                   onLoad={handleImageLoaded}
                   onError={handleImageError}
                 />
@@ -190,7 +202,8 @@ export function GalleryImageCard({
                   blurDataURL={primaryImagePlaceholder === 'blur' ? BLUR_DATA_URL : undefined}
                   unoptimized
                   className={cn(
-                    'object-cover group-hover:scale-105',
+                    'object-cover',
+                    hoverImageScaleClass,
                     'transition-all duration-700',
                     imageState === 'loaded' ? 'opacity-100 blur-0' : 'opacity-0 blur-xl',
                   )}
@@ -216,7 +229,10 @@ export function GalleryImageCard({
         )}
 
         {item.sourceImageUrl ? (
-          <div className="absolute left-3 top-3 z-10 h-12 w-12 overflow-hidden rounded-lg border border-white shadow-2xl opacity-0 transition-all duration-300 group-focus-within:opacity-100 group-focus-within:scale-110 group-hover:scale-110 group-hover:opacity-100">
+          <div className={cn(
+            'absolute left-3 top-3 z-10 h-12 w-12 overflow-hidden rounded-lg border border-white shadow-2xl opacity-0 transition-all duration-300',
+            sourcePreviewMotionClass,
+          )}>
             <Image
               src={item.sourceImageUrl}
               alt="Reference image"
@@ -229,7 +245,11 @@ export function GalleryImageCard({
         ) : null}
 
         <div
-          className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-24px)] shrink-0 -translate-x-1/2 items-center gap-1 overflow-hidden rounded-xl border border-white/10 bg-black/50 shadow-2xl opacity-0 backdrop-blur-xl transition-all duration-150 group-focus-within:translate-y-0 group-focus-within:scale-100 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
+          className={cn(
+            'absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-24px)] shrink-0 -translate-x-1/2 items-center gap-1 overflow-hidden rounded-xl border border-white/10 shadow-2xl opacity-0 transition-all duration-150',
+            toolbarBackdropClass,
+            hoverOverlayMotionClass,
+          )}
           onClick={(event) => event.stopPropagation()}
         >
           <AddToMoodboardMenu

@@ -1,0 +1,58 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - img "Lemo Studio" [ref=e6] [cursor=pointer]
+      - navigation [ref=e8]:
+        - button "Playground" [ref=e9] [cursor=pointer]:
+          - generic "Playground" [ref=e10]:
+            - generic [ref=e11]:
+              - generic [ref=e12]: P
+              - generic [ref=e13]: l
+              - generic [ref=e14]: a
+              - generic [ref=e15]: "y"
+              - generic [ref=e16]: g
+              - generic [ref=e17]: r
+              - generic [ref=e18]: o
+              - generic [ref=e19]: u
+              - generic [ref=e20]: "n"
+              - generic [ref=e21]: d
+        - button "Infinite Canvas" [ref=e22] [cursor=pointer]:
+          - generic "Infinite Canvas" [ref=e23]:
+            - generic [ref=e24]:
+              - generic [ref=e25]: I
+              - generic [ref=e26]: "n"
+              - generic [ref=e27]: f
+              - generic [ref=e28]: i
+              - generic [ref=e29]: "n"
+              - generic [ref=e30]: i
+              - generic [ref=e31]: t
+              - generic [ref=e32]: e
+            - generic [ref=e33]:
+              - generic [ref=e34]: C
+              - generic [ref=e35]: a
+              - generic [ref=e36]: "n"
+              - generic [ref=e37]: v
+              - generic [ref=e38]: a
+              - generic [ref=e39]: s
+        - button "Tools" [ref=e40] [cursor=pointer]:
+          - generic "Tools" [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e43]: T
+              - generic [ref=e44]: o
+              - generic [ref=e45]: o
+              - generic [ref=e46]: l
+              - generic [ref=e47]: s
+        - button "Dataset" [ref=e48] [cursor=pointer]:
+          - generic "Dataset" [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]: D
+              - generic [ref=e52]: a
+              - generic [ref=e53]: t
+              - generic [ref=e54]: a
+              - generic [ref=e55]: s
+              - generic [ref=e56]: e
+              - generic [ref=e57]: t
+      - button "Sign In" [ref=e59] [cursor=pointer]
+    - main [ref=e60]
+  - region "Notifications alt+T"
+  - alert [ref=e61]

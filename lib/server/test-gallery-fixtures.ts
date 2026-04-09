@@ -11,6 +11,7 @@ const DEFAULT_IMAGE_SIZE = {
 };
 
 export const TEST_GALLERY_DIR = path.join(process.cwd(), 'test gallery');
+const DEFAULT_FIXTURE_REPEAT_COUNT = 1;
 
 function isSupportedImageFile(fileName: string) {
   return SUPPORTED_IMAGE_EXTENSIONS.has(path.extname(fileName).toLowerCase());
@@ -169,6 +170,14 @@ function createFixtureId(fileName: string, index: number) {
   return `test-gallery-${index + 1}-${normalized || `item-${index + 1}`}`;
 }
 
+function clampRepeatCount(value: number | undefined) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_FIXTURE_REPEAT_COUNT;
+  }
+
+  return Math.min(Math.max(Math.floor(value as number), 1), 100);
+}
+
 export async function listTestGalleryFixtureFileNames(limit = 48) {
   const entries = await fs.readdir(TEST_GALLERY_DIR, { withFileTypes: true });
 
@@ -179,10 +188,11 @@ export async function listTestGalleryFixtureFileNames(limit = 48) {
     .slice(0, limit);
 }
 
-export async function loadTestGalleryFixtureGenerations(limit = 48): Promise<Generation[]> {
+export async function loadTestGalleryFixtureGenerations(limit = 48, repeatCount = DEFAULT_FIXTURE_REPEAT_COUNT): Promise<Generation[]> {
   const fileNames = await listTestGalleryFixtureFileNames(limit);
+  const normalizedRepeatCount = clampRepeatCount(repeatCount);
 
-  return Promise.all(fileNames.map(async (fileName, index) => {
+  const baseGenerations = await Promise.all<Generation>(fileNames.map(async (fileName, index) => {
     const safeFileName = sanitizeFixtureFileName(fileName);
     const filePath = path.join(TEST_GALLERY_DIR, safeFileName);
     const buffer = await fs.readFile(filePath);
@@ -193,7 +203,7 @@ export async function loadTestGalleryFixtureGenerations(limit = 48): Promise<Gen
       userId: 'local-gallery-fixture',
       projectId: 'local-gallery-fixture',
       outputUrl: `/api/dev/test-gallery?file=${encodeURIComponent(safeFileName)}`,
-      status: 'completed',
+      status: 'completed' as const,
       createdAt: new Date(Date.now() - index * 60_000).toISOString(),
       config: {
         prompt: safeFileName,
@@ -203,6 +213,24 @@ export async function loadTestGalleryFixtureGenerations(limit = 48): Promise<Gen
       },
     };
   }));
+
+  if (normalizedRepeatCount === 1) {
+    return baseGenerations;
+  }
+
+  return Array.from({ length: normalizedRepeatCount }, (_, repeatIndex) => (
+    baseGenerations.map((generation, generationIndex) => ({
+      ...generation,
+      id: `${generation.id}-copy-${repeatIndex + 1}`,
+      createdAt: new Date(
+        Date.now() - (repeatIndex * baseGenerations.length + generationIndex) * 60_000,
+      ).toISOString(),
+      config: {
+        ...generation.config,
+        prompt: `${generation.config.prompt} [x${repeatIndex + 1}]`,
+      },
+    }))
+  )).flat();
 }
 
 export async function readTestGalleryFixtureFile(fileName: string) {
