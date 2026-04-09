@@ -708,7 +708,7 @@ export const HistoryCard = React.memo(function HistoryCard({
                 </div>
               )}
 
-              {result.status !== 'pending' && result.clientSyncState === 'syncing' && (
+              {result.clientSyncState === 'syncing' && (
                 <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded-md border border-amber-400/20 text-[10px] text-amber-200 font-mono z-20 shadow-lg">
                   Syncing
                 </div>
