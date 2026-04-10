@@ -17,6 +17,7 @@ import {
   shouldShowGalleryEndIndicator,
 } from '@/lib/gallery/scroll-helpers';
 import type { GalleryActionHandlers, GalleryItemViewModel, GalleryMoodboardData } from '@/lib/gallery/types';
+import { GalleryMasonryLoadingState, GallerySkeletonGrid } from './GalleryLoadingState';
 import { GalleryImageCard } from './GalleryImageCard';
 
 const GALLERY_COLUMN_WIDTH = 170;
@@ -235,31 +236,10 @@ function resolveGridWidth(
   return fallbackWidth;
 }
 
-function GallerySkeletonGrid({ columnsCount }: { columnsCount: number }) {
-  const cols = Math.max(columnsCount, 1);
-
-  return (
-    <div data-testid="gallery-skeleton-grid" className="flex min-w-0 w-full gap-[1px]">
-      {Array.from({ length: cols }).map((_, colIdx) => (
-        <div key={`gallery-skeleton-col-${colIdx}`} className="flex min-w-0 flex-1 flex-col gap-[1px]">
-          {Array.from({ length: 3 }).map((__, itemIdx) => (
-            <div
-              key={`gallery-skeleton-item-${colIdx}-${itemIdx}`}
-              className="animate-pulse rounded-xl border border-white/10 bg-white/5"
-              style={{
-                paddingBottom: `${itemIdx % 3 === 0 ? 140 : itemIdx % 3 === 1 ? 120 : 160}%`,
-              }}
-            />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 interface GalleryMasonryWallProps {
   items: GalleryItemViewModel[];
   layoutKey: string;
+  isActive: boolean;
   isInitialLoading: boolean;
   isLoadingMore: boolean;
   hasMore: boolean;
@@ -276,6 +256,10 @@ function GalleryMasonryWallFallback({
   itemsLength: number;
   isInitialLoading: boolean;
 }) {
+  if (isInitialLoading || itemsLength > 0) {
+    return <GalleryMasonryLoadingState />;
+  }
+
   return (
     <div
       data-testid="gallery-scroll-container"
@@ -286,13 +270,9 @@ function GalleryMasonryWallFallback({
         data-testid="gallery-masonry-container"
         className="flex min-h-0 min-w-0 w-full flex-none flex-col"
       >
-        {isInitialLoading || itemsLength > 0 ? (
-          <GallerySkeletonGrid columnsCount={4} />
-        ) : (
-          <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
-            No gallery items yet
-          </div>
-        )}
+        <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
+          No gallery items yet
+        </div>
       </div>
     </div>
   );
@@ -301,6 +281,7 @@ function GalleryMasonryWallFallback({
 function GalleryMasonryWallClient({
   items,
   layoutKey,
+  isActive,
   isInitialLoading,
   isLoadingMore,
   hasMore,
@@ -352,7 +333,7 @@ function GalleryMasonryWallClient({
 
   const maybeLoadMore = useInfiniteLoader(
     useCallback(async () => {
-      if (!isMasonryReady || !hasMore || isLoadingMore || inflightLoadMoreRef.current) {
+      if (!isActive || !isMasonryReady || !hasMore || isLoadingMore || inflightLoadMoreRef.current) {
         return;
       }
 
@@ -362,7 +343,7 @@ function GalleryMasonryWallClient({
       } finally {
         inflightLoadMoreRef.current = false;
       }
-    }, [hasMore, isLoadingMore, isMasonryReady, onLoadMore]),
+    }, [hasMore, isActive, isLoadingMore, isMasonryReady, onLoadMore]),
     {
       minimumBatchSize: Math.max(columnsCount, 1),
       threshold: Math.max(columnsCount * 2, 8),

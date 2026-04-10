@@ -1,12 +1,14 @@
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { MoodboardView } from "@studio/playground/_components/MoodboardView";
 import { BannerModePanel } from "@studio/playground/_components/Banner/BannerModePanel";
 import type { MoodboardCard } from "@/config/moodboard-cards";
+import { GalleryViewLoadingShell } from "@/components/gallery/GalleryLoadingState";
+import { cn } from "@/lib/utils";
 import type { PlaygroundHistoryController } from "@studio/playground/_components/hooks/useHistory";
 
 const GalleryView = dynamic(() => import("@studio/playground/_components/GalleryView"), {
-  loading: () => <div className="flex items-center justify-center h-full text-white">Thinking...</div>,
+  loading: () => <GalleryViewLoadingShell />,
   ssr: false
 });
 
@@ -48,19 +50,38 @@ export function PlaygroundDockPanels({
   isDraggingOver,
   historyController,
 }: PlaygroundDockPanelsProps) {
+  const [hasMountedGallery, setHasMountedGallery] = useState(
+    () => viewMode === 'dock' && activeTab === 'gallery',
+  );
+  const galleryIsVisible = viewMode === 'dock' && activeTab === 'gallery';
+
+  useEffect(() => {
+    if (galleryIsVisible) {
+      setHasMountedGallery(true);
+    }
+  }, [galleryIsVisible]);
+
   return (
     <>
-      {viewMode === 'dock' && activeTab === 'gallery' && (
+      {hasMountedGallery && (
         <div
           data-testid="playground-dock-gallery-shell"
-          className="relative z-30 flex h-full min-h-0 min-w-0 w-full flex-1 overflow-hidden pl-20 md:pl-28 lg:pl-28"
+          data-gallery-visible={galleryIsVisible ? 'true' : 'false'}
+          aria-hidden={!galleryIsVisible}
+          className={cn(
+            "min-h-0 min-w-0 w-full overflow-hidden pl-20 md:pl-28 lg:pl-28",
+            galleryIsVisible
+              ? "relative z-30 flex h-full flex-1"
+              : "pointer-events-none invisible absolute inset-0 flex",
+          )}
         >
           <div
             data-testid="playground-dock-gallery-content"
             className="relative flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
           >
-            <Suspense fallback={<div className="flex w-[90%] items-center justify-center h-full text-white">Thinking...</div>}>
+            <Suspense fallback={<GalleryViewLoadingShell />}>
               <GalleryView
+                isActive={galleryIsVisible}
                 onSelectItem={onImageClick}
                 onUsePrompt={onUsePrompt}
                 onUseImage={onUseImage}

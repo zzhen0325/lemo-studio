@@ -97,10 +97,10 @@ describe('useGalleryFeed', () => {
       </SWRConfig>
     );
 
-    const { result } = renderHook(() => useGalleryFeed({ sortBy: 'recent' }), { wrapper });
+    const { result } = renderHook(() => useGalleryFeed({ sortBy: 'recent', isActive: true }), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.items.map((item) => item.id)).toEqual(['gen-1', 'gen-2']);
+      expect(result.current.items.map((item) => item.id)).toEqual(['gen-2', 'gen-1']);
     });
 
     expect(authState.ensureSession).toHaveBeenCalledTimes(1);
@@ -112,7 +112,7 @@ describe('useGalleryFeed', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.items.map((item) => item.id)).toEqual(['gen-1', 'gen-2', 'gen-3']);
+      expect(result.current.items.map((item) => item.id)).toEqual(['gen-3', 'gen-2', 'gen-1']);
     });
     expect(result.current.hasMore).toBe(false);
 
@@ -121,7 +121,7 @@ describe('useGalleryFeed', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.items.map((item) => item.id)).toEqual(['gen-0', 'gen-1', 'gen-2', 'gen-3']);
+      expect(result.current.items.map((item) => item.id)).toEqual(['gen-3', 'gen-2', 'gen-1', 'gen-0']);
     });
   });
 
@@ -170,10 +170,10 @@ describe('useGalleryFeed', () => {
       </SWRConfig>
     );
 
-    const { result } = renderHook(() => useGalleryFeed({ sortBy: 'recent' }), { wrapper });
+    const { result } = renderHook(() => useGalleryFeed({ sortBy: 'recent', isActive: true }), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.items.map((item) => item.id)).toEqual(['gen-local', 'gen-1']);
+      expect(result.current.items.map((item) => item.id)).toEqual(['gen-1', 'gen-local']);
     });
   });
 
@@ -204,7 +204,7 @@ describe('useGalleryFeed', () => {
       </SWRConfig>
     );
 
-    const { result } = renderHook(() => useGalleryFeed({ sortBy: 'recent' }), { wrapper });
+    const { result } = renderHook(() => useGalleryFeed({ sortBy: 'recent', isActive: true }), { wrapper });
 
     await waitFor(() => {
       expect(result.current.items).toHaveLength(1);
@@ -212,5 +212,43 @@ describe('useGalleryFeed', () => {
       expect(result.current.items[0].moodboardImagePath).toBe('persisted/gen-1.png');
       expect(result.current.items[0].raw.clientSyncState).toBeUndefined();
     });
+  });
+
+  it('pauses fetches and manual paging when the gallery is inactive', async () => {
+    playgroundState.generationHistory = [
+      {
+        ...createGeneration('gen-local'),
+        clientSyncState: 'syncing',
+      },
+    ];
+
+    const fetchMock = vi.fn(async () => createResponse({
+      history: [createGeneration('gen-1')],
+      hasMore: true,
+    }));
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+        {children}
+      </SWRConfig>
+    );
+
+    const { result } = renderHook(() => useGalleryFeed({ sortBy: 'recent', isActive: false }), { wrapper });
+
+    await waitFor(() => {
+      expect(authState.ensureSession).toHaveBeenCalledTimes(1);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.loadMore();
+      await result.current.revalidateLatest();
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.items.map((item) => item.id)).toEqual(['gen-local']);
   });
 });

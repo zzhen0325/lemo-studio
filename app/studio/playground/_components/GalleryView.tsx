@@ -12,12 +12,14 @@ import type { PlaygroundHistoryController } from '@studio/playground/_components
 import { usePlaygroundMoodboards } from '@studio/playground/_components/hooks/usePlaygroundMoodboards';
 
 export default function GalleryView({
+  isActive = true,
   onSelectItem,
   onUsePrompt,
   onUseImage,
   onRerun,
   historyController,
 }: {
+  isActive?: boolean;
   onSelectItem?: (item: Generation, items?: Generation[]) => void;
   onUsePrompt?: (item: Generation) => void;
   onUseImage?: (item: Generation) => void | Promise<void>;
@@ -25,7 +27,7 @@ export default function GalleryView({
   historyController?: Pick<PlaygroundHistoryController, 'setHistory' | 'getHistoryItem'>;
 }) {
   const [sortBy, setSortBy] = useState<Exclude<SortBy, 'interactionPriority'>>('recent');
-  const feed = useGalleryFeed({ sortBy });
+  const feed = useGalleryFeed({ sortBy, isActive });
   const { toast } = useToast();
   const { handleGenerate } = useGenerationService(historyController);
   const moodboardData = usePlaygroundMoodboards();
@@ -137,6 +139,7 @@ export default function GalleryView({
   return (
     <GalleryScene
       feed={feed}
+      isActive={isActive}
       sortBy={sortBy}
       onSortByChange={setSortBy}
       moodboardData={moodboardData}

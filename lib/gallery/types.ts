@@ -75,6 +75,7 @@ export interface GalleryMoodboardData {
 
 export interface GallerySceneProps {
   feed: GalleryFeedResult;
+  isActive: boolean;
   actions: GalleryActionHandlers;
   moodboardData: GalleryMoodboardData;
   sortBy: Exclude<SortBy, 'interactionPriority'>;

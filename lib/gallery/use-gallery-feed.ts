@@ -101,8 +101,10 @@ export function getGalleryFeedLoadingState({
 
 export function useGalleryFeed({
   sortBy,
+  isActive = true,
 }: {
   sortBy: Exclude<SortBy, 'interactionPriority'>;
+  isActive?: boolean;
 }): GalleryFeedResult {
   const actorId = useAuthStore((state) => state.actorId);
   const ensureSession = useAuthStore((state) => state.ensureSession);
@@ -128,11 +130,13 @@ export function useGalleryFeed({
       return fetchGalleryFeedPage(page, sortBy, actorId || undefined);
     },
     {
-      revalidateOnFocus: true,
+      isPaused: () => !isActive,
+      revalidateOnFocus: isActive,
+      revalidateOnReconnect: isActive,
       revalidateFirstPage: false,
       persistSize: true,
       keepPreviousData: true,
-      revalidateIfStale: true,
+      revalidateIfStale: isActive,
       dedupingInterval: 5_000,
       focusThrottleInterval: 10_000,
     },
@@ -168,14 +172,14 @@ export function useGalleryFeed({
   const hasMore = pages.length > 0 ? pages[pages.length - 1]?.hasMore ?? true : true;
 
   const loadMore = useCallback(async () => {
-    if (isValidating || !hasMore) {
+    if (!isActive || isValidating || !hasMore) {
       return;
     }
     await setSize((current) => current + 1);
-  }, [hasMore, isValidating, setSize]);
+  }, [hasMore, isActive, isValidating, setSize]);
 
   const revalidateLatest = useCallback(async () => {
-    if (historyItems.length === 0) {
+    if (!isActive || historyItems.length === 0) {
       return;
     }
 
@@ -220,7 +224,7 @@ export function useGalleryFeed({
 
       return nextPages;
     }, { revalidate: false });
-  }, [actorId, historyItems.length, mutate, sortBy]);
+  }, [actorId, historyItems.length, isActive, mutate, sortBy]);
 
   return {
     items,

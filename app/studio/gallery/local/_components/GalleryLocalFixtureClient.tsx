@@ -50,6 +50,7 @@ export default function GalleryLocalFixtureClient({
         <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
           <GalleryScene
             feed={feed}
+            isActive
             sortBy={sortBy}
             onSortByChange={setSortBy}
             actions={fixtureActions}

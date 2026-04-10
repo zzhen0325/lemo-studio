@@ -60,13 +60,13 @@ const feedState: GalleryFeedResult = {
   revalidateLatest: vi.fn(async () => undefined),
 };
 
-const useGalleryFeedMock = vi.fn((options: { sortBy: string }) => {
+const useGalleryFeedMock = vi.fn((options: { sortBy: string; isActive?: boolean }) => {
   void options;
   return feedState;
 });
 
 vi.mock('@/lib/gallery/use-gallery-feed', () => ({
-  useGalleryFeed: (options: { sortBy: string }) => useGalleryFeedMock(options),
+  useGalleryFeed: (options: { sortBy: string; isActive?: boolean }) => useGalleryFeedMock(options),
 }));
 
 vi.mock('@/lib/store/playground-store', () => ({
@@ -146,7 +146,7 @@ describe('GalleryView loading behavior', () => {
     render(<GalleryView />);
 
     expect(screen.getByTestId('gallery-wall-ready')).toBeTruthy();
-    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent' });
+    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: true });
   });
 
   it('keeps the gallery content inside a bounded flex chain', () => {
@@ -183,5 +183,15 @@ describe('GalleryView loading behavior', () => {
     rerender(<GalleryView />);
 
     expect(screen.getByTestId('gallery-wall-ready').getAttribute('data-layout-key')).toBe(initialLayoutKey);
+  });
+
+  it('passes the inactive flag through to the shared gallery feed hook', () => {
+    feedState.items = [createViewModel('inactive-item')];
+    feedState.promptItems = [createViewModel('inactive-item')];
+    feedState.isInitialLoading = false;
+
+    render(<GalleryView isActive={false} />);
+
+    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: false });
   });
 });

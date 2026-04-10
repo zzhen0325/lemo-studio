@@ -260,6 +260,7 @@ describe('GalleryMasonryWall', () => {
       <GalleryMasonryWall
         items={[createItem(createGeneration('bounded-item'))]}
         layoutKey="recent"
+        isActive
         isInitialLoading={false}
         isLoadingMore={false}
         hasMore
@@ -297,6 +298,35 @@ describe('GalleryMasonryWall', () => {
     });
   });
 
+  it('does not trigger load-more while the keep-alive gallery is inactive', async () => {
+    mockClientHeight = 640;
+    mockScrollClientWidth = 1200;
+    mockMasonryClientWidth = 1120;
+    mockMasonryClientHeight = 680;
+    mockScrollHeight = 700;
+    const onLoadMore = vi.fn(async () => undefined);
+
+    render(
+      <GalleryMasonryWall
+        items={[createItem(createGeneration('inactive-item'))]}
+        layoutKey="recent"
+        isActive={false}
+        isInitialLoading={false}
+        isLoadingMore={false}
+        hasMore
+        onLoadMore={onLoadMore}
+        actions={actions}
+        moodboardData={moodboardData}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gallery-scroll-container').getAttribute('data-gallery-viewport-ready')).toBe('true');
+    });
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
+
   it('shows the end indicator only after the wall has real overflowing content', async () => {
     mockClientHeight = 640;
     mockScrollClientWidth = 1200;
@@ -308,6 +338,7 @@ describe('GalleryMasonryWall', () => {
       <GalleryMasonryWall
         items={[createItem(createGeneration('end-item'))]}
         layoutKey="recent"
+        isActive
         isInitialLoading={false}
         isLoadingMore={false}
         hasMore={false}
@@ -333,6 +364,7 @@ describe('GalleryMasonryWall', () => {
       <GalleryMasonryWall
         items={[createItem(createGeneration('resize-item'))]}
         layoutKey="recent"
+        isActive
         isInitialLoading={false}
         isLoadingMore={false}
         hasMore={false}
@@ -378,6 +410,7 @@ describe('GalleryMasonryWall', () => {
       <GalleryMasonryWall
         items={[createItem(createGeneration('height-item'))]}
         layoutKey="recent"
+        isActive
         isInitialLoading={false}
         isLoadingMore={false}
         hasMore={false}
@@ -419,6 +452,7 @@ describe('GalleryMasonryWall', () => {
       <GalleryMasonryWall
         items={[createItem(createGeneration('stable-width-item'))]}
         layoutKey="recent"
+        isActive
         isInitialLoading={false}
         isLoadingMore={false}
         hasMore={false}
@@ -460,6 +494,7 @@ describe('GalleryMasonryWall', () => {
       <GalleryMasonryWall
         items={[createItem(createGeneration('fallback-width-item'))]}
         layoutKey="recent"
+        isActive
         isInitialLoading={false}
         isLoadingMore={false}
         hasMore={false}

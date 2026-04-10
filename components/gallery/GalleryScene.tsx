@@ -17,6 +17,7 @@ import { GalleryToolbar } from './GalleryToolbar';
 
 export function GalleryScene({
   feed,
+  isActive,
   actions,
   moodboardData,
   sortBy,
@@ -62,7 +63,7 @@ export function GalleryScene({
   const galleryLayoutKey = `${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}`;
 
   useEffect(() => {
-    if (activeInnerTab !== 'gallery' || feed.items.length === 0) {
+    if (!isActive || activeInnerTab !== 'gallery' || feed.items.length === 0) {
       return;
     }
 
@@ -71,7 +72,7 @@ export function GalleryScene({
     }, 80);
 
     return () => window.clearTimeout(timer);
-  }, [activeInnerTab, feed.items.length, feed.revalidateLatest]);
+  }, [activeInnerTab, feed.items.length, feed.revalidateLatest, isActive]);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -107,6 +108,7 @@ export function GalleryScene({
                     <GalleryMasonryWall
                       items={filteredGalleryItems}
                       layoutKey={galleryLayoutKey}
+                      isActive={isActive && activeInnerTab === 'gallery'}
                       isInitialLoading={feed.isInitialLoading}
                       isLoadingMore={feed.isLoadingMore}
                       hasMore={feed.hasMore}
