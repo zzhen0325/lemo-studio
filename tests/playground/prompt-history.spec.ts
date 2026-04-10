@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createPromptOptimizationHistoryItems,
   getGalleryPromptCategory,
+  getPromptHistoryPromptRestoreMode,
   getPromptCardThumbnailSource,
   getPromptOptimizationSource,
   IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
@@ -189,6 +190,90 @@ describe('prompt history helpers', () => {
       taskId: 'opt-inline-1',
       shortcutId: 'lemo',
     });
+  });
+
+  it('restores structured prompt editors only for prompt optimization history items', () => {
+    expect(getPromptHistoryPromptRestoreMode({
+      prompt: 'optimized generation prompt',
+      width: 1024,
+      height: 1024,
+      model: 'coze_seedream4_5',
+      optimizationSource: {
+        version: 2,
+        sourceKind: 'kv_structured',
+        taskId: 'gen-opt-1',
+        originalPrompt: 'original',
+        activeVariantId: 'v1',
+        activeVariantLabel: '方案 A',
+        shortcutId: 'lemo',
+        session: {
+          sourceType: 'kv_shortcut',
+          originValues: {},
+          originRemovedFieldIds: [],
+          activeVariantId: 'v1',
+          variants: [],
+          lastRawResponse: '{}',
+        },
+      },
+    })).toBe('plain');
+
+    expect(getPromptHistoryPromptRestoreMode({
+      prompt: 'optimized variant',
+      width: 1024,
+      height: 1024,
+      model: 'coze_seedream4_5',
+      historyRecordType: 'prompt_optimization',
+      optimizationSource: {
+        version: 2,
+        sourceKind: 'kv_structured',
+        taskId: 'opt-kv-1',
+        originalPrompt: 'original',
+        activeVariantId: 'v1',
+        activeVariantLabel: '方案 A',
+        shortcutId: 'lemo',
+        session: {
+          sourceType: 'kv_shortcut',
+          originValues: {},
+          originRemovedFieldIds: [],
+          activeVariantId: 'v1',
+          variants: [],
+          lastRawResponse: '{}',
+        },
+      },
+    })).toBe('kv_structured');
+
+    expect(getPromptHistoryPromptRestoreMode({
+      prompt: 'optimized inline variant',
+      width: 1024,
+      height: 1024,
+      model: 'coze_seedream4_5',
+      historyRecordType: 'prompt_optimization',
+      optimizationSource: {
+        version: 2,
+        sourceKind: 'shortcut_inline',
+        taskId: 'opt-inline-2',
+        originalPrompt: 'original',
+        activeVariantId: 'v1',
+        activeVariantLabel: '方案 A',
+        shortcutId: 'lemo',
+      },
+    })).toBe('shortcut_inline');
+
+    expect(getPromptHistoryPromptRestoreMode({
+      prompt: 'plain optimization variant',
+      width: 1024,
+      height: 1024,
+      model: 'coze_seedream4_5',
+      historyRecordType: 'prompt_optimization',
+      optimizationSource: {
+        version: 2,
+        sourceKind: 'plain_text',
+        taskId: 'opt-plain-1',
+        originalPrompt: 'original',
+        activeVariantId: 'v1',
+        activeVariantLabel: '方案 A',
+      },
+    })).toBe('plain');
   });
 
   it('removes optimization-only history type markers when reusing prompt config', () => {

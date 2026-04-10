@@ -18,6 +18,7 @@ export type PromptHistoryRecordType =
   | typeof IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE;
 
 export type PromptOptimizationSourceKind = "plain_text" | "kv_structured" | "shortcut_inline";
+export type PromptHistoryPromptRestoreMode = "plain" | "kv_structured" | "shortcut_inline";
 
 export type GalleryPromptCategory =
   | "standard_generation"
@@ -167,6 +168,35 @@ export function getPromptOptimizationSource(
     shortcutId: shortcutId || undefined,
     session,
   };
+}
+
+export function getPromptHistoryPromptRestoreMode(
+  config?: GenerationConfig | Record<string, unknown> | null,
+): PromptHistoryPromptRestoreMode {
+  const source = getPromptOptimizationSource(config);
+  if (
+    getPromptHistoryRecordType(config) !== PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE
+    || !source
+  ) {
+    return "plain";
+  }
+
+  if (
+    source.sourceKind === "kv_structured"
+    && source.shortcutId
+    && source.session
+  ) {
+    return "kv_structured";
+  }
+
+  if (
+    source.sourceKind === "shortcut_inline"
+    && source.shortcutId
+  ) {
+    return "shortcut_inline";
+  }
+
+  return "plain";
 }
 
 export function getGalleryPromptCategory(

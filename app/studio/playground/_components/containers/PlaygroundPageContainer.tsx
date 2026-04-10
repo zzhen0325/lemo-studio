@@ -100,6 +100,7 @@ import {
 } from "@/app/infinite-canvas/_lib/prompt-optimization";
 import {
   createPromptOptimizationHistoryItems,
+  getPromptHistoryPromptRestoreMode,
   getPromptOptimizationSource,
   IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
   PROMPT_OPTIMIZATION_VARIANT_COUNT,
@@ -1291,21 +1292,25 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   }, [setConfig]);
 
   const handleUseHistoryPrompt = useCallback((result: Generation) => {
+    const restoreMode = getPromptHistoryPromptRestoreMode(result.config);
     const optimizationSource = getPromptOptimizationSource(result.config);
 
-    if (
-      optimizationSource?.sourceKind === "kv_structured"
-      && optimizationSource.shortcutId
-      && optimizationSource.session
-    ) {
-      const shortcut = moodboardCardByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
-        || getShortcutById(optimizationSource.shortcutId);
+    if (restoreMode === "kv_structured" && optimizationSource) {
+      const shortcutId = optimizationSource.shortcutId;
+      const serializedSession = optimizationSource.session;
+      if (!shortcutId || !serializedSession) {
+        applyPlainHistoryPrompt(result.config?.prompt || "");
+        return;
+      }
+
+      const shortcut = moodboardCardByCode.get(shortcutId as PlaygroundShortcut["id"])
+        || getShortcutById(shortcutId);
       if (!shortcut) {
         applyPlainHistoryPrompt(result.config?.prompt || "");
         return;
       }
 
-      const hydratedSession = hydrateShortcutOptimizationSession(optimizationSource.session);
+      const hydratedSession = hydrateShortcutOptimizationSession(serializedSession);
       const activeVariant = hydratedSession.variants.find(
         (variant) => variant.id === optimizationSource.activeVariantId,
       ) || hydratedSession.variants[0];
@@ -1356,12 +1361,15 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       return;
     }
 
-    if (
-      optimizationSource?.sourceKind === "shortcut_inline"
-      && optimizationSource.shortcutId
-    ) {
-      const shortcut = moodboardCardByCode.get(optimizationSource.shortcutId as PlaygroundShortcut["id"])
-        || getShortcutById(optimizationSource.shortcutId);
+    if (restoreMode === "shortcut_inline" && optimizationSource) {
+      const shortcutId = optimizationSource.shortcutId;
+      if (!shortcutId) {
+        applyPlainHistoryPrompt(result.config?.prompt || "");
+        return;
+      }
+
+      const shortcut = moodboardCardByCode.get(shortcutId as PlaygroundShortcut["id"])
+        || getShortcutById(shortcutId);
       if (!shortcut) {
         applyPlainHistoryPrompt(result.config?.prompt || "");
         return;
