@@ -1,10 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
-import { Crop, Eraser, MousePointer2, Pencil, Square, Upload } from 'lucide-react';
+import { Crop, Eraser, MousePointer2, Pencil, Square } from 'lucide-react';
 import { useToast } from '@/hooks/common/use-toast';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
   Select,
@@ -19,6 +17,8 @@ import type {
   ImageEditorSessionSnapshot,
   ImageEditorTool,
 } from './types';
+import { ImageEditCanvasPane } from './ImageEditCanvasPane';
+import { ImageEditToolbar } from './ImageEditToolbar';
 import { buildImageEditPrompt } from './utils/build-image-edit-prompt';
 import ImageEditPromptEditor from './ImageEditPromptEditor';
 import { migrateTldrawSnapshot } from './utils/migrate-tldraw-snapshot';
@@ -34,13 +34,18 @@ import {
 import {
   mergePromptWithAnnotationDescriptions,
 } from './utils/image-edit-prompt-tokens';
+import {
+  getClipboardImageFile,
+  getFirstImageFile,
+  isImageFile,
+} from './utils/image-input';
 
 const TOOL_ITEMS: Array<{ id: ImageEditorTool; label: string; icon: ComponentType<{ className?: string }> }> = [
   { id: 'select', label: '选择', icon: MousePointer2 },
   { id: 'annotate', label: '标注', icon: Square },
   { id: 'brush', label: '画笔', icon: Pencil },
   { id: 'eraser', label: '橡皮擦', icon: Eraser },
-  { id: 'crop', label: '裁剪', icon: Crop },
+  // { id: 'crop', label: '裁剪', icon: Crop },
 ];
 
 const PLAYGROUND_IMAGE_SIZE_OPTIONS = ['1K', '2K', '4K'] as const;
@@ -179,10 +184,12 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     imageSize,
     tool,
     setTool,
+    brushColor,
+    setBrushColor,
+    brushWidth,
+    setBrushWidth,
     annotations,
-    crop,
     removeAnnotation,
-    clearCrop,
     buildSessionSnapshot,
     exportMergedImageDataUrl,
   } = useFabricImageEditor({
@@ -258,8 +265,11 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     })
   ), []);
 
-  const replaceImageByFile = useCallback(async (file: File, fromDrop: boolean) => {
-    if (!file.type.startsWith('image/')) {
+  const replaceImageByFile = useCallback(async (
+    file: File,
+    options?: { requireConfirmOnReplace?: boolean },
+  ) => {
+    if (!isImageFile(file)) {
       toast({
         title: '上传失败',
         description: '仅支持图片文件',
@@ -268,8 +278,8 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
       return;
     }
 
-    if (fromDrop && activeImageUrl) {
-      const confirmed = window.confirm('拖拽替换将清空当前标注、画笔和裁剪，确认继续吗？');
+    if (options?.requireConfirmOnReplace && activeImageUrl) {
+      const confirmed = window.confirm('替换图片将清空当前标注、画笔和裁剪，确认继续吗？');
       if (!confirmed) {
         return;
       }
@@ -290,9 +300,9 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
   }, [activeImageUrl, readFileAsDataUrl, setTool, toast]);
 
   const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const file = getFirstImageFile(event.target.files);
     if (file) {
-      void replaceImageByFile(file, false);
+      void replaceImageByFile(file);
     }
     event.target.value = '';
   }, [replaceImageByFile]);
@@ -302,10 +312,21 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     event.stopPropagation();
     setIsDraggingFile(false);
 
-    const file = event.dataTransfer.files?.[0];
+    const file = getFirstImageFile(event.dataTransfer.files);
     if (file) {
-      void replaceImageByFile(file, true);
+      void replaceImageByFile(file, { requireConfirmOnReplace: true });
     }
+  }, [replaceImageByFile]);
+
+  const handleDialogPaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    const file = getClipboardImageFile(event.clipboardData?.items);
+    if (!file) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    void replaceImageByFile(file, { requireConfirmOnReplace: true });
   }, [replaceImageByFile]);
 
   const handleConfirm = async () => {
@@ -354,13 +375,16 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         
-        className="max-h-[80vh] w-[80vw] max-w-[1840px] overflow-hidden bg-[#1C1C1C]/80  text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl  ring-none focus:ring-0 border-white/10 rounded-3xl border p-0"
+        className="h-[90vh] w-[80vw] max-w-[1840px] overflow-hidden bg-[#1C1C1C]/80  text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl  ring-none focus:ring-0 border-white/10 rounded-3xl border p-0"
       
       >
         <DialogTitle className="sr-only">图像编辑</DialogTitle>
-        <DialogDescription className="sr-only">标注、画笔、橡皮擦、裁剪</DialogDescription>
+        <DialogDescription className="sr-only">标注、画笔、橡皮擦</DialogDescription>
 
-        <div className="flex h-full min-h-[640px] w-full flex-col">
+        <div
+          className="flex h-full min-h-[640px] w-full min-w-0 flex-col"
+          onPaste={handleDialogPaste}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -369,91 +393,29 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
             onChange={handleFileInputChange}
           />
 
-          <div
-            className="flex flex-wrap items-center justify-between gap-1 border-none px-2 py-2  mt-2 mx-2 bg-[#0F1017] p-2 rounded-2xl"
-           
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              {TOOL_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = tool === item.id;
-                return (
-                  <Button
-                    key={item.id}
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setTool(item.id)}
-                    className={cn(
-                      'inline-flex h-9 items-center gap-1 rounded-xl border px-3 text-xs transition-colors',
-                      isActive 
-                        ? 'font-medium border-white/20 bg-[#E3FF9C] text-black' 
-                        : 'font-medium border-none bg-[#2c2d2f] text-white/50',
-                    )}
-                  >
-                    <Icon className="h-2 w-2" />
-                    {item.label}
-                  </Button>
-                );
-              })}
-              {crop ? (
-                <Button
-                  type="button"
-                  variant="light"
-                  className="rounded-lg border px-2 py-1 transition-colors border-[#4A4C4D] text-[#D9D9D9]"
-                  onClick={clearCrop}
-                >
-                  清除裁剪
-                </Button>
-              ) : null}
-              <div className='w-px h-6 mx-1 border border-white/10'>
+          <ImageEditToolbar
+            tool={tool}
+            toolItems={TOOL_ITEMS}
+            onToolChange={setTool}
+            onOpenFilePicker={() => fileInputRef.current?.click()}
+            brushColor={brushColor}
+            brushWidth={brushWidth}
+            onBrushColorChange={setBrushColor}
+            onBrushWidthChange={setBrushWidth}
+            submitting={submitting}
+            canConfirm={isReady}
+            onCancel={() => onOpenChange(false)}
+            onConfirm={handleConfirm}
+          />
 
-              </div>
-            
-              <Button
-                type="button"
-                variant="light"
-                className="inline-flex  w-9 h-9 items-center gap-2 rounded-xl px-3 text-xs font-medium bg-white/10 hover:bg-white/15 transition-colors hover:text-white border-[#4A4C4D] text-[#D9D9D9]"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-2 w-3" />
-                
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="light"
-                className="rounded-xl  h-9 text-sm  bg-white/10 text-white"
-                onClick={() => onOpenChange(false)}
-                disabled={submitting}
-              >
-                取消
-              </Button>
-              <Button
-                type="button"
-                variant="light"
-                className="rounded-xl h-9 border-0 text-sm bg-white text-[#000000] hover:text-black"
-                onClick={handleConfirm}
-                disabled={!isReady || submitting}
-              >
-                {submitting ? '处理中...' : '确认编辑'}
-              </Button>
-            </div>
-          </div>
-
-          <div className=" flex flex-1 min-h-0 pb-2 overflow-hidden px-2 py-2 ">
-            <div
-              className="relative flex flex-1 min-h-0 items-center justify-center overflow-auto rounded-2xl h-full"
-              style={{
-                backgroundImage: `
-                  linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                  linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
-                `,
-                backgroundSize: '24px 24px',
-                backgroundColor: '#0F1017'
-              }}
-           
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden px-2 py-2 pb-2">
+            <ImageEditCanvasPane
+              imageSize={imageSize}
+              isDraggingFile={isDraggingFile}
+              isReady={isReady}
+              loadError={loadError}
+              showUploadPlaceholder={showUploadPlaceholder}
+              onOpenFilePicker={() => fileInputRef.current?.click()}
               onDragEnter={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -473,44 +435,12 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
               }}
               onDrop={handleCanvasDrop}
             >
-              {showUploadPlaceholder ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm border-none rounded-2xl" >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className={cn(
-                      'inline-flex min-h-[120px] min-w-[280px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-5 text-center transition-colors',
-                      isDraggingFile 
-                        ? 'scale-[1.01] border-[#DAFFAC] bg-[#DAFFAC]/[0.05]' 
-                        : 'border-[#4A4C4D] bg-[#0F1017]/50 backdrop-blur-sm',
-                    )}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-5 w-5 text-[#A3A3A3]" />
-                    <span className="text-[#D9D9D9]">点击或拖拽上传图片</span>
-                    {loadError && activeImageUrl ? (
-                      <span className="text-xs text-[#737373]">{loadError}</span>
-                    ) : null}
-                  </Button> 
-                </div>
-              ) : null}
-              {!showUploadPlaceholder && !isReady ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center text-sm text-[#A3A3A3]">
-                  Thinking...
-                </div>
-              ) : null}
               <canvas ref={setCanvasRef} className="block shrink-0" />
-
-              <div
-                className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-lg border px-2 py-1 text-[11px] border-[#4A4C4D] bg-[#0F1017] text-[#A3A3A3]"
-              >
-                {imageSize.width} x {imageSize.height}
-              </div>
-            </div>
+            </ImageEditCanvasPane>
 
             <div
-              className="ml-2 flex h-full w-[400px] min-h-0 flex-col overflow-hidden rounded-2xl border-none bg-[#0F1017] p-2"
-              
+              data-testid="image-edit-sidebar"
+              className="ml-2 flex h-full w-[400px] shrink-0 min-h-0 flex-col overflow-hidden rounded-2xl border-none bg-[#0F1017] p-2"
             >
               <div className=" px-4 py-3" >
                 <p className="text-md font-semibold text-[#D9D9D9]">Prompt Editor</p>
@@ -541,119 +471,55 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
                     }}
                   />
 
-                  {/* <div className="mt-3 flex items-center justify-between">
-                    <p className="text-xs" style={{ color: IMAGE_EDITOR_THEME.textSecondary }}>
-                      标注（{annotations.length}）
-                    </p>
-                    {promptValidationError ? (
-                      <span className="text-[11px]" style={{ color: '#fca5a5' }}>存在未补充说明</span>
-                    ) : null}
-                  </div> */}
-
-                  {/* {annotations.length === 0 ? (
-                    <p className="mt-2 rounded-xl border px-3 py-2 text-xs text-[#737373] border-[#4A4C4D]">
-                      使用“标注”工具框选区域后，标注 token 会嵌入到此输入区。
-                    </p>
-                  ) : (
-                    <div className="mt-2 flex flex-col gap-2">
-                      {annotations.map((annotation) => (
-                        <div
-                          key={annotation.id}
-                          className="inline-flex items-center gap-2 rounded-full border px-2 py-1.5 border-[#4A4C4D] bg-[#2C2D2F]"
-                        >
-                          <span
-                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium border-[#4A4C4D] bg-[#DAFFAC]/[0.1] text-[#D9D9D9]"
-                          >
-                            {annotationTokenLabelById.get(annotation.id) || annotation.label}
-                          </span>
-                          <Button
-                            type="button"
-                            onClick={() => removeAnnotation(annotation.id)}
-                            className="shrink-0 text-[11px] text-[#737373]"
-                          >
-                            删除
-                          </Button> 
-                        </div>
-                      ))}
-                    </div>
-                  )} */}
                 </div>
-                
-
-                {/* {tool === 'brush' ? (
-                  <div className="space-y-3 rounded-xl border p-3 border-[#4A4C4D] bg-[#161616]">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-[#A3A3A3]">画笔颜色</label>
-                      <Input
-                        type="color"
-                        value={brushColor}
-                        onChange={(event) => setBrushColor(event.target.value)}
-                        className="h-8 w-12 rounded-lg border p-1 border-[#4A4C4D] bg-[#161616]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-[#A3A3A3]">画笔粗细：{brushWidth}px</label>
-                      <input
-                        type="range"
-                        min={1}
-                        max={24}
-                        value={brushWidth}
-                        onChange={(event) => setBrushWidth(Number(event.target.value))}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                ) : null} */}
               </div>
 
-                <div className="grid grid-cols-2 gap-3 px-4 pb-4">
-                    <div className="space-y-1.5">
-                      
-                      <Select value={selectedModelId} onValueChange={setSelectedModelId}>
-                        <SelectTrigger
-                          className="h-9 border text-xs border-none bg-[#2c2d2f] text-white"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#2c2d2f] border-none text-white">
-                          {modelOptions.map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
-                              {model.displayName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+              <div className="grid grid-cols-2 gap-3 px-4 pb-4">
+                <div className="space-y-1.5">
+                  <Select value={selectedModelId} onValueChange={setSelectedModelId}>
+                    <SelectTrigger
+                      className="h-9 border text-xs border-none bg-[#2c2d2f] text-white"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#2c2d2f] border-none text-white">
+                      {modelOptions.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                    {supportsImageSize ? (
-                      <div className="space-y-1.5">
-                        
-                        <Select value={selectedImageSize || imageSizeOptions[0]} onValueChange={setSelectedImageSize}>
-                          <SelectTrigger
-                            className="h-9 border text-xs border-none bg-[#2c2d2f] text-white"
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#2c2d2f] border-none text-white">
-                            {imageSizeOptions.map((size) => (
-                              <SelectItem key={size} value={size}>
-                                {size}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5">
-                        <p className="text-xs text-white">尺寸</p>
-                        <div
-                          className="flex h-9 items-center rounded-md border px-3 text-xs border-none bg-white/20 text-white"
-                        >
-                          当前模型不支持尺寸切换
-                        </div>
-                      </div>
-                    )}
+                {supportsImageSize ? (
+                  <div className="space-y-1.5">
+                    <Select value={selectedImageSize || imageSizeOptions[0]} onValueChange={setSelectedImageSize}>
+                      <SelectTrigger
+                        className="h-9 border text-xs border-none bg-[#2c2d2f] text-white"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#2c2d2f] border-none text-white">
+                        {imageSizeOptions.map((size) => (
+                          <SelectItem key={size} value={size}>
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-white">尺寸</p>
+                    <div
+                      className="flex h-9 items-center rounded-md border border-none bg-white/20 px-3 text-xs text-white"
+                    >
+                      当前模型不支持尺寸切换
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

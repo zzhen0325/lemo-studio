@@ -9,6 +9,8 @@ export const TextRequestSchema = z.object({
   model: z.string().min(1, 'model is required'),
   profileId: z.string().optional(),
   systemPrompt: z.string().optional(),
+  // Keep request schema business-flow agnostic: this endpoint is reused by
+  // multiple text-generation flows and should not encode prompt history semantics.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options: z.any().optional(),
 });

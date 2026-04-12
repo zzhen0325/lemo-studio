@@ -23,13 +23,13 @@ import {
   TRANSLATE_CONCURRENCY,
 } from './collection-detail.utils';
 import {
-  optimizeImageWithRetry,
+  generateDatasetLabelWithRetry,
   requestBatchTranslateWithRetry,
   requestDatasetLabel,
   type VisionCaller,
 } from './collection-detail.ai';
 
-type PendingTask = { type: 'optimize' | 'translate'; lang?: TranslateLang } | null;
+type PendingTask = { type: 'generate_prompt' | 'translate'; lang?: TranslateLang } | null;
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
 
@@ -100,14 +100,14 @@ export function useCollectionDetailAiWorkflow({
   const [pendingTask, setPendingTask] = useState<PendingTask>(null);
   const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
 
-  const startOptimizeAll = async (specificTargets?: DatasetImage[]) => {
+  const startGeneratePrompts = async (specificTargets?: DatasetImage[]) => {
     const targets = specificTargets || images;
     if (targets.length === 0) {
-      toast({ title: '无图片', description: '没有可优化的图片。' });
+      toast({ title: '无图片', description: '没有可自动生成 prompt 的图片。' });
       return;
     }
 
-    const optimizeLang = activePromptLangRef.current;
+    const promptLang = activePromptLangRef.current;
     setIsProcessing(true);
     setProgress({ current: 0, total: targets.length });
     suppressSyncRef.current = true;
@@ -117,7 +117,7 @@ export function useCollectionDetailAiWorkflow({
     cancelRef.current = controller;
 
     const toastId = toast({
-      title: '批量优化中...',
+      title: '批量生成 Prompt 中...',
       description: `准备中: 0/${targets.length}`,
       duration: Infinity,
       action: (
@@ -163,7 +163,7 @@ export function useCollectionDetailAiWorkflow({
           }
 
           try {
-            const newPrompt = await optimizeImageWithRetry({
+            const newPrompt = await generateDatasetLabelWithRetry({
               img,
               signal: controller.signal,
               systemPrompt,
@@ -177,7 +177,7 @@ export function useCollectionDetailAiWorkflow({
             if (error instanceof DOMException && error.name === 'AbortError') {
               break;
             }
-            console.error('[dataset] optimize failed for image', img.filename, error);
+            console.error('[dataset] prompt generation failed for image', img.filename, error);
           } finally {
             chunkProcessed += 1;
           }
@@ -189,7 +189,7 @@ export function useCollectionDetailAiWorkflow({
               {
                 collection: collectionName,
                 prompts: chunkPrompts,
-                promptLang: optimizeLang,
+                promptLang,
               },
               controller.signal,
             );
@@ -212,7 +212,7 @@ export function useCollectionDetailAiWorkflow({
             }
           } catch (error) {
             if (!(error instanceof DOMException && error.name === 'AbortError')) {
-              console.error('[dataset] optimize persist failed for chunk', error);
+              console.error('[dataset] generated prompt persist failed for chunk', error);
             }
             persistFailed += Object.keys(chunkPrompts).length;
             const failedIds = new Set(chunkSucceededIds);
@@ -239,7 +239,7 @@ export function useCollectionDetailAiWorkflow({
             }
             const nextImage = setPromptByLang(
               item,
-              optimizeLang,
+              promptLang,
               nextPrompt,
               activePromptLangRef.current,
             );
@@ -257,7 +257,7 @@ export function useCollectionDetailAiWorkflow({
         });
         toast({
           id: toastId,
-          title: '批量优化中...',
+          title: '批量生成 Prompt 中...',
           description: `已处理 ${Math.min(processedCount, targets.length)}/${targets.length} 张...`,
           duration: Infinity,
         });
@@ -266,7 +266,7 @@ export function useCollectionDetailAiWorkflow({
       if (!controller.signal.aborted) {
         dismiss(toastId);
         toast({
-          title: '优化完成',
+          title: 'Prompt 生成完成',
           description:
             persistFailed > 0
               ? `成功生成 ${success}/${targets.length} 张，${persistFailed} 张保存失败（已标记待自动保存）。`
@@ -281,7 +281,7 @@ export function useCollectionDetailAiWorkflow({
     } catch (error) {
       dismiss(toastId);
       toast({
-        title: '优化失败',
+        title: 'Prompt 生成失败',
         variant: 'destructive',
         description: error instanceof Error ? error.message : '发生未知错误，请重试。',
       });
@@ -486,27 +486,27 @@ export function useCollectionDetailAiWorkflow({
     }
   };
 
-  const handleOptimizeAll = async () => {
+  const handleGenerateAllPrompts = async () => {
     if (isProcessing) {
-      setPendingTask({ type: 'optimize' });
+      setPendingTask({ type: 'generate_prompt' });
       setIsConflictDialogOpen(true);
       return;
     }
-    startOptimizeAll();
+    startGeneratePrompts();
   };
 
-  const handleOptimizeSelected = async () => {
+  const handleGenerateSelectedPrompts = async () => {
     if (selectedIds.size === 0) return;
     if (isProcessing) {
-      setPendingTask({ type: 'optimize' });
+      setPendingTask({ type: 'generate_prompt' });
       setIsConflictDialogOpen(true);
       return;
     }
     const targets = images.filter((img) => selectedIds.has(img.id));
-    startOptimizeAll(targets);
+    startGeneratePrompts(targets);
   };
 
-  const handleOptimizePrompt = async (img: DatasetImage) => {
+  const handleGeneratePrompt = async (img: DatasetImage) => {
     setImages((prev) =>
       prev.map((item) => (item.id === img.id ? { ...item, isOptimizing: true } : item)),
     );
@@ -530,13 +530,13 @@ export function useCollectionDetailAiWorkflow({
 
       handlePromptChange(img.id, nextPrompt);
       toast({
-        title: 'Optimized successfully',
-        description: 'Image prompt has been generated by AI.',
+        title: 'Prompt 生成成功',
+        description: 'AI 已为这张图片生成 prompt。',
       });
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Optimization failed',
+        title: 'Prompt 生成失败',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
@@ -698,8 +698,8 @@ export function useCollectionDetailAiWorkflow({
     cancelRef.current?.abort();
 
     setTimeout(() => {
-      if (pendingTask?.type === 'optimize') {
-        void startOptimizeAll();
+      if (pendingTask?.type === 'generate_prompt') {
+        void startGeneratePrompts();
       } else if (pendingTask?.type === 'translate' && pendingTask.lang) {
         void startBatchTranslate(pendingTask.lang);
       }
@@ -710,9 +710,9 @@ export function useCollectionDetailAiWorkflow({
   return {
     isConflictDialogOpen,
     setIsConflictDialogOpen,
-    handleOptimizeAll,
-    handleOptimizeSelected,
-    handleOptimizePrompt,
+    handleGenerateAllPrompts,
+    handleGenerateSelectedPrompts,
+    handleGeneratePrompt,
     handlePromptLangSwitch,
     handleImagePromptLangSwitch,
     handleKeepCurrentTask,

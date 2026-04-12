@@ -88,7 +88,7 @@ interface CollectionDetailHeaderProps {
   onPrimaryBatchAction: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
-  onOptimizeSelected: () => void;
+  onGenerateSelectedPrompts: () => void;
   onBatchDelete: () => void;
   onPromptLangSwitch: (lang: TranslateLang) => void;
   onExport: () => void;
@@ -135,7 +135,7 @@ export function CollectionDetailHeader({
   onPrimaryBatchAction,
   onSelectAll,
   onDeselectAll,
-  onOptimizeSelected,
+  onGenerateSelectedPrompts,
   onBatchDelete,
   onPromptLangSwitch,
   onExport,
@@ -410,7 +410,7 @@ export function CollectionDetailHeader({
             ) : (
               <Wand2 className="h-4 w-4 mr-2" />
             )}
-            {selectedCount > 0 ? `批量打标 (${selectedCount})` : 'Optimize All'}
+            {selectedCount > 0 ? `批量打标 (${selectedCount})` : 'AI 生成 Prompt'}
           </Button>
 
           {selectedCount > 0 && (
@@ -437,17 +437,17 @@ export function CollectionDetailHeader({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onOptimizeSelected}
+                onClick={onGenerateSelectedPrompts}
                 disabled={isProcessing}
                 className="h-8 text-[10px] px-3 font-bold border-primary/30 text-primary hover:bg-primary/10"
-                title="AI Optimize selected images"
+                title="AI generate prompts for selected images"
               >
                 {isProcessing ? (
                   <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 ) : (
                   <Wand2 className="h-3 w-3 mr-1" />
                 )}
-                Optimize Selected
+                生成所选 Prompt
               </Button>
 
               <Button
@@ -557,7 +557,7 @@ export function CollectionDetailHeader({
 
           <p className="text-[11px] text-muted-foreground italic">
             * This prompt will be used for all images in this collection when clicking
-            &quot;Optimize&quot;. Changes are auto-saved.
+            &quot;AI 生成 Prompt&quot;. Changes are auto-saved.
           </p>
 
           <div className="border-t border-white/10 my-4"></div>

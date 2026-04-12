@@ -94,7 +94,6 @@ export const MoodboardMarquee: React.FC<MoodboardMarqueeProps> = ({
                   size="sm"
                   onQuickApply={handleQuickApply}
                   onViewDetail={handleViewDetail}
-                  onPreviewImage={onPreviewImage}
                 />
               </div>
             </div>

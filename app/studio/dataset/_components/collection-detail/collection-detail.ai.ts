@@ -61,7 +61,7 @@ export async function requestDatasetLabel({
   }
 }
 
-export function isRetryableOptimizeError(error: unknown): boolean {
+export function isRetryableDatasetLabelError(error: unknown): boolean {
   const message =
     (error instanceof Error ? error.message : String(error)).toLowerCase();
   if (message.includes('empty text')) return true;
@@ -78,7 +78,7 @@ export function isRetryableOptimizeError(error: unknown): boolean {
   );
 }
 
-interface OptimizeWithRetryParams {
+interface DatasetLabelGenerationWithRetryParams {
   img: DatasetImage;
   signal: AbortSignal;
   systemPrompt: string;
@@ -86,13 +86,13 @@ interface OptimizeWithRetryParams {
   callVision: VisionCaller;
 }
 
-export async function optimizeImageWithRetry({
+export async function generateDatasetLabelWithRetry({
   img,
   signal,
   systemPrompt,
   modelId,
   callVision,
-}: OptimizeWithRetryParams): Promise<string> {
+}: DatasetLabelGenerationWithRetryParams): Promise<string> {
   const base64 = await fetchImageAsDataUrl(img.url, signal);
   let lastError: Error | null = null;
 
@@ -109,8 +109,8 @@ export async function optimizeImageWithRetry({
       }
 
       lastError =
-        error instanceof Error ? error : new Error('Optimize request failed');
-      if (!isRetryableOptimizeError(error) || attempt === OPTIMIZE_MAX_RETRIES) {
+        error instanceof Error ? error : new Error('Dataset label request failed');
+      if (!isRetryableDatasetLabelError(error) || attempt === OPTIMIZE_MAX_RETRIES) {
         break;
       }
 
@@ -121,7 +121,7 @@ export async function optimizeImageWithRetry({
     }
   }
 
-  throw lastError || new Error('Optimize request failed');
+  throw lastError || new Error('Dataset label request failed');
 }
 
 export async function requestBatchTranslateWithRetry(

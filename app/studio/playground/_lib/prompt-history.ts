@@ -7,6 +7,11 @@ import type {
   DesignVariantEditScope,
   KvStructuredVariantId,
 } from "@/app/studio/playground/_lib/kv-structured-optimization";
+import {
+  isPersistedPromptOptimizationSourceKind,
+  type PersistedPromptOptimizationSourceKind,
+} from "@/lib/ai/prompt-flow-taxonomy";
+import { isHistoryEditGeneration } from "@/app/studio/playground/_lib/history-tags";
 
 export const PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE = "prompt_optimization";
 export const IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE = "image_description";
@@ -17,7 +22,9 @@ export type PromptHistoryRecordType =
   | typeof PROMPT_OPTIMIZATION_HISTORY_RECORD_TYPE
   | typeof IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE;
 
-export type PromptOptimizationSourceKind = "plain_text" | "kv_structured" | "shortcut_inline";
+// This persisted source kind describes the business-side optimization origin only.
+// It must not be confused with the lower-level execution context `service:optimize`.
+export type PromptOptimizationSourceKind = PersistedPromptOptimizationSourceKind;
 export type PromptHistoryPromptRestoreMode = "plain" | "kv_structured" | "shortcut_inline";
 
 export type GalleryPromptCategory =
@@ -142,11 +149,8 @@ export function getPromptOptimizationSource(
 
   if (
     version !== 2
-    || (
-      sourceKind !== "plain_text"
-      && sourceKind !== "kv_structured"
-      && sourceKind !== "shortcut_inline"
-    )
+    || !sourceKind
+    || !isPersistedPromptOptimizationSourceKind(sourceKind)
     || !taskId
     || !originalPrompt
     || !activeVariantId
@@ -212,6 +216,8 @@ export function getGalleryPromptCategory(
     return "image_description";
   }
 
+  // `optimized_generation` means a normal generation result reused an optimized prompt.
+  // It is not itself a `prompt_optimization` history record.
   if (getPromptOptimizationSource(config)) {
     return "optimized_generation";
   }
@@ -220,7 +226,7 @@ export function getGalleryPromptCategory(
   if (record?.generationMode === "banner") {
     return "banner_generation";
   }
-  if (record?.isEdit) {
+  if (isHistoryEditGeneration(record)) {
     return "edit_generation";
   }
   if (asString(record?.workflowName)) {

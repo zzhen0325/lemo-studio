@@ -136,6 +136,7 @@ pnpm build
 - `docs/DEPLOYMENT.md`: 部署模型、启动命令与健康检查。
 - `docs/architecture/second-round-refactor.md`: 当前最重要的分层与重构约束。
 - `docs/product-philosophy-and-technical-plan.md`: 产品主线、模块关系与领域术语。
+- `docs/features/prompt-ai-flows.md`: Prompt 相关 AI 流程总览与边界说明。
 - `docs/testing/ui-interaction-test-plan.md`: 当前前端交互专项测试口径。
 - `docs/features/gallery.md`: Gallery 模块文档（职责、边界、数据流与接口）。
 - `docs/wiki/README.md`: 旧版技术 wiki，仅作历史背景参考，不应覆盖当前根目录文档和现行代码结构。
@@ -158,6 +159,7 @@ pnpm build
 ### 模块文档索引
 
 - `docs/features/playground-home.md`: Playground 首页（入口编排与切换）。
+- `docs/features/prompt-ai-flows.md`: Prompt 相关 AI 流程总览（执行层 / 业务层 / 记录层）。
 - `docs/features/describe.md`: Describe（图片转 prompt）。
 - `docs/features/edit.md`: Edit（图片编辑与再次生成）。
 - `docs/features/history.md`: History（历史记录面板）。

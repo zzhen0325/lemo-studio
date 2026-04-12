@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/common/use-toast';
 import { usePromptOptimization } from '@/hooks/ai/usePromptOptimization';
 import { ImageEditDialog, type ImageEditConfirmPayload } from '@/components/image-editor';
+import { tagPromptOptimizationInput } from '@/lib/ai/prompt-flow-taxonomy';
 import {
   createProject,
   generateCanvasImage,
@@ -925,7 +926,10 @@ export default function InfiniteCanvasEditor({ projectId }: InfiniteCanvasEditor
 
       try {
         const optimizationInput = buildPromptOptimizationVariantsInput(basePrompt);
-        const taggedOptimizationInput = `[Text]\n${optimizationInput}`;
+        const taggedOptimizationInput = tagPromptOptimizationInput(
+          optimizationInput,
+          'canvas_text_node',
+        );
         const optimizedText = await optimizePrompt(taggedOptimizationInput, 'doubao');
         const variants = parsePromptOptimizationVariants(optimizedText || '');
 

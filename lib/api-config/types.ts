@@ -126,6 +126,8 @@ export interface APIConfigResponse {
 
 export const MODEL_CONTEXT_BY_SERVICE: Partial<Record<ServiceType, ModelContext>> = {
     imageGeneration: 'service:imageGeneration',
+    // Translate currently reuses the same text-model execution pool as optimize.
+    // This is an execution-context choice, not a statement that translation is a prompt-optimization flow.
     translate: 'service:optimize',
     describe: 'service:describe',
     optimize: 'service:optimize',

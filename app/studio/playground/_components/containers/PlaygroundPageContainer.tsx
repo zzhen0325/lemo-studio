@@ -108,6 +108,11 @@ import {
   withPromptOptimizationSource,
   withoutPromptOptimizationSource,
 } from "@/app/studio/playground/_lib/prompt-history";
+import { tagPromptOptimizationInput } from "@/lib/ai/prompt-flow-taxonomy";
+import {
+  dispatchPlaygroundPromptOptimization,
+  resolvePlaygroundPromptOptimizationFlow,
+} from "@studio/playground/_components/containers/prompt-optimization-dispatcher";
 import {
   isHistoryEditGeneration,
   normalizeHistoryConfigForGeneration,
@@ -131,6 +136,8 @@ import {
   removeHistoryItemsById,
   upsertHistoryItems,
 } from "@/lib/history-utils";
+import { editGeneration } from "@/lib/interaction-tracking";
+import { buildPlaygroundImageEditConfig } from "@/app/studio/playground/_lib/image-edit-config";
 
 
 import gsap from "gsap";
@@ -174,21 +181,8 @@ interface BannerSessionHistoryItem {
   templateId: string;
 }
 
-type PromptOptimizationRequestPrefix = "[Event kv]" | "[Text]";
 const KV_STRUCTURED_OPTIMIZATION_PARALLEL_REQUEST_COUNT = 4;
 const KV_STRUCTURED_HISTORY_BACKFILL_COUNT = 1;
-
-function prependPromptOptimizationRequestPrefix(
-  input: string,
-  prefix: PromptOptimizationRequestPrefix,
-) {
-  const trimmedInput = input.trim();
-  if (!trimmedInput) {
-    return "";
-  }
-
-  return `${prefix}\n${trimmedInput}`;
-}
 
 export const PlaygroundV2Page = function PlaygroundV2Page({
   onEditMapping,
@@ -1274,6 +1268,16 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     setSelectedShortcutPreviewResult(shortcutPreviewResults[shortcutPreviewCurrentIndex - 1]);
   }, [shortcutPreviewCurrentIndex, shortcutPreviewHasPrev, shortcutPreviewResults]);
 
+  const syncEditedGenerationInteraction = useCallback((item: Generation, trackedItem: Generation) => {
+    setGenerationHistory((previous) => upsertHistoryItems(previous, [trackedItem]));
+    setShortcutPreviewResults((previous) => previous.map((current) => (
+      current.id === item.id ? trackedItem : current
+    )));
+    if (selectedShortcutPreviewResult?.id === item.id) {
+      setSelectedShortcutPreviewResult(trackedItem);
+    }
+  }, [selectedShortcutPreviewResult?.id, setGenerationHistory]);
+
   const handleShortcutPreviewSelect = useCallback((result: Generation) => {
     setSelectedShortcutPreviewResult(result);
   }, []);
@@ -2328,9 +2332,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       sourceValues,
       sourceRemovedFieldIds,
     );
-    const taggedOptimizationInput = prependPromptOptimizationRequestPrefix(
+    // KV shortcut optimization is a structured business flow, but it still executes
+    // through the shared `/api/ai/text` text service with a KV-specific request tag.
+    const taggedOptimizationInput = tagPromptOptimizationInput(
       optimizationInput,
-      "[Event kv]",
+      "playground_kv_structured",
     );
     const EMPTY_RESULT_ERROR = "KV_STRUCTURED_EMPTY_RESULT";
     const NO_USABLE_VARIANT_ERROR = "KV_STRUCTURED_NO_USABLE_VARIANT";
@@ -2619,28 +2625,24 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     await runKvStructuredOptimization();
   }, [runKvStructuredOptimization]);
 
-  const handleOptimizePrompt = React.useCallback(async () => {
-    const shortcutTemplateSnapshot = activeShortcutTemplateRef.current;
-    const inlineShortcutTemplateSnapshot = shortcutTemplateSnapshot && !isKvShortcutId(shortcutTemplateSnapshot.shortcut.id)
-      ? shortcutTemplateSnapshot
-      : null;
-
-    if (shortcutTemplateSnapshot && !inlineShortcutTemplateSnapshot) {
-      setActiveShortcutTemplate(null);
-    }
-
-    const handledByKvFlow = await runKvStructuredOptimization(shortcutTemplateSnapshot);
-    if (handledByKvFlow) {
-      return;
-    }
-
+  const runPromptVariantOptimization = React.useCallback(async ({
+    flowKind,
+    sourceKind,
+    shortcutTemplateSnapshot,
+  }: {
+    flowKind: "playground_plain_text" | "playground_shortcut_inline";
+    sourceKind: "plain_text" | "shortcut_inline";
+    shortcutTemplateSnapshot?: ActiveShortcutTemplate | null;
+  }) => {
     const optimizationInput = buildPromptOptimizationVariantsInput(
       config.prompt,
       PROMPT_OPTIMIZATION_VARIANT_COUNT,
     );
-    const taggedOptimizationInput = prependPromptOptimizationRequestPrefix(
+    // Plain text and shortcut-inline optimization are both text-variant flows.
+    // They use the shared `/api/ai/text` execution path, tagged as `[Text]`.
+    const taggedOptimizationInput = tagPromptOptimizationInput(
       optimizationInput,
-      "[Text]",
+      flowKind,
     );
     const optimizedText = await optimizePrompt(
       taggedOptimizationInput,
@@ -2682,7 +2684,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       createdAt,
       userId: effectiveUserId,
       originalPrompt: config.prompt,
-      sourceKind: inlineShortcutTemplateSnapshot ? "shortcut_inline" : "plain_text",
+      sourceKind,
       variants: promptVariants,
       configBase: {
         model: config.model,
@@ -2690,18 +2692,18 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         width: config.width,
         height: config.height,
       },
-      shortcutId: inlineShortcutTemplateSnapshot?.shortcut.id,
+      shortcutId: shortcutTemplateSnapshot?.shortcut.id,
     }));
 
     if (firstVariant) {
       const optimizationSource: PromptOptimizationSourcePayload = {
         version: 2,
-        sourceKind: inlineShortcutTemplateSnapshot ? "shortcut_inline" : "plain_text",
+        sourceKind,
         taskId: optimizationTaskId,
         originalPrompt: config.prompt,
         activeVariantId: firstVariant.id,
         activeVariantLabel: firstVariant.label,
-        shortcutId: inlineShortcutTemplateSnapshot?.shortcut.id,
+        shortcutId: shortcutTemplateSnapshot?.shortcut.id,
       };
 
       setConfig((prev) => withPromptOptimizationSource(
@@ -2712,14 +2714,14 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         optimizationSource,
       ));
 
-      if (inlineShortcutTemplateSnapshot) {
+      if (shortcutTemplateSnapshot) {
         const nextDocument = createShortcutEditorDocumentFromText(firstVariant.prompt);
 
         setActiveShortcutTemplate({
-          shortcut: inlineShortcutTemplateSnapshot.shortcut,
-          values: cloneShortcutValues(inlineShortcutTemplateSnapshot.values),
+          shortcut: shortcutTemplateSnapshot.shortcut,
+          values: cloneShortcutValues(shortcutTemplateSnapshot.values),
           removedFieldIds: getRemovedFieldIdsFromShortcutEditorDocument(
-            inlineShortcutTemplateSnapshot.shortcut,
+            shortcutTemplateSnapshot.shortcut,
             nextDocument,
           ),
           appliedPrompt: firstVariant.prompt,
@@ -2732,7 +2734,46 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       title: `AI 已生成 ${promptVariants.length} 个方案`,
       description: "结果已写入历史记录，当前输入框已回填方案 A。",
     });
-  }, [config.baseModel, config.height, config.model, config.prompt, config.width, effectiveUserId, optimizePrompt, prependHistoryItems, runKvStructuredOptimization, selectedAIModel, setConfig, toast]);
+  }, [config.baseModel, config.height, config.model, config.prompt, config.width, effectiveUserId, optimizePrompt, prependHistoryItems, selectedAIModel, setConfig, toast]);
+
+  const runKvStructuredPromptOptimization = React.useCallback(async (templateSnapshot: ActiveShortcutTemplate) => {
+    await runKvStructuredOptimization(templateSnapshot);
+  }, [runKvStructuredOptimization]);
+
+  const runPlainTextPromptOptimization = React.useCallback(async () => {
+    await runPromptVariantOptimization({
+      flowKind: "playground_plain_text",
+      sourceKind: "plain_text",
+    });
+  }, [runPromptVariantOptimization]);
+
+  const runShortcutInlinePromptOptimization = React.useCallback(async (templateSnapshot: ActiveShortcutTemplate) => {
+    await runPromptVariantOptimization({
+      flowKind: "playground_shortcut_inline",
+      sourceKind: "shortcut_inline",
+      shortcutTemplateSnapshot: templateSnapshot,
+    });
+  }, [runPromptVariantOptimization]);
+
+  const handleOptimizePrompt = React.useCallback(async () => {
+    const shortcutTemplateSnapshot = activeShortcutTemplateRef.current;
+    const flowKind = resolvePlaygroundPromptOptimizationFlow(shortcutTemplateSnapshot);
+
+    if (flowKind === "playground_kv_structured") {
+      setActiveShortcutTemplate(null);
+    }
+
+    await dispatchPlaygroundPromptOptimization({
+      activeShortcutTemplate: shortcutTemplateSnapshot,
+      runKvStructuredPromptOptimization,
+      runPlainTextPromptOptimization,
+      runShortcutInlinePromptOptimization,
+    });
+  }, [
+    runKvStructuredPromptOptimization,
+    runPlainTextPromptOptimization,
+    runShortcutInlinePromptOptimization,
+  ]);
 
   const handleDescribe = React.useCallback(async () => {
     if (describeImages.length === 0) {
@@ -3165,6 +3206,20 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       parentId: historyItem.id,
     });
 
+    if (historyItem.id) {
+      void editGeneration(historyItem.id).then((result) => {
+        if (!result.success || !result.interactionStats || !result.viewerState) {
+          return;
+        }
+
+        syncEditedGenerationInteraction(historyItem, {
+          ...historyItem,
+          interactionStats: result.interactionStats,
+          viewerState: result.viewerState,
+        });
+      });
+    }
+
     updateConfig({
       isEdit: true,
       parentId: historyItem.id,
@@ -3175,7 +3230,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       imageEditorSession: initialSession,
     });
     setSelectedPresetName(undefined);
-  }, [config.aspectRatio, config.imageSize, defaultImageModelId, getCombinedHistoryItem, selectedModel, setSelectedPresetName, updateConfig]);
+  }, [config.aspectRatio, config.imageSize, defaultImageModelId, getCombinedHistoryItem, selectedModel, setSelectedPresetName, syncEditedGenerationInteraction, updateConfig]);
 
   const handleEditUploadedImage = useCallback(() => {
     const imageToEdit = usePlaygroundStore.getState().uploadedImages[0];
@@ -3213,19 +3268,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       const blob = await response.blob();
       const file = new File([blob], `image-edit-${Date.now()}.png`, { type: 'image/png' });
       const currentEditConfig = usePlaygroundStore.getState().config.editConfig as EditPresetConfig | undefined;
-      const nextEditConfig: EditPresetConfig = {
-        ...currentEditConfig,
-        canvasJson: currentEditConfig?.canvasJson || {},
-        referenceImages: currentEditConfig?.referenceImages || [],
-        annotations: currentEditConfig?.annotations || [],
-        backgroundColor: currentEditConfig?.backgroundColor || 'transparent',
-        canvasSize: {
-          width: payload.sessionSnapshot.imageWidth,
-          height: payload.sessionSnapshot.imageHeight,
-        },
-        originalImageUrl: imageEditState.imageUrl || currentEditConfig?.originalImageUrl || '',
-        imageEditorSession: payload.sessionSnapshot,
-      };
+      const nextEditConfig = buildPlaygroundImageEditConfig({
+        currentEditConfig,
+        originalImageUrl: imageEditState.imageUrl,
+        sessionSnapshot: payload.sessionSnapshot,
+      });
 
       setUploadedImages([]);
       await handleFilesUpload([file], 'reference', { waitForUpload: true });

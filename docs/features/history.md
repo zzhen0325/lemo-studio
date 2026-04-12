@@ -68,8 +68,10 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 - 用户归属由服务端从 session 推导；删除与更新必须按 owner 限制范围。
 - 读取历史记录时如需规范化输出图/参考图 URL，只能补丁式更新 URL 相关字段，不能覆盖已有 `config` 元数据（如 prompt、model、workflow/edit 标记）。
 - `Use All`、`Use Model`、`Rerun` 现在统一走 Playground 容器的参数回填入口，避免卡片内部各自拼装配置造成 workflow、preset、reference image、edit 状态不一致。
+- 历史记录的 `Edit` / `Edit Again` 必须记录 `edit` interaction，并保持 `config.isEdit`、`config.parentId`、`config.editConfig.originalImageUrl`、`config.imageEditorSession` 可追溯，否则编辑统计排序和再次编辑恢复都会失真。
 - workflow 历史记录回填时必须保持 `config.model = Workflow`、`config.baseModel = 原底模` 的组合；否则 UI 虽然显示选中了 workflow，再次生成仍可能误走普通文生图链路。
 - `Use Prompt` 只有在真正的 `prompt_optimization` 记录上才允许恢复 KV / shortcut 结构化编辑态；普通生成记录即使带有 `optimizationSource` 元数据，也只能按纯文本 prompt 回填，避免把成品生成记录误恢复成模板编辑器。
+- `optimized_generation` 只表示“生成结果源自某次 prompt optimize”，它仍然是普通生成记录，不等于 `prompt_optimization`。
 
 ## 边界 / 非职责范围
 

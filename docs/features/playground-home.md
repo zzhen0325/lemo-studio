@@ -22,7 +22,7 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 
 - Home 主视觉与输入区：背景 + 输入区组件组合呈现。
 - 快捷入口：Describe / Edit / History / Gallery 入口集中在 Home Actions。
-- Moodboard 跑马灯：展示部分 moodboard 卡片，点击后切换到 Dock 的 moodboard 视图。
+- Moodboard 跑马灯：展示部分 moodboard 卡片，点击卡片打开 moodboard 详情弹窗；点击 “See All Moodboard” 切换到 Dock 的 moodboard 视图。
 
 ### 生成与保存
 
@@ -86,4 +86,3 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 ## 更新记录
 
 - 2026-04-08：补充 Playground 首页模块文档，梳理入口、职责、依赖与边界。
-

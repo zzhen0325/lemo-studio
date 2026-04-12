@@ -15,7 +15,7 @@ Moodboard 用于把生成结果沉淀为可编排、可复用的风格/参考素
 
 ### 入口
 
-- Home 底部 `MoodboardMarquee` 展示部分卡片，点击 “See All Moodboard” 切换到 `dock + style`。
+- Home 底部 `MoodboardMarquee` 展示部分卡片，点击卡片打开 moodboard 详情弹窗；点击 “See All Moodboard” 切换到 `dock + style`。
 - Dock 侧边栏 `Moodboards` Tab 对应 `activeTab=style`。
 
 ### 数据加载与缓存
@@ -83,4 +83,3 @@ Moodboard 用于把生成结果沉淀为可编排、可复用的风格/参考素
 ## 更新记录
 
 - 2026-04-08：补充 Moodboard 模块文档，梳理入口、API、缓存策略与加入链路。
-

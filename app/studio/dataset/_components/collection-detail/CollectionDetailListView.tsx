@@ -33,7 +33,7 @@ interface CollectionDetailListViewProps {
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSelect: (id: string, shiftKey?: boolean) => void;
   onImagePromptLangSwitch: (img: DatasetImage, targetLang: TranslateLang) => void;
-  onOptimizePrompt: (img: DatasetImage) => void;
+  onGeneratePrompt: (img: DatasetImage) => void;
   onCropModeChange: (mode: CropMode) => void;
   onTargetSizeChange: (size: string) => void;
   onCropImage: (img: DatasetImage) => void;
@@ -57,7 +57,7 @@ export function CollectionDetailListView({
   onUpload,
   onSelect,
   onImagePromptLangSwitch,
-  onOptimizePrompt,
+  onGeneratePrompt,
   onCropModeChange,
   onTargetSizeChange,
   onCropImage,
@@ -136,7 +136,7 @@ export function CollectionDetailListView({
             imagePromptValue={imagePromptValue}
             onSelect={onSelect}
             onImagePromptLangSwitch={onImagePromptLangSwitch}
-            onOptimizePrompt={onOptimizePrompt}
+            onGeneratePrompt={onGeneratePrompt}
             onCropModeChange={onCropModeChange}
             onTargetSizeChange={onTargetSizeChange}
             onCropImage={onCropImage}

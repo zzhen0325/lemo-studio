@@ -326,7 +326,9 @@ export class AiService {
     }
   }
 
-  // 文本生成，可能返回流式结果，由调用方决定如何包装 HTTP 响应
+  // `/api/ai/text` is the shared text execution entry.
+  // Multiple business flows can use it (plain prompt optimize, shortcut inline,
+  // KV structured, canvas text node), while record semantics stay outside this service.
   public async generateText(body: TextRequestBody): Promise<{ text?: string; stream?: ReadableStream<Uint8Array> }> {
     const { input, model, options } = body;
 

@@ -36,7 +36,7 @@ interface CollectionDetailListItemProps {
   imagePromptValue: string;
   onSelect: (id: string, shiftKey?: boolean) => void;
   onImagePromptLangSwitch: (img: DatasetImage, targetLang: TranslateLang) => void;
-  onOptimizePrompt: (img: DatasetImage) => void;
+  onGeneratePrompt: (img: DatasetImage) => void;
   onCropModeChange: (mode: CropMode) => void;
   onTargetSizeChange: (size: string) => void;
   onCropImage: (img: DatasetImage) => void;
@@ -55,7 +55,7 @@ export function CollectionDetailListItem({
   imagePromptValue,
   onSelect,
   onImagePromptLangSwitch,
-  onOptimizePrompt,
+  onGeneratePrompt,
   onCropModeChange,
   onTargetSizeChange,
   onCropImage,
@@ -156,14 +156,14 @@ export function CollectionDetailListItem({
               variant="secondary"
               size="sm"
               className="h-8 px-3 text-xs font-medium gap-1.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2e2e2e] text-zinc-300 hover:text-white transition-all duration-200 shadow-sm rounded-lg"
-              onClick={() => onOptimizePrompt(img)}
+              onClick={() => onGeneratePrompt(img)}
               disabled={img.isOptimizing || img.isTranslating}
-              title="Optimize with AI"
+              title="Generate prompt with AI"
             >
               <Wand2
                 className={`h-3.5 w-3.5 ${img.isOptimizing ? 'animate-pulse text-primary' : 'text-primary'}`}
               />
-              AI 优化
+              AI 生成 Prompt
             </Button>
 
             <Popover>

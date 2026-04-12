@@ -773,9 +773,9 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
     const {
         isConflictDialogOpen,
         setIsConflictDialogOpen,
-        handleOptimizeAll,
-        handleOptimizeSelected,
-        handleOptimizePrompt,
+        handleGenerateAllPrompts,
+        handleGenerateSelectedPrompts,
+        handleGeneratePrompt,
         handlePromptLangSwitch,
         handleImagePromptLangSwitch,
         handleKeepCurrentTask,
@@ -905,10 +905,10 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                 onBatchRenameDialogOpenChange={setIsBatchRenameDialogOpen}
                 onRenamePrefixChange={setRenamePrefix}
                 onBatchRename={handleBatchRename}
-                onPrimaryBatchAction={selectedIds.size > 0 ? handleAddPrefix : handleOptimizeAll}
+                onPrimaryBatchAction={selectedIds.size > 0 ? handleAddPrefix : handleGenerateAllPrompts}
                 onSelectAll={selectAll}
                 onDeselectAll={deselectAll}
-                onOptimizeSelected={handleOptimizeSelected}
+                onGenerateSelectedPrompts={handleGenerateSelectedPrompts}
                 onBatchDelete={handleBatchDelete}
                 onPromptLangSwitch={handlePromptLangSwitch}
                 onExport={handleExport}
@@ -942,7 +942,7 @@ export default function CollectionDetail({ collection, onBack }: CollectionDetai
                     onUpload={handleUpload}
                     onSelect={toggleSelect}
                     onImagePromptLangSwitch={handleImagePromptLangSwitch}
-                    onOptimizePrompt={handleOptimizePrompt}
+                    onGeneratePrompt={handleGeneratePrompt}
                     onCropModeChange={setCropMode}
                     onTargetSizeChange={setTargetSize}
                     onCropImage={handleCropImage}

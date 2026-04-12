@@ -66,6 +66,35 @@ describe('resolveGalleryItem', () => {
     expect(item.isPromptVisible).toBe(true);
   });
 
+  it('classifies edit generations as edit gallery items even for legacy edit records', () => {
+    const item = resolveGalleryItem(
+      createGeneration({
+        id: 'edit-1',
+        config: {
+          prompt: 'Retouch the lighting',
+          width: 1024,
+          height: 1024,
+          model: 'gemini-3-pro-image-preview',
+          isEdit: false,
+          parentId: 'gen-parent',
+          editConfig: {
+            canvasJson: {},
+            referenceImages: [],
+            originalImageUrl: 'https://example.com/original.png',
+            annotations: [],
+            backgroundColor: 'transparent',
+            canvasSize: { width: 1024, height: 1024 },
+          },
+        },
+      }),
+      0,
+    );
+
+    expect(item.promptCategory).toBe('edit_generation');
+    expect(item.promptCategoryLabel).toBe('编辑生成');
+    expect(item.isImageVisible).toBe(true);
+  });
+
   it('builds sorted filter options from resolved items', () => {
     const options = buildGalleryFilterOptions([
       resolveGalleryItem(createGeneration(), 0),

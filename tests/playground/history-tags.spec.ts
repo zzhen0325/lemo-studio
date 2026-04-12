@@ -69,6 +69,32 @@ describe('history tags helpers', () => {
     expect(normalizeHistoryConfigForGeneration(config).isEdit).toBe(true);
   });
 
+  it('preserves image editor session fields for valid edit generations', () => {
+    const imageEditorSession = {
+      version: 1,
+      imageWidth: 1024,
+      imageHeight: 1024,
+      plainPrompt: 'retouch',
+      annotations: [],
+      strokes: [],
+    } as GenerationConfig['imageEditorSession'];
+    const config = createBaseConfig({
+      isEdit: false,
+      parentId: 'gen-parent',
+      imageEditorSession,
+      editConfig: {
+        ...createEditConfig(),
+        imageEditorSession,
+      },
+    });
+
+    const normalized = normalizeHistoryConfigForGeneration(config);
+
+    expect(isHistoryEditGeneration(config)).toBe(true);
+    expect(normalized.imageEditorSession).toEqual(imageEditorSession);
+    expect(normalized.editConfig?.imageEditorSession).toEqual(imageEditorSession);
+  });
+
   it('adds moodboard name tag for moodboard generation', () => {
     const config = createBaseConfig({
       moodboardTemplateId: 'shortcut-123',

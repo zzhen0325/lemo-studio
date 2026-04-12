@@ -9,7 +9,7 @@ Dataset 用于沉淀训练素材、风格素材与可复用图片资产，解决
 - 提供集合（collection）管理：创建、复制、导出、删除、重命名。
 - 提供集合详情管理：图片列表/网格视图、排序、批量操作、删除、上传。
 - 提供 prompt 双语字段编辑与自动保存（含失败回写与脏标记）。
-- 提供 AI 工作流辅助（批量优化/翻译等，以当前实现为准）。
+- 提供 AI 工作流辅助（自动生成 prompt / 自动打标、翻译等，以当前实现为准）。
 - 提供实时同步：写操作触发 SSE 事件，驱动前端刷新列表/详情。
 
 ## 核心流程
@@ -56,7 +56,7 @@ Dataset 用于沉淀训练素材、风格素材与可复用图片资产，解决
 
 - Dataset 页面与组件：DatasetManagerView、CollectionList、CollectionDetail 及其子视图组件。
 - 详情页服务层：collection-detail.service 等对 `/api/dataset` 的请求封装。
-- AI 工作流：详情页的批量优化/翻译能力（调用现有 AI/translate 等接口，以当前实现为准）。
+- AI 工作流：详情页的 prompt 自动生成 / 打标与翻译能力（调用现有 AI/translate 等接口，以当前实现为准）。
 - EventSource：订阅 `/api/dataset/sync`。
 
 ### 服务端依赖
@@ -80,6 +80,8 @@ Dataset 用于沉淀训练素材、风格素材与可复用图片资产，解决
 - 参数校验与安全约束集中在 dataset schema（collection/filename 等），变更需同步评估安全边界。
 - 图片 URL 需要做归一化与兼容处理（历史 URL/过期签名归一成 storage key，再生成展示 URL，以当前实现为准）。
 - 写操作触发同步事件后，前端需谨慎处理“正在编辑时的刷新策略”，避免覆盖未保存内容。
+- Dataset 的自动生成 prompt / 打标属于 `dataset_label` 流程，底层走 `/api/ai/describe` -> `service:datasetLabel`，不是 Playground prompt optimize。
+- Dataset 翻译属于 `dataset_translate` 流程，底层走独立的 `/api/translate`，不复用 `/api/ai/text`。
 
 ## 边界 / 非职责范围
 
@@ -95,4 +97,4 @@ Dataset 用于沉淀训练素材、风格素材与可复用图片资产，解决
 ## 更新记录
 
 - 2026-04-08：补充 Dataset 模块文档，梳理路由、API、SSE 同步与数据流边界。
-
+- 2026-04-12：补充 Dataset AI 流程边界，明确自动生成 prompt / 打标与翻译都不属于 prompt optimization。

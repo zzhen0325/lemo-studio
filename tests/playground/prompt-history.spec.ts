@@ -104,6 +104,19 @@ describe('prompt history helpers', () => {
     })).toBe('optimized_generation');
   });
 
+  it('keeps describe records outside prompt optimization metadata', () => {
+    const describeConfig = {
+      prompt: 'image description result',
+      width: 1024,
+      height: 1024,
+      model: 'gemini',
+      historyRecordType: IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE,
+    };
+
+    expect(getGalleryPromptCategory(describeConfig)).toBe('image_description');
+    expect(getPromptOptimizationSource(describeConfig)).toBeNull();
+  });
+
   it('filters visibility for gallery image wall', () => {
     const baseConfig = {
       prompt: 'desc',
