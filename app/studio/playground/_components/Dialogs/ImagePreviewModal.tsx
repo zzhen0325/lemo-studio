@@ -32,6 +32,7 @@ interface ImagePreviewModalProps {
   hasNext?: boolean;
   hasPrev?: boolean;
   onRegenerate?: (result: Generation) => void;
+  onUseAll?: (result: Generation) => void | Promise<void>;
   onApplyPrompt?: (result: Generation) => void;
   onApplyImage?: (result: Generation) => void | Promise<void>;
 }
@@ -55,6 +56,7 @@ export default function ImagePreviewModal({
   hasNext,
   hasPrev,
   onRegenerate,
+  onUseAll,
   onApplyPrompt,
   onApplyImage,
 }: ImagePreviewModalProps) {
@@ -73,8 +75,9 @@ export default function ImagePreviewModal({
   const [localInteractionStats, setLocalInteractionStats] = useState(result?.interactionStats);
   const [localViewerState, setLocalViewerState] = useState(result?.viewerState);
 
-  // 数据已规范化，直接从 config.sourceImageUrls 读取
-  const sourceUrls = result?.config?.sourceImageUrls || [];
+  const sourceUrls = result?.config?.sourceImageUrls
+    || result?.config?.editConfig?.referenceImages?.map((image) => image.dataUrl)
+    || [];
   const activeResultIdentity = getResultIdentity(result);
   const previewResults = results.filter((item) => Boolean(item.outputUrl?.trim()));
 
@@ -114,6 +117,7 @@ export default function ImagePreviewModal({
   const config = result.config;
   const prompt = config?.prompt || "";
   const modelDisplayName = availableModels.find((model) => model.id === config?.model)?.displayName || config?.model || "Standard";
+  const isPendingDetailHydration = isLoadingDetails || Boolean((config as { __minimal?: boolean } | undefined)?.__minimal);
 
   const handleZoomIn = () => { setScale(prev => Math.min(prev * 1.2, 5)); };
   const handleZoomOut = () => { setScale(prev => Math.max(prev / 1.2, 0.1)); };
@@ -137,6 +141,10 @@ export default function ImagePreviewModal({
 
   const handleRerun = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isPendingDetailHydration) {
+      toast({ title: "详情加载中", description: "完整参数还在补拉，稍候再试。" });
+      return;
+    }
     if (onRegenerate && result) {
       onRegenerate(result);
       toast({ title: "重运行中", description: "已开始重新生成" });
@@ -147,21 +155,31 @@ export default function ImagePreviewModal({
     }
   };
 
-  const handleUseAll = (e: React.MouseEvent) => {
+  const handleUseAll = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!config) return;
+    if (isPendingDetailHydration) {
+      toast({ title: "详情加载中", description: "完整参数还在补拉，稍候再试。" });
+      return;
+    }
 
-    // Logic from HistoryList
+    if (onUseAll) {
+      await onUseAll(result);
+      onClose();
+      return;
+    }
+
+    const validSourceUrls = sourceUrls.filter((url) => !!url);
+
     applyModel(config.model, {
       ...config,
       loras: config.loras || [],
       presetName: config.presetName,
     });
+    applyPrompt(prompt);
 
-    // Sync reference images to uploadedImages for preview
-    const validSourceUrls = config.sourceImageUrls?.filter(url => !!url) || [];
     if (validSourceUrls.length > 0) {
-      applyImages(validSourceUrls);
+      await applyImages(validSourceUrls);
     }
 
     toast({ title: "已应用配置", description: "所有参数已应用到当前工作流" });
@@ -350,6 +368,7 @@ export default function ImagePreviewModal({
                       size="sm"
                       className="h-8 px-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
                       onClick={handleRerun}
+                      disabled={isPendingDetailHydration}
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span className="hidden sm:inline">Rerun</span>
@@ -373,6 +392,7 @@ export default function ImagePreviewModal({
                     size="sm"
                     className="h-8 px-3 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition-colors gap-2"
                     onClick={handleUseAll}
+                    disabled={isPendingDetailHydration}
                   >
                     <Layers className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Use All</span>

@@ -68,6 +68,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 - 用户归属由服务端从 session 推导；删除与更新必须按 owner 限制范围。
 - 读取历史记录时如需规范化输出图/参考图 URL，只能补丁式更新 URL 相关字段，不能覆盖已有 `config` 元数据（如 prompt、model、workflow/edit 标记）。
 - `Use All`、`Use Model`、`Rerun` 现在统一走 Playground 容器的参数回填入口，避免卡片内部各自拼装配置造成 workflow、preset、reference image、edit 状态不一致。
+- 图片详情弹窗中的 `Use All` / `Rerun` 必须等待 lightweight/minimal 记录补拉完整 detail 后，再走同一套页面级回填入口；不要直接使用轻量 feed 里的原始 `config` 做回填。
 - 历史记录的 `Edit` / `Edit Again` 必须记录 `edit` interaction，并保持 `config.isEdit`、`config.parentId`、`config.editConfig.originalImageUrl`、`config.imageEditorSession` 可追溯，否则编辑统计排序和再次编辑恢复都会失真。
 - workflow 历史记录回填时必须保持 `config.model = Workflow`、`config.baseModel = 原底模` 的组合；否则 UI 虽然显示选中了 workflow，再次生成仍可能误走普通文生图链路。
 - `Use Prompt` 只有在真正的 `prompt_optimization` 记录上才允许恢复 KV / shortcut 结构化编辑态；普通生成记录即使带有 `optimizationSource` 元数据，也只能按纯文本 prompt 回填，避免把成品生成记录误恢复成模板编辑器。
@@ -87,6 +88,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 ## 更新记录
 
 - 2026-04-09：`Use All` / `Rerun` 回填的存储参考图在发送给 `coze_seed4` 前会优先由服务端转成内联 `data:` 图片，避免 gallery/history 里的签名存储 URL 或同源 `/api/storage/image` 被上游判成不支持格式。
+- 2026-04-12：Gallery / 图片详情预览使用的 lightweight history 记录会显式标记 `__minimal`，弹窗在 detail 补拉完成前禁用 `Use All` / `Rerun`，并统一复用页面级回填入口。
 - 2026-04-09：收紧 `Use Prompt` 的恢复语义，只有 `prompt_optimization` 记录会恢复 KV / shortcut 结构化编辑态；普通生成记录统一按纯文本 prompt 回填，修复普通 prompt 被误恢复成 KV 模版的问题。
 - 2026-04-09：History 面板改为 `optimistic overlay + SWR truth` 双层合成；生成中与保存失败态不再直接写入 SWR page，并新增 `Syncing...` / `Save failed` 可见状态。
 - 2026-04-09：`Use All` / `Use Model` / `Rerun` 的参数回填统一收口到页面级 handler，修正 workflow 记录与 prompt optimization 记录回填不一致的问题。

@@ -3805,6 +3805,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
           hasNext={hasNext}
           hasPrev={hasPrev}
           onRegenerate={handleRegenerate}
+          onUseAll={handleUseHistoryAll}
           onApplyPrompt={handleModalApplyPrompt}
           onApplyImage={handleModalApplyImage}
           selectedShortcutPreviewKey={selectedShortcutPreviewKey}

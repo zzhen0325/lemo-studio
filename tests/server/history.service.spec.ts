@@ -82,6 +82,7 @@ describe('HistoryService lightweight mode', () => {
 
     expect(result.history[0].outputUrl).toBe('storage/output-1.png');
     expect(result.history[0].config.sourceImageUrls).toEqual(['storage/source-1.png']);
+    expect(result.history[0].config.__minimal).toBe(true);
     expect(result.history[0].viewerState).toBeUndefined();
   });
 

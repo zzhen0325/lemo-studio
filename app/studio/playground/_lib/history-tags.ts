@@ -82,6 +82,7 @@ export function withMoodboardTemplateMetadata(
 
 export function normalizeHistoryConfigForGeneration(config: GenerationConfig): GenerationConfig {
   const nextConfig = { ...config };
+  delete (nextConfig as GenerationConfig & { __minimal?: boolean }).__minimal;
 
   if (isBannerGeneration(nextConfig)) {
     nextConfig.isEdit = false;

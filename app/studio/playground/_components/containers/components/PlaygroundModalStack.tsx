@@ -51,6 +51,7 @@ interface PlaygroundModalStackProps {
   hasNext: boolean;
   hasPrev: boolean;
   onRegenerate: (result: Generation) => void;
+  onUseAll?: (result: Generation) => void | Promise<void>;
   onApplyPrompt?: (result: Generation) => void;
   onApplyImage?: (result: Generation) => void | Promise<void>;
   selectedShortcutPreviewKey: string;
@@ -93,6 +94,7 @@ export function PlaygroundModalStack({
   hasNext,
   hasPrev,
   onRegenerate,
+  onUseAll,
   onApplyPrompt,
   onApplyImage,
   selectedShortcutPreviewKey,
@@ -133,6 +135,7 @@ export function PlaygroundModalStack({
         hasNext={hasNext}
         hasPrev={hasPrev}
         onRegenerate={onRegenerate}
+        onUseAll={onUseAll}
         onApplyPrompt={onApplyPrompt}
         onApplyImage={onApplyImage}
       />
