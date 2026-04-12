@@ -87,6 +87,13 @@ export interface HistoryQuery {
   minimal?: string | number | boolean | null;
 }
 
+export interface HistoryDetailQuery {
+  id?: string | null;
+  outputUrl?: string | null;
+  userId?: string | null;
+  viewerUserId?: string | null;
+}
+
 // Simple UUID validation
 function isValidId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -104,6 +111,75 @@ function isEnabledFlag(value: unknown): boolean {
 
 export class HistoryService {
   constructor(private readonly historyRepository: HistoryRepository) {}
+
+  private async mapRecordsToGenerations(
+    items: GenerationRecord[],
+    options: {
+      viewerUserId?: string | null;
+      shouldUseLightweightMapping?: boolean;
+    } = {},
+  ): Promise<Generation[]> {
+    const shouldUseLightweightMapping = options.shouldUseLightweightMapping === true;
+    const itemIds = items.map((item) => item.id);
+    const interactionDataMap = options.viewerUserId && !shouldUseLightweightMapping
+      ? await getBatchInteractionData(itemIds, options.viewerUserId)
+      : new Map();
+
+    return Promise.all(items.map(async (item) => {
+      const config = (item.config || {}) as Record<string, unknown>;
+      const outputUrl = item.output_url || (config.outputUrl as string | undefined);
+      const singleSourceUrl = config.sourceImageUrl as string | undefined;
+      const sourceImageUrls = (Array.isArray(config.sourceImageUrls) && config.sourceImageUrls.length > 0)
+        ? config.sourceImageUrls as string[]
+        : singleSourceUrl ? [singleSourceUrl] : [];
+      const localSourceIds = (Array.isArray(config.localSourceIds) && config.localSourceIds.length > 0)
+        ? config.localSourceIds as string[]
+        : config.localSourceId ? [config.localSourceId as string] : [];
+
+      const interactionData = interactionDataMap.get(item.id);
+      const normalizedUrls = shouldUseLightweightMapping
+        ? {
+          outputUrl,
+          sourceImageUrls,
+        }
+        : await this.normalizeGenerationUrls(
+          item.id,
+          outputUrl,
+          sourceImageUrls,
+          config,
+        );
+
+      return {
+        id: item.id,
+        userId: item.user_id || 'anonymous',
+        projectId: item.project_id || 'default',
+        outputUrl: normalizedUrls.outputUrl,
+        config: {
+          ...config,
+          ...(shouldUseLightweightMapping ? { __minimal: true } : {}),
+          sourceImageUrls: normalizedUrls.sourceImageUrls,
+          localSourceIds,
+        },
+        status: item.status || 'completed',
+        createdAt: item.created_at || new Date().toISOString(),
+        progress: item.progress,
+        progressStage: item.progress_stage,
+        interactionStats: shouldUseLightweightMapping
+          ? undefined
+          : (interactionData?.interactionStats || {
+            likeCount: item.like_count || 0,
+            moodboardAddCount: item.moodboard_add_count || 0,
+            downloadCount: item.download_count || 0,
+            editCount: item.edit_count || 0,
+            lastLikedAt: item.last_liked_at || undefined,
+            lastMoodboardAddedAt: item.last_moodboard_added_at || undefined,
+            lastDownloadedAt: item.last_downloaded_at || undefined,
+            lastEditedAt: item.last_edited_at || undefined,
+          }),
+        viewerState: shouldUseLightweightMapping ? undefined : interactionData?.viewerState,
+      } as Generation;
+    }));
+  }
 
   /**
    * Normalize URLs for storage and display
@@ -281,68 +357,10 @@ export class HistoryService {
         });
       }
 
-      // Batch get interaction data if viewerUserId is provided
-      const itemIds = items.map(item => item.id);
-      const interactionDataMap = viewerUserId 
-        && !shouldUseLightweightMapping
-        ? await getBatchInteractionData(itemIds, viewerUserId)
-        : new Map();
-
-      const history = await Promise.all(items.map(async (item) => {
-        const config = (item.config || {}) as Record<string, unknown>;
-        const outputUrl = item.output_url || (config.outputUrl as string | undefined);
-        const singleSourceUrl = config.sourceImageUrl as string | undefined;
-        const sourceImageUrls = (Array.isArray(config.sourceImageUrls) && config.sourceImageUrls.length > 0)
-          ? config.sourceImageUrls as string[]
-          : singleSourceUrl ? [singleSourceUrl] : [];
-        const localSourceIds = (Array.isArray(config.localSourceIds) && config.localSourceIds.length > 0)
-          ? config.localSourceIds as string[]
-          : config.localSourceId ? [config.localSourceId as string] : [];
-
-        // Get interaction data
-        const interactionData = interactionDataMap.get(item.id);
-        const normalizedUrls = shouldUseLightweightMapping
-          ? {
-            outputUrl,
-            sourceImageUrls,
-          }
-          : await this.normalizeGenerationUrls(
-            item.id,
-            outputUrl,
-            sourceImageUrls,
-            config,
-          );
-
-        return {
-          id: item.id,
-          userId: item.user_id || 'anonymous',
-          projectId: item.project_id || 'default',
-          outputUrl: normalizedUrls.outputUrl,
-          config: {
-            ...config,
-            ...(shouldUseLightweightMapping ? { __minimal: true } : {}),
-            sourceImageUrls: normalizedUrls.sourceImageUrls,
-            localSourceIds,
-          },
-          status: item.status || 'completed',
-          createdAt: item.created_at || new Date().toISOString(),
-          progress: item.progress,
-          progressStage: item.progress_stage,
-          interactionStats: shouldUseLightweightMapping
-            ? undefined
-            : (interactionData?.interactionStats || {
-              likeCount: item.like_count || 0,
-              moodboardAddCount: item.moodboard_add_count || 0,
-              downloadCount: item.download_count || 0,
-              editCount: item.edit_count || 0,
-              lastLikedAt: item.last_liked_at || undefined,
-              lastMoodboardAddedAt: item.last_moodboard_added_at || undefined,
-              lastDownloadedAt: item.last_downloaded_at || undefined,
-              lastEditedAt: item.last_edited_at || undefined,
-            }),
-          viewerState: shouldUseLightweightMapping ? undefined : interactionData?.viewerState,
-        } as Generation;
-      }));
+      const history = await this.mapRecordsToGenerations(items, {
+        viewerUserId,
+        shouldUseLightweightMapping,
+      });
 
       return {
         history,
@@ -352,6 +370,46 @@ export class HistoryService {
     } catch (error) {
       console.error('Failed to load history:', error);
       throw new HttpError(500, 'Failed to load history');
+    }
+  }
+
+  public async getHistoryDetail(query: HistoryDetailQuery): Promise<{ item: Generation | null }> {
+    const normalizedId = query.id?.trim() || '';
+    const normalizedOutputUrl = query.outputUrl?.trim() || '';
+    const ownerId = query.userId?.trim() || '';
+
+    if (!normalizedId && !normalizedOutputUrl) {
+      return { item: null };
+    }
+
+    try {
+      const item = normalizedId
+        ? (
+          ownerId
+            ? await this.historyRepository.findOwnedById(normalizedId, ownerId)
+            : await this.historyRepository.findById(normalizedId)
+        )
+        : (
+          ownerId
+            ? await this.historyRepository.findOwnedByOutputUrl(normalizedOutputUrl, ownerId)
+            : await this.historyRepository.findByOutputUrl(normalizedOutputUrl)
+        );
+
+      if (!item) {
+        return { item: null };
+      }
+
+      const [mappedItem] = await this.mapRecordsToGenerations([item], {
+        viewerUserId: query.viewerUserId,
+        shouldUseLightweightMapping: false,
+      });
+
+      return {
+        item: mappedItem || null,
+      };
+    } catch (error) {
+      console.error('Failed to load history detail:', error);
+      throw new HttpError(500, 'Failed to load history detail');
     }
   }
 

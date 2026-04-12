@@ -43,6 +43,26 @@ function createRepositoryMock() {
         created_at: '2026-04-05T00:00:00.000Z',
       },
     ]),
+    findById: vi.fn(async (_id: string) => ({
+      id: 'gen-1',
+      user_id: 'user-1',
+      project_id: 'default',
+      output_url: 'storage/output-1.png',
+      config: {
+        prompt: 'prompt',
+        width: 1024,
+        height: 1024,
+        model: 'coze_seedream4_5',
+        baseModel: 'flux_klein',
+        workflowName: 'Flux Workflow',
+        sourceImageUrls: ['storage/source-1.png'],
+      },
+      status: 'completed',
+      created_at: '2026-04-05T00:00:00.000Z',
+    })),
+    findOwnedById: vi.fn(async (_id: string, _ownerId: string) => null),
+    findByOutputUrl: vi.fn(async (_outputUrl: string) => null),
+    findOwnedByOutputUrl: vi.fn(async (_outputUrl: string, _ownerId: string) => null),
     update: vi.fn(async () => undefined),
   };
 }
@@ -125,5 +145,21 @@ describe('HistoryService lightweight mode', () => {
         sourceImageUrls: ['normalized/key.png'],
       },
     });
+  });
+
+  it('hydrates a full detail item by id without keeping the minimal marker', async () => {
+    const repository = createRepositoryMock();
+    const service = new HistoryService(repository as never);
+
+    const result = await service.getHistoryDetail({
+      id: 'gen-1',
+      viewerUserId: 'viewer-1',
+    });
+
+    expect(repository.findById).toHaveBeenCalledWith('gen-1');
+    expect(normalizeAssetMock).toHaveBeenCalled();
+    expect(getBatchInteractionDataMock).toHaveBeenCalledWith(['gen-1'], 'viewer-1');
+    expect(result.item?.outputUrl).toBe('https://signed.example/normalized/key.png');
+    expect(result.item?.config.__minimal).toBeUndefined();
   });
 });

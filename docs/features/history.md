@@ -54,6 +54,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 ### 服务端依赖
 
 - `GET/POST/DELETE /api/history`：读写与批量删除。
+- `GET /api/history?id=...` / `GET /api/history?outputUrl=...`：单条 history detail 查询，供图片详情弹窗把 lightweight 记录升级成完整 generation。
 - `POST/GET /api/history/[id]/interactions`：交互统计读写（如当前 UI 接入）。
 
 ## 状态 / 数据流

@@ -59,6 +59,18 @@ export class HistoryRepository {
     return GenerationModel.findOne({ id, user_id: ownerId });
   }
 
+  public async findById(id: string): Promise<GenerationRecord | null> {
+    return GenerationModel.findOne({ id });
+  }
+
+  public async findOwnedByOutputUrl(outputUrl: string, ownerId: string): Promise<GenerationRecord | null> {
+    return GenerationModel.findOne({ output_url: outputUrl, user_id: ownerId });
+  }
+
+  public async findByOutputUrl(outputUrl: string): Promise<GenerationRecord | null> {
+    return GenerationModel.findOne({ output_url: outputUrl });
+  }
+
   public async updateOwned(id: string, ownerId: string, update: Partial<GenerationRecord>): Promise<void> {
     await GenerationModel.updateOne({ id, user_id: ownerId }, update);
   }
