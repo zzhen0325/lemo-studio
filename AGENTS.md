@@ -24,7 +24,9 @@ pnpm test:e2e
 pnpm build
 ```
 
+- 本机环境暂时无法连接到真实线上数据库和对象存储，这是正常的
 - 默认本地端口是 `3001`，`scripts/dev-frontend.sh` 会把 `NEXT_PUBLIC_APP_PORT` 同步到这个端口。
+- <br />
 - 本地开发默认地址是 `http://127.0.0.1:3001`。
 - 浏览器侧 API 默认走同源 `/api/*`，不要把前端请求改成跨端口后端地址。
 - 健康检查路径是 `/healthz`。
@@ -234,3 +236,4 @@ pnpm build
 2. 根目录与 `docs/architecture/`、`docs/PROJECT_STRUCTURE.md`、`docs/ENVIRONMENT.md`
 3. 其他说明文档
 4. `docs/wiki/` 下的历史资料
+
