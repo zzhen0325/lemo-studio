@@ -7,7 +7,7 @@ import {
   type GalleryPromptCategory,
 } from '@/app/studio/playground/_lib/prompt-history';
 import type { GalleryFilterState, GalleryInnerTab, GallerySceneProps } from '@/lib/gallery/types';
-import { filterGalleryItems } from '@/lib/gallery/resolve-gallery-item';
+import { filterGalleryItems, isGalleryItemDownloaded } from '@/lib/gallery/resolve-gallery-item';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { GalleryFilterPanel } from './GalleryFilterPanel';
 import { GalleryMasonryWall } from './GalleryMasonryWall';
@@ -33,6 +33,7 @@ export function GalleryScene({
   const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
   const [selectedPromptCategories, setSelectedPromptCategories] = useState<GalleryPromptCategory[]>([]);
   const [activeInnerTab, setActiveInnerTab] = useState<GalleryInnerTab>('gallery');
+  const [galleryScopeFilter, setGalleryScopeFilter] = useState<'all' | 'featured'>('all');
   const [isGalleryFilterOpen, setIsGalleryFilterOpen] = useState(false);
 
   const filters = useMemo<GalleryFilterState>(() => ({
@@ -42,10 +43,13 @@ export function GalleryScene({
     selectedPromptCategories,
   }), [deferredSearchQuery, selectedModels, selectedPresets, selectedPromptCategories]);
 
-  const filteredGalleryItems = useMemo(
-    () => filterGalleryItems(feed.items, filters),
-    [feed.items, filters],
-  );
+  const filteredGalleryItems = useMemo(() => {
+    const baseItems = filterGalleryItems(feed.items, filters);
+    if (galleryScopeFilter === 'featured') {
+      return baseItems.filter((item) => isGalleryItemDownloaded(item.raw));
+    }
+    return baseItems;
+  }, [feed.items, filters, galleryScopeFilter]);
   const filteredPromptItems = useMemo(
     () => filterGalleryItems(feed.promptItems, filters),
     [feed.promptItems, filters],
@@ -60,7 +64,7 @@ export function GalleryScene({
 
   const hasActiveFilters =
     selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0;
-  const galleryLayoutKey = `${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}`;
+  const galleryLayoutKey = `${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}|${galleryScopeFilter}`;
 
   useEffect(() => {
     if (!isActive || activeInnerTab !== 'gallery' || feed.items.length === 0) {
@@ -93,6 +97,8 @@ export function GalleryScene({
                 isFilterOpen={isGalleryFilterOpen}
                 onFilterToggle={() => setIsGalleryFilterOpen((current) => !current)}
                 hasActiveFilters={hasActiveFilters}
+                galleryScopeFilter={galleryScopeFilter}
+                onGalleryScopeFilterChange={setGalleryScopeFilter}
               />
 
               <div data-testid="gallery-view-body" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-t-xl">
@@ -116,6 +122,7 @@ export function GalleryScene({
                       actions={actions}
                       moodboardData={moodboardData}
                       allItems={filteredGalleryItems.map((item) => item.raw)}
+                      galleryScopeFilter={galleryScopeFilter}
                     />
                   )
                 ) : (

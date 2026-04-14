@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE } from '@/app/studio/playground/_lib/prompt-history';
 import {
   buildGalleryFilterOptions,
+  filterGalleryItems,
+  isGalleryItemDownloaded,
   resolveGalleryItem,
 } from '@/lib/gallery/resolve-gallery-item';
 import type { Generation } from '@/types/database';
@@ -112,5 +114,60 @@ describe('resolveGalleryItem', () => {
 
     expect(options.models).toEqual(['coze_seedream4_5', 'flux-dev']);
     expect(options.presets).toEqual(['Portrait', 'Product']);
+  });
+});
+
+describe('isGalleryItemDownloaded', () => {
+  it('returns true if downloadCount > 0', () => {
+    const item = createGeneration({
+      interactionStats: { likeCount: 0, moodboardAddCount: 0, downloadCount: 1, editCount: 0 },
+    });
+    expect(isGalleryItemDownloaded(item)).toBe(true);
+  });
+
+  it('returns true if lastDownloadedAt is present', () => {
+    const item = createGeneration({
+      interactionStats: { likeCount: 0, moodboardAddCount: 0, downloadCount: 0, editCount: 0, lastDownloadedAt: '2026-04-14T10:00:00Z' },
+    });
+    expect(isGalleryItemDownloaded(item)).toBe(true);
+  });
+
+  it('returns false if no interactionStats or counts are zero', () => {
+    const item1 = createGeneration();
+    const item2 = createGeneration({
+      interactionStats: { likeCount: 10, moodboardAddCount: 0, downloadCount: 0, editCount: 0 },
+    });
+    expect(isGalleryItemDownloaded(item1)).toBe(false);
+    expect(isGalleryItemDownloaded(item2)).toBe(false);
+  });
+});
+
+describe('filterGalleryItems', () => {
+  const items = [
+    resolveGalleryItem(createGeneration({ config: { prompt: 'cat', model: 'm1', presetName: 'p1' } }), 0),
+    resolveGalleryItem(createGeneration({ config: { prompt: 'dog', model: 'm2', presetName: 'p2' } }), 1),
+    resolveGalleryItem(createGeneration({ config: { prompt: 'bird', model: 'm1', presetName: 'p2' } }), 2),
+  ];
+
+  it('filters by search query', () => {
+    const result = filterGalleryItems(items, { searchQuery: 'cat', selectedModels: [], selectedPresets: [], selectedPromptCategories: [] });
+    expect(result).toHaveLength(1);
+    expect(result[0].searchText).toContain('cat');
+  });
+
+  it('filters by model', () => {
+    const result = filterGalleryItems(items, { searchQuery: '', selectedModels: ['m1'], selectedPresets: [], selectedPromptCategories: [] });
+    expect(result).toHaveLength(2);
+  });
+
+  it('filters by preset', () => {
+    const result = filterGalleryItems(items, { searchQuery: '', selectedModels: [], selectedPresets: ['p2'], selectedPromptCategories: [] });
+    expect(result).toHaveLength(2);
+  });
+
+  it('combines multiple filters', () => {
+    const result = filterGalleryItems(items, { searchQuery: 'bird', selectedModels: ['m1'], selectedPresets: ['p2'], selectedPromptCategories: [] });
+    expect(result).toHaveLength(1);
+    expect(result[0].searchText).toContain('bird');
   });
 });

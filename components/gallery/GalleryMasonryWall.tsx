@@ -247,6 +247,7 @@ interface GalleryMasonryWallProps {
   actions: GalleryActionHandlers;
   moodboardData: GalleryMoodboardData;
   allItems?: import('@/types/database').Generation[];
+  galleryScopeFilter?: 'all' | 'featured';
 }
 
 function GalleryMasonryWallFallback({
@@ -289,6 +290,7 @@ function GalleryMasonryWallClient({
   actions,
   moodboardData,
   allItems,
+  galleryScopeFilter = 'all',
 }: GalleryMasonryWallProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const masonryContainerRef = useRef<HTMLDivElement>(null);
@@ -425,7 +427,7 @@ function GalleryMasonryWallClient({
           <GallerySkeletonGrid columnsCount={columnsCount} />
         ) : items.length === 0 ? (
           <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
-            No gallery items yet
+            {galleryScopeFilter === 'featured' ? '暂无精选图片' : 'No gallery items yet'}
           </div>
         ) : (
           <div

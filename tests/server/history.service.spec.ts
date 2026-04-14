@@ -41,6 +41,8 @@ function createRepositoryMock() {
         },
         status: 'completed',
         created_at: '2026-04-05T00:00:00.000Z',
+        download_count: 5,
+        last_downloaded_at: '2026-04-14T10:00:00.000Z',
       },
     ]),
     findById: vi.fn(async (_id: string) => ({
@@ -96,7 +98,7 @@ describe('HistoryService lightweight mode', () => {
 
     expect(repository.listPublic).toHaveBeenCalledTimes(1);
     const listPublicOptions = repository.listPublic.mock.calls[0]?.[0];
-    expect(listPublicOptions?.select).toContain('output_url,config,status,created_at');
+    expect(listPublicOptions?.select).toContain('output_url,config,status,created_at,progress,progress_stage,download_count,last_downloaded_at');
     expect(normalizeAssetMock).not.toHaveBeenCalled();
     expect(getBatchInteractionDataMock).not.toHaveBeenCalled();
 
@@ -104,6 +106,13 @@ describe('HistoryService lightweight mode', () => {
     expect(result.history[0].config.sourceImageUrls).toEqual(['storage/source-1.png']);
     expect(result.history[0].config.__minimal).toBe(true);
     expect(result.history[0].viewerState).toBeUndefined();
+    expect(result.history[0].interactionStats).toEqual({
+      likeCount: 0,
+      moodboardAddCount: 0,
+      downloadCount: 5,
+      editCount: 0,
+      lastDownloadedAt: '2026-04-14T10:00:00.000Z',
+    });
   });
 
   it('uses full normalization path when lightweight flags are absent', async () => {

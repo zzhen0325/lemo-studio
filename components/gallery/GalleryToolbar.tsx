@@ -35,6 +35,8 @@ interface GalleryToolbarProps {
   isFilterOpen: boolean;
   onFilterToggle: () => void;
   hasActiveFilters: boolean;
+  galleryScopeFilter: 'all' | 'featured';
+  onGalleryScopeFilterChange: (value: 'all' | 'featured') => void;
 }
 
 function GalleryHeaderTab({
@@ -80,6 +82,8 @@ export function GalleryToolbar({
   isFilterOpen,
   onFilterToggle,
   hasActiveFilters,
+  galleryScopeFilter,
+  onGalleryScopeFilterChange,
 }: GalleryToolbarProps) {
   const currentSortOption = GALLERY_SORT_OPTIONS.find((option) => option.value === sortBy) || GALLERY_SORT_OPTIONS[0];
   const searchPlaceholder =
@@ -101,6 +105,35 @@ export function GalleryToolbar({
       </div>
 
       <div className="flex items-center gap-3">
+        {activeTab === 'gallery' ? (
+          <div className="flex h-10 items-center rounded-xl border border-white/10 bg-white/5 p-1">
+            <button
+              type="button"
+              onClick={() => startTransition(() => onGalleryScopeFilterChange('all'))}
+              className={cn(
+                'flex h-full items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors',
+                galleryScopeFilter === 'all'
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/50 hover:text-white/80'
+              )}
+            >
+              所有
+            </button>
+            <button
+              type="button"
+              onClick={() => startTransition(() => onGalleryScopeFilterChange('featured'))}
+              className={cn(
+                'flex h-full items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors',
+                galleryScopeFilter === 'featured'
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/50 hover:text-white/80'
+              )}
+            >
+              精选
+            </button>
+          </div>
+        ) : null}
+
         <div className="group relative flex w-80 items-center">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white group-focus-within:text-white/60" />
           <input

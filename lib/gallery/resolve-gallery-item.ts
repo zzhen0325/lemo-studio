@@ -57,6 +57,12 @@ export function resolveGalleryItems(items: Generation[]) {
   return items.map(resolveGalleryItem);
 }
 
+export function isGalleryItemDownloaded(item: Generation): boolean {
+  const stats = item.interactionStats;
+  if (!stats) return false;
+  return (stats.downloadCount > 0) || Boolean(stats.lastDownloadedAt);
+}
+
 export function filterGalleryItems(
   items: GalleryItemViewModel[],
   filters: GalleryFilterState,

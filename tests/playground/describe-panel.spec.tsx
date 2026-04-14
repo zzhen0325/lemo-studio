@@ -43,7 +43,7 @@ const storeState = {
 };
 
 vi.mock('@/lib/store/playground-store', () => ({
-  usePlaygroundStore: (selector: (state: typeof storeState) => unknown) => selector(storeState),
+  usePlaygroundStore: (selector?: (state: typeof storeState) => unknown) => selector ? selector(storeState) : storeState,
 }));
 
 describe('DescribePanel clipboard support', () => {
