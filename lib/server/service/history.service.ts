@@ -166,11 +166,14 @@ export class HistoryService {
         progressStage: item.progress_stage,
         interactionStats: shouldUseLightweightMapping
           ? {
-            likeCount: 0,
-            moodboardAddCount: 0,
+            likeCount: item.like_count || 0,
+            moodboardAddCount: item.moodboard_add_count || 0,
             downloadCount: item.download_count || 0,
-            editCount: 0,
+            editCount: item.edit_count || 0,
+            lastLikedAt: item.last_liked_at || undefined,
+            lastMoodboardAddedAt: item.last_moodboard_added_at || undefined,
             lastDownloadedAt: item.last_downloaded_at || undefined,
+            lastEditedAt: item.last_edited_at || undefined,
           }
           : (interactionData?.interactionStats || {
             likeCount: item.like_count || 0,
@@ -346,7 +349,7 @@ export class HistoryService {
         skip: (pageNum - 1) * limitNum,
         limit: limitNum,
         select: shouldUseLightweightMapping
-          ? 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage,download_count,last_downloaded_at'
+          ? 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage,like_count,moodboard_add_count,download_count,edit_count,last_liked_at,last_moodboard_added_at,last_downloaded_at,last_edited_at'
           : 'id,user_id,project_id,output_url,config,status,created_at,progress,progress_stage,like_count,moodboard_add_count,download_count,edit_count,last_liked_at,last_moodboard_added_at,last_downloaded_at,last_edited_at',
       };
       const items = hasOwnerFilter

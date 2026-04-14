@@ -3108,7 +3108,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     downloadImage(imageUrl, `PlaygroundV2-${Date.now()}.png`);
 
     if (result.id) {
-      void downloadGeneration(result.id);
+      void (async () => {
+        const trackResult = await downloadGeneration(result.id);
+        if (!trackResult.success) {
+          return;
+        }
+        await mutateHistory();
+      })();
     }
   };
 

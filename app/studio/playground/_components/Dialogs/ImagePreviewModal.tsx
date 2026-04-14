@@ -192,7 +192,15 @@ export default function ImagePreviewModal({
       downloadImage(fullResImageUrl, `image-${result.id || Date.now()}.png`);
 
       if (result.id) {
-        void downloadGeneration(result.id);
+        void (async () => {
+          const trackResult = await downloadGeneration(result.id);
+          if (!trackResult.success || !trackResult.interactionStats || !trackResult.viewerState) {
+            return;
+          }
+
+          setLocalInteractionStats(trackResult.interactionStats);
+          setLocalViewerState(trackResult.viewerState);
+        })();
       }
     }
   };

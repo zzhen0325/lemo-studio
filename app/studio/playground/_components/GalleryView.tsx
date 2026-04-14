@@ -76,9 +76,15 @@ export default function GalleryView({
     document.body.removeChild(link);
 
     if (item.id) {
-      void downloadGeneration(item.id);
+      void (async () => {
+        const trackResult = await downloadGeneration(item.id);
+        if (!trackResult.success) {
+          return;
+        }
+        await feed.revalidateLatest();
+      })();
     }
-  }, []);
+  }, [feed]);
 
   const handleRerun = useCallback(async (item: Generation) => {
     if (!item.config) {

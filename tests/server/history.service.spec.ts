@@ -41,8 +41,14 @@ function createRepositoryMock() {
         },
         status: 'completed',
         created_at: '2026-04-05T00:00:00.000Z',
+        like_count: 3,
+        moodboard_add_count: 2,
         download_count: 5,
+        edit_count: 1,
+        last_liked_at: '2026-04-13T08:00:00.000Z',
+        last_moodboard_added_at: '2026-04-13T09:00:00.000Z',
         last_downloaded_at: '2026-04-14T10:00:00.000Z',
+        last_edited_at: '2026-04-14T11:00:00.000Z',
       },
     ]),
     findById: vi.fn(async (_id: string) => ({
@@ -98,7 +104,7 @@ describe('HistoryService lightweight mode', () => {
 
     expect(repository.listPublic).toHaveBeenCalledTimes(1);
     const listPublicOptions = repository.listPublic.mock.calls[0]?.[0];
-    expect(listPublicOptions?.select).toContain('output_url,config,status,created_at,progress,progress_stage,download_count,last_downloaded_at');
+    expect(listPublicOptions?.select).toContain('output_url,config,status,created_at,progress,progress_stage,like_count,moodboard_add_count,download_count,edit_count,last_liked_at,last_moodboard_added_at,last_downloaded_at,last_edited_at');
     expect(normalizeAssetMock).not.toHaveBeenCalled();
     expect(getBatchInteractionDataMock).not.toHaveBeenCalled();
 
@@ -107,11 +113,14 @@ describe('HistoryService lightweight mode', () => {
     expect(result.history[0].config.__minimal).toBe(true);
     expect(result.history[0].viewerState).toBeUndefined();
     expect(result.history[0].interactionStats).toEqual({
-      likeCount: 0,
-      moodboardAddCount: 0,
+      likeCount: 3,
+      moodboardAddCount: 2,
       downloadCount: 5,
-      editCount: 0,
+      editCount: 1,
+      lastLikedAt: '2026-04-13T08:00:00.000Z',
+      lastMoodboardAddedAt: '2026-04-13T09:00:00.000Z',
       lastDownloadedAt: '2026-04-14T10:00:00.000Z',
+      lastEditedAt: '2026-04-14T11:00:00.000Z',
     });
   });
 
