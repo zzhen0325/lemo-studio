@@ -12,7 +12,6 @@ import { useHistory } from "@studio/playground/_components/hooks/useHistory";
 import { useHistoryDragTransfer } from "@studio/playground/_components/hooks/useHistoryDragTransfer";
 import { describeImage as requestDescribeImage } from "@/lib/ai/client";
 
-import { GoogleApiStatus } from "@studio/playground/_components/GoogleApiStatus";
 import type { IViewComfy } from "@/lib/providers/view-comfy-provider";
 import type { WorkflowApiJSON } from "@/lib/workflow-api-parser";
 import type { UIComponent } from "@/types/features/mapping-editor";
@@ -3744,8 +3743,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                 </div>
               </div>
             )}
-
-            <GoogleApiStatus className="fixed bottom-10 right-10 z-[60]" />
 
             <WorkflowSelectorDialog
               open={isWorkflowDialogOpen}

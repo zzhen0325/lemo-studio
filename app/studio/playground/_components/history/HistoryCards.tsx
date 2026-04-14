@@ -19,6 +19,7 @@ import { useImageSource } from '@/hooks/common/use-image-source';
 import { cn } from '@/lib/utils';
 import { formatImageUrl } from '@/lib/api-base';
 import { useToast } from '@/hooks/common/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { isWorkflowModel } from '@/lib/utils/model-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -394,19 +395,32 @@ export const HistoryCard = React.memo(function HistoryCard({
                   />
                 </div>
                 <motion.div className="flex-1 max-h-[70%] pr-1">
-                  <p
-                    className="text-[12px] text-white/90 leading-relaxed line-clamp-4 cursor-pointer hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      applyPromptFromHistoryItem(result);
-                      toast({
-                        title: "提示词已应用",
-                        description: "已将此条提示词填充到输入框",
-                      });
-                    }}
-                  >
-                    {prompt}
-                  </p>
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p
+                          className="text-[12px] text-white/90 leading-relaxed line-clamp-4 cursor-pointer hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            applyPromptFromHistoryItem(result);
+                            toast({
+                              title: "提示词已应用",
+                              description: "已将此条提示词填充到输入框",
+                            });
+                          }}
+                        >
+                          {prompt}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        align="start"
+                        className="max-w-[560px] max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed"
+                      >
+                        {prompt}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
 
 
@@ -901,24 +915,37 @@ export const TextHistoryCard = React.memo(function TextHistoryCard({
           </div>
         ) : (
           <div className="w-full h-full overflow-y-auto pr-1 custom-scrollbar">
-            <p
-              className="text-[11px] text-white/90 leading-relaxed cursor-pointer hover:drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] transition-all whitespace-pre-wrap break-words"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!isSelectionMode) {
-                  if (onUsePrompt) {
-                    onUsePrompt(result);
-                  } else {
-                    applyPrompt(prompt);
-                  }
-                  toast({ title: "提示词已应用", description: "已将内容填充到输入框" });
-                } else {
-                  onToggleSelect?.();
-                }
-              }}
-            >
-              {prompt}
-            </p>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p
+                    className="text-[11px] text-white/90 leading-relaxed cursor-pointer hover:drop-shadow-[0_0_3px_rgba(255,255,255,0.8)] transition-all whitespace-pre-wrap break-words"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isSelectionMode) {
+                        if (onUsePrompt) {
+                          onUsePrompt(result);
+                        } else {
+                          applyPrompt(prompt);
+                        }
+                        toast({ title: "提示词已应用", description: "已将内容填充到输入框" });
+                      } else {
+                        onToggleSelect?.();
+                      }
+                    }}
+                  >
+                    {prompt}
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align="start"
+                  className="max-w-[560px] max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed"
+                >
+                  {prompt}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
       </div>

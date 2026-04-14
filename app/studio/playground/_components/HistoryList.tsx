@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Image as ImageIcon, LayoutGrid, List, Trash2 } from 'lucide-react';
+import { Image as ImageIcon, LayoutGrid, List, Trash2, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Generation } from '@/types/database';
@@ -196,6 +196,24 @@ const HistoryList = function HistoryList({
       });
     }
   };
+
+  const pendingItems = history.filter(h => h.status === 'pending');
+  const activeTaskIds = new Set(pendingItems.map(h => h.config?.taskId).filter(Boolean));
+  const pendingWithoutTask = pendingItems.filter(h => !h.config?.taskId).length;
+
+  let activeCompleted = 0;
+  let activeTotal = pendingWithoutTask;
+
+  if (activeTaskIds.size > 0) {
+    history.forEach(h => {
+      if (h.config?.taskId && activeTaskIds.has(h.config.taskId)) {
+        activeTotal++;
+        if (h.status === 'completed' || h.status === 'failed') {
+          activeCompleted++;
+        }
+      }
+    });
+  }
 
   if (history.length === 0) {
     if (shouldShowInitialSkeleton) {
@@ -621,6 +639,37 @@ const HistoryList = function HistoryList({
       </div>
 
       {/* Floating Action Bar */}
+      <AnimatePresence>
+        {activeTotal > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className={cn(
+              "fixed bottom-10 z-50",
+              variant === 'sidebar' ? "right-[40px]" : "right-[100px]"
+            )}
+          >
+            <button
+              onClick={() => {
+                scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center gap-3 px-4 py-2 bg-[#2D2D2D]/90 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl hover:bg-[#3D3D3D]/90 transition-all group"
+            >
+              <LoadingSpinner size={14} className="text-white/60" />
+              <span className="text-sm font-medium text-white/80">
+                生成中：{activeCompleted}/{activeTotal}
+              </span>
+              <div className="w-[1px] h-3 bg-white/20" />
+              <span className="text-sm text-white/60 group-hover:text-white transition-colors flex items-center gap-1">
+                回到顶部
+                <ChevronUp className="w-4 h-4" />
+              </span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {isSelectionMode && selectedIds.size > 0 && (
           <>

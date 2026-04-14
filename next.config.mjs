@@ -102,6 +102,9 @@ const legacyStudioRouteRedirects = [
 ];
 
 const serverExternalPackages = [
+  'coze-coding-dev-sdk',
+  'pg',
+  'pg-cloudflare',
   '@napi-rs/snappy-darwin-arm64',
   'snappy',
   'node-unix-socket',
