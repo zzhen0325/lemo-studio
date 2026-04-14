@@ -48,6 +48,15 @@ CREATE TABLE IF NOT EXISTS generations (
   source_image_id VARCHAR(36),
   output_url TEXT,
   config JSONB,
+  -- 交互统计字段
+  like_count INTEGER DEFAULT 0,
+  moodboard_add_count INTEGER DEFAULT 0,
+  download_count INTEGER DEFAULT 0,
+  edit_count INTEGER DEFAULT 0,
+  last_liked_at TIMESTAMPTZ,
+  last_moodboard_added_at TIMESTAMPTZ,
+  last_downloaded_at TIMESTAMPTZ,
+  last_edited_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -56,6 +65,24 @@ CREATE INDEX IF NOT EXISTS generations_user_id_idx ON generations(user_id);
 CREATE INDEX IF NOT EXISTS generations_project_id_idx ON generations(project_id);
 CREATE INDEX IF NOT EXISTS generations_created_at_idx ON generations(created_at DESC);
 CREATE INDEX IF NOT EXISTS generations_status_idx ON generations(status);
+-- 交互统计索引（用于排序筛选）
+CREATE INDEX IF NOT EXISTS generations_download_count_idx ON generations(download_count DESC);
+CREATE INDEX IF NOT EXISTS generations_like_count_idx ON generations(like_count DESC);
+CREATE INDEX IF NOT EXISTS generations_last_downloaded_at_idx ON generations(last_downloaded_at DESC);
+
+-- ==========================================
+-- 3.1 生成记录点赞表（去重）
+-- ==========================================
+CREATE TABLE IF NOT EXISTS generation_likes (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  generation_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(generation_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS generation_likes_generation_id_idx ON generation_likes(generation_id);
+CREATE INDEX IF NOT EXISTS generation_likes_user_id_idx ON generation_likes(user_id);
 
 -- ==========================================
 -- 4. 预设表
@@ -251,6 +278,7 @@ CREATE INDEX IF NOT EXISTS infinite_canvas_projects_updated_at_idx ON infinite_c
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE image_assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE generation_likes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE presets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE preset_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE style_stacks ENABLE ROW LEVEL SECURITY;
@@ -264,6 +292,7 @@ ALTER TABLE infinite_canvas_projects ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow anonymous access" ON users FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON image_assets FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON generations FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON generation_likes FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON presets FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON preset_categories FOR ALL USING (true);
 CREATE POLICY "Allow anonymous access" ON style_stacks FOR ALL USING (true);
