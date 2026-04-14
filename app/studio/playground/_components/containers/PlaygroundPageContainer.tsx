@@ -25,6 +25,7 @@ import {
 } from "@/lib/playground/types";
 import type { Generation } from "@/types/database";
 import { downloadImage } from '@/lib/utils/download';
+import { downloadGeneration } from '@/lib/interaction-tracking';
 import type { ImageEditConfirmPayload, ImageEditorSessionSnapshot } from '@/components/image-editor';
 
 import { cn } from "@/lib/utils";
@@ -3103,8 +3104,12 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     });
   };
 
-  const handleDownload = (imageUrl: string) => {
+  const handleDownload = (result: Generation, imageUrl: string) => {
     downloadImage(imageUrl, `PlaygroundV2-${Date.now()}.png`);
+
+    if (result.id) {
+      void downloadGeneration(result.id);
+    }
   };
 
   const handleUseHistoryAll = useCallback(async (result: Generation) => {

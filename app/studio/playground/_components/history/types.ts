@@ -4,7 +4,7 @@ import type { PromptOptimizationSourcePayload } from '@/app/studio/playground/_l
 export interface HistoryListProps {
   history: Generation[];
   onRegenerate: (result: Generation) => void;
-  onDownload: (imageUrl: string) => void;
+  onDownload: (result: Generation, imageUrl: string) => void;
   onEdit?: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onUsePrompt?: (result: Generation) => void;

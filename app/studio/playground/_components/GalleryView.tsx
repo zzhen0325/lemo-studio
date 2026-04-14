@@ -5,6 +5,7 @@ import { GalleryScene } from '@/components/gallery/GalleryScene';
 import { useGalleryFeed } from '@/lib/gallery/use-gallery-feed';
 import type { SortBy } from '@/lib/server/service/history.service';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
+import { downloadGeneration } from '@/lib/interaction-tracking';
 import type { Generation, GenerationConfig } from '@/types/database';
 import { useToast } from '@/hooks/common/use-toast';
 import { useGenerationService } from '@studio/playground/_components/hooks/useGenerationService';
@@ -73,6 +74,10 @@ export default function GalleryView({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    if (item.id) {
+      void downloadGeneration(item.id);
+    }
   }, []);
 
   const handleRerun = useCallback(async (item: Generation) => {

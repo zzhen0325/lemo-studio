@@ -217,7 +217,7 @@ export const HistoryCard = React.memo(function HistoryCard({
   result: Generation;
   allResults?: Generation[];
   onRegenerate: (result: Generation) => void;
-  onDownload: (imageUrl: string) => void;
+  onDownload: (result: Generation, imageUrl: string) => void;
   onEdit?: (result: Generation, isAgain?: boolean) => void;
   onImageClick: (result: Generation, initialRect?: DOMRect) => void;
   onRefImageClick: (url: string, id: string) => void;
@@ -560,7 +560,7 @@ export const HistoryCard = React.memo(function HistoryCard({
                             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDownload(img);
+                              onDownload(res, img);
                             }}
                           />
                         </div>
@@ -837,7 +837,7 @@ export const HistoryCard = React.memo(function HistoryCard({
             className="w-8 h-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10"
             onClick={(e) => {
               e.stopPropagation();
-              if (mainImage) onDownload(mainImage);
+              if (mainImage) onDownload(result, mainImage);
             }}
           />
         </div>

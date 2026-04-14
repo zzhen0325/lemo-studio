@@ -144,9 +144,9 @@ describe('isGalleryItemDownloaded', () => {
 
 describe('filterGalleryItems', () => {
   const items = [
-    resolveGalleryItem(createGeneration({ config: { prompt: 'cat', model: 'm1', presetName: 'p1' } }), 0),
-    resolveGalleryItem(createGeneration({ config: { prompt: 'dog', model: 'm2', presetName: 'p2' } }), 1),
-    resolveGalleryItem(createGeneration({ config: { prompt: 'bird', model: 'm1', presetName: 'p2' } }), 2),
+    resolveGalleryItem(createGeneration({ config: { prompt: 'cat', width: 1024, height: 1024, model: 'm1', presetName: 'p1' } }), 0),
+    resolveGalleryItem(createGeneration({ config: { prompt: 'dog', width: 1024, height: 1024, model: 'm2', presetName: 'p2' } }), 1),
+    resolveGalleryItem(createGeneration({ config: { prompt: 'bird', width: 1024, height: 1024, model: 'm1', presetName: 'p2' } }), 2),
   ];
 
   it('filters by search query', () => {

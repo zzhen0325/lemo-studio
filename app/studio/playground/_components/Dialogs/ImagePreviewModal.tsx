@@ -14,6 +14,7 @@ import { usePlaygroundStore } from '@/lib/store/playground-store';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useImageSource } from '@/hooks/common/use-image-source';
 import { downloadImage } from '@/lib/utils/download';
+import { downloadGeneration } from '@/lib/interaction-tracking';
 import { usePlaygroundAvailableModels } from '@studio/playground/_components/hooks/useGenerationService';
 import { AddToMoodboardMenu } from '@studio/playground/_components/AddToMoodboardMenu';
 import { InteractionButtons, InteractionStatsDisplay } from '@studio/playground/_components/InteractionButtons';
@@ -189,6 +190,10 @@ export default function ImagePreviewModal({
   const handleDownload = () => {
     if (fullResImageUrl) {
       downloadImage(fullResImageUrl, `image-${result.id || Date.now()}.png`);
+
+      if (result.id) {
+        void downloadGeneration(result.id);
+      }
     }
   };
 
