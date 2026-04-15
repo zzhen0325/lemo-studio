@@ -184,7 +184,7 @@ test.describe("Frontend visibility and interaction coverage", () => {
     await expect(page.getByText("Delete")).toBeVisible();
   });
 
-  test("tools page opens a tool detail view with capture controls", async ({ page }) => {
+  test("UI-401 tools page opens a tool detail view with capture controls", async ({ page }) => {
     await installToolsUiMocks(page);
     await page.goto("/studio/tools");
 
@@ -194,6 +194,31 @@ test.describe("Frontend visibility and interaction coverage", () => {
     await expect(page.getByRole("button", { name: "Capture PNG" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Record Video" })).toBeVisible();
     await expect(page.locator("button:has(svg.lucide-arrow-left)")).toBeVisible();
+  });
+
+  test("UI-401 shader lab card opens fullscreen tool and exits back to tools page", async ({
+    page,
+  }) => {
+    await installToolsUiMocks(page);
+    await page.goto("/studio/tools");
+
+    const shaderLabCard = page.getByTestId("shader-lab-tool-card");
+    await expect(shaderLabCard).toBeVisible();
+    await shaderLabCard.scrollIntoViewIfNeeded();
+    await shaderLabCard.dispatchEvent("click");
+
+    await expect(page).toHaveURL(/\/tools\/shader-lab$/, { timeout: 15000 });
+    await expect(page.getByRole("button", { name: "Exit Shader Lab" })).toBeVisible();
+
+    // Shader Lab smoke: canvas visible, add-layer panel and export dialog can open.
+    await expect(page.locator("canvas").first()).toBeVisible();
+    await page.getByRole("button", { name: "Add layer" }).click();
+    await expect(page.getByText("Mesh Gradient")).toBeVisible();
+    await page.getByRole("button", { name: "Export" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    await page.getByRole("button", { name: "Exit Shader Lab" }).click();
+    await expect(page).toHaveURL(/\/studio\/tools$/);
   });
 
   test("settings keeps Settings and Workflow Mapper shells visible", async ({ page }) => {

@@ -7,6 +7,7 @@ Tools 提供独立于 Playground 的实时视觉工具（shader/three/canvas/DOM
 ## 模块职责
 
 - 提供工具列表与单工具编辑视图（网格页 -> 工具详情页）。
+- 提供 Shader Lab 全屏特例页（独立路由，不复用 `/studio` 布局）。
 - 提供参数编辑面板与 preset 管理（保存、加载、删除）。
 - 提供渲染与导出能力（实时渲染、截图导出、录制视频）。
 - 提供媒体输入上传（如工具需要图片/视频输入）。
@@ -16,6 +17,8 @@ Tools 提供独立于 Playground 的实时视觉工具（shader/three/canvas/DOM
 ### 入口与页面结构
 
 - 路由入口：`/studio/tools`。
+- Shader Lab 全屏入口：`/tools/shader-lab`（从 `/studio/tools` 卡片进入）。
+- 全屏页左上角固定退出按钮，返回 `/studio/tools`。
 - `ToolsView` 负责工具列表与单工具编辑页之间的切换。
 
 ### 参数与渲染
@@ -72,6 +75,8 @@ Tools 提供独立于 Playground 的实时视觉工具（shader/three/canvas/DOM
 
 - 工具注册表应作为“声明式配置层”，避免把复杂业务逻辑塞进注册表本体。
 - preset 的存储格式与参数 schema 强绑定，调整 schema 时需同步评估旧 preset 兼容策略。
+- Shader Lab 接入以 vendor 方式保留原交互逻辑；仅允许做 token/字体/配色映射，不改交互结构。
+- Shader Lab 样式必须保持 route-scoped，禁止引入全局 reset 污染全站样式。
 
 ## 边界 / 非职责范围
 
@@ -83,9 +88,12 @@ Tools 提供独立于 Playground 的实时视觉工具（shader/three/canvas/DOM
 - 修改 tool-configs 或参数 schema 会影响已有 preset 的兼容性与 UI 渲染。
 - 修改渲染 adapter 会影响性能、导出一致性与不同设备兼容性。
 - 修改 preset API 会影响所有工具的保存/加载链路。
+- 修改 Shader Lab vendor 代码、资源前缀或 `@shaderlab/*` alias 会影响 `/tools/shader-lab` 的运行稳定性。
 
 ## 更新记录
 
+- 2026-04-15：新增 Shader Lab 全屏特例路由 `/tools/shader-lab`，并在 `/studio/tools` 增加入口卡片与退出回跳链路。
+- 2026-04-15：新增 `@shaderlab/*` 内部 alias 与 route-scoped 样式映射，保留 Shader Lab 原始交互逻辑。
 - 2026-04-08：补充 Tools 模块文档，梳理路由入口、渲染/参数/preset 链路与边界。
 - 2026-04-08：补充 4K 导出约束、preset 持久化字段规则与媒体参数上传要求。
 - 2026-04-08：新增 Glass Logo Panorama 工具，并扩展参数面板以支持带 `accept` 限制的媒体输入和文本参数。

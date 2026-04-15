@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Video, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import WebGLRenderer from './WebGLRenderer';
@@ -76,6 +77,7 @@ const createMp4MediaRecorder = (stream: MediaStream, canvas: HTMLCanvasElement) 
 };
 
 const ToolsView: React.FC = () => {
+    const router = useRouter();
     const [selectedTool, setSelectedTool] = useState<WebGLToolConfig | null>(null);
     const [paramValues, setParamValues] = useState<Record<string, number | string | boolean>>({});
     const { toast } = useToast();
@@ -252,6 +254,30 @@ const ToolsView: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0">
+                                <Card
+                                    key="shader-lab-special"
+                                    data-testid="shader-lab-tool-card"
+                                    className="bg-black border-[#2e2e2e] hover:bg-black transition-colors cursor-pointer rounded-none group overflow-hidden"
+                                    onClick={() => router.push('/tools/shader-lab')}
+                                >
+                                    <div className="aspect-video rounded-none relative bg-black/40">
+                                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.2),transparent_45%),radial-gradient(circle_at_80%_90%,rgba(93,173,255,0.35),transparent_40%),linear-gradient(135deg,#080808,#1a1c22)]" />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="text-center">
+                                                <p className="text-xs uppercase tracking-[0.2em] text-white/55">Special Tool</p>
+                                                <h3 className="mt-2 text-2xl font-semibold text-white">Shader Lab</h3>
+                                                <p className="mt-1 text-xs text-white/55">Full-screen composition editor</p>
+                                            </div>
+                                        </div>
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Button variant="outline" className="rounded-full border-white/40 bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white">Open Fullscreen</Button>
+                                        </div>
+                                    </div>
+                                    <CardContent className="p-4">
+                                        <h3 className="text-lg font-semibold text-white">Shader Lab</h3>
+                                        <p className="text-xs text-white/50">Professional timeline-based shader and media composition tool.</p>
+                                    </CardContent>
+                                </Card>
                                 {WEBGL_TOOLS.map((tool) => (
                                     <Card
                                         key={tool.id}

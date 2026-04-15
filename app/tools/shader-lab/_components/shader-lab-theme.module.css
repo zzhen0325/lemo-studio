@@ -1,0 +1,272 @@
+.viewport {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: rgb(22 22 22);
+}
+
+.editorRoot {
+  --scrollbar-gutter: 0px;
+  --device-width: 640;
+  --device-height: 650;
+  --columns: 4;
+  --gap: 16px;
+  --safe: 16px;
+  --header-height: 58px;
+  --layout-width: calc(100vw - (2 * var(--safe)));
+  --column-width: calc((var(--layout-width) - (var(--columns) - 1) * var(--gap)) / var(--columns));
+  --ease-out-cubic: cubic-bezier(0.215, 0.61, 0.355, 1);
+
+  --ds-font-sans: var(--font-sans, sans-serif);
+  --ds-font-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace);
+
+  --ds-color-canvas: rgb(var(--studio-canvas));
+  --ds-color-glass-panel: rgb(var(--studio-surface) / 0.72);
+  --ds-color-glass-pill: rgb(var(--studio-surface) / 0.66);
+  --ds-color-surface-active: rgb(var(--studio-surface-strong) / 0.6);
+  --ds-color-surface-control: rgb(var(--studio-surface) / 0.75);
+  --ds-color-surface-subtle: rgb(var(--studio-surface-muted) / 0.72);
+  --ds-color-surface-disabled: rgb(var(--studio-surface-muted) / 0.45);
+
+  --ds-color-text-primary: rgb(var(--studio-foreground) / 0.95);
+  --ds-color-text-secondary: rgb(var(--studio-muted) / 0.9);
+  --ds-color-text-tertiary: rgb(var(--studio-subtle) / 0.9);
+  --ds-color-text-muted: rgb(var(--studio-subtle) / 0.72);
+  --ds-color-text-disabled: rgb(var(--studio-subtle) / 0.42);
+  --ds-color-text-on-light: rgb(16 16 16 / 0.9);
+
+  --ds-border-panel: rgb(var(--studio-border) / 0.78);
+  --ds-border-panel-strong: rgb(var(--studio-border-strong) / 0.88);
+  --ds-border-divider: rgb(var(--studio-border) / 0.62);
+  --ds-border-subtle: rgb(var(--studio-border) / 0.45);
+  --ds-border-hover: rgb(var(--studio-border-strong) / 0.96);
+  --ds-border-active: rgb(var(--studio-border-strong) / 0.98);
+  --ds-border-disabled: rgb(var(--studio-border) / 0.35);
+
+  --ds-radius-slider-knob: 3px;
+  --ds-radius-thumb: 4px;
+  --ds-radius-icon: 6px;
+  --ds-radius-control: 8px;
+  --ds-radius-bar: 10px;
+  --ds-radius-panel: 12px;
+
+  --ds-space-1: 4px;
+  --ds-space-1_5: 6px;
+  --ds-space-2: 8px;
+  --ds-space-2_5: 10px;
+  --ds-space-3: 12px;
+  --ds-space-3_5: 14px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+
+  --ds-blur-glass: blur(24px);
+  --ds-shadow-panel-dark: 0 8px 32px rgb(0 0 0 / 0.42);
+  --ds-shadow-pill-dark: 0 4px 20px rgb(0 0 0 / 0.35);
+  --ds-shadow-knob: 0 4px 14px rgb(0 0 0 / 0.3), 0 0 0 1px rgb(255 255 255 / 0.08);
+  --ds-shadow-toggle-knob-off: 0 2px 6px rgb(0 0 0 / 0.28);
+  --ds-shadow-toggle-knob-on: 0 2px 8px rgb(0 0 0 / 0.35);
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color-scheme: dark;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (min-width: 1440px) {
+  .editorRoot {
+    --device-width: 1440;
+    --device-height: 816;
+    --columns: 12;
+    --header-height: 98px;
+  }
+}
+
+.editorRoot :global(*),
+.editorRoot :global(*::before),
+.editorRoot :global(*::after) {
+  box-sizing: border-box;
+}
+
+.editorRoot :global(a),
+.editorRoot :global(button) {
+  cursor: revert;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.editorRoot :global(button) {
+  font-family: inherit;
+  user-select: none;
+}
+
+.editorRoot :global(ol),
+.editorRoot :global(ul),
+.editorRoot :global(menu),
+.editorRoot :global(summary) {
+  list-style: none;
+}
+
+.editorRoot :global(img),
+.editorRoot :global(video),
+.editorRoot :global(audio) {
+  max-inline-size: 100%;
+  max-block-size: 100%;
+}
+
+.editorRoot :global(table) {
+  border-collapse: collapse;
+}
+
+.editorRoot :global(textarea) {
+  white-space: revert;
+}
+
+.editorRoot :global(::placeholder) {
+  color: unset;
+}
+
+.editorRoot :global(:where([hidden])) {
+  display: none;
+}
+
+.editorRoot :global(*:focus-visible) {
+  outline: 1px solid var(--ds-border-active);
+  outline-offset: 2px;
+}
+
+.editorRoot :global(*::selection) {
+  background-color: var(--ds-color-surface-active);
+  color: var(--ds-color-text-primary);
+}
+
+.editorRoot :global(svg.icon path[fill]),
+.editorRoot :global(svg.icon rect[fill]),
+.editorRoot :global(svg.icon circle[fill]) {
+  fill: currentColor;
+}
+
+.editorRoot :global(svg.icon path[stroke]),
+.editorRoot :global(svg.icon rect[stroke]),
+.editorRoot :global(svg.icon circle[stroke]) {
+  stroke: currentColor;
+}
+
+.editorRoot :global(.type-display) {
+  font-family: var(--ds-font-sans);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 48px;
+  letter-spacing: -0.03em;
+}
+
+.editorRoot :global(.type-heading) {
+  font-family: var(--ds-font-sans);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 29px;
+  letter-spacing: -0.02em;
+}
+
+.editorRoot :global(.type-title) {
+  font-family: var(--ds-font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+}
+
+.editorRoot :global(.type-body) {
+  font-family: var(--ds-font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: -0.01em;
+}
+
+.editorRoot :global(.type-label) {
+  font-family: var(--ds-font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.editorRoot :global(.type-caption) {
+  font-family: var(--ds-font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 14px;
+}
+
+.editorRoot :global(.type-overline) {
+  font-family: var(--ds-font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.editorRoot :global(.type-mono-md) {
+  font-family: var(--ds-font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.editorRoot :global(.type-mono-sm) {
+  font-family: var(--ds-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 14px;
+}
+
+.editorRoot :global(.type-mono-xs) {
+  font-family: var(--ds-font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 12px;
+}
+
+.exitButton {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 9999;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--studio-border) / 0.9);
+  background: rgb(var(--studio-surface) / 0.86);
+  color: rgb(var(--studio-foreground) / 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 0.28);
+  transition: background-color 120ms ease;
+}
+
+.exitButton:hover {
+  background: rgb(var(--studio-surface-strong) / 0.95);
+}
+
+.exitButtonLabel {
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+@keyframes loader-sweep {
+  0% {
+    transform: translateX(-140%);
+  }
+
+  100% {
+    transform: translateX(360%);
+  }
+}

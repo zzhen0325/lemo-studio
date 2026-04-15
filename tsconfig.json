@@ -52,6 +52,9 @@
       ],
       "@studio/*": [
         "./app/studio/*"
+      ],
+      "@shaderlab/*": [
+        "./vendor/shader-lab/src/*"
       ]
     },
     "target": "ES2017",
