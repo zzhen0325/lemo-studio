@@ -66,6 +66,10 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             setSelectedPresetName: (name) => set({ selectedPresetName: name }),
             setViewMode: (mode) => set((state) => {
                 const shouldLeaveBanner = mode === 'home' && state.activeTab === 'banner';
+                const shouldClearDescribeImages = mode === 'home' && state.activeTab === 'describe';
+                const describeImagesPatch = shouldClearDescribeImages
+                    ? { describeImages: [] }
+                    : {};
                 if (shouldLeaveBanner && state.bannerModeBackup) {
                     return {
                         viewMode: mode,
@@ -77,6 +81,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         selectedWorkflowConfig: state.bannerModeBackup.selectedWorkflowConfig,
                         selectedLoras: state.bannerModeBackup.selectedLoras,
                         selectedPresetName: state.bannerModeBackup.selectedPresetName,
+                        ...describeImagesPatch,
                     };
                 }
 
@@ -95,16 +100,24 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                             sourceImageUrls: [],
                         }
                         : state.config,
+                    ...describeImagesPatch,
                 };
             }),
             setActiveTab: (tab) => set((state) => {
                 if (tab === state.activeTab) {
                     return { activeTab: tab };
                 }
+                const shouldClearDescribeImages = state.activeTab === 'describe' && tab !== 'describe';
+                const describeImagesPatch = shouldClearDescribeImages
+                    ? { describeImages: [] }
+                    : {};
 
                 const shouldLeaveBanner = state.activeTab === 'banner' && tab !== 'banner';
                 if (!shouldLeaveBanner) {
-                    return { activeTab: tab };
+                    return {
+                        activeTab: tab,
+                        ...describeImagesPatch,
+                    };
                 }
 
                 if (state.bannerModeBackup) {
@@ -117,6 +130,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         selectedWorkflowConfig: state.bannerModeBackup.selectedWorkflowConfig,
                         selectedLoras: state.bannerModeBackup.selectedLoras,
                         selectedPresetName: state.bannerModeBackup.selectedPresetName,
+                        ...describeImagesPatch,
                     };
                 }
 
@@ -126,6 +140,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         activeTab: tab,
                         activeBannerData: null,
                         bannerModeBackup: null,
+                        ...describeImagesPatch,
                     };
                 }
 
@@ -140,6 +155,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         editConfig: undefined,
                         sourceImageUrls: [],
                     },
+                    ...describeImagesPatch,
                 };
             }),
 
