@@ -80,9 +80,12 @@ export class HistoryRepository {
   }
 
   public async upsert(record: Partial<GenerationRecord> & { id: string; user_id: string }): Promise<void> {
-    const existing = await GenerationModel.findOne({ id: record.id, user_id: record.user_id });
+    // Check by id only — the database primary key is on id, not (id, user_id).
+    // A different user_id from a new session should still update the existing row
+    // instead of failing with a duplicate-key error.
+    const existing = await GenerationModel.findOne({ id: record.id });
     if (existing) {
-      await GenerationModel.updateOne({ id: record.id, user_id: record.user_id }, record);
+      await GenerationModel.updateOne({ id: record.id }, record);
       return;
     }
 
