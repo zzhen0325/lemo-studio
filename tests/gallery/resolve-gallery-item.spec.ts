@@ -4,7 +4,7 @@ import { IMAGE_DESCRIPTION_HISTORY_RECORD_TYPE } from '@/app/studio/playground/_
 import {
   buildGalleryFilterOptions,
   filterGalleryItems,
-  isGalleryItemDownloaded,
+  isGalleryItemFeatured,
   resolveGalleryItem,
 } from '@/lib/gallery/resolve-gallery-item';
 import type { Generation } from '@/types/database';
@@ -117,28 +117,38 @@ describe('resolveGalleryItem', () => {
   });
 });
 
-describe('isGalleryItemDownloaded', () => {
+describe('isGalleryItemFeatured', () => {
   it('returns true if downloadCount > 0', () => {
     const item = createGeneration({
       interactionStats: { likeCount: 0, moodboardAddCount: 0, downloadCount: 1, editCount: 0 },
     });
-    expect(isGalleryItemDownloaded(item)).toBe(true);
+    expect(isGalleryItemFeatured(item)).toBe(true);
+  });
+
+  it('returns true if likeCount > 0', () => {
+    const item = createGeneration({
+      interactionStats: { likeCount: 1, moodboardAddCount: 0, downloadCount: 0, editCount: 0 },
+    });
+    expect(isGalleryItemFeatured(item)).toBe(true);
+  });
+
+  it('returns true if moodboardAddCount > 0', () => {
+    const item = createGeneration({
+      interactionStats: { likeCount: 0, moodboardAddCount: 1, downloadCount: 0, editCount: 0 },
+    });
+    expect(isGalleryItemFeatured(item)).toBe(true);
   });
 
   it('returns true if lastDownloadedAt is present', () => {
     const item = createGeneration({
       interactionStats: { likeCount: 0, moodboardAddCount: 0, downloadCount: 0, editCount: 0, lastDownloadedAt: '2026-04-14T10:00:00Z' },
     });
-    expect(isGalleryItemDownloaded(item)).toBe(true);
+    expect(isGalleryItemFeatured(item)).toBe(true);
   });
 
-  it('returns false if no interactionStats or counts are zero', () => {
+  it('returns false if no interactionStats or all counts are zero', () => {
     const item1 = createGeneration();
-    const item2 = createGeneration({
-      interactionStats: { likeCount: 10, moodboardAddCount: 0, downloadCount: 0, editCount: 0 },
-    });
-    expect(isGalleryItemDownloaded(item1)).toBe(false);
-    expect(isGalleryItemDownloaded(item2)).toBe(false);
+    expect(isGalleryItemFeatured(item1)).toBe(false);
   });
 });
 

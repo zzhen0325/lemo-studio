@@ -57,10 +57,20 @@ export function resolveGalleryItems(items: Generation[]) {
   return items.map(resolveGalleryItem);
 }
 
-export function isGalleryItemDownloaded(item: Generation): boolean {
+export function isGalleryItemFeatured(item: Generation): boolean {
   const stats = item.interactionStats;
   if (!stats) return false;
-  return (stats.downloadCount > 0) || Boolean(stats.lastDownloadedAt);
+  // 精选：任一交互指标 > 0 即视为精选
+  return (
+    stats.likeCount > 0
+    || stats.moodboardAddCount > 0
+    || stats.downloadCount > 0
+    || stats.editCount > 0
+    || Boolean(stats.lastLikedAt)
+    || Boolean(stats.lastMoodboardAddedAt)
+    || Boolean(stats.lastDownloadedAt)
+    || Boolean(stats.lastEditedAt)
+  );
 }
 
 export function filterGalleryItems(
