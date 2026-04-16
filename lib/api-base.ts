@@ -149,6 +149,13 @@ export function extractStorageKeyFromPresignedUrl(url: string): string | null {
   }
 }
 
+function isBareImageFileName(value: string): boolean {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    if (trimmed.startsWith('/') || trimmed.includes('/') || trimmed.includes('\\')) return false;
+    return /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?.*)?$/i.test(trimmed);
+}
+
 export function formatImageUrl(url: string | undefined | null, useProxy = false): string {
     if (!url) return '';
 
@@ -189,6 +196,10 @@ export function formatImageUrl(url: string | undefined | null, useProxy = false)
         } else if (url.startsWith('/')) {
             // 对于以 / 开头的本地静态资源，直接返回原始路径，避免 SSR/CSR hydration mismatch
             resultUrl = url;
+        } else if (isBareImageFileName(url)) {
+            // 历史脏数据可能只保留文件名（如 generate_image_xxx.jpeg），
+            // 这种值无法直接访问，返回空字符串避免持续 404 噪音。
+            return '';
         } else {
             // Handle other relative paths
             resultUrl = `/${url}`;

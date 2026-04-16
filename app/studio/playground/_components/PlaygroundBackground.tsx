@@ -22,7 +22,7 @@ export function PlaygroundBackground() {
         <div
           className="absolute inset-0 transition-all duration-1000"
           style={{
-            background: "linear-gradient(180deg, #0F0F15 0%, #242A32 100%)",
+            background: "#0F1017",
           }}
         />
       ) : (

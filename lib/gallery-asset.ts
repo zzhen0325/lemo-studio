@@ -70,6 +70,13 @@ function extractStorageKeyFromGalleryUrl(url: string): string | null {
   }
 }
 
+function isBareImageFileName(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith('/') || trimmed.includes('/') || trimmed.includes('\\')) return false;
+  return /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?.*)?$/i.test(trimmed);
+}
+
 /**
  * Gallery 专用图片解析函数
  * 
@@ -106,6 +113,10 @@ export function resolveGalleryImageUrl(url: string | undefined | null): string {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     // 6. 普通第三方外链，直接返回原始 URL
     return url;
+  }
+
+  if (isBareImageFileName(url)) {
+    return '';
   }
   
   // 7. 其他情况，返回原始值

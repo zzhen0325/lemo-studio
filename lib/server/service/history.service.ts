@@ -20,6 +20,13 @@ function isStorageKey(value: string): boolean {
   return value.includes('/');
 }
 
+function isBareImageFileName(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith('/') || trimmed.includes('/') || trimmed.includes('\\')) return false;
+  return /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:\?.*)?$/i.test(trimmed);
+}
+
 /**
  * Extract storage key from a presigned URL (TOS/S3 URLs)
  */
@@ -59,6 +66,10 @@ function extractStorageKeyFromUrl(url: string): string | null {
  */
 async function getDisplayUrl(value: string | undefined): Promise<string | undefined> {
   if (!value) return undefined;
+
+  if (isBareImageFileName(value)) {
+    return undefined;
+  }
   
   if (isStorageKey(value)) {
     // It's a storage key, generate presigned URL

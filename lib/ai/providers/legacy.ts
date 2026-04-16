@@ -1854,11 +1854,33 @@ export class CozeImageProvider implements ImageProvider {
     }
 
     if (generatedImages.length === 0 && data.data && Array.isArray(data.data)) {
-      data.data.forEach((item: { url?: string } | string) => {
-        if (typeof item !== "string" && item.url)
-          generatedImages.push(item.url);
-        else if (typeof item === "string" && item.startsWith("http"))
-          generatedImages.push(item);
+      data.data.forEach((item: unknown) => {
+        if (typeof item === "string") {
+          extractImageUrlsFromString(item).forEach((candidate) => {
+            if (!generatedImages.includes(candidate)) {
+              generatedImages.push(candidate);
+            }
+          });
+          return;
+        }
+
+        if (!item || typeof item !== "object") return;
+        const record = item as Record<string, unknown>;
+        const candidates = [
+          record.url,
+          record.image_url,
+          record.imageUrl,
+          record.output,
+        ];
+
+        candidates.forEach((candidate) => {
+          if (typeof candidate !== "string") return;
+          extractImageUrlsFromString(candidate).forEach((resolved) => {
+            if (!generatedImages.includes(resolved)) {
+              generatedImages.push(resolved);
+            }
+          });
+        });
       });
     }
 

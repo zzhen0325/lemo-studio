@@ -1,0 +1,4 @@
+interface:
+  display_name: "KV Generation"
+  short_description: "Auto-run KV optimize plus Seedream 4.5 generation"
+  default_prompt: "When user asks to generate KV, automatically enter KV prompt optimization, run Seedream 4.5 generation, and apply model-assisted edits if user provides changes."
