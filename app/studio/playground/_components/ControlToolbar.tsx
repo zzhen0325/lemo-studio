@@ -286,7 +286,7 @@ export default function ControlToolbar({
       description: 'Seedream 4.5'
     },
     'seed4_0407_lemo': {
-      logo: '/images/logos/seed.png',
+      logo: '/images/logos/lemo.png',
       description: '生成lemo选这个'
     },
     [MODEL_ID_FLUX_KLEIN]: {
@@ -404,7 +404,7 @@ export default function ControlToolbar({
                           <SelectItem
                             key={model.id}
                             value={model.id}
-                            className="rounded-lg py-3 pl-3 pr-3 text-white focus:bg-primary/20 focus:text-white [&>span.absolute]:hidden"
+                            className="rounded-lg py-3 pl-3 pr-3 text-white focus:bg-white/10 focus:text-white [&>span.absolute]:hidden"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <span className={`h-2 w-2 shrink-0 rounded-full ${selectValue === model.id ? 'bg-primary' : 'border border-white/30 bg-transparent'}`} />

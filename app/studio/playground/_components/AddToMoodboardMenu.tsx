@@ -71,6 +71,9 @@ function AddToMoodboardMenuCore({
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stopEventPropagation = (event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  };
 
   const handleClose = () => {
     setIsCreating(false);
@@ -160,7 +163,7 @@ function AddToMoodboardMenuCore({
     <>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen} modal={false}>
         <DropdownMenuTrigger asChild>
-          <div>
+          <div onClick={stopEventPropagation} onPointerDown={stopEventPropagation}>
             <TooltipButton
               icon={<BookmarkPlus className="w-4 h-4" />}
               label={label}
@@ -171,7 +174,11 @@ function AddToMoodboardMenuCore({
             />
           </div>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[180px] max-h-[400px] overflow-y-auto custom-scrollbar">
+        <DropdownMenuContent
+          className="bg-black/90 border-white/10 backdrop-blur-2xl rounded-2xl p-2 min-w-[180px] max-h-[400px] overflow-y-auto custom-scrollbar"
+          onPointerDown={stopEventPropagation}
+          onClick={stopEventPropagation}
+        >
           <DropdownMenuLabel className="text-white/40 text-[10px] uppercase tracking-wider px-2 py-1">
             选择情绪板
           </DropdownMenuLabel>
@@ -179,7 +186,8 @@ function AddToMoodboardMenuCore({
 
           <DropdownMenuItem
             className="flex items-center gap-3 text-white hover:bg-white/10 rounded-xl cursor-pointer font-medium mb-1"
-            onClick={() => {
+            onClick={(event) => {
+              event.stopPropagation();
               setIsOpen(false);
               setIsCreating(true);
             }}
@@ -202,7 +210,8 @@ function AddToMoodboardMenuCore({
                   <DropdownMenuItem
                     key={moodboard.id}
                     className="flex items-center justify-between gap-3 text-white hover:bg-white/10 rounded-xl cursor-pointer my-0.5"
-                    onClick={async () => {
+                    onClick={async (event) => {
+                      event.stopPropagation();
                       try {
                         if (linkedMoodboardCard) {
                           const nextImagePaths = moodboard.imagePaths.includes(imagePath)
@@ -275,7 +284,11 @@ function AddToMoodboardMenuCore({
           setIsCreating(true);
         }
       }}>
-        <DialogContent className="!z-[1340] max-w-[560px] border-white/10 bg-[#1C1C1C]/80 backdrop-blur-xl p-2 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] rounded-3xl overflow-hidden">
+        <DialogContent
+          className="!z-[1340] max-w-[560px] border-white/10 bg-[#1C1C1C]/80 backdrop-blur-xl p-2 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] rounded-3xl overflow-hidden"
+          onPointerDown={stopEventPropagation}
+          onClick={stopEventPropagation}
+        >
           <div className="mb-1 relative w-full overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
