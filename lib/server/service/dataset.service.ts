@@ -306,6 +306,7 @@ export class DatasetService {
       return { collections: result };
     } catch (error) {
       console.error('Dataset API Error:', error);
+      if (error instanceof HttpError) throw error;
       throw new HttpError(500, 'Internal Server Error', String(error));
     }
   }

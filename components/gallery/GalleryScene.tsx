@@ -7,7 +7,7 @@ import {
   type GalleryPromptCategory,
 } from '@/app/studio/playground/_lib/prompt-history';
 import type { GalleryFilterState, GalleryInnerTab, GallerySceneProps } from '@/lib/gallery/types';
-import { filterGalleryItems, isGalleryItemDownloaded } from '@/lib/gallery/resolve-gallery-item';
+import { filterGalleryItems, isGalleryItemFeatured } from '@/lib/gallery/resolve-gallery-item';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { GalleryFilterPanel } from './GalleryFilterPanel';
 import { GalleryMasonryWall } from './GalleryMasonryWall';
@@ -46,7 +46,7 @@ export function GalleryScene({
   const filteredGalleryItems = useMemo(() => {
     const baseItems = filterGalleryItems(feed.items, filters);
     if (galleryScopeFilter === 'featured') {
-      return baseItems.filter((item) => isGalleryItemDownloaded(item.raw));
+      return baseItems.filter((item) => isGalleryItemFeatured(item.raw));
     }
     return baseItems;
   }, [feed.items, filters, galleryScopeFilter]);

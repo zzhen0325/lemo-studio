@@ -277,26 +277,41 @@ async function incrementCount(
   const timestamp = now || new Date().toISOString();
   
   const countField = `${type}_count`;
-  const timestampField = `last_${type === 'moodboard_add' ? 'moodboard_added' : type}_at`;
+
+  // 映射到正确的数据库列名：download → downloaded, edit → edited
+  const timestampSuffixMap: Record<string, string> = {
+    moodboard_add: 'moodboard_added',
+    download: 'downloaded',
+    edit: 'edited',
+  };
+  const timestampField = `last_${timestampSuffixMap[type] || type}_at`;
 
   // 获取当前值
-  const { data: current } = await supabase
+  const { data: current, error: selectError } = await supabase
     .from('generations')
     .select(countField)
     .eq('id', generationId)
     .single();
 
+  if (selectError) {
+    console.error(`[InteractionService] Failed to read ${countField}:`, selectError);
+  }
+
   const currentRecord = current as Record<string, unknown> | null;
   const currentCount = (currentRecord?.[countField] as number) || 0;
 
   // 更新
-  await supabase
+  const { error: updateError } = await supabase
     .from('generations')
     .update({ 
       [countField]: currentCount + 1,
       [timestampField]: timestamp 
     })
     .eq('id', generationId);
+
+  if (updateError) {
+    console.error(`[InteractionService] Failed to increment ${countField}:`, updateError);
+  }
 }
 
 function getDefaultStats(): InteractionStats {
