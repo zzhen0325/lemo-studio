@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
-import { Crop, Eraser, MousePointer2, Pencil, Square } from 'lucide-react';
+import { Eraser, MousePointer2, Pencil, Square } from 'lucide-react';
 import { useToast } from '@/hooks/common/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -24,11 +24,8 @@ import ImageEditPromptEditor from './ImageEditPromptEditor';
 import { migrateTldrawSnapshot } from './utils/migrate-tldraw-snapshot';
 import { useFabricImageEditor } from './hooks/use-fabric-image-editor';
 import { useAPIConfigStore } from '@/lib/store/api-config-store';
-import { getContextModelOptions } from '@/lib/model-center-ui';
 import { normalizeImageSizeToken } from '@/lib/model-center';
 import {
-  DEFAULT_INFINITE_CANVAS_MODEL_ID,
-  INFINITE_CANVAS_MODELS,
   INFINITE_IMAGE_SIZES,
 } from '@/app/infinite-canvas/_lib/constants';
 import {
@@ -49,7 +46,8 @@ const TOOL_ITEMS: Array<{ id: ImageEditorTool; label: string; icon: ComponentTyp
 ];
 
 const PLAYGROUND_IMAGE_SIZE_OPTIONS = ['1K', '2K', '4K'] as const;
-const PLAYGROUND_FALLBACK_MODEL_ID = 'gemini-3-pro-image-preview';
+const IMAGE_EDIT_LOCKED_MODEL_ID = 'coze_seedream4_5';
+const IMAGE_EDIT_LOCKED_MODEL_NAME = 'Seedream 4.5';
 const INFINITE_IMAGE_SIZE_ASPECT_RATIO_MAP: Record<string, string> = {
   '1024x1024': '1:1',
   '896x1152': '3:4',
@@ -66,7 +64,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     initialSession,
     legacyTldrawSnapshot,
     generationContext = 'playground',
-    initialModelId,
     initialImageSize,
     initialAspectRatio,
     initialBatchSize,
@@ -75,7 +72,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
   } = props;
 
   const { toast } = useToast();
-  const providers = useAPIConfigStore((state) => state.providers);
   const getModelEntryById = useAPIConfigStore((state) => state.getModelEntryById);
 
   const migratedSession = useMemo(() => {
@@ -85,28 +81,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
       plainPrompt: initialPrompt || '',
     });
   }, [initialPrompt, initialSession, legacyTldrawSnapshot]);
-
-  const fallbackModelId = useMemo(() => {
-    if (initialModelId) {
-      return initialModelId;
-    }
-    if (generationContext === 'infinite-canvas') {
-      return DEFAULT_INFINITE_CANVAS_MODEL_ID;
-    }
-    return PLAYGROUND_FALLBACK_MODEL_ID;
-  }, [generationContext, initialModelId]);
-  const contextModels = useMemo(
-    () => getContextModelOptions(providers, generationContext, 'image'),
-    [generationContext, providers],
-  );
-  const modelOptions = useMemo(
-    () => (contextModels.length > 0
-      ? contextModels
-      : (generationContext === 'infinite-canvas'
-        ? INFINITE_CANVAS_MODELS.map((item) => ({ id: item.id, displayName: item.label }))
-        : [{ id: fallbackModelId, displayName: fallbackModelId }])),
-    [contextModels, fallbackModelId, generationContext],
-  );
   const [plainPrompt, setPlainPrompt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [activeImageUrl, setActiveImageUrl] = useState((imageUrl || '').trim());
@@ -114,14 +88,13 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [pendingInsertTokenQueue, setPendingInsertTokenQueue] = useState<Array<{ requestId: string; annotationId: string }>>([]);
   const [reportedTokenAnnotationIds, setReportedTokenAnnotationIds] = useState<string[] | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState(fallbackModelId);
   const [selectedImageSize, setSelectedImageSize] = useState(initialImageSize || '');
   const [selectedBatchSize, setSelectedBatchSize] = useState(Math.max(1, initialBatchSize ?? 4));
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const knownAnnotationIdsRef = useRef<string[]>([]);
   const lastReportedTokenAnnotationIdsRef = useRef<Set<string>>(new Set());
   const didInitializeAnnotationsRef = useRef(false);
-  const selectedModelMeta = getModelEntryById(selectedModelId || fallbackModelId);
+  const selectedModelMeta = getModelEntryById(IMAGE_EDIT_LOCKED_MODEL_ID);
   const supportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize ?? true;
   const supportsBatch = selectedModelMeta?.capabilities?.supportsBatch ?? true;
   const allowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
@@ -150,7 +123,6 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     setEditorSession(migratedSession);
     const sessionPrompt = migratedSession?.plainPrompt;
     setPlainPrompt(sessionPrompt ? mergePromptWithAnnotationDescriptions(sessionPrompt, migratedSession?.annotations) : '');
-    setSelectedModelId(initialModelId || fallbackModelId);
     setSelectedImageSize(initialImageSize || '');
     setSelectedBatchSize(Math.max(1, initialBatchSize ?? 4));
     knownAnnotationIdsRef.current = (migratedSession?.annotations || []).map((annotation) => annotation.id);
@@ -158,7 +130,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
     didInitializeAnnotationsRef.current = false;
     setPendingInsertTokenQueue([]);
     setReportedTokenAnnotationIds(null);
-  }, [fallbackModelId, imageUrl, initialBatchSize, initialImageSize, initialModelId, migratedSession, open]);
+  }, [imageUrl, initialBatchSize, initialImageSize, migratedSession, open]);
 
   useEffect(() => {
     if (!imageSizeOptions.includes(selectedImageSize as string)) {
@@ -343,7 +315,7 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
         plainPrompt: promptPayload.plainPrompt,
         finalPrompt: promptPayload.finalPrompt,
         regionInstructions: promptPayload.regionInstructions,
-        modelId: selectedModelId || fallbackModelId,
+        modelId: IMAGE_EDIT_LOCKED_MODEL_ID,
         imageSize: selectedImageSize || imageSizeOptions[0] || '',
         aspectRatio: resolvedAspectRatio,
         batchSize: Math.min(selectedBatchSize, maxBatchSize),
@@ -476,20 +448,10 @@ export default function ImageEditDialog(props: ImageEditDialogProps) {
 
               <div className="grid grid-cols-2 gap-3 px-4 pb-4">
                 <div className="space-y-1.5">
-                  <Select value={selectedModelId} onValueChange={setSelectedModelId}>
-                    <SelectTrigger
-                      className="h-9 border text-xs border-none bg-[#2c2d2f] text-white"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#2c2d2f] border-none text-white">
-                      {modelOptions.map((model) => (
-                        <SelectItem key={model.id} value={model.id}>
-                          {model.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <p className="text-xs text-[#BDBDBD]">模型</p>
+                  <div className="flex h-9 items-center rounded-md border border-none bg-[#2c2d2f] px-3 text-xs text-white">
+                    {IMAGE_EDIT_LOCKED_MODEL_NAME}
+                  </div>
                 </div>
 
                 {supportsImageSize ? (

@@ -499,7 +499,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         prompt: '',
                         width: 1376,
                         height: 768,
-                        model: 'gemini-3-pro-image-preview',
+                        model: 'coze_seedream4_5',
                         imageSize: '2K',
                         aspectRatio: '16:9',
                         loras: [],

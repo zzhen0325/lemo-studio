@@ -46,7 +46,7 @@ interface PresetManagerDialogProps {
 
 const DEFAULT_CONFIG: GenerationConfig = {
     prompt: '',
-    model: 'gemini-3-pro-image-preview',
+    model: 'coze_seedream4_5',
     width: 1024,
     height: 1024,
     imageSize: '1K',

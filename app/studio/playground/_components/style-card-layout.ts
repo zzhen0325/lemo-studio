@@ -20,7 +20,7 @@ export const SMALL_STACK_BADGE_CLASS =
   'text-[clamp(9px,0.75vw,11px)] [@media(max-height:760px)]:hidden';
 
 export const SMALL_STACK_MARQUEE_ROOT_CLASS =
-  '[@media(max-height:820px)]:py-1 [@media(max-height:680px)]:py-0 [@media(max-height:560px)]:hidden';
+  'pt-16 -mt-16 pb-0 [@media(max-height:820px)]:pt-14 [@media(max-height:820px)]:-mt-14 [@media(max-height:820px)]:pb-1 [@media(max-height:680px)]:pt-12 [@media(max-height:680px)]:-mt-12 [@media(max-height:680px)]:pb-0 [@media(max-height:560px)]:hidden';
 
 export const SMALL_STACK_MARQUEE_TRACK_CLASS =
   'flex w-max gap-36 [@media(max-height:900px)]:gap-20 [@media(max-height:680px)]:gap-10';

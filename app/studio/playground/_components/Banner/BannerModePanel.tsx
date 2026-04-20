@@ -45,9 +45,8 @@ import { getContextModelOptions } from '@/lib/model-center-ui';
 
 const MODEL_LABEL_MAP: Record<string, string> = {
     flux_klein: 'FluxKlein',
-    'gemini-2.5-flash-image': 'Nano banana',
-    'gemini-3-pro-image-preview': 'Nano banana pro',
-    'gemini-3.1-flash-image-preview': 'Nano banana 2',
+    coze_seedream4_5: 'Seedream 4.5',
+    seed4_0407_lemo: 'Lemo Seed',
 };
 
 interface BannerModePanelProps {

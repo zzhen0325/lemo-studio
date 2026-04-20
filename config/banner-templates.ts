@@ -2,12 +2,16 @@ import type { BannerFields, BannerModelId, BannerTemplateConfig } from '@/lib/pl
 
 export const DEFAULT_BANNER_ALLOWED_MODELS: BannerModelId[] = [
   'flux_klein',
-  'gemini-2.5-flash-image',
-  'gemini-3-pro-image-preview',
-  'gemini-3.1-flash-image-preview',
+  'coze_seedream4_5',
+  'seed4_0407_lemo',
 ];
 // Backward compatibility alias
 export const BANNER_ALLOWED_MODELS = DEFAULT_BANNER_ALLOWED_MODELS;
+const DISABLED_BANNER_MODELS = new Set<BannerModelId>([
+  'gemini-2.5-flash-image',
+  'gemini-3-pro-image-preview',
+  'gemini-3.1-flash-image-preview',
+]);
 
 export const DEFAULT_BANNER_TEMPLATE_ID = 'banner-ramadhan-v1';
 const CUSTOM_BANNER_TEMPLATE_STORAGE_KEY = 'banner-custom-templates-v1';
@@ -128,6 +132,7 @@ const resolveAllowedModels = (value: unknown): BannerModelId[] => {
   const models = value
     .filter((item): item is BannerModelId => typeof item === 'string' && item.trim().length > 0)
     .map((item) => item.trim() as BannerModelId)
+    .filter((item) => !DISABLED_BANNER_MODELS.has(item))
     .filter((item) => {
       if (seen.has(item)) return false;
       seen.add(item);

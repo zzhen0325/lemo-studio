@@ -344,7 +344,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const apiConfigSettings = useAPIConfigStore(s => s.settings);
   const defaultImageModelId = apiConfigSettings.services?.imageGeneration?.binding?.modelId
     || apiConfigSettings.defaults?.image?.textToImage?.binding?.modelId
-    || "gemini-3-pro-image-preview";
+    || "coze_seedream4_5";
 
   useEffect(() => {
     activeShortcutTemplateRef.current = activeShortcutTemplate;
@@ -2290,7 +2290,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       }
     } else {
       // Regular preset
-      const modelToSet = sanitizedEffectiveConfig.model || 'Nano banana';
+      const modelToSet = sanitizedEffectiveConfig.model || 'coze_seedream4_5';
       const resSize = sanitizedEffectiveConfig.imageSize || '1K';
       const arName = sanitizedEffectiveConfig.aspectRatio || '1:1';
       const dims = AR_MAP[arName]?.[resSize] || { w: sanitizedEffectiveConfig.width || 1024, h: sanitizedEffectiveConfig.height || 1024 };

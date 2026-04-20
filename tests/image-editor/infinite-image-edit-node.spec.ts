@@ -56,7 +56,7 @@ describe('buildEditedImageNode', () => {
       inputAssetId: 'asset-4',
       prompt: 'edited prompt',
       position: { x: 80, y: 110 },
-      modelId: 'gemini-3-pro-image-preview',
+      modelId: 'coze_seedream4_5',
       params: {
         aspectRatio: '16:9',
         imageSize: '1344x768',
@@ -64,7 +64,7 @@ describe('buildEditedImageNode', () => {
       },
     });
 
-    expect(result.node.modelId).toBe('gemini-3-pro-image-preview');
+    expect(result.node.modelId).toBe('coze_seedream4_5');
     expect(result.node.params).toMatchObject({
       aspectRatio: '16:9',
       imageSize: '1344x768',

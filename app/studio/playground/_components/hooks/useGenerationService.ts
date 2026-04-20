@@ -35,7 +35,6 @@ export const FALLBACK_AVAILABLE_MODELS: UnifiedModelConfig[] = [
     { id: 'coze_seedream4_5', displayName: 'Seedream 4.5' },
     { id: 'seed4_0407_lemo', displayName: 'Lemo Seed' },
     { id: MODEL_ID_FLUX_KLEIN, displayName: 'FluxKlein' },
-    { id: 'gemini-3-pro-image-preview', displayName: 'Nano banana pro' },
 ];
 
 export function usePlaygroundAvailableModels(): UnifiedModelConfig[] {
@@ -162,7 +161,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
     const defaultImageModelId = settings.services?.imageGeneration?.binding?.modelId
         || settings.defaults?.image?.textToImage?.binding?.modelId
         || availableModels[0]?.id
-        || 'gemini-3-pro-image-preview';
+        || 'coze_seedream4_5';
     const fallbackGetHistoryItem = useCallback((matcher: string | ((item: Generation) => boolean)) => {
         const items = usePlaygroundStore.getState().generationHistory;
         if (typeof matcher === 'string') {
@@ -464,7 +463,7 @@ export function useGenerationService(historyController?: Pick<PlaygroundHistoryC
         if ((currentConfig.isEdit || constrainedInputImages.length > 0) && !supportsImageEdit) {
             toast({
                 title: "模型不可用于图片编辑",
-                description: `${modelId} 当前被标记为不可编辑类型，请切换为可编辑类型模型（如 Nano banana 2 / Flux Klein）。`,
+                description: `${modelId} 当前被标记为不可编辑类型，请切换为可编辑类型模型（如 Seedream 4.5 / Flux Klein）。`,
                 variant: "destructive",
             });
             throw new Error("Model does not support image editing");

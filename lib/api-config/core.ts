@@ -26,7 +26,7 @@ export const DEFAULT_TRANSLATE_SYSTEM_PROMPT = [
 export const DEFAULT_API_CONFIG_SETTINGS: APIConfigSettings = {
   services: {
     imageGeneration: {
-      binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' },
+      binding: { providerId: 'provider-coze-seed', modelId: 'coze_seedream4_5' },
     },
     translate: {
       binding: { providerId: 'provider-doubao', modelId: 'doubao-seed-2-0-lite-260215' },
@@ -49,9 +49,9 @@ export const DEFAULT_API_CONFIG_SETTINGS: APIConfigSettings = {
       videoToText: { binding: { providerId: 'provider-coze', modelId: 'coze-prompt' } },
     },
     image: {
-      textToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
-      imageToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
-      imagesToImage: { binding: { providerId: 'provider-google', modelId: 'gemini-3-pro-image-preview' } },
+      textToImage: { binding: { providerId: 'provider-coze-seed', modelId: 'coze_seedream4_5' } },
+      imageToImage: { binding: { providerId: 'provider-coze-seed', modelId: 'coze_seedream4_5' } },
+      imagesToImage: { binding: { providerId: 'provider-coze-seed', modelId: 'coze_seedream4_5' } },
     },
   },
   comfyUrl: '',

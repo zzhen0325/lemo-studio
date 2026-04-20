@@ -47,13 +47,13 @@ describe('model-center', () => {
     expect(model.capabilities?.supportsImageSize).toBe(true);
   });
 
-  it('keeps nano banana 2 configured image sizes', () => {
+  it('keeps configured image sizes for active image models', () => {
     const providers = normalizeProviderConfigs([
       createProvider({
         models: [
           {
-            modelId: 'gemini-3.1-flash-image-preview',
-            displayName: 'Nano banana 2',
+            modelId: 'custom-image-model',
+            displayName: 'Custom Image Model',
             task: ['image'],
             contexts: ['service:imageGeneration'],
             status: 'active',
@@ -72,7 +72,7 @@ describe('model-center', () => {
 
     const validation = validateModelUsage({
       providers,
-      modelId: 'gemini-3.1-flash-image-preview',
+      modelId: 'custom-image-model',
       requiredTask: 'image',
       context: 'service:imageGeneration',
       imageSize: '4K',
@@ -119,10 +119,32 @@ describe('model-center', () => {
           },
         ],
       }),
+      createProvider({
+        id: 'provider-google',
+        providerType: 'google-genai',
+        models: [
+          {
+            modelId: 'gemini-2.5-flash-image',
+            displayName: 'Nano banana',
+            task: ['image'],
+          },
+          {
+            modelId: 'gemini-3-pro-image-preview',
+            displayName: 'Nano banana pro',
+            task: ['image'],
+          },
+          {
+            modelId: 'gemini-3.1-flash-image-preview',
+            displayName: 'Nano banana 2',
+            task: ['image'],
+          },
+        ],
+      }),
     ]);
 
     expect(providers[0]?.models.map((model) => model.modelId)).toEqual(['seed4_0407_lemo']);
     expect(providers[1]?.models.map((model) => model.modelId)).toEqual(['coze-prompt']);
+    expect(providers[2]?.models.map((model) => model.modelId)).toEqual([]);
   });
 
   it('filters models by context/task/status/provider enabled', () => {

@@ -1,7 +1,7 @@
 import type { InfiniteCanvasNode } from '@/types/infinite-canvas';
 import { createImageNode } from './helpers';
 
-export const INFINITE_DEFAULT_IMAGE_MODEL = 'gemini-3-pro-image-preview';
+export const INFINITE_DEFAULT_IMAGE_MODEL = 'coze_seedream4_5';
 
 export const INFINITE_DEFAULT_IMAGE_PARAMS: NonNullable<InfiniteCanvasNode['params']> = {
   aspectRatio: '1:1',

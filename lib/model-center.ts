@@ -9,6 +9,7 @@ import type {
 
 const DEFAULT_IMAGE_SIZES: Array<'1K' | '2K' | '4K'> = ['1K', '2K', '4K'];
 const DEFAULT_PRIORITY = 100;
+const REMOVED_MODEL_IDS = new Set(['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview']);
 const CANONICAL_IMAGE_SIZE_TO_PX: Record<'1K' | '2K' | '4K', number> = {
     '1K': 1024,
     '2K': 2048,
@@ -179,9 +180,11 @@ export function normalizeModelEntry(model: ModelEntry): ModelEntry {
 
 export function normalizeProviderConfig(provider: APIProviderConfig): APIProviderConfig {
     const removedModelIds = REMOVED_PROVIDER_MODEL_IDS[provider.id];
-    const filteredModels = removedModelIds
-        ? (provider.models || []).filter((model) => !removedModelIds.has(model.modelId))
-        : (provider.models || []);
+    const filteredModels = (provider.models || []).filter((model) => {
+        if (REMOVED_MODEL_IDS.has(model.modelId)) return false;
+        if (removedModelIds?.has(model.modelId)) return false;
+        return true;
+    });
 
     return {
         ...provider,

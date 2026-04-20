@@ -144,11 +144,9 @@ export default function ControlToolbar({
       'coze_seedream4_5',
       'seed4_0407_lemo',
       MODEL_ID_FLUX_KLEIN,
-      'gemini-3-pro-image-preview'
     ];
 
     return baseModels
-      .filter(model => model.id !== 'gemini-3.1-flash-image-preview' && model.id !== 'gemini-2.5-flash-image')
       .sort((a, b) => {
         const idxA = ORDER.indexOf(a.id);
         const idxB = ORDER.indexOf(b.id);
@@ -160,7 +158,7 @@ export default function ControlToolbar({
   }, [availableModels, getModelEntryById, isEditMode, uploadedImages.length]);
   const selectedModelMeta = getModelEntryById(selectedModel);
   const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
-    ?? ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image', 'seed4_0407_lemo', 'coze_seedream4_5'].includes(selectedModel);
+    ?? ['seed4_0407_lemo', 'coze_seedream4_5', MODEL_ID_FLUX_KLEIN].includes(selectedModel);
   const selectedAllowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
     ? selectedModelMeta.capabilities.allowedImageSizes
     : (['1K', '2K', '4K'] as const);
@@ -192,13 +190,14 @@ export default function ControlToolbar({
   }, [selectedModel, selectedPresetName, workflows, selectableModels]);
 
   React.useEffect(() => {
-    if (!isEditMode || selectableModels.length === 0) return;
+    if (selectableModels.length === 0) return;
+    if (isWorkflowModel(selectedModel)) return;
     if (selectableModels.some((item) => item.id === selectedModel)) return;
     const fallback = selectableModels[0].id;
     setSelectValue(fallback);
     onModelChange(fallback);
     onConfigChange?.({ model: fallback });
-  }, [isEditMode, onConfigChange, onModelChange, selectableModels, selectedModel]);
+  }, [onConfigChange, onModelChange, selectableModels, selectedModel]);
 
   React.useEffect(() => {
     if (!onBatchSizeChange) return;
@@ -217,7 +216,7 @@ export default function ControlToolbar({
     setSelectValue(val);
     onClearPreset?.(); // 切换模型时清除预设选择
 
-    // 使用统一配置处理模型切换gemini-2.5-flash-image
+    // 使用统一配置处理模型切换
     const cfg = selectableModels.find(m => m.id === val);
     if (cfg) {
       onModelChange(cfg.id);
@@ -233,7 +232,7 @@ export default function ControlToolbar({
       }
 
       const supportsImageSize = modelMeta?.capabilities?.supportsImageSize
-        ?? ['coze_seedream4_5', 'seed4_0407_lemo', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'].includes(val);
+        ?? ['coze_seedream4_5', 'seed4_0407_lemo', MODEL_ID_FLUX_KLEIN].includes(val);
 
       if (supportsImageSize) {
         const allowed = modelMeta?.capabilities?.allowedImageSizes?.length
@@ -292,10 +291,6 @@ export default function ControlToolbar({
     [MODEL_ID_FLUX_KLEIN]: {
       logo: '/images/logos/flux.png',
       description: 'ComfyUI Flux.2 Klein'
-    },
-    'gemini-3-pro-image-preview': {
-      logo: '/images/logos/google.png',
-      description: '暂不能用'
     }
   };
 

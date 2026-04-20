@@ -244,4 +244,25 @@ describe('ImageEditDialog', () => {
       expect(globalThis.confirm).toHaveBeenCalled();
     });
   });
+
+  it('locks image-edit model to seedream 4.5 on confirm', async () => {
+    const onConfirm = vi.fn();
+
+    render(
+      <ImageEditDialog
+        {...createBaseProps()}
+        imageUrl="https://example.com/existing.png"
+        initialModelId="gemini-2.5-flash-image"
+        onConfirm={onConfirm}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '确认编辑' }));
+
+    await waitFor(() => {
+      expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({
+        modelId: 'coze_seedream4_5',
+      }));
+    });
+  });
 });
