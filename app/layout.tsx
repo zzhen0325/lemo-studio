@@ -11,7 +11,7 @@ import { AppToaster } from "@/components/ui/AppToaster";
 
 export const metadata: Metadata = {
   title: "Lemostudio",
-  description: "PlaygroundV2 & Mapping Editor",
+  description: "一个集创意生成、灵感探索、实用工具与资产管理于一体的完整设计工作台。",
   icons: {
     icon: "/images/logo.ico/favicon.ico",
     shortcut: "/images/logo.ico/favicon.ico",

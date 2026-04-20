@@ -66,6 +66,7 @@ export interface GenerateOptions {
     useCurrentBatchSize?: boolean;
     sourceImageUrls?: string[];
     localSourceIds?: string[];
+    ignoreActiveShortcutTemplate?: boolean;
 }
 
 const GEMINI_MAX_INLINE_IMAGE_DIMENSION = 3072;

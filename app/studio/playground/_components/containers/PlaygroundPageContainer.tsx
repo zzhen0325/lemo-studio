@@ -712,9 +712,14 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const shouldHideHomeEntryCards = hasStructuredShortcutSession;
   const historyForPanel = combinedHistory;
 
-  const normalizeGenerationConfigForHistory = useCallback((rawConfig: GenerationConfig): GenerationConfig => {
+  const normalizeGenerationConfigForHistory = useCallback((
+    rawConfig: GenerationConfig,
+    options: { ignoreActiveShortcutTemplate?: boolean } = {},
+  ): GenerationConfig => {
     const isBannerGeneration = rawConfig.generationMode === 'banner';
-    const activeShortcut = isBannerGeneration ? null : activeShortcutTemplateRef.current?.shortcut;
+    const activeShortcut = (isBannerGeneration || options.ignoreActiveShortcutTemplate)
+      ? null
+      : activeShortcutTemplateRef.current?.shortcut;
     const trimmedShortcutName = activeShortcut?.name?.trim();
     const moodboardMetadata = trimmedShortcutName
       ? { id: activeShortcut?.id, name: trimmedShortcutName }
@@ -727,7 +732,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
   // Wrapper for batch generation
   const handleGenerate = React.useCallback(async (options: GenerateOptions = {}) => {
-    const { configOverride, batchSizeOverride } = options;
+    const { configOverride, batchSizeOverride, ignoreActiveShortcutTemplate = false } = options;
     const storeState = usePlaygroundStore.getState();
     const isBannerModeGenerate = storeState.activeTab === 'banner' && Boolean(storeState.activeBannerData);
     const hasExplicitSourceImageUrls = Object.prototype.hasOwnProperty.call(options, 'sourceImageUrls');
@@ -748,7 +753,9 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         taskId: batchTaskId,
         isEdit: false,
       };
-      const normalizedBannerConfig = normalizeGenerationConfigForHistory(bannerConfig);
+      const normalizedBannerConfig = normalizeGenerationConfigForHistory(bannerConfig, {
+        ignoreActiveShortcutTemplate,
+      });
 
       const uniqueId = await singleGenerate({
         configOverride: normalizedBannerConfig,
@@ -792,7 +799,9 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         ? Math.max(1, Math.floor(batchSizeOverride))
         : undefined;
     const effectiveBatchSize = normalizedBatchSizeOverride ?? (options.useCurrentBatchSize ? batchSize : (configOverride ? 4 : batchSize));
-    const structuredOptimizationSource = !getPromptOptimizationSource(configOverride)
+    const structuredOptimizationSource = ignoreActiveShortcutTemplate
+      ? null
+      : !getPromptOptimizationSource(configOverride)
       ? buildStructuredOptimizationSourcePayload(activeShortcutTemplateRef.current, batchTaskId)
       : null;
 
@@ -833,7 +842,9 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
       finalConfig = effectiveOptimizationSource
         ? withPromptOptimizationSource(finalConfig, effectiveOptimizationSource)
         : withoutPromptOptimizationSource(finalConfig);
-      finalConfig = normalizeGenerationConfigForHistory(finalConfig);
+      finalConfig = normalizeGenerationConfigForHistory(finalConfig, {
+        ignoreActiveShortcutTemplate,
+      });
       // 优先使用显式传入的 sourceImageUrls（例如 rerun 场景），否则从当前 store 读取
       const currentUploadedImages = usePlaygroundStore.getState().uploadedImages;
       const sourceImageUrls = explicitSourceImageUrls
@@ -3084,6 +3095,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
         configOverride: fullConfig,
         sourceImageUrls: [],
         localSourceIds: [],
+        ignoreActiveShortcutTemplate: true,
       });
       await new Promise(r => setTimeout(r, 300));
     }
