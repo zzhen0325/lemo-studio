@@ -7,6 +7,7 @@ import {
     Box,
     Globe,
     Settings2,
+    BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,21 @@ export function SettingsView() {
     const isDesktop = useMediaQuery("(min-width: 1440px)");
     const { toast } = useToast();
     const comfyUrlFromEnv = getPublicComfyUrl();
+
+    // Site stats
+    const [stats, setStats] = React.useState<{ pageViews: number; apiCalls: number } | null>(null);
+    React.useEffect(() => {
+        fetch('/api/stats')
+            .then((r) => r.json())
+            .then((d) => setStats({ pageViews: d.pageViews ?? 0, apiCalls: d.apiCalls ?? 0 }))
+            .catch(() => {});
+    }, []);
+
+    const formatCount = (n: number) => {
+        if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+        if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+        return String(n);
+    };
 
     const sidebarItems = [
         {
@@ -153,6 +169,37 @@ export function SettingsView() {
                                                         disabled
                                                         className="bg-[#161616] border-[#2e2e2e] text-zinc-500 h-[34px] rounded-lg text-[13px] font-mono"
                                                     />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Site Statistics */}
+                                    <section className="space-y-4">
+                                        <h2 className="text-[16px] font-medium text-white">Site Statistics</h2>
+                                        <div className="bg-[#1C1C1C] border border-[#2e2e2e] rounded-[16px] overflow-hidden shadow-sm">
+                                            <div className="grid grid-cols-2 divide-x divide-[#2e2e2e]">
+                                                <div className="flex items-center gap-4 py-[18px] px-5">
+                                                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10 text-primary">
+                                                        <BarChart3 className="size-[18px]" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[12.5px] text-zinc-400 mb-0.5">Page Views</div>
+                                                        <div className="text-[20px] font-semibold text-white tabular-nums tracking-tight">
+                                                            {stats ? formatCount(stats.pageViews) : '—'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-4 py-[18px] px-5">
+                                                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10 text-primary">
+                                                        <Globe className="size-[18px]" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-[12.5px] text-zinc-400 mb-0.5">API Calls</div>
+                                                        <div className="text-[20px] font-semibold text-white tabular-nums tracking-tight">
+                                                            {stats ? formatCount(stats.apiCalls) : '—'}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

@@ -1,6 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { HttpError } from './utils/http-error';
 
+// ---------------------------------------------------------------------------
+// Lightweight API-call counter — batched, fire-and-forget
+// ---------------------------------------------------------------------------
+let pendingApiCalls = 0;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+const FLUSH_INTERVAL_MS = 3_000;
+const FLUSH_THRESHOLD = 5;
+
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    doFlush();
+  }, FLUSH_INTERVAL_MS);
+}
+
+async function doFlush() {
+  const delta = pendingApiCalls;
+  if (delta === 0) return;
+  pendingApiCalls = 0; // reset before async to avoid double-count
+
+  try {
+    const supabase = (await import('@/src/storage/database/supabase-client')).getSupabaseClient();
+    const { error } = await supabase.rpc('increment_site_stat', {
+      p_key: 'api_calls',
+      p_delta: delta,
+    });
+    if (error) console.warn('[Stats] api_calls flush error:', error.message);
+  } catch {
+    // best-effort
+  }
+}
+
+function recordApiCall() {
+  pendingApiCalls++;
+  if (pendingApiCalls >= FLUSH_THRESHOLD) {
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+    doFlush();
+  } else {
+    scheduleFlush();
+  }
+}
+
 type QueryValue = string | string[] | undefined;
 
 export function jsonResponse(data: unknown, init?: ResponseInit) {
@@ -58,6 +101,7 @@ export function errorResponse(error: unknown) {
 export async function handleRoute(
   handler: () => Promise<Response | NextResponse | unknown>,
 ) {
+  recordApiCall();
   try {
     const result = await handler();
     if (result instanceof Response) {

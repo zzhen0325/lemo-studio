@@ -8,6 +8,7 @@ import { ViewComfyProvider } from "@/lib/providers/view-comfy-provider";
 import { cn } from "@/lib/utils";
 import ScrollbarVisibility from "@/components/common/scrollbar-visibility";
 import { AppToaster } from "@/components/ui/AppToaster";
+import { PageViewTracker } from "@/components/common/page-view-tracker";
 
 export const metadata: Metadata = {
   title: "Lemostudio",
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <TooltipProvider>
             <ViewComfyProvider>
               <ScrollbarVisibility />
+              <PageViewTracker />
               {children}
               <AppToaster />
             </ViewComfyProvider>
