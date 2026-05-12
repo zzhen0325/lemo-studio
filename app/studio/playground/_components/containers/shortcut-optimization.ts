@@ -1,5 +1,6 @@
 import {
   buildShortcutPrompt,
+  getShortcutMissingFields,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
 } from "@/config/moodboard-cards";
@@ -7,6 +8,7 @@ import type { ShortcutEditorDocument } from "@/app/studio/playground/_lib/shortc
 import {
   assembleDesignStructuredShortcutPrompt,
   derivePaletteFromVariantContent,
+  isKvShortcutId,
   KV_CORE_FIELD_IDS,
   KV_STRUCTURED_VARIANT_IDS,
   parseDesignStructuredOptimizationResponse,
@@ -65,6 +67,57 @@ export interface ActiveShortcutTemplate {
   appliedPrompt: string;
   editorDocument?: ShortcutEditorDocument;
   optimizationSession?: ShortcutOptimizationSession;
+}
+
+export type ShortcutGenerationBlockReason = "missing_fields" | "empty_prompt";
+
+export interface ShortcutTemplateGenerationReadiness {
+  canGenerate: boolean;
+  reason: ShortcutGenerationBlockReason | null;
+  missingFields: ReturnType<typeof getShortcutMissingFields>;
+}
+
+export function getShortcutTemplateGenerationReadiness(
+  template: ActiveShortcutTemplate,
+  variant?: ShortcutOptimizationVariantDraft | null,
+): ShortcutTemplateGenerationReadiness {
+  const promptCandidate = (variant ? variant.promptPreview : template.appliedPrompt).trim();
+  const isOptimizedKvTemplate = Boolean(
+    template.optimizationSession && isKvShortcutId(template.shortcut.id),
+  );
+
+  if (isOptimizedKvTemplate) {
+    return {
+      canGenerate: promptCandidate.length > 0,
+      reason: promptCandidate ? null : "empty_prompt",
+      missingFields: [],
+    };
+  }
+
+  const values = variant?.values || template.values;
+  const removedFieldIds = variant?.removedFieldIds || template.removedFieldIds;
+  const missingFields = getShortcutMissingFields(template.shortcut, values, {
+    removedFieldIds,
+  });
+
+  if (missingFields.length > 0) {
+    return {
+      canGenerate: false,
+      reason: "missing_fields",
+      missingFields,
+    };
+  }
+
+  const fallbackPrompt = buildShortcutPrompt(template.shortcut, values, {
+    removedFieldIds,
+    usePlaceholder: false,
+  }).trim();
+
+  return {
+    canGenerate: Boolean(promptCandidate || fallbackPrompt),
+    reason: promptCandidate || fallbackPrompt ? null : "empty_prompt",
+    missingFields: [],
+  };
 }
 
 export function cloneShortcutValues(values: ShortcutPromptValues): ShortcutPromptValues {

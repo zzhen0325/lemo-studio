@@ -58,6 +58,7 @@ import {
   createEmptyCoreSuggestionValues,
   deriveVariantPalette,
   findShortcutVariant,
+  getShortcutTemplateGenerationReadiness,
   hydrateShortcutOptimizationSession,
   mergeLockedKvValues,
   replaceColorInAnalysis,
@@ -73,7 +74,6 @@ import {
   buildShortcutPrompt,
   createShortcutPromptValues,
   getShortcutById,
-  getShortcutMissingFields,
   type PlaygroundShortcut,
   type ShortcutPromptValues,
 } from "@/config/moodboard-cards";
@@ -2133,13 +2133,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const handlePromptGenerate = useCallback(() => {
     const current = activeShortcutTemplateRef.current;
     if (current) {
-      const missingFields = getShortcutMissingFields(current.shortcut, current.values, {
-        removedFieldIds: current.removedFieldIds,
-      });
-      if (missingFields.length > 0) {
+      const readiness = getShortcutTemplateGenerationReadiness(current);
+      if (!readiness.canGenerate) {
         toast({
-          title: "请先补全模板信息",
-          description: `还缺少：${missingFields.slice(0, 3).map((field) => field.label).join('、')}`,
+          title: readiness.reason === "empty_prompt" ? "当前版本没有可生成的 Prompt" : "请先补全模板信息",
+          description: readiness.reason === "empty_prompt"
+            ? "请先重新优化，或补充至少一段可用于生成的分析内容。"
+            : `还缺少：${readiness.missingFields.slice(0, 3).map((field) => field.label).join('、')}`,
           variant: "destructive",
         });
         return;
@@ -2184,14 +2184,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
     const readyVariants: ShortcutOptimizationVariantDraft[] = [];
     const skippedVariantIds: string[] = [];
+    let skippedByEmptyPrompt = false;
 
     optimizationSession.variants.forEach((variant) => {
-      const missingFields = getShortcutMissingFields(current.shortcut, variant.values, {
-        removedFieldIds: variant.removedFieldIds,
-      });
-
-      if (missingFields.length > 0) {
+      const readiness = getShortcutTemplateGenerationReadiness(current, variant);
+      if (!readiness.canGenerate) {
         skippedVariantIds.push(variant.id.toUpperCase());
+        skippedByEmptyPrompt ||= readiness.reason === "empty_prompt";
         return;
       }
 
@@ -2201,7 +2200,9 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     if (readyVariants.length === 0) {
       toast({
         title: "没有可生成的版本",
-        description: "请先补全至少一个版本中的必填字段。",
+        description: skippedByEmptyPrompt
+          ? "请先重新优化，或补充至少一个版本的分析内容。"
+          : "请先补全至少一个版本中的必填字段。",
         variant: "destructive",
       });
       return;
@@ -2209,8 +2210,10 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
 
     if (skippedVariantIds.length > 0) {
       toast({
-        title: "已跳过未完成版本",
-        description: `${skippedVariantIds.join('、')} 还有必填字段未补全，其余版本会继续生成。`,
+        title: skippedByEmptyPrompt ? "已跳过不可生成版本" : "已跳过未完成版本",
+        description: skippedByEmptyPrompt
+          ? `${skippedVariantIds.join('、')} 没有可生成的 Prompt，其余版本会继续生成。`
+          : `${skippedVariantIds.join('、')} 还有必填字段未补全，其余版本会继续生成。`,
       });
     }
 

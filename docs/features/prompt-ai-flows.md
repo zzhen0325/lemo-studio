@@ -49,6 +49,7 @@
 - `/api/translate` 保持独立，不并入 prompt optimize。
 - `Use Prompt` 只有在 `prompt_optimization` 记录上，才允许恢复 KV / shortcut 结构化编辑态。
 - 普通生成记录即使携带 `optimizationSource`，也只能按普通 prompt 回填。
+- KV Structured 优化后的生成以当前 variant 的 `promptPreview` 为准；未填写的 KV token 不再作为生成阻断条件。
 
 ## 排除项
 
@@ -57,4 +58,5 @@
 
 ## 更新记录
 
+- 2026-05-12：明确 KV Structured 优化后生成不再因未填写 token 阻断，生成准入以 variant `promptPreview` 为准。
 - 2026-04-12：新增 Prompt AI Flows 总览文档，统一执行层、业务层、记录层语义，并明确相邻流程边界。

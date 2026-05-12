@@ -17,6 +17,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "playwright:install": "playwright install chromium",
+    "record:history": "node scripts/record-history.mjs",
     "ci:check": "npm run lint && npm run typecheck && npm run test && npm run test:e2e && npm run check:api-coverage && npm run check:lines:strict",
     "check:lines": "node ./scripts/check-lines.mjs --threshold=500",
     "check:lines:strict": "node ./scripts/check-lines.mjs --threshold=600 --strict --include=lib/ai/providers.ts --include=lib/ai/providers/**/*.ts --exclude=lib/ai/providers/legacy.ts && node ./scripts/check-lines.mjs --threshold=400 --strict --include=lib/server/repositories/*.ts --include=lib/server/repositories/**/*.ts",

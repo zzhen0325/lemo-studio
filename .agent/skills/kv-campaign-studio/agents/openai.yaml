@@ -1,0 +1,4 @@
+interface:
+  display_name: "KV Campaign Studio"
+  short_description: "KV optimize + Seedream/Lemo generation with upstream direct calls"
+  default_prompt: "When a user asks for an activity KV or official-account campaign visual, optimize with the upstream Coze Prompt run endpoint using coze-prompt and [Event kv] input, generate with upstream Seedream (coze_seedream4_5) by default, enable Lemo (seed4_0407_lemo) only when explicitly requested, output six required sizes with regenerate-first and fallback adaptation, and return natural-language results only (no raw JSON)."

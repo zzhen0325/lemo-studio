@@ -18,6 +18,7 @@ import {
 } from "../utils";
 import { buildAbsoluteSiteUrl, getConfiguredSiteBaseUrl, readLocalPublicImage, toBlobFromImageInput } from "../imageInput";
 import { uploadToCoze } from "../cozeUploader";
+import { createCozeWorkflowHttpError } from "./coze-workflow-errors";
 import { getFileUrl } from "@/src/storage/object-storage";
 import { extractStorageKeyFromPresignedUrl, getApiBase } from "@/lib/api-base";
 
@@ -1125,7 +1126,7 @@ export class CozeWorkflowImageProvider implements ImageProvider {
         status: response.status,
         error: truncatedError,
       });
-      throw new Error(`Coze Seed workflow API Error: ${response.status} - ${truncatedError}`);
+      throw createCozeWorkflowHttpError({ status: response.status, raw });
     }
 
     let parsed: unknown = raw;

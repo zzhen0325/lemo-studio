@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { APIProviderConfig } from "@/lib/api-config/types";
+import { AIProviderError } from "@/lib/ai/provider-errors";
 import { CozeWorkflowImageProvider } from "@/lib/ai/providers";
 import { getProvider } from "@/lib/ai/modelRegistry";
 
@@ -255,5 +256,47 @@ describe("CozeWorkflowImageProvider", () => {
     const body = JSON.parse(String(options?.body));
     expect(body.reference_images).toHaveLength(1);
     expect(String(body.reference_images[0])).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("normalizes coze content moderation errors", async () => {
+    process.env.LEMO_COZE_SEED_API_TOKEN = "seed-token";
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () =>
+        JSON.stringify({
+          detail: {
+            error_code: 301001,
+            error_message:
+              "API请求失败: HTTP 错误: 400 Client Error: Bad Request for url: https://integration.coze.cn/api/v3/images/generations, 响应数据: {'error': {'code': 'InputTextSensitiveContentDet'}}",
+            stack_trace: ["Traceback (most recent call last):"],
+          },
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new CozeWorkflowImageProvider({
+      providerId: "coze",
+      modelId: "coze_seedream4_5",
+      apiKey: "legacy-token",
+      baseURL: "https://custom.coze.site/run",
+    });
+
+    try {
+      await provider.generateImage({ prompt: "sensitive prompt" });
+      throw new Error("Expected content moderation error");
+    } catch (error) {
+      expect(error).toBeInstanceOf(AIProviderError);
+      expect(error).toMatchObject({
+        status: 400,
+        code: "CONTENT_MODERATION_REJECTED",
+        message: "内容审核未通过：提示词或参考图可能包含敏感或不合规内容，请调整后重试。",
+      });
+      expect((error as AIProviderError).details).toMatchObject({
+        upstreamStatus: 500,
+        upstreamCode: "InputTextSensitiveContentDet",
+      });
+    }
   });
 });

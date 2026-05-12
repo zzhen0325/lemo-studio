@@ -12,6 +12,7 @@ import { HttpError } from '../utils/http-error';
 import { ApiConfigService } from './api-config.service';
 import { DEFAULT_DATASET_LABEL_SYSTEM_PROMPT } from '../../constants/dataset-prompts';
 import { normalizeImageSizeToken, validateModelUsage } from '../../model-center';
+import { isAIProviderError } from '../../ai/provider-errors';
 
 export interface DescribeRequestBody {
   image: string;
@@ -302,6 +303,22 @@ export class AiService {
           details: error.details ?? null,
         });
         throw error;
+      }
+      if (isAIProviderError(error)) {
+        this.logger.warn('ai_service_generate_image_provider_rejected', {
+          model,
+          providerType: providerInstance?.constructor?.name || typeof providerInstance,
+          status: error.status,
+          code: error.code,
+          provider: error.provider || null,
+          details: error.details ?? null,
+        });
+        throw new HttpError(error.status, error.message, {
+          code: error.code,
+          provider: error.provider || null,
+          model,
+          ...(error.details || {}),
+        });
       }
       const reason = error instanceof Error ? error.message : String(error);
       this.logger.error('ai_service_generate_image_provider_error', {
