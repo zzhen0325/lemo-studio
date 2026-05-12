@@ -12,11 +12,17 @@ cd "$SCRIPT_DIR"
 
 # 设置端口（优先使用 FaaS 平台注入的环境变量）
 export PORT="${DEPLOY_RUN_PORT:-${PORT:-5000}}"
-export HOSTNAME="${HOSTNAME:-0.0.0.0}"
+# 强制 HOSTNAME=0.0.0.0：FaaS 平台会注入 HOSTNAME 为 pod 名称，
+# Next.js 会将其作为监听地址，导致只绑定 pod name 而非 0.0.0.0，
+# FaaS 健康检查探测不到端口 → 30s 超时启动失败。
+# 保存原始值供日志等场景使用，但监听地址必须为 0.0.0.0。
+export POD_HOSTNAME="${HOSTNAME:-}"
+export HOSTNAME="0.0.0.0"
 
 echo "=== Next.js Production Server ==="
 echo "PORT: $PORT"
-echo "HOSTNAME: $HOSTNAME"
+echo "HOSTNAME (listen): $HOSTNAME"
+echo "POD_HOSTNAME: $POD_HOSTNAME"
 echo "Working directory: $(pwd)"
 echo "=================================="
 
