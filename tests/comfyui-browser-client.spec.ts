@@ -11,11 +11,11 @@ describe("probeDirectComfyAvailability", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(probeDirectComfyAvailability({
-      comfyUrl: "http://10.75.169.12:1000",
+      comfyUrl: "http://10.75.170.209:1000",
     })).resolves.toEqual({ available: true });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://10.75.169.12:1000/prompt",
+      "http://10.75.170.209:1000/prompt",
       expect.objectContaining({ method: "GET" }),
     );
   });
@@ -25,7 +25,7 @@ describe("probeDirectComfyAvailability", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(probeDirectComfyAvailability({
-      comfyUrl: "http://10.75.169.12:1000",
+      comfyUrl: "http://10.75.170.209:1000",
     })).resolves.toEqual({
       available: false,
       reason: "Failed to fetch",

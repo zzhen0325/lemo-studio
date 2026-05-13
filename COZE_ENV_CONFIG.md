@@ -23,12 +23,12 @@ CLOUD_STORAGE=coze
 ```
 
 ### ComfyUI 配置
-⚠️ 注意：`10.75.169.12` 是局域网地址，云端部署无法访问！
+⚠️ 注意：`10.75.170.209` 是局域网地址，云端部署无法访问！
 需要使用 ngrok/frp 等工具暴露到公网后替换地址。
 
 ```
-COMFYUI_API_URL=http://10.75.169.12:1000
-NEXT_PUBLIC_COMFYUI_URL=http://10.75.169.12:1000
+COMFYUI_API_URL=http://10.75.170.209:1000
+NEXT_PUBLIC_COMFYUI_URL=http://10.75.170.209:1000
 COMFYUI_SECURE=false
 ```
 
@@ -106,7 +106,7 @@ BYTEDANCE_APP_SECRET=填写你的值
 
 ## ⚠️ 重要提醒
 
-1. **ComfyUI 地址**：云端部署无法访问局域网地址 `10.75.169.12`
+1. **ComfyUI 地址**：云端部署无法访问局域网地址 `10.75.170.209`
    - 解决方案：使用 ngrok/frp 将 ComfyUI 暴露到公网
    - 或者：在本地运行项目（推荐）
 

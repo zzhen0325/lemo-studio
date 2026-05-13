@@ -8,27 +8,27 @@ import {
 
 describe("direct ComfyUI config", () => {
   it("normalizes the direct ComfyUI URL", () => {
-    const comfyUrl = resolveDirectComfyUrl("http://10.75.169.12:1000");
-    expect(comfyUrl?.toString()).toBe("http://10.75.169.12:1000/");
+    const comfyUrl = resolveDirectComfyUrl("http://10.75.170.209:1000");
+    expect(comfyUrl?.toString()).toBe("http://10.75.170.209:1000/");
 
-    const endpoints = getDirectComfyEndpoints("http://10.75.169.12:1000/");
+    const endpoints = getDirectComfyEndpoints("http://10.75.170.209:1000/");
     expect(endpoints).toMatchObject({
-      httpBase: "http://10.75.169.12:1000",
-      wsBase: "ws://10.75.169.12:1000",
+      httpBase: "http://10.75.170.209:1000",
+      wsBase: "ws://10.75.170.209:1000",
     });
   });
 
   it("blocks HTTPS pages from directly calling an HTTP ComfyUI endpoint", () => {
-    const comfyUrl = resolveDirectComfyUrl("http://10.75.169.12:1000/");
+    const comfyUrl = resolveDirectComfyUrl("http://10.75.170.209:1000/");
     expect(comfyUrl).not.toBeNull();
     expect(() => assertDirectComfyCompatibility(comfyUrl as URL, "https:")).toThrow(/HTTPS pages/);
   });
 
   it("returns a clear disabled decision for HTTPS pages with HTTP ComfyUI", () => {
-    expect(getDirectComfyDecision("http://10.75.169.12:1000/", "https:")).toEqual({
+    expect(getDirectComfyDecision("http://10.75.170.209:1000/", "https:")).toEqual({
       enabled: false,
       reason: expect.stringMatching(/HTTPS pages/),
-      comfyUrl: "http://10.75.169.12:1000/",
+      comfyUrl: "http://10.75.170.209:1000/",
     });
   });
 });

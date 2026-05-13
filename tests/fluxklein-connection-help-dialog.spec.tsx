@@ -18,7 +18,7 @@ describe("FluxKleinConnectionHelpDialog", () => {
     render(
       <FluxKleinConnectionHelpDialog
         open
-        comfyUrl="https://10.75.169.12:1000"
+        comfyUrl="https://10.75.170.209:1000"
         onOpenChange={() => {}}
       />,
     );
@@ -26,7 +26,7 @@ describe("FluxKleinConnectionHelpDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /打开链接/i }));
 
     expect(window.open).toHaveBeenCalledWith(
-      "https://10.75.169.12:1000",
+      "https://10.75.170.209:1000",
       "_blank",
       "noopener,noreferrer",
     );
@@ -35,7 +35,7 @@ describe("FluxKleinConnectionHelpDialog", () => {
 
     await waitFor(() => {
       expect(probeDirectComfyAvailability).toHaveBeenCalledWith({
-        comfyUrl: "https://10.75.169.12:1000",
+        comfyUrl: "https://10.75.170.209:1000",
       });
     });
 
