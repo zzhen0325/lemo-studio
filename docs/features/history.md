@@ -88,6 +88,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 ## 更新记录
 
+- 2026-05-19：`Use All` / `Rerun` 回填给 `coze_seedream4_5` 的存储参考图会在服务端内联并归一化为 PNG/JPEG data URL；包含 `/api/storage/image` 预览、tiktokcdn/CDN 链接和 WebP 预览，避免 Coze Seed 上游判定“图片格式不支持”。
 - 2026-04-09：`Use All` / `Rerun` 回填的存储参考图在发送给 `coze_seed4` 前会优先由服务端转成内联 `data:` 图片，避免 gallery/history 里的签名存储 URL 或同源 `/api/storage/image` 被上游判成不支持格式。
 - 2026-04-12：Gallery / 图片详情预览使用的 lightweight history 记录会显式标记 `__minimal`，弹窗在 detail 补拉完成前禁用 `Use All` / `Rerun`，并统一复用页面级回填入口。
 - 2026-04-09：收紧 `Use Prompt` 的恢复语义，只有 `prompt_optimization` 记录会恢复 KV / shortcut 结构化编辑态；普通生成记录统一按纯文本 prompt 回填，修复普通 prompt 被误恢复成 KV 模版的问题。

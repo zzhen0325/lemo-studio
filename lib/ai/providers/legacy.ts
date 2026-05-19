@@ -44,6 +44,7 @@ type CozeWorkflowReferenceImagesPayload = string[];
 
 const warnedBytedanceAfrFallback = new Set<string>();
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost"]);
+const COZE_WORKFLOW_SUPPORTED_REFERENCE_MIME_TYPES = new Set(["image/png", "image/jpeg"]);
 
 function getRequestHost(input: string): string {
   try {
@@ -140,6 +141,81 @@ function isLikelyBase64(value: string): boolean {
   return /^[A-Za-z0-9+/=]+$/.test(sanitized);
 }
 
+function normalizeImageMimeType(mimeType: string | undefined | null): string {
+  const normalized = (mimeType || "").split(";")[0].trim().toLowerCase();
+  if (normalized === "image/jpg") return "image/jpeg";
+  return normalized || "image/png";
+}
+
+function parseImageDataUrl(value: string): { mimeType: string; base64: string; buffer: Buffer } | null {
+  const match = value.match(/^data:([^;,]+)(?:;[^,]*)?;base64,([\s\S]*)$/i);
+  if (!match) return null;
+  const mimeType = normalizeImageMimeType(match[1]);
+  if (!mimeType.startsWith("image/")) return null;
+
+  const base64 = match[2].replace(/\s+/g, "");
+  return {
+    mimeType,
+    base64,
+    buffer: Buffer.from(base64, "base64"),
+  };
+}
+
+async function transcodeToPngDataUrl(buffer: Buffer, sourceMimeType: string): Promise<string | null> {
+  try {
+    const sharpModule = await import("sharp");
+    const pngBuffer = await sharpModule.default(buffer, {
+      animated: false,
+      limitInputPixels: false,
+    })
+      .rotate()
+      .png()
+      .toBuffer();
+    return `data:image/png;base64,${pngBuffer.toString("base64")}`;
+  } catch (error) {
+    console.warn("[buildCozeImagePayload] failed_to_transcode_reference_image", {
+      sourceMimeType,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function normalizeCozeReferenceDataUrl(dataUrl: string): Promise<string> {
+  const parsed = parseImageDataUrl(dataUrl);
+  if (!parsed) return dataUrl;
+
+  if (COZE_WORKFLOW_SUPPORTED_REFERENCE_MIME_TYPES.has(parsed.mimeType)) {
+    return `data:${parsed.mimeType};base64,${parsed.base64}`;
+  }
+
+  return (await transcodeToPngDataUrl(parsed.buffer, parsed.mimeType)) || dataUrl;
+}
+
+async function blobToBuffer(blob: Blob): Promise<Buffer> {
+  if (typeof blob.arrayBuffer === "function") {
+    return Buffer.from(await blob.arrayBuffer());
+  }
+
+  if (typeof FileReader !== "undefined") {
+    const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error || new Error("Failed to read image blob"));
+      reader.onloadend = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+          return;
+        }
+        reject(new Error("Failed to read image blob as ArrayBuffer"));
+      };
+      reader.readAsArrayBuffer(blob);
+    });
+    return Buffer.from(arrayBuffer);
+  }
+
+  return Buffer.from(await new Response(blob).arrayBuffer());
+}
+
 function buildAbsoluteCozeImageUrl(rawPath: string): string | null {
   const siteAbsoluteUrl = buildAbsoluteSiteUrl(rawPath);
   if (siteAbsoluteUrl) {
@@ -161,11 +237,10 @@ function buildAbsoluteCozeImageUrl(rawPath: string): string | null {
 async function inlineCozeImageInput(imageInput: string): Promise<string | null> {
   try {
     const blob = await toBlobFromImageInput(imageInput);
-    const arrayBuffer = typeof blob.arrayBuffer === "function"
-      ? await blob.arrayBuffer()
-      : await new Response(blob).arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    return `data:${blob.type || "image/png"};base64,${buffer.toString("base64")}`;
+    const buffer = await blobToBuffer(blob);
+    return normalizeCozeReferenceDataUrl(
+      `data:${normalizeImageMimeType(blob.type)};base64,${buffer.toString("base64")}`,
+    );
   } catch (error) {
     console.warn("[buildCozeImagePayload] failed_to_inline_image_input", {
       imageInput,
@@ -182,11 +257,23 @@ function shouldInlineCozeHttpImage(imageInput: string): boolean {
       return true;
     }
 
+    if (parsed.hostname.includes("tiktokcdn.com")) {
+      return true;
+    }
+
     if (parsed.pathname.endsWith("/api/storage/image") || parsed.pathname.endsWith("/storage/image")) {
       return true;
     }
 
     if (extractStorageKeyFromPresignedUrl(imageInput)) {
+      return true;
+    }
+
+    if (/\.(?:avif|bmp|gif|heic|heif|tiff?|webp|svg)$/i.test(parsed.pathname)) {
+      return true;
+    }
+
+    if ((parsed.searchParams.get("format") || "").toLowerCase() === "webp") {
       return true;
     }
 
@@ -208,7 +295,7 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
 
   if (imageInput.startsWith("data:")) {
     return {
-      url: imageInput,
+      url: await normalizeCozeReferenceDataUrl(imageInput),
       file_type: "image",
     };
   }
@@ -217,7 +304,7 @@ async function buildCozeImagePayload(imageInput: string): Promise<CozePromptImag
     const localImage = await readLocalPublicImage(imageInput);
     if (localImage) {
       return {
-        url: `data:${localImage.mimeType};base64,${localImage.data}`,
+        url: await normalizeCozeReferenceDataUrl(`data:${localImage.mimeType};base64,${localImage.data}`),
         file_type: "image",
       };
     }

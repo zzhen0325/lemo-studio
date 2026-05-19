@@ -100,6 +100,7 @@ export function getApiBase(): string {
 const STORAGE_DOMAINS = [
   'coze-coding-project.tos.coze.site',
   'tos.coze.site',
+  'tiktokcdn.com',
 ];
 
 /**
