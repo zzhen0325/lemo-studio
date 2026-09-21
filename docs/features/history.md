@@ -49,6 +49,7 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 - `useHistory`（SWR）：History 主数据来源。
 - Playground 容器：承接 Tab 切换与动作回调（Use Prompt / Rerun / Edit 等）。
+- `containers/hooks/usePlaygroundHistoryActions`：统一组装 Use All、Use Model 和 Rerun 的配置，负责批量生成与下载动作；通过容器注入生成回调和 SWR 刷新能力。
 - `usePlaygroundMoodboards`：Add-to-Moodboard 动作依赖其数据与刷新能力。
 
 ### 服务端依赖
@@ -65,10 +66,18 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 
 ## 关键规则
 
+- `sync-image` 只更新当前 actor 已存在历史中与 `localSourceIds` 匹配的 `sourceImageUrls` 位置；所有匹配位置均替换，重复请求不再写入。它不创建历史记录，也不改变 prompt、编辑参数或其他 config 字段。
+- 同步依赖 `lib/server/repositories/migrations/0003_history_config_cas.sql` 中的 `update_owned_history_config` RPC；部署应用前先通过 `pnpm db:migrate` 应用版本化迁移。完整 config 通过 POST 请求体发送，避免图片 data URL 触发查询 URL 长度限制。本地启动会自动应用迁移，线上仍需单独执行。
+- 同步按 ID 游标分页，单次读取最多 100 条；写入同时匹配 ID、owner 和读取时的 config。发生并发修改时重读合并，最多尝试 5 次写入，仍冲突则返回 409。多条记录不构成一个事务，失败后可以安全重试。
+
 - History 与 Gallery 共用同一后端数据源：修改 history 查询/写入/删除语义需同时评估两个视图的影响。
 - 用户归属由服务端从 session 推导；删除与更新必须按 owner 限制范围。
+- 保存先新增记录；主键冲突时仅允许相同 owner 更新。普通写入不能修改 id/user_id，不同 owner 或已失去归属的更新返回 409。归属迁移仍仅由登录迁移流程负责。
+- HistoryRepository 的受保护写入直接封装 ID + owner 过滤，避免旧 Model 丢失 owner 条件；写入业务编排位于 `history-write.service.ts`。
 - 读取历史记录时如需规范化输出图/参考图 URL，只能补丁式更新 URL 相关字段，不能覆盖已有 `config` 元数据（如 prompt、model、workflow/edit 标记）。
-- `Use All`、`Use Model`、`Rerun` 现在统一走 Playground 容器的参数回填入口，避免卡片内部各自拼装配置造成 workflow、preset、reference image、edit 状态不一致。
+- `Use All`、`Use Model`、`Rerun` 统一走 `usePlaygroundHistoryActions` 的参数回填入口，由 Playground 容器接入卡片，避免卡片内部各自拼装配置造成 workflow、preset、reference image、edit 状态不一致。
+- `Use Model` 保留当前 prompt 与上传图片；`Use All` 恢复历史参考图，无参考图时清空当前上传图；`Rerun` 等待参考图恢复后再触发生成。所有回填均清除旧 task id。
+- Describe 的 `Generate ALL` 只复用各条记录的 prompt，使用当前模型配置，并清除参考图与编辑上下文。
 - 图片详情弹窗中的 `Use All` / `Rerun` 必须等待 lightweight/minimal 记录补拉完整 detail 后，再走同一套页面级回填入口；不要直接使用轻量 feed 里的原始 `config` 做回填。
 - 历史记录的 `Edit` / `Edit Again` 必须记录 `edit` interaction，并保持 `config.isEdit`、`config.parentId`、`config.editConfig.originalImageUrl`、`config.imageEditorSession` 可追溯，否则编辑统计排序和再次编辑恢复都会失真。
 - workflow 历史记录回填时必须保持 `config.model = Workflow`、`config.baseModel = 原底模` 的组合；否则 UI 虽然显示选中了 workflow，再次生成仍可能误走普通文生图链路。
@@ -87,6 +96,12 @@ History 用于回看与复用 Playground 的历史输入与输出，包括生成
 - 修改卡片动作会影响生成链路、编辑链路与 moodboard 写入。
 
 ## 更新记录
+
+- 2026-09-21：`sync-image` 由 HistoryRepository 持久化当前 actor 的匹配参考图；采用 config 快照条件更新，冲突后重读重试，避免覆盖其他字段；输入缺失返回 400，持续冲突返回 409，数据库错误不再伪报成功。
+
+- 2026-09-21：修复同 ID 历史保存的跨 owner 覆盖与更新条件丢失，保留 409 冲突响应；验证同 owner 并发重试及登录归属迁移后的写入边界。
+
+- 2026-09-21：历史回填、重跑、批量生成和下载动作移入独立 hook；新增回归测试覆盖模型回填、workflow 身份、参考图恢复等待和批量生成上下文隔离。
 
 - 2026-09-21：新增本地数据库与文件存储模式；生成统计持久化经 HistoryRepository，计数区分已有记录更新和新建。见 [本地开发环境](local-development.md)。
 

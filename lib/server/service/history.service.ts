@@ -1,3 +1,4 @@
+import { isValidId, saveHistoryRecord } from './history-write.service';
 import { HttpError } from '../utils/http-error';
 import { HistoryRepository, type GenerationRecord } from '../repositories';
 import type { Generation } from '../../../types/database';
@@ -103,11 +104,6 @@ export interface HistoryDetailQuery {
   outputUrl?: string | null;
   userId?: string | null;
   viewerUserId?: string | null;
-}
-
-// Simple UUID validation
-function isValidId(id: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
 function isEnabledFlag(value: unknown): boolean {
@@ -446,61 +442,7 @@ export class HistoryService {
   }
 
   public async saveHistory(body: unknown, actorId: string): Promise<{ success: true; migratedCount?: number }> {
-    try {
-      const bodyObj = body as Record<string, unknown>;
-      
-      if (bodyObj.action === 'batch-update' && Array.isArray(bodyObj.items)) {
-        const items = bodyObj.items as Generation[];
-        for (const item of items) {
-          if (!item.id || !isValidId(item.id)) continue;
-          const existing = await this.historyRepository.findOwnedById(item.id, actorId);
-          if (!existing) continue;
-
-          await this.historyRepository.updateOwned(item.id, actorId, {
-            output_url: item.outputUrl,
-            config: item.config as Record<string, unknown>,
-            status: item.status,
-          });
-        }
-        return { success: true };
-      }
-
-      if (bodyObj.action === 'sync-image' && bodyObj.localId && bodyObj.path) {
-        // Update all records matching localSourceId in config
-        // For Supabase, this requires a different approach
-        console.log('[HistoryService] sync-image action not fully implemented for Supabase');
-        return { success: true };
-      }
-
-      if (bodyObj.action === 'migrate-user-history') {
-        return { success: true, migratedCount: 0 };
-      }
-
-      // Default: create new generation record
-      const gen = bodyObj as Record<string, unknown>;
-      const id = (gen.id as string) || crypto.randomUUID();
-
-      const nextDoc = {
-        id,
-        user_id: actorId,
-        project_id: (gen.projectId as string) || 'default',
-        output_url: gen.outputUrl as string,
-        config: gen.config as Record<string, unknown>,
-        status: (gen.status as 'pending' | 'completed' | 'failed') || 'completed',
-        created_at: (gen.createdAt as string) || new Date().toISOString(),
-      };
-
-      const { created } = await this.historyRepository.upsert(nextDoc);
-
-      if (created && nextDoc.output_url) {
-        void this.historyRepository.recordGeneratedImage().catch(() => {});
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error('Failed to save history:', error);
-      throw new HttpError(500, 'Failed to save history');
-    }
+    return saveHistoryRecord(this.historyRepository, body, actorId);
   }
 
   public async deleteHistory(ids: string[], actorId: string): Promise<{ success: true }> {

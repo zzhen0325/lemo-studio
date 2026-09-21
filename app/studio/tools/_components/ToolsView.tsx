@@ -6,12 +6,17 @@ import { Download, Video, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import WebGLRenderer from './WebGLRenderer';
-import ParameterPanel from './ParameterPanel';
+import dynamic from 'next/dynamic';
+import { ToolPreview } from './ToolPreview';
+
 import { TOOLS_EXPORT_HEIGHT, TOOLS_EXPORT_WIDTH, WEBGL_TOOLS, WebGLToolConfig } from './tool-configs';
 import { useToast } from "@/hooks/common/use-toast";
 import { formatImageUrl } from "@/lib/api-base";
 
+const WebGLRenderer = dynamic(() => import('./WebGLRenderer'), { ssr: false });
+const ParameterPanel = dynamic(() => import('./ParameterPanel'), {
+    loading: () => <div className="p-4 text-sm text-white/60">Loading controls…</div>,
+});
 const TOOLS_RECORDING_FPS = 60;
 const FOUR_K_PIXELS = TOOLS_EXPORT_WIDTH * TOOLS_EXPORT_HEIGHT;
 
@@ -285,24 +290,7 @@ const ToolsView: React.FC = () => {
                                         onClick={() => handleSelectTool(tool)}
                                     >
                                         <div className="aspect-video rounded-none relative bg-black/40">
-                                            {/* 简单预览渲染 */}
-                                            {tool.type === 'shader' && tool.fragmentShader && (
-                                                <WebGLRenderer
-                                                    shader={tool.fragmentShader}
-                                                    uniforms={tool.parameters.reduce((acc, p) => { acc[p.id] = p.defaultValue as number; return acc; }, {} as Record<string, number | number[]>)}
-                                                    width={400}
-                                                    height={225}
-                                                />
-                                            )}
-                                            {tool.type === 'component' && tool.component && (
-                                                <div className="w-full h-full rounded-none relative isolate">
-                                                    <tool.component
-                                                        key={tool.id} // 强制隔离
-                                                        isPreview
-                                                        {...tool.parameters.reduce((acc, p) => { acc[p.id] = p.defaultValue; return acc; }, {} as Record<string, number | string | boolean | undefined>)}
-                                                    />
-                                                </div>
-                                            )}
+                                            <ToolPreview tool={tool} />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 <Button variant="outline" className="rounded-full border-white/40 bg-white/10 backdrop-blur-xl hover:bg-white/20 text-white">Open Tool</Button>
                                             </div>

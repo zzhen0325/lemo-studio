@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   getGalleryPromptCategory,
@@ -18,9 +18,11 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { GalleryFilterPanel } from './GalleryFilterPanel';
 import { GalleryMasonryWall } from './GalleryMasonryWall';
-import { GalleryPromptGrid } from './GalleryPromptGrid';
+import dynamic from 'next/dynamic';
 import { GalleryStaticWall } from './GalleryStaticWall';
 import { GalleryToolbar } from './GalleryToolbar';
+
+const GalleryPromptGrid = dynamic(() => import('./GalleryPromptGrid').then((module) => module.GalleryPromptGrid), { ssr: false });
 
 function isTimeFilterActive(timeFilter: GalleryTimeFilter): boolean {
   if (timeFilter.kind === 'preset') {
@@ -104,17 +106,18 @@ export function GalleryScene({
     || isTimeFilterActive(timeFilter);
   const galleryLayoutKey = `${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${byMeOnly ? '1' : '0'}|${timeFilter.kind === 'preset' ? `p:${timeFilter.value}` : `c:${timeFilter.range.from ?? ''}_${timeFilter.range.to ?? ''}`}|${sortBy}|${galleryScopeFilter}`;
 
+  // SWR already loads the first page. Refresh only when returning to the image wall,
+  // rather than refetching after every initial response or appended page.
+  const imageWallIsActive = isActive && activeInnerTab === 'gallery';
+  const wasImageWallActive = useRef(imageWallIsActive);
+  const revalidateLatest = feed.revalidateLatest;
   useEffect(() => {
-    if (!isActive || activeInnerTab !== 'gallery' || feed.items.length === 0) {
-      return;
+    const isReturning = imageWallIsActive && !wasImageWallActive.current;
+    wasImageWallActive.current = imageWallIsActive;
+    if (isReturning) {
+      void revalidateLatest();
     }
-
-    const timer = window.setTimeout(() => {
-      void feed.revalidateLatest();
-    }, 80);
-
-    return () => window.clearTimeout(timer);
-  }, [activeInnerTab, feed.items.length, feed.revalidateLatest, isActive]);
+  }, [revalidateLatest, imageWallIsActive]);
 
   useEffect(() => {
     fetch('/api/stats')

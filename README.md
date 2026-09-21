@@ -34,5 +34,6 @@ Set `PLAYWRIGHT_BASE_URL` if you want to point tests at an already running serve
 - Product philosophy & technical plan: `docs/product-philosophy-and-technical-plan.md`
 - Deployment notes: `docs/DEPLOYMENT.md`
 - Environment variables: `docs/ENVIRONMENT.md`
+- Database schema and versioned migrations: `docs/features/database-migrations.md` (`pnpm db:status`, `pnpm db:migrate`, `pnpm db:check`)
 - Notes: `docs/notes/`
 - Tool docs: `docs/tools/`

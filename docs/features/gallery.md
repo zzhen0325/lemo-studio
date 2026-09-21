@@ -24,7 +24,8 @@ Gallery 用于集中回看、筛选、复用生成结果与对应 Prompt，并�
 ### 拉取与分页
 
 - `useGalleryFeed({ sortBy, isActive, byMeOnly })` 基于 `useSWRInfinite` 拉取 `/api/history` 轻量分页数据；当 `byMeOnly` 为 true 时，请求中追加 `mine=1`，由 `HistoryService` 走 owner 维度拉取，命中当前 session 的 `actorId`。
-- 首屏加载第一页，滚动接近尾部时由图墙组件触发 `loadMore()` 拉下一页。
+- 首屏请求与 `GalleryScene` 图墙代码加载并行；Prompt 网格仅在切换到 Prompt tab 时加载。
+- 首屏加载第一页，滚动接近尾部时由图墙组件触发 `loadMore()` 拉下一页。首次响应和追加分页不再额外触发第一页刷新；从隐藏状态或 Prompt tab 返回图墙时才调用 `revalidateLatest()`，下载后的显式刷新保持不变。
 - `revalidateLatest()` 会节流拉取第一页并把最新结果 prepend 到当前缓存；`byMeOnly` 切换会作为新的 SWR key 维度，避免在不同模式间串数据。
 - Dock Gallery 在隐藏态仍保留本地 UI state、排序、筛选和滚动实例，但会暂停 SWR focus/stale revalidate，并阻止隐藏态继续触发 `loadMore()`，只在重新激活后恢复拉取。
 - Gallery 展示数据在客户端会额外叠加 Playground 本地 optimistic history overlay，因此本地新生成结果不必等待 `/api/history` 重新拉取也能先出现在图墙/Prompt 视图里。
@@ -115,6 +116,8 @@ Gallery 用于集中回看、筛选、复用生成结果与对应 Prompt，并�
 - 修改图墙虚拟化与布局：可能影响 `masonic` 的 render range、滚动性能、首屏渲染、触底加载触发时机与图片加载稳定性。
 
 ## 更新记录
+
+- 2026-09-21：并行加载 Gallery 数据与图墙，延迟加载 Prompt 网格，移除首次响应及分页后的重复第一页请求。
 
 - 2026-09-21：合并本地图片数量与部署版筛选，图库总数和累计生成数分别显示，工具栏允许窄窗口换行。本地数据源见 [本地开发环境](local-development.md)。
 

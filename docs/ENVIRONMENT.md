@@ -30,6 +30,13 @@ Use `pnpm dev:local` for the isolated PostgreSQL and filesystem environment. It 
   - Secret used to encrypt stored provider API keys.
 - Supabase database is auto-configured via COZE integration.
 
+## Database migration tooling
+
+- `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`: explicitly select the database for `pnpm db:migrate` and `pnpm db:status`; `PGDATABASE` is required by the runner.
+- `PGPASSFILE`: optional PostgreSQL credential file; do not store credentials in the repository.
+- `PSQL_BIN`: optional path to the PostgreSQL `psql` executable.
+- These settings configure maintenance tooling, not the Next.js application's Supabase connection. Cloud migrations are never automatically run by application startup. See [database migrations](features/database-migrations.md).
+
 ## AI Providers
 
 - `DOUBAO_API_KEY`

@@ -44,7 +44,7 @@ pnpm local:seed
 
 ## 依赖关系
 
-数据库初始化先运行 `supabase-schema.sql`，再运行 `lib/server/repositories/local/schema.sql` 补齐当前代码实际使用的字段和统计 RPC。补充 schema 可重复执行；不会向线上数据库运行迁移。
+数据库业务 schema 统一由 `lib/server/repositories/migrations/` 管理。本地启动执行版本化迁移，再运行 `lib/server/repositories/local/schema.sql` 配置本地角色与授权。已执行版本通过校验后跳过，不再依据单张表是否存在判断初始化状态。详见 [数据库迁移](database-migrations.md)。
 
 本地依赖 PostgreSQL 17 与 PostgREST。可通过 `LOCAL_POSTGRES_BIN` 指定 PostgreSQL 的 bin 目录，其他平台需自行安装对应命令。
 
@@ -74,5 +74,7 @@ pnpm local:seed
 影响本地所有数据库访问和 `src/storage/object-storage.ts` 的调用者，包括上传、生成结果保存、History/Gallery、Dataset。扣子连接与对象存储保持默认路径。
 
 ## 更新记录
+
+- 2026-09-21：本地启动增加历史 config 条件更新 RPC 迁移；已有本地数据库也会应用，不修改历史记录。
 
 - 2026-09-21：合并部署快照与本地 FluxKlein/Gallery 修改，增加独立本地数据库、文件存储、测试数据和运行入口。

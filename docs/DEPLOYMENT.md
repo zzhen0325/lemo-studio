@@ -18,6 +18,10 @@ The authoritative platform commands are in `.coze`:
 
 Local development uses `pnpm dev:local`; see [local development](features/local-development.md). Leave `STUDIO_RUNTIME` unset on Coze to retain platform database and object storage.
 
+## Database migrations
+
+Before deploying code that requires new schema, apply the versioned migration chain with `pnpm db:migrate` using an explicitly configured PostgreSQL connection. Alternatively, execute the generated `supabase-schema.sql` in the platform SQL editor. Both paths use the same checksums, migration ledger and transaction lock. Application build/start does not run cloud migrations automatically. Local roles and grants are excluded from the business schema. See [database migrations](features/database-migrations.md) for adoption rules, validation and connection settings.
+
 ## Required Env
 
 - `API_CONFIG_ENCRYPTION_KEY`

@@ -20,6 +20,8 @@ Tools 提供独立于 Playground 的实时视觉工具（shader/three/canvas/DOM
 - Shader Lab 全屏入口：`/tools/shader-lab`（从 `/studio/tools` 卡片进入）。
 - 全屏页左上角固定退出按钮，返回 `/studio/tools`。
 - `ToolsView` 负责工具列表与单工具编辑页之间的切换。
+- 列表卡片通过 `ToolPreview` 观察可见区域，只挂载可见卡片的实时预览；离开可见区域后卸载渲染器，滚回时恢复。首屏不下载屏幕外卡片的 adapter，避免同时初始化全部 WebGL 上下文。
+- 参数面板仅在进入工具详情后加载；WebGL renderer 按需加载。预览保持原有动画，详情参数、preset 与 4K 导出流程不变。
 
 ### 参数与渲染
 
@@ -91,6 +93,8 @@ Tools 提供独立于 Playground 的实时视觉工具（shader/three/canvas/DOM
 - 修改 Shader Lab vendor 代码、资源前缀或 `@shaderlab/*` alias 会影响 `/tools/shader-lab` 的运行稳定性。
 
 ## 更新记录
+
+- 2026-09-21：工具预览按可见区域挂载和释放，参数面板与 WebGL renderer 改为按需加载，减少列表首屏渲染开销。
 
 - 2026-04-15：新增 Shader Lab 全屏特例路由 `/tools/shader-lab`，并在 `/studio/tools` 增加入口卡片与退出回跳链路。
 - 2026-04-15：新增 `@shaderlab/*` 内部 alias 与 route-scoped 样式映射，保留 Shader Lab 原始交互逻辑。

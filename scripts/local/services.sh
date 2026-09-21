@@ -31,9 +31,8 @@ PSQL=("$PG_BIN/psql" -h 127.0.0.1 -p "$PG_PORT" -U studio_admin -v ON_ERROR_STOP
 if [[ "$("${PSQL[@]}" -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname='studio_local'")" != 1 ]]; then
   "$PG_BIN/createdb" -h 127.0.0.1 -p "$PG_PORT" -U studio_admin studio_local
 fi
-if [[ "$("${PSQL[@]}" -d studio_local -Atc "SELECT to_regclass('public.generations') IS NOT NULL")" != t ]]; then
-  "${PSQL[@]}" -d studio_local -1 -f supabase-schema.sql > "$TASK_ROOT/schema.log"
-fi
+PGHOST=127.0.0.1 PGPORT="$PG_PORT" PGUSER=studio_admin PGDATABASE=studio_local \
+  PSQL_BIN="$PG_BIN/psql" node scripts/db/migrate.mjs apply > "$TASK_ROOT/schema.log"
 "${PSQL[@]}" -d studio_local -1 -f lib/server/repositories/local/schema.sql >> "$TASK_ROOT/schema.log"
 cat > "$TASK_ROOT/postgrest.conf" <<CONFIG
 db-uri = "postgresql://studio_admin@127.0.0.1:$PG_PORT/studio_local"

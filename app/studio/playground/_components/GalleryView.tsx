@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from 'react';
-import { GalleryScene } from '@/components/gallery/GalleryScene';
+import dynamic from 'next/dynamic';
+import { GalleryViewLoadingShell } from '@/components/gallery/GalleryLoadingState';
 import { useGalleryFeed } from '@/lib/gallery/use-gallery-feed';
 import type { SortBy } from '@/lib/server/service/history.service';
 import { usePlaygroundStore } from '@/lib/store/playground-store';
@@ -11,6 +12,11 @@ import { useToast } from '@/hooks/common/use-toast';
 import { useGenerationService } from '@studio/playground/_components/hooks/useGenerationService';
 import type { PlaygroundHistoryController } from '@studio/playground/_components/hooks/useHistory';
 import { usePlaygroundMoodboards } from '@studio/playground/_components/hooks/usePlaygroundMoodboards';
+
+const GalleryScene = dynamic(
+  () => import('@/components/gallery/GalleryScene').then((module) => module.GalleryScene),
+  { ssr: false, loading: () => <GalleryViewLoadingShell /> },
+);
 
 export default function GalleryView({
   isActive = true,

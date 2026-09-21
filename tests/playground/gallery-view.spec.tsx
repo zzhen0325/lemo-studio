@@ -140,23 +140,25 @@ describe('GalleryView loading behavior', () => {
     feedState.revalidateLatest = vi.fn(async () => undefined);
   });
 
-  it('uses the shared gallery feed hook with the default recent sort', () => {
+  it('uses the shared gallery feed hook with the default recent sort', async () => {
     feedState.items = [createViewModel('cached-item')];
     feedState.promptItems = [createViewModel('cached-item')];
     feedState.isInitialLoading = false;
 
     render(<GalleryView />);
+    await screen.findByTestId('gallery-wall-ready');
 
     expect(screen.getByTestId('gallery-wall-ready')).toBeTruthy();
     expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: true, byMeOnly: false });
   });
 
-  it('keeps the gallery content inside a bounded flex chain', () => {
+  it('keeps the gallery content inside a bounded flex chain', async () => {
     feedState.items = [createViewModel('bounded-item')];
     feedState.promptItems = [createViewModel('bounded-item')];
     feedState.isInitialLoading = false;
 
     render(<GalleryView />);
+    await screen.findByTestId('gallery-wall-ready');
 
     expect(screen.getByTestId('gallery-view-root').className).toContain('flex-1');
     expect(screen.getByTestId('gallery-view-root').className).toContain('min-h-0');
@@ -172,22 +174,24 @@ describe('GalleryView loading behavior', () => {
     expect(screen.getByTestId('gallery-view-body').className).toContain('min-w-0');
   });
 
-  it('keeps the masonry layout key stable when the first gallery item changes', () => {
+  it('keeps the masonry layout key stable when the first gallery item changes', async () => {
     feedState.items = [createViewModel('first-item-a'), createViewModel('first-item-b')];
     feedState.promptItems = [createViewModel('first-item-a'), createViewModel('first-item-b')];
     feedState.isInitialLoading = false;
 
     const { rerender } = render(<GalleryView />);
+    await screen.findByTestId('gallery-wall-ready');
     const initialLayoutKey = screen.getByTestId('gallery-wall-ready').getAttribute('data-layout-key');
 
     feedState.items = [createViewModel('first-item-c'), createViewModel('first-item-b')];
     feedState.promptItems = [createViewModel('first-item-c'), createViewModel('first-item-b')];
     rerender(<GalleryView />);
+    await screen.findByTestId('gallery-wall-ready');
 
     expect(screen.getByTestId('gallery-wall-ready').getAttribute('data-layout-key')).toBe(initialLayoutKey);
   });
 
-  it('passes the inactive flag through to the shared gallery feed hook', () => {
+  it('passes the inactive flag through to the shared gallery feed hook', async () => {
     feedState.items = [createViewModel('inactive-item')];
     feedState.promptItems = [createViewModel('inactive-item')];
     feedState.isInitialLoading = false;
@@ -197,16 +201,32 @@ describe('GalleryView loading behavior', () => {
     expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: false, byMeOnly: false });
   });
 
-  it('passes the feed total through to the gallery header metadata', () => {
+  it('passes the feed total through to the gallery header metadata', async () => {
     feedState.items = [createViewModel('counted-item')];
     feedState.promptItems = [createViewModel('counted-item')];
     feedState.total = 1234;
     feedState.isInitialLoading = false;
 
     render(<GalleryView />);
+    await screen.findByTestId('gallery-wall-ready');
 
     expect(screen.getByLabelText('Total gallery images: 1,234')).toBeTruthy();
     expect(screen.getByLabelText('Total gallery images: 1,234').textContent).toContain('1,234 images');
     expect(screen.getByTestId('gallery-view-stack').querySelector('[data-gallery-total-count="1234"]')).toBeTruthy();
   });
+  it('does not refetch on first paint or pagination, but refreshes when reopened', async () => {
+    feedState.items = [createViewModel('first')];
+    const { rerender } = render(<GalleryView />);
+    await screen.findByTestId('gallery-wall-ready');
+    expect(feedState.revalidateLatest).not.toHaveBeenCalled();
+
+    feedState.items = [...feedState.items, createViewModel('second')];
+    rerender(<GalleryView />);
+    expect(feedState.revalidateLatest).not.toHaveBeenCalled();
+
+    rerender(<GalleryView isActive={false} />);
+    rerender(<GalleryView isActive />);
+    expect(feedState.revalidateLatest).toHaveBeenCalledTimes(1);
+  });
+
 });

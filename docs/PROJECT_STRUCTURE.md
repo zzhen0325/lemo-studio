@@ -21,6 +21,9 @@ Do not place temporary scripts, test drafts, or generated screenshots in root.
   - `lib/server/`: Next route handlers 复用的服务层、模型与运行时工具
   - `lib/playground/types.ts`: route-agnostic playground shared types (avoid `lib` -> `app` reverse dependency)
 - `scripts/`: maintenance scripts and one-off migration tools
+  - `scripts/db/`: versioned migration runner, schema generation and database integration tests
+- `lib/server/repositories/migrations/`: canonical numbered business SQL migrations
+- `supabase-schema.sql`: generated executable migration snapshot; update via `pnpm db:schema`, not manual edits
 - `docs/`: product/engineering docs
   - `docs/wiki/`: legacy module docs (migrated from root `wiki/`)
   - `docs/tools/`: tool development docs (for example `tldraw-dev-guide.md`)

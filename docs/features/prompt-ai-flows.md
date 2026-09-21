@@ -58,7 +58,16 @@
 - Moodboard prompt template 是模板生成，不是 prompt optimize。
 - Image Edit prompt assembly 是本地 prompt 拼装，不是 AI optimize。
 
+## Provider 实现边界
+
+- 调用方继续通过 `lib/ai/providers.ts` 使用原有 Provider 类；各 family 的真实实现位于 `lib/ai/providers/`，不再汇总到 `legacy.ts`。
+- `coze-prompt.ts` 负责 Coze 文本与视觉请求，`coze-workflow-image.ts` 负责工作流出图，`coze-image.ts` 负责上传后执行 Coze 图像工作流。
+- Coze 图片输入处理与结果提取分别位于 `coze-image-input.ts`、`coze-image-output.ts`。这些模块不负责业务 flow 分类或 History 写入。
+- 此边界调整影响 Provider 代码归属，不改变请求参数、返回值、模型绑定或上述业务流程。
+
 ## 更新记录
+
+- 2026-09-21：拆除 Provider 集中式 legacy 实现，明确 family 与 Coze 图片处理边界，保留原有导出和执行行为。
 
 - 2026-05-18：新增 FluxKlein prompt 英文准备流程，明确后台静默翻译只影响 workflow 入参，不改变 UI/history 原始 prompt。
 - 2026-04-15：`/api/ai/describe` 统一为标准 vision provider，Dataset Label 不再单独走 Coze workflow（`service:datasetLabel` 仅作为模型绑定上下文保留）。

@@ -1,0 +1,308 @@
+-- Lemon8 AI Studio 数据库表结构
+-- 请在 Supabase 控制台的 SQL Editor 中执行此脚本
+
+-- ==========================================
+-- 1. 用户表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  display_name VARCHAR(255),
+  avatar_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ==========================================
+-- 2. 图片资源表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS image_assets (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  url TEXT NOT NULL,
+  dir VARCHAR(255) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  region VARCHAR(64) NOT NULL,
+  type VARCHAR(32) NOT NULL, -- generation, reference, dataset, upload
+  project_id VARCHAR(36),
+  generation_id VARCHAR(36),
+  meta JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS image_assets_type_idx ON image_assets(type);
+CREATE INDEX IF NOT EXISTS image_assets_project_id_idx ON image_assets(project_id);
+CREATE INDEX IF NOT EXISTS image_assets_generation_id_idx ON image_assets(generation_id);
+
+-- ==========================================
+-- 3. 生成记录表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS generations (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  status VARCHAR(32) DEFAULT 'pending', -- pending, completed, failed
+  progress INTEGER,
+  progress_stage VARCHAR(64),
+  user_id VARCHAR(36),
+  project_id VARCHAR(36),
+  llm_response TEXT,
+  output_image_id VARCHAR(36),
+  source_image_id VARCHAR(36),
+  output_url TEXT,
+  config JSONB,
+  -- 交互统计字段
+  like_count INTEGER DEFAULT 0,
+  moodboard_add_count INTEGER DEFAULT 0,
+  download_count INTEGER DEFAULT 0,
+  edit_count INTEGER DEFAULT 0,
+  last_liked_at TIMESTAMPTZ,
+  last_moodboard_added_at TIMESTAMPTZ,
+  last_downloaded_at TIMESTAMPTZ,
+  last_edited_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS generations_user_id_idx ON generations(user_id);
+CREATE INDEX IF NOT EXISTS generations_project_id_idx ON generations(project_id);
+CREATE INDEX IF NOT EXISTS generations_created_at_idx ON generations(created_at DESC);
+CREATE INDEX IF NOT EXISTS generations_status_idx ON generations(status);
+-- 交互统计索引（用于排序筛选）
+CREATE INDEX IF NOT EXISTS generations_download_count_idx ON generations(download_count DESC);
+CREATE INDEX IF NOT EXISTS generations_like_count_idx ON generations(like_count DESC);
+CREATE INDEX IF NOT EXISTS generations_last_downloaded_at_idx ON generations(last_downloaded_at DESC);
+
+-- ==========================================
+-- 3.1 生成记录点赞表（去重）
+-- ==========================================
+CREATE TABLE IF NOT EXISTS generation_likes (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  generation_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(generation_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS generation_likes_generation_id_idx ON generation_likes(generation_id);
+CREATE INDEX IF NOT EXISTS generation_likes_user_id_idx ON generation_likes(user_id);
+
+-- ==========================================
+-- 4. 预设表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS presets (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  cover_url TEXT,
+  cover_data TEXT,
+  config JSONB,
+  edit_config JSONB,
+  category VARCHAR(64),
+  project_id VARCHAR(36),
+  type VARCHAR(32), -- generation, edit
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS presets_category_idx ON presets(category);
+CREATE INDEX IF NOT EXISTS presets_type_idx ON presets(type);
+
+-- ==========================================
+-- 5. 预设分类表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS preset_categories (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(64) NOT NULL UNIQUE,
+  categories JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ==========================================
+-- 6. 风格堆栈表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS style_stacks (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  prompt TEXT NOT NULL,
+  image_paths JSONB DEFAULT '[]',
+  preview_urls JSONB DEFAULT '[]',
+  collage_image_url TEXT,
+  collage_config JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ==========================================
+-- 6.1 Moodboard Card 表
+-- ==========================================
+
+-- 清理旧表遗留的约束和索引（playground_shortcuts -> moodboard_cards 重命名后名称未变）
+DO $$
+BEGIN
+  -- 删除旧的约束
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'playground_shortcuts_code_key') THEN
+    ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_code_key;
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'playground_shortcuts_pkey') THEN
+    ALTER TABLE public.moodboard_cards DROP CONSTRAINT IF EXISTS playground_shortcuts_pkey;
+  END IF;
+  
+  -- 删除旧的索引
+  DROP INDEX IF EXISTS public.playground_shortcuts_code_idx;
+  DROP INDEX IF EXISTS public.playground_shortcuts_is_enabled_idx;
+  DROP INDEX IF EXISTS public.playground_shortcuts_publish_status_idx;
+  DROP INDEX IF EXISTS public.playground_shortcuts_sort_order_idx;
+END $$;
+
+CREATE TABLE IF NOT EXISTS moodboard_cards (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  sort_order INTEGER,
+  is_enabled BOOLEAN DEFAULT true,
+  cover_title TEXT,
+  cover_subtitle TEXT,
+  cover_storage_key TEXT,
+  cover_url TEXT,
+  model_id VARCHAR(255),
+  default_aspect_ratio VARCHAR(32),
+  default_width INTEGER,
+  default_height INTEGER,
+  allow_model_change BOOLEAN DEFAULT true,
+  prompt_template TEXT,
+  prompt_fields JSONB DEFAULT '[]',
+  prompt_config JSONB,
+  moodboard_description TEXT,
+  example_prompts JSONB DEFAULT '[]',
+  gallery_order JSONB DEFAULT '[]',
+  creator VARCHAR(255),
+  publish_status VARCHAR(32) DEFAULT 'draft',
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS moodboard_cards_sort_order_idx ON moodboard_cards(sort_order ASC);
+CREATE INDEX IF NOT EXISTS moodboard_cards_created_at_idx ON moodboard_cards(created_at ASC);
+
+-- ==========================================
+-- 7. 工具预设表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS tool_presets (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  tool_id VARCHAR(64) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  values JSONB,
+  thumbnail TEXT,
+  timestamp BIGINT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS tool_presets_tool_id_idx ON tool_presets(tool_id);
+
+-- 修复已存在的表：将 timestamp 从 INTEGER 改为 BIGINT
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'tool_presets' 
+    AND column_name = 'timestamp' 
+    AND data_type = 'integer'
+  ) THEN
+    ALTER TABLE tool_presets ALTER COLUMN timestamp TYPE BIGINT;
+  END IF;
+END $$;
+
+-- ==========================================
+-- 8. 数据集条目表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS dataset_entries (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  collection_name VARCHAR(255) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  url TEXT NOT NULL,
+  prompt TEXT,
+  width INTEGER,
+  height INTEGER,
+  format VARCHAR(32),
+  size INTEGER,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS dataset_entries_collection_name_idx ON dataset_entries(collection_name);
+
+-- ==========================================
+-- 9. 数据集集合表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS dataset_collections (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ==========================================
+-- 10. 无限画布项目表
+-- ==========================================
+CREATE TABLE IF NOT EXISTS infinite_canvas_projects (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36),
+  project_name VARCHAR(255) NOT NULL,
+  cover_url TEXT,
+  node_count INTEGER NOT NULL DEFAULT 0,
+  canvas_viewport JSONB NOT NULL DEFAULT '{"x": 0, "y": 0, "scale": 1}'::jsonb,
+  last_opened_panel VARCHAR(32),
+  nodes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  edges JSONB NOT NULL DEFAULT '[]'::jsonb,
+  assets JSONB NOT NULL DEFAULT '[]'::jsonb,
+  history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  run_queue JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS infinite_canvas_projects_project_id_uidx ON infinite_canvas_projects(project_id);
+CREATE INDEX IF NOT EXISTS infinite_canvas_projects_user_id_idx ON infinite_canvas_projects(user_id);
+CREATE INDEX IF NOT EXISTS infinite_canvas_projects_updated_at_idx ON infinite_canvas_projects(updated_at DESC);
+
+-- ==========================================
+-- 11. 启用 Row Level Security (RLS)
+-- ==========================================
+-- 注意：根据你的安全需求配置 RLS 策略
+-- 以下是最基本的允许所有操作的策略（生产环境请根据需要调整）
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE image_assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE generation_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE presets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE preset_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE style_stacks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE moodboard_cards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tool_presets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dataset_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dataset_collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE infinite_canvas_projects ENABLE ROW LEVEL SECURITY;
+
+-- 允许匿名访问（根据需要调整）
+CREATE POLICY "Allow anonymous access" ON users FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON image_assets FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON generations FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON generation_likes FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON presets FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON preset_categories FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON style_stacks FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON moodboard_cards FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON tool_presets FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON dataset_entries FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON dataset_collections FOR ALL USING (true);
+CREATE POLICY "Allow anonymous access" ON infinite_canvas_projects FOR ALL USING (true);
+
+-- ==========================================
+-- 完成
+-- ==========================================
+-- 执行完成后，你的 Supabase 数据库就准备就绪了！

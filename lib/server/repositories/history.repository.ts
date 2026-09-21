@@ -1,5 +1,7 @@
+import { syncOwnedHistoryImage } from './history-image-sync.repository';
 import { getSupabaseClient } from '@/src/storage/database/supabase-client';
 import { GenerationModel, type GenerationDoc } from '../db/models';
+import { HttpError } from '../utils/http-error';
 
 export interface HistoryListOptions {
   projectId?: string | null;
@@ -26,6 +28,10 @@ function buildHistoryFilter(ownerId?: string | null, projectId?: string | null):
 export type GenerationRecord = GenerationDoc;
 
 export class HistoryRepository {
+  public async syncImageReference(ownerId: string, localId: string, storageKey: string): Promise<void> {
+    await syncOwnedHistoryImage(ownerId, localId, storageKey);
+  }
+
   public async recordGeneratedImage(): Promise<void> {
     const { error } = await getSupabaseClient().rpc('increment_site_stat', { p_key: 'generated_images', p_delta: 1 });
     if (error) throw error;
@@ -78,7 +84,19 @@ export class HistoryRepository {
   }
 
   public async updateOwned(id: string, ownerId: string, update: Partial<GenerationRecord>): Promise<void> {
-    await GenerationModel.updateOne({ id, user_id: ownerId }, update);
+    // Owner changes belong exclusively to the login migration path.
+    const changes = { ...update };
+    delete changes.id;
+    delete changes.user_id;
+    const { data, error } = await getSupabaseClient()
+      .from('generations')
+      .update(changes)
+      .eq('id', id)
+      .eq('user_id', ownerId)
+      .select('id')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new HttpError(409, 'History record is unavailable for this session');
   }
 
   public async update(id: string, update: Partial<GenerationRecord>): Promise<void> {
@@ -86,17 +104,14 @@ export class HistoryRepository {
   }
 
   public async upsert(record: Partial<GenerationRecord> & { id: string; user_id: string }): Promise<{ created: boolean }> {
-    // Check by id only — the database primary key is on id, not (id, user_id).
-    // A different user_id from a new session should still update the existing row
-    // instead of failing with a duplicate-key error.
-    const existing = await GenerationModel.findOne({ id: record.id });
-    if (existing) {
-      await GenerationModel.updateOne({ id: record.id }, record);
-      return { created: false };
-    }
+    // Insert first: the primary key arbitrates concurrent creation. Never use an
+    // unrestricted upsert, which would let an ID collision replace the owner.
+    const { error } = await getSupabaseClient().from('generations').insert(record);
+    if (!error) return { created: true };
+    if (error.code !== '23505') throw error;
 
-    await GenerationModel.create(record);
-    return { created: true };
+    await this.updateOwned(record.id, record.user_id, record);
+    return { created: false };
   }
 
   public async deleteManyByOwner(ownerId: string, ids: string[]): Promise<void> {

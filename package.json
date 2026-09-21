@@ -18,9 +18,9 @@
     "test:e2e:ui": "playwright test --ui",
     "playwright:install": "playwright install chromium",
     "record:history": "node scripts/record-history.mjs",
-    "ci:check": "npm run lint && npm run typecheck && npm run test && npm run test:e2e && npm run check:api-coverage && npm run check:lines:strict",
+    "ci:check": "pnpm db:check && npm run lint && npm run typecheck && npm run test && npm run test:e2e && npm run check:api-coverage && npm run check:lines:strict",
     "check:lines": "node ./scripts/check-lines.mjs --threshold=500",
-    "check:lines:strict": "node ./scripts/check-lines.mjs --threshold=600 --strict --include=lib/ai/providers.ts --include=lib/ai/providers/**/*.ts --exclude=lib/ai/providers/legacy.ts && node ./scripts/check-lines.mjs --threshold=400 --strict --include=lib/server/repositories/*.ts --include=lib/server/repositories/**/*.ts",
+    "check:lines:strict": "node ./scripts/check-lines.mjs --threshold=600 --strict --include=lib/ai/providers.ts --include=lib/ai/providers/*.ts --include=lib/ai/providers/**/*.ts && node ./scripts/check-lines.mjs --threshold=400 --strict --include=lib/server/repositories/*.ts --include=lib/server/repositories/**/*.ts",
     "check:api-coverage": "node ./scripts/check-api-coverage.mjs",
     "check:workflows": "node ./scripts/check-workflows.mjs",
     "check:workflows:strict": "node ./scripts/check-workflows.mjs --strict",
@@ -35,7 +35,12 @@
     "dev:local": "bash scripts/local/dev.sh",
     "local:up": "bash scripts/local/services.sh up",
     "local:down": "bash scripts/local/services.sh down",
-    "local:seed": "node scripts/local/seed.mjs"
+    "local:seed": "node scripts/local/seed.mjs",
+    "db:migrate": "node scripts/db/migrate.mjs apply",
+    "db:status": "node scripts/db/migrate.mjs status",
+    "db:schema": "node scripts/db/migrate.mjs schema",
+    "db:check": "node scripts/db/migrate.mjs check",
+    "test:db-migrations": "node scripts/db/test-migrations.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

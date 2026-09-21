@@ -55,6 +55,8 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 - `useHistory`（SWR）：分页拉取 history，用于 history panel 与部分联动。
 - `usePlaygroundMoodboards`：拉取 moodboard cards，支持首页跑马灯与 Dock moodboard 视图。
 - `useGenerationService`：封装生成与写入 history 的客户端链路。
+- `containers/hooks/usePlaygroundUploads`：负责参考图、Describe 图和新情绪板图片上传，以及上传完成后的本地图片与历史引用更新。
+- `containers/hooks/usePlaygroundHistoryActions`：负责 History 的 Use All、Use Model、Rerun、批量生成与下载；生成执行和 SWR 刷新由容器传入。
 - `useAuthStore/useAPIConfigStore`：用户 session 与默认模型/配置来源。
 
 ### 服务端依赖
@@ -65,6 +67,7 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 
 - 服务端数据（history 等）优先通过 SWR 管理；本地 UI/editor 状态通过 Zustand（Playground store）管理。
 - 首页入口仅负责编排与切换，不维护独立持久化数据模型。
+- 上传 hook 使用现有 store 图片动作；历史动作 hook 按操作发生时的 store 配置构建回填参数。两个 hook 都不保存独立的服务端数据副本。
 
 ## 关键规则
 
@@ -86,6 +89,8 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 - 调整首页首屏渲染/懒加载策略会影响性能与交互稳定性。
 
 ## 更新记录
+
+- 2026-09-21：从主容器拆出图片上传与历史复用动作，保留上传目标区分、临时图片引用回写、workflow 回填及批量生成语义；主容器继续负责连接生成、编辑器与视图。
 
 - 2026-05-18：补充 FluxKlein 生成前后台静默准备英文 prompt 的调用链与边界。
 - 2026-05-12：补充 Coze Seed 图像生成内容审核失败的用户提示规则。

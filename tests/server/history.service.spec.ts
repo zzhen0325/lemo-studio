@@ -181,3 +181,16 @@ describe('HistoryService lightweight mode', () => {
     expect(result.item?.config.__minimal).toBeUndefined();
   });
 });
+
+describe('HistoryService write conflicts', () => {
+  it('preserves the conflict status and does not increment generated count', async () => {
+    const { HttpError } = await import('@/lib/server/utils/http-error');
+    const repository = {
+      upsert: vi.fn().mockRejectedValue(new HttpError(409, 'History record is unavailable for this session')),
+      recordGeneratedImage: vi.fn(),
+    };
+    await expect(new HistoryService(repository as never).saveHistory({ id: 'existing' }, 'other-actor'))
+      .rejects.toMatchObject({ status: 409 });
+    expect(repository.recordGeneratedImage).not.toHaveBeenCalled();
+  });
+});

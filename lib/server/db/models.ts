@@ -2,6 +2,8 @@
 import { getSupabaseClient } from '@/src/storage/database/supabase-client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import { createQuery, createQueryable } from '../repositories/compat/query';
+import { normalizeDbKey, toSnakeCase } from '../repositories/compat/fields';
 
 // Get the Supabase client
 function getClient(): SupabaseClient {
@@ -11,121 +13,6 @@ function getClient(): SupabaseClient {
 // Helper to generate UUID
 export function generateId(): string {
   return randomUUID();
-}
-
-// Convert camelCase to snake_case
-function camelToSnake(str: string): string {
-  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-}
-
-function normalizeDbKey(key: string): string {
-  return key === '_id' ? 'id' : camelToSnake(key);
-}
-
-// Convert object keys from camelCase to snake_case
-function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    result[camelToSnake(key)] = value;
-  }
-  return result;
-}
-
-// ==========================================
-// Query Builder for Mongoose-like interface
-// ==========================================
-
-interface QueryBuilder<T = unknown> {
-  _resultType?: T;
-  _filter: Record<string, unknown>;
-  _sort: Record<string, 1 | -1>;
-  _skip?: number;
-  _limit?: number;
-  _select?: string;
-  _table: string;
-  _client: SupabaseClient;
-  _single: boolean;
-}
-
-function createQuery<T>(table: string, client: SupabaseClient): QueryBuilder<T> {
-  return {
-    _filter: {},
-    _sort: {},
-    _table: table,
-    _client: client,
-    _single: false,
-  };
-}
-
-async function executeQuery<T>(qb: QueryBuilder<T>): Promise<T[]> {
-  let query = qb._client.from(qb._table).select(qb._select || '*');
-  
-  // Apply filters with camelCase to snake_case conversion
-  for (const [key, value] of Object.entries(qb._filter)) {
-    if (value !== undefined && value !== null) {
-      const dbKey = normalizeDbKey(key);
-      query = query.eq(dbKey, value);
-    }
-  }
-  
-  // Apply sort with camelCase to snake_case conversion
-  for (const [field, order] of Object.entries(qb._sort)) {
-    const dbField = camelToSnake(field);
-    query = query.order(dbField, { ascending: order === 1 });
-  }
-  
-  // Apply pagination
-  if (qb._skip !== undefined && qb._limit !== undefined) {
-    query = query.range(qb._skip, qb._skip + qb._limit - 1);
-  } else if (qb._limit !== undefined) {
-    query = query.limit(qb._limit);
-  }
-  
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data as T[]) || [];
-}
-
-async function executeSingle<T>(qb: QueryBuilder<T>): Promise<T | null> {
-  let query = qb._client.from(qb._table).select(qb._select || '*');
-  
-  for (const [key, value] of Object.entries(qb._filter)) {
-    if (value !== undefined && value !== null) {
-      const dbKey = normalizeDbKey(key);
-      query = query.eq(dbKey, value);
-    }
-  }
-  
-  const { data, error } = await query.limit(1).maybeSingle();
-  if (error) throw error;
-  return data as T | null;
-}
-
-// Create a query object with chainable methods
-function createQueryable<T>(qb: QueryBuilder<T>): any {
-  const promise = qb._single ? executeSingle<T>(qb) : executeQuery<T>(qb);
-  
-  // Add chainable methods
-  (promise as any).lean = () => createQueryable(qb);
-  (promise as any).sort = (sortObj: Record<string, 1 | -1>) => {
-    Object.assign(qb._sort, sortObj);
-    return createQueryable(qb);
-  };
-  (promise as any).select = (fields: string) => {
-    qb._select = fields;
-    return createQueryable(qb);
-  };
-  (promise as any).skip = (n: number) => {
-    qb._skip = n;
-    return createQueryable(qb);
-  };
-  (promise as any).limit = (n: number) => {
-    qb._limit = n;
-    return createQueryable(qb);
-  };
-  (promise as any).exec = () => qb._single ? executeSingle<T>(qb) : executeQuery<T>(qb);
-  
-  return promise;
 }
 
 // Helper to extract $set from update

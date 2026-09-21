@@ -3,6 +3,8 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { usePlaygroundUploads } from "./hooks/usePlaygroundUploads";
+import { usePlaygroundHistoryActions } from "./hooks/usePlaygroundHistoryActions";
 import { useToast } from "@/hooks/common/use-toast";
 
 import { usePromptOptimization, AIModel } from "@studio/playground/_components/hooks/usePromptOptimization";
@@ -24,8 +26,6 @@ import {
   type SelectedLora,
 } from "@/lib/playground/types";
 import type { Generation } from "@/types/database";
-import { downloadImage } from '@/lib/utils/download';
-import { downloadGeneration } from '@/lib/interaction-tracking';
 import type { ImageEditConfirmPayload, ImageEditorSessionSnapshot } from '@/components/image-editor';
 
 import { cn } from "@/lib/utils";
@@ -69,7 +69,6 @@ import {
   type ShortcutOptimizationSession,
   type ShortcutOptimizationVariantDraft,
 } from "@studio/playground/_components/containers/shortcut-optimization";
-import { v4 as uuidv4 } from 'uuid';
 import {
   buildShortcutPrompt,
   createShortcutPromptValues,
@@ -126,7 +125,6 @@ import {
   removeFieldFromShortcutEditorDocument,
   type ShortcutEditorDocument,
 } from "@/app/studio/playground/_lib/shortcut-editor-document";
-import { upsertMoodboardAsShortcut } from "@/app/studio/playground/_lib/moodboard-card-gallery";
 import {
   buildGenerationOutputLookup,
   getMoodboardImageMatchKey,
@@ -203,9 +201,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   const setSelectedLoras = usePlaygroundStore(s => s.setSelectedLoras);
   const initPresets = usePlaygroundStore(s => s.initPresets);
   const applyModel = usePlaygroundStore(s => s.applyModel);
-  const updateUploadedImage = usePlaygroundStore(s => s.updateUploadedImage);
-  const updateDescribeImage = usePlaygroundStore(s => s.updateDescribeImage);
-  const syncLocalImageToHistory = usePlaygroundStore(s => s.syncLocalImageToHistory);
   const generationHistory = usePlaygroundStore(s => s.generationHistory);
   const setGenerationHistory = usePlaygroundStore(s => s.setGenerationHistory);
   const actorId = useAuthStore((state) => state.actorId);
@@ -543,7 +538,6 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
   }, [uploadedImages, updateConfig]);
 
 
-  const updateHistorySourceUrl = usePlaygroundStore(s => s.updateHistorySourceUrl);
 
   const applyWorkflowDefaults = React.useCallback((workflow: IViewComfy) => {
     const mappingConfig = workflow.viewComfyJSON.mappingConfig as { components: UIComponent[] } | undefined;
@@ -1020,149 +1014,11 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     return parsed;
   }, []);
 
-  const handleFilesUpload = React.useCallback(async (
-    files: File[] | FileList,
-    target: 'reference' | 'describe' = 'reference',
-    options?: { waitForUpload?: boolean },
-  ) => {
-    const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
-    const setImages = target === 'describe' ? setDescribeImages : setUploadedImages;
-    const updateImage = target === 'describe' ? updateDescribeImage : updateUploadedImage;
-
-    for (const file of uploads) {
-      const tempId = uuidv4(); // Use uuid for better ID management
-
-      // 1. Generate local preview and base64 immediately
-      const dataUrl: string = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(String(e.target?.result));
-        reader.readAsDataURL(file);
-      });
-      const base64Data = dataUrl.split(',')[1];
-
-      // 2. Get image dimensions
-      const dimensions: { width: number; height: number } = await new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        img.src = dataUrl;
-      });
-
-
-      // 4. Add to UI immediately (prepend to show on top)
-      setImages((prev: UploadedImage[]) => [{
-        id: tempId,
-        localId: tempId,
-        file,
-        base64: base64Data,
-        previewUrl: dataUrl,
-        isUploading: true,
-        width: dimensions.width,
-        height: dimensions.height
-      }, ...prev]);
-
-      // 5. Update config for 'auto' mode if it's the first image in reference
-      if (target === 'reference' && usePlaygroundStore.getState().config.aspectRatio === 'auto') {
-        let { width, height } = dimensions;
-        const minSide = Math.min(width, height);
-        if (minSide < 1024) {
-          const scale = 1024 / minSide;
-          width = Math.round(width * scale);
-          height = Math.round(height * scale);
-        }
-        updateConfig({ width, height });
-      }
-
-      // 6. Start upload (optional wait for flows that need deterministic completion)
-      const uploadTask = async (throwOnError: boolean) => {
-        const form = new FormData();
-        form.append('file', file);
-
-        const originalUrl = dataUrl; // Keep track of the local URL
-
-        try {
-          const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: form });
-          if (!resp.ok) {
-            const errorText = await resp.text().catch(() => '');
-            throw new Error(errorText || `Upload failed with status ${resp.status}`);
-          }
-
-          const json = await resp.json();
-          const path = json?.path ? String(json.path) : undefined;
-          const url = json?.url ? String(json.url) : undefined; // 预签名 URL
-
-          // Update the specific image with its CDN path (storageKey) and preview URL (signed URL)
-          updateImage(tempId, { 
-            path, // storageKey 用于持久化标识
-            previewUrl: url || path, // 优先使用预签名 URL 显示，如果没有则使用 path
-            isUploading: false 
-          });
-
-          // Also update history records that were using this local URL or localId
-          if (path) {
-            updateHistorySourceUrl(originalUrl, url || path);
-            await syncLocalImageToHistory(tempId, path);
-          }
-        } catch (err) {
-          console.error("Upload failed in background", err);
-          updateImage(tempId, { isUploading: false });
-          if (throwOnError) {
-            throw err;
-          }
-        }
-      };
-
-      if (options?.waitForUpload) {
-        await uploadTask(true);
-      } else {
-        void uploadTask(false);
-      }
-    }
-  }, [setDescribeImages, setUploadedImages, updateDescribeImage, updateUploadedImage, updateHistorySourceUrl, updateConfig, syncLocalImageToHistory]);
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files; if (!files) return;
-    // 默认通过 input 上传的归为参考图，除非有特殊逻辑
-    await handleFilesUpload(files, activeTab === 'describe' ? 'describe' : 'reference');
-  };
-  const removeImage = React.useCallback((index: number) => { setUploadedImages(prev => prev.filter((_, i) => i !== index)); }, [setUploadedImages]);
-
-  const handleStyleUpload = async (files: File[] | FileList) => {
-    const uploads = Array.from(files).filter(f => f.type.startsWith('image/'));
-    if (uploads.length === 0) return;
-    const autoMoodboardName = getNextAutoMoodboardName();
-
-    toast({ title: "正在上传图片", description: `正在为新情绪板处理 ${uploads.length} 张图片...` });
-
-    try {
-      const uploadPromises = uploads.map(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        const resp = await fetch(`${getApiBase()}/upload`, { method: 'POST', body: formData });
-        if (!resp.ok) throw new Error('Upload failed');
-        const data = await resp.json();
-        return data.path;
-      });
-
-      const imagePaths = await Promise.all(uploadPromises);
-
-      await upsertMoodboardAsShortcut({
-        name: autoMoodboardName,
-        prompt: '',
-        imagePaths,
-      });
-      await refreshMoodboardCards();
-      toast({ title: "情绪板创建成功", description: `已成功创建新情绪板并包含 ${uploads.length} 张图片` });
-    } catch (error) {
-      console.error("Failed to upload images for new style", error);
-      toast({
-        title: "创建失败",
-        description: "上传图片过程中出现错误，请重试",
-        variant: "destructive"
-      });
-    }
-  };
-
-
-
+  const { handleFilesUpload, handleImageUpload, removeImage, handleStyleUpload } = usePlaygroundUploads({
+    activeTab,
+    getNextAutoMoodboardName,
+    refreshMoodboardCards,
+  });
 
   const handleShortcutQuickApply = useCallback((shortcut: PlaygroundShortcut) => {
     const values = createShortcutPromptValues(shortcut);
@@ -2949,212 +2805,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     }
   }, [describeImages, setHasGenerated, setViewMode, setActiveTab, setShowHistory, config, toast, effectiveUserId, saveHistoryToBackend, mutateHistory, setGenerationHistory]);
 
-  const getRecordSourceImageUrls = useCallback((recordConfig?: Partial<GenerationConfig>) => (
-    recordConfig?.sourceImageUrls
-      || (recordConfig?.editConfig?.referenceImages?.map((image) => image.dataUrl) || [])
-  ), []);
-
-  const findWorkflowForRecord = useCallback((recordConfig?: Partial<GenerationConfig>) => {
-    const workflowName = recordConfig?.workflowName || recordConfig?.presetName;
-    if (!workflowName) {
-      return undefined;
-    }
-
-    return workflows.find((workflow) => (
-      workflow.viewComfyJSON.title === workflowName
-      || workflow.viewComfyJSON.id === workflowName
-    ));
-  }, [workflows]);
-
-  const buildReplayConfigFromRecord = useCallback((result: Generation) => {
-    const originalRecordConfig = { ...(result.config || {}) };
-    delete originalRecordConfig.taskId;
-
-    const currentStoreConfig = { ...usePlaygroundStore.getState().config };
-    delete currentStoreConfig.taskId;
-
-    const sourceImageUrls = getRecordSourceImageUrls(originalRecordConfig);
-    const localSourceIds = originalRecordConfig.localSourceIds || [];
-    const normalizedConfig = normalizeHistoryConfigForGeneration({
-      ...currentStoreConfig,
-      ...originalRecordConfig,
-      prompt: originalRecordConfig.prompt || '',
-      width: originalRecordConfig.width || 1024,
-      height: originalRecordConfig.height || 1024,
-      model: originalRecordConfig.model || currentStoreConfig.model,
-      baseModel: originalRecordConfig.baseModel || currentStoreConfig.baseModel,
-      loras: originalRecordConfig.loras || [],
-      sourceImageUrls,
-      localSourceIds,
-      taskId: undefined,
-    } as GenerationConfig);
-
-    return {
-      fullConfig: normalizedConfig,
-      sourceImageUrls,
-      localSourceIds,
-    };
-  }, [getRecordSourceImageUrls]);
-
-  const applyHistoryRecordContext = useCallback(async (
-    result: Generation,
-    mode: 'full' | 'model' = 'full',
-  ) => {
-    const { fullConfig, sourceImageUrls, localSourceIds } = buildReplayConfigFromRecord(result);
-    const currentStoreConfig = usePlaygroundStore.getState().config;
-    const nextPrompt = mode === 'full' ? (fullConfig.prompt || '') : (currentStoreConfig.prompt || '');
-    const effectiveModel = String(fullConfig.baseModel || fullConfig.model || defaultImageModelId);
-    const matchedWorkflow = findWorkflowForRecord(result.config);
-    const appliedPresetName = fullConfig.presetName || (matchedWorkflow ? matchedWorkflow.viewComfyJSON.title : undefined);
-
-    setActiveShortcutTemplate(null);
-
-    if (matchedWorkflow) {
-      const appliedConfig = withoutPromptOptimizationSource({
-        ...currentStoreConfig,
-        ...fullConfig,
-        prompt: nextPrompt,
-        model: MODEL_ID_WORKFLOW,
-        baseModel: effectiveModel,
-        workflowName: matchedWorkflow.viewComfyJSON.title,
-        loras: fullConfig.loras || [],
-        isPreset: !!appliedPresetName,
-        presetName: appliedPresetName,
-        taskId: undefined,
-      });
-      setSelectedWorkflowConfig(matchedWorkflow, fullConfig.presetName || matchedWorkflow.viewComfyJSON.title);
-      setSelectedModel(MODEL_ID_WORKFLOW);
-      updateConfig(appliedConfig);
-      setSelectedPresetName(appliedConfig.presetName);
-
-      if (mode === 'full') {
-        if (sourceImageUrls.length > 0) {
-          await usePlaygroundStore.getState().applyImages(sourceImageUrls);
-        } else {
-          usePlaygroundStore.getState().setUploadedImages([]);
-        }
-      }
-
-      return {
-        fullConfig: appliedConfig,
-        sourceImageUrls,
-        localSourceIds,
-      };
-    } else {
-      const appliedConfig = withoutPromptOptimizationSource({
-        ...fullConfig,
-        prompt: nextPrompt,
-        model: effectiveModel,
-        baseModel: effectiveModel,
-        workflowName: undefined,
-        loras: fullConfig.loras || [],
-        isPreset: !!appliedPresetName,
-        presetName: appliedPresetName,
-        taskId: undefined,
-      });
-      setSelectedWorkflowConfig(undefined);
-      applyModel(effectiveModel, appliedConfig);
-      setSelectedPresetName(appliedConfig.presetName);
-
-      if (mode === 'full') {
-        if (sourceImageUrls.length > 0) {
-          await usePlaygroundStore.getState().applyImages(sourceImageUrls);
-        } else {
-          usePlaygroundStore.getState().setUploadedImages([]);
-        }
-      }
-
-      return {
-        fullConfig: appliedConfig,
-        sourceImageUrls,
-        localSourceIds,
-      };
-    }
-  }, [
-    applyModel,
-    buildReplayConfigFromRecord,
+  const { handleBatchUse, handleRegenerate, handleDownload, handleUseHistoryAll, handleUseHistoryModel } = usePlaygroundHistoryActions({
+    workflows,
     defaultImageModelId,
-    findWorkflowForRecord,
-    setSelectedModel,
-    setSelectedPresetName,
-    setSelectedWorkflowConfig,
-    updateConfig,
-  ]);
-
-  const handleBatchUse = useCallback(async (results: Generation[]) => {
-    if (!results || results.length === 0) return;
-    toast({ title: "批量生成中", description: `即将开始 ${results.length} 个生成任务...` });
-    
-    // Generate ALL 仅复用每张卡片的 prompt，始终使用当前模型配置进行文生图。
-    for (const result of results) {
-      const currentStoreConfig = usePlaygroundStore.getState().config;
-      const prompt = result.config?.prompt || '';
-
-      const fullConfig: GenerationConfig = {
-        ...currentStoreConfig,
-        prompt,
-        taskId: undefined,
-        isEdit: false,
-        editConfig: undefined,
-        parentId: undefined,
-        sourceImageUrls: [],
-        localSourceIds: [],
-      };
-
-      await handleGenerate({ 
-        configOverride: fullConfig,
-        sourceImageUrls: [],
-        localSourceIds: [],
-        ignoreActiveShortcutTemplate: true,
-      });
-      await new Promise(r => setTimeout(r, 300));
-    }
-  }, [handleGenerate, toast]);
-
-
-  const handleRegenerate = async (result: Generation) => {
-    const {
-      fullConfig,
-      sourceImageUrls,
-      localSourceIds,
-    } = await applyHistoryRecordContext(result, 'full');
-
-    await handleGenerate({
-      configOverride: fullConfig,
-      sourceImageUrls,
-      localSourceIds
-    });
-  };
-
-  const handleDownload = (result: Generation, imageUrl: string) => {
-    downloadImage(imageUrl, `PlaygroundV2-${Date.now()}.png`);
-
-    if (result.id) {
-      void (async () => {
-        const trackResult = await downloadGeneration(result.id);
-        if (!trackResult.success) {
-          return;
-        }
-        await mutateHistory();
-      })();
-    }
-  };
-
-  const handleUseHistoryAll = useCallback(async (result: Generation) => {
-    await applyHistoryRecordContext(result, 'full');
-    toast({
-      title: "参数已回填",
-      description: "已恢复此条记录的完整生成上下文。",
-    });
-  }, [applyHistoryRecordContext, toast]);
-
-  const handleUseHistoryModel = useCallback(async (result: Generation) => {
-    await applyHistoryRecordContext(result, 'model');
-    toast({
-      title: "模型参数已回填",
-      description: "已恢复模型、尺寸与相关参数，当前输入内容保持不变。",
-    });
-  }, [applyHistoryRecordContext, toast]);
+    setActiveShortcutTemplate,
+    handleGenerate,
+    mutateHistory,
+  });
 
   const handleEditImage = useCallback((historyItem: Generation, isAgain?: boolean) => {
     const getSessionFromGeneration = (item?: Generation): ImageEditorSessionSnapshot | undefined => (
