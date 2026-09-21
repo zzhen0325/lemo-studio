@@ -6,7 +6,7 @@
 
 本文件用于统一这三层语义：
 
-- 执行层：`/api/ai/text`、`/api/ai/describe`、`/api/translate`，以及 `service:optimize` / `service:describe` / `service:datasetLabel`
+- 执行层：`/api/ai/text`、`/api/ai/describe`、`/api/translate`、`/api/comfy-fluxklein/prompt`，以及 `service:optimize` / `service:describe` / `service:datasetLabel`
 - 业务层：真正的 prompt 优化流程与相邻流程
 - 记录层：`historyRecordType`、`optimizationSource.sourceKind`、`promptCategory`
 
@@ -28,6 +28,7 @@
 | Describe 图像转 prompt | `describe_image` | 否 | 图片 + focus prompt | `POST /api/ai/describe` -> `service:describe` | `{ text }` | 是，`image_description` | `Use Prompt` 回填为普通 prompt |
 | Dataset 自动打标 / 生成 prompt | `dataset_label` | 否 | 图片 + dataset system prompt | `POST /api/ai/describe` -> `service:datasetLabel` | `{ text }` | 否 | 直接写入 dataset prompt 字段 |
 | Dataset Prompt 翻译 | `dataset_translate` | 否 | prompt 文本数组 | `POST /api/translate` | `{ translatedText(s) }` | 否 | 直接写入 dataset prompt 双语字段 |
+| FluxKlein Prompt 英文准备 | `flux_klein_prompt_translation` | 否 | FluxKlein 生成 prompt | `POST /api/comfy-fluxklein/prompt` 或 `/api/comfy-fluxklein` 内部服务 | `{ prompt }` / workflow text input | 否 | 后台静默用于 FluxKlein workflow，UI 与 history 继续保留用户原始 prompt |
 | Moodboard Prompt Template | `moodboard_prompt_template` | 否 | 图片 + 卡片上下文 | `POST /api/moodboard-cards/prompt-template` | `promptTemplate` | 否 | 写入 moodboard card 模版 |
 | Image Edit Prompt 拼装 | `image_edit_prompt_assembly` | 否 | plain prompt + annotations | 本地拼装 | `finalPrompt` | 否 | 进入后续图像生成链路 |
 
@@ -47,6 +48,7 @@
 - `/api/ai/text` 可以被多个 prompt optimization flow 复用，但 history 语义必须由调用侧决定。
 - `/api/ai/describe` 同时承载 Describe 与 Dataset Label，但两者属于不同业务流程。
 - `/api/translate` 保持独立，不并入 prompt optimize。
+- FluxKlein 调用前会在后台把非英文 prompt 准备为英文；该步骤只影响提交给 ComfyUI workflow 的文本，不回写输入框或 history。
 - `Use Prompt` 只有在 `prompt_optimization` 记录上，才允许恢复 KV / shortcut 结构化编辑态。
 - 普通生成记录即使携带 `optimizationSource`，也只能按普通 prompt 回填。
 - KV Structured 优化后的生成以当前 variant 的 `promptPreview` 为准；未填写的 KV token 不再作为生成阻断条件。
@@ -58,5 +60,6 @@
 
 ## 更新记录
 
+- 2026-05-18：新增 FluxKlein prompt 英文准备流程，明确后台静默翻译只影响 workflow 入参，不改变 UI/history 原始 prompt。
 - 2026-05-12：明确 KV Structured 优化后生成不再因未填写 token 阻断，生成准入以 variant `promptPreview` 为准。
 - 2026-04-12：新增 Prompt AI Flows 总览文档，统一执行层、业务层、记录层语义，并明确相邻流程边界。

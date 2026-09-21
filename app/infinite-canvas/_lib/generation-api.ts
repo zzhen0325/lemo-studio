@@ -1,4 +1,5 @@
 import { buildFluxKleinWorkflow } from '@/lib/api/fluxklein-workflow';
+import { prepareFluxKleinPrompt } from '@/lib/api/fluxklein-prompt';
 import { runDirectComfyWorkflow } from '@/lib/comfyui/browser-client';
 import { getConfiguredDirectComfyUrl, shouldUseDirectComfyUi } from '@/lib/comfyui/direct-config';
 import { parseSize } from './helpers';
@@ -98,8 +99,9 @@ async function runFluxKlein(payload: FluxKleinPayload): Promise<{ images: string
   const directComfyUrl = getConfiguredDirectComfyUrl();
 
   if (shouldUseDirectComfyUi(directComfyUrl)) {
+    const preparedPrompt = await prepareFluxKleinPrompt(payload.prompt, { signal: payload.signal });
     const { workflow, viewComfyInputs } = await buildFluxKleinWorkflow({
-      prompt: payload.prompt,
+      prompt: preparedPrompt,
       width,
       height,
       seed: payload.seed,

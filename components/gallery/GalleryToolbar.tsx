@@ -14,6 +14,8 @@ import {
 import SplitText from '@/components/ui/split-text';
 import { cn } from '@/lib/utils';
 
+const TOTAL_IMAGE_COUNT_FORMATTER = new Intl.NumberFormat('en-US');
+
 export const GALLERY_SORT_OPTIONS: Array<{
   value: Exclude<SortBy, 'interactionPriority'>;
   label: string;
@@ -28,6 +30,7 @@ export const GALLERY_SORT_OPTIONS: Array<{
 interface GalleryToolbarProps {
   activeTab: GalleryInnerTab;
   onActiveTabChange: (tab: GalleryInnerTab) => void;
+  totalImageCount?: number;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
   sortBy: Exclude<SortBy, 'interactionPriority'>;
@@ -75,6 +78,7 @@ function GalleryHeaderTab({
 export function GalleryToolbar({
   activeTab,
   onActiveTabChange,
+  totalImageCount,
   searchQuery,
   onSearchQueryChange,
   sortBy,
@@ -88,10 +92,15 @@ export function GalleryToolbar({
   const currentSortOption = GALLERY_SORT_OPTIONS.find((option) => option.value === sortBy) || GALLERY_SORT_OPTIONS[0];
   const searchPlaceholder =
     activeTab === 'gallery' ? 'Search gallery prompts...' : 'Search prompt records...';
+  const formattedTotalImageCount =
+    typeof totalImageCount === 'number' ? TOTAL_IMAGE_COUNT_FORMATTER.format(totalImageCount) : null;
 
   return (
-    <div className="mt-4 flex h-14 shrink-0 flex-row items-center justify-between gap-4">
-      <div className="mb-0 flex items-center gap-5 font-serif">
+    <div
+      className="mt-4 flex h-14 shrink-0 flex-row items-center justify-between gap-4"
+      data-gallery-total-count={typeof totalImageCount === 'number' ? totalImageCount : undefined}
+    >
+      <div className="mb-0 flex min-w-0 items-center gap-5 font-serif">
         <GalleryHeaderTab
           label="Gallery"
           isActive={activeTab === 'gallery'}
@@ -102,6 +111,14 @@ export function GalleryToolbar({
           isActive={activeTab === 'prompt'}
           onClick={() => onActiveTabChange('prompt')}
         />
+        {formattedTotalImageCount ? (
+          <div
+            aria-label={`Total gallery images: ${formattedTotalImageCount}`}
+            className="inline-flex h-8 shrink-0 items-center rounded-full border border-white/10 bg-white/[0.06] px-3 font-sans text-[11px] font-medium uppercase tracking-[0.2em] text-white/55"
+          >
+            {formattedTotalImageCount} images
+          </div>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-3">

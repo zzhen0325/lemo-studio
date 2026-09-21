@@ -27,7 +27,7 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 ### 生成与保存
 
 - 上传图片走 `/api/upload`，作为参考图/Describe 图的来源。
-- 生成请求走 `/api/ai/image`。
+- 常规生成请求走 `/api/ai/image`；FluxKlein 在构建工作流前会先调用 `/api/comfy-fluxklein/prompt` 静默准备英文 prompt，再走浏览器直连 ComfyUI 或 `/api/comfy-fluxklein` fallback。
 - 生成结果与配置写入历史记录走 `/api/history`。
 
 ## 输入 / 输出
@@ -59,7 +59,7 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 
 ### 服务端依赖
 
-- `/api/ai/image`、`/api/upload`、`/api/history`、`/api/moodboard-cards`、`/api/view-comfy`、`/api/presets`（以当前实现实际调用为准）。
+- `/api/ai/image`、`/api/comfy-fluxklein/prompt`、`/api/comfy-fluxklein`、`/api/upload`、`/api/history`、`/api/moodboard-cards`、`/api/view-comfy`、`/api/presets`（以当前实现实际调用为准）。
 
 ## 状态 / 数据流
 
@@ -72,6 +72,7 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 - 用户归属由服务端从 session 推导，客户端不得传入或信任 user id。
 - 重型面板/弹窗应倾向懒加载以保证首页首屏性能（以现有实现为准）。
 - 图像生成上游返回内容审核/敏感内容拒绝时，前端应展示可操作的“内容审核未通过”提示，不暴露工作流 stack trace。
+- FluxKlein prompt 英文准备只影响发送给 workflow 的 prompt，不能回写输入框或 history 中的用户原始 prompt。
 
 ## 边界 / 非职责范围
 
@@ -86,5 +87,6 @@ Playground 首页是 Studio 的默认落点（`/`、`/studio` 重定向到 `/stu
 
 ## 更新记录
 
+- 2026-05-18：补充 FluxKlein 生成前后台静默准备英文 prompt 的调用链与边界。
 - 2026-05-12：补充 Coze Seed 图像生成内容审核失败的用户提示规则。
 - 2026-04-08：补充 Playground 首页模块文档，梳理入口、职责、依赖与边界。

@@ -27,6 +27,7 @@ import { PresetsService } from './service/presets.service';
 import { SaveImageService } from './service/save-image.service';
 import { StylesService } from './service/styles.service';
 import { ToolsPresetsService } from './service/tools-presets.service';
+import { TranslateService } from './service/translate.service';
 import { UploadService } from './service/upload.service';
 import { UsersService } from './service/users.service';
 import { ViewComfyConfigService } from './service/view-comfy.service';
@@ -75,6 +76,7 @@ let servicesPromise: Promise<{
   saveImageService: SaveImageService;
   stylesService: StylesService;
   toolsPresetsService: ToolsPresetsService;
+  translateService: TranslateService;
   uploadService: UploadService;
   usersService: UsersService;
   viewComfyConfigService: ViewComfyConfigService;
@@ -87,7 +89,8 @@ async function createServerServices() {
   const apiConfigService = new ApiConfigService();
   const aiService = new AiService(apiConfigService, logger);
   const checkGoogleApiService = new CheckGoogleApiService(apiConfigService);
-  const comfyFluxKleinService = new ComfyFluxKleinService();
+  const translateService = new TranslateService(apiConfigService);
+  const comfyFluxKleinService = new ComfyFluxKleinService(translateService);
   const comfyProxyService = new ComfyProxyService();
   const comfyService = new ComfyService();
   const datasetSyncService = new DatasetSyncService();
@@ -125,6 +128,7 @@ async function createServerServices() {
     saveImageService,
     stylesService,
     toolsPresetsService,
+    translateService,
     uploadService,
     usersService,
     viewComfyConfigService,

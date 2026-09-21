@@ -170,6 +170,7 @@ export function useGalleryFeed({
     size,
   });
   const hasMore = pages.length > 0 ? pages[pages.length - 1]?.hasMore ?? true : true;
+  const total = pages[0]?.total;
 
   const loadMore = useCallback(async () => {
     if (!isActive || isValidating || !hasMore) {
@@ -207,6 +208,7 @@ export function useGalleryFeed({
         return {
           ...page,
           history: mergedHistory.slice(start, end),
+          total: index === 0 ? latestPage.total : page.total,
         };
       }).filter((page, index) => index === 0 || page.history.length > 0);
 
@@ -231,6 +233,7 @@ export function useGalleryFeed({
     promptItems,
     filterOptions,
     hasMore,
+    total,
     isInitialLoading,
     isLoadingMore,
     isRefreshing,

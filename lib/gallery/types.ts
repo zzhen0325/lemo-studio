@@ -51,6 +51,7 @@ export interface GalleryFeedResult {
   promptItems: GalleryItemViewModel[];
   filterOptions: GalleryFilterOptions;
   hasMore: boolean;
+  total?: number;
   isInitialLoading: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;

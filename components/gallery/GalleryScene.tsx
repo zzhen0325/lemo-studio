@@ -90,6 +90,7 @@ export function GalleryScene({
               <GalleryToolbar
                 activeTab={activeInnerTab}
                 onActiveTabChange={setActiveInnerTab}
+                totalImageCount={feed.total}
                 searchQuery={searchQuery}
                 onSearchQueryChange={setSearchQuery}
                 sortBy={sortBy}

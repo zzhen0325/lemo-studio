@@ -37,6 +37,7 @@ export default function GalleryLocalFixtureClient({
     promptItems: items.filter((item) => item.isPromptVisible),
     filterOptions: buildGalleryFilterOptions(items),
     hasMore: false,
+    total: items.filter((item) => item.isImageVisible).length,
     isInitialLoading: false,
     isLoadingMore: false,
     isRefreshing: false,

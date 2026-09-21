@@ -53,6 +53,7 @@ const feedState: GalleryFeedResult = {
     presets: [],
   },
   hasMore: true,
+  total: 0,
   isInitialLoading: false,
   isLoadingMore: false,
   isRefreshing: false,
@@ -134,6 +135,7 @@ function createViewModel(id: string): GalleryItemViewModel {
 describe('GalleryView loading behavior', () => {
   beforeEach(() => {
     useGalleryFeedMock.mockClear();
+    feedState.total = 0;
     feedState.loadMore = vi.fn(async () => undefined);
     feedState.revalidateLatest = vi.fn(async () => undefined);
   });
@@ -193,5 +195,18 @@ describe('GalleryView loading behavior', () => {
     render(<GalleryView isActive={false} />);
 
     expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: false });
+  });
+
+  it('passes the feed total through to the gallery header metadata', () => {
+    feedState.items = [createViewModel('counted-item')];
+    feedState.promptItems = [createViewModel('counted-item')];
+    feedState.total = 1234;
+    feedState.isInitialLoading = false;
+
+    render(<GalleryView />);
+
+    expect(screen.getByLabelText('Total gallery images: 1,234')).toBeTruthy();
+    expect(screen.getByLabelText('Total gallery images: 1,234').textContent).toContain('1,234 images');
+    expect(screen.getByTestId('gallery-view-stack').querySelector('[data-gallery-total-count="1234"]')).toBeTruthy();
   });
 });

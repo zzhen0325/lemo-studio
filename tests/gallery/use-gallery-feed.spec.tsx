@@ -76,6 +76,7 @@ describe('useGalleryFeed', () => {
         return createResponse({
           history: pageOneFetchCount === 1 ? page1 : latestPage,
           hasMore: true,
+          total: pageOneFetchCount === 1 ? 23 : 24,
         });
       }
 
@@ -106,6 +107,7 @@ describe('useGalleryFeed', () => {
     expect(authState.ensureSession).toHaveBeenCalledTimes(1);
     expect(result.current.filterOptions.models).toEqual(['coze_seedream4_5', 'flux-dev']);
     expect(result.current.filterOptions.presets).toEqual(['Portrait', 'Product']);
+    expect(result.current.total).toBe(23);
 
     await act(async () => {
       await result.current.loadMore();
@@ -123,6 +125,7 @@ describe('useGalleryFeed', () => {
     await waitFor(() => {
       expect(result.current.items.map((item) => item.id)).toEqual(['gen-3', 'gen-2', 'gen-1', 'gen-0']);
     });
+    expect(result.current.total).toBe(24);
   });
 
   it('does not fall back to the initial skeleton during retries after the first error', () => {

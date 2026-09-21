@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { SETTINGS_STORAGE_KEY } from "@/lib/constants";
+import { prepareFluxKleinPrompt } from "@/lib/api/fluxklein-prompt";
 import { buildFluxKleinWorkflow } from "@/lib/api/fluxklein-workflow";
 import { probeDirectComfyAvailability, runDirectComfyWorkflow } from "@/lib/comfyui/browser-client";
 import { getConfiguredDirectComfyUrl, getDirectComfyDecision } from "@/lib/comfyui/direct-config";
@@ -95,9 +96,11 @@ export const usePostFluxKlein = () => {
         throw new Error(`ComfyUI 连接失败: ${reason}`);
       }
 
+      const preparedPrompt = await prepareFluxKleinPrompt(prompt, { requestId });
+
       // 构建工作流
       const { workflow, viewComfyInputs } = await buildFluxKleinWorkflow({
-        prompt,
+        prompt: preparedPrompt,
         width,
         height,
         seed,
