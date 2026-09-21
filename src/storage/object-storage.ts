@@ -1,4 +1,6 @@
 import { S3Storage } from 'coze-coding-dev-sdk';
+import { isLocalRuntime } from '@/lib/server/local-runtime';
+import { LocalObjectStorageRepository } from '@/lib/server/repositories/local/object-storage.repository';
 
 let storageInstance: S3Storage | null = null;
 
@@ -9,7 +11,8 @@ let storageInstance: S3Storage | null = null;
  * - COZE_BUCKET_NAME: Bucket name
  * - STORAGE_ACCESS_KEY: Access key for storage (optional, provided by platform)
  */
-export function getObjectStorage(): S3Storage {
+export function getObjectStorage(): S3Storage | LocalObjectStorageRepository {
+  if (isLocalRuntime()) return new LocalObjectStorageRepository();
   if (!storageInstance) {
     storageInstance = new S3Storage({
       endpointUrl: process.env.COZE_BUCKET_ENDPOINT_URL,

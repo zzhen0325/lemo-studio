@@ -7,7 +7,7 @@ Gallery 用于集中回看、筛选、复用生成结果与对应 Prompt，并�
 ## 模块职责
 
 - 提供生成结果的图墙浏览与虚拟化渲染（瀑布流、滚动加载）。
-- 提供筛选与排序能力（搜索、模型、预设、Prompt 分类、所有/精选筛选、recent/likes/favorites/downloads/edits）。
+- 提供筛选与排序能力（搜索、模型、预设、Prompt 分类、所有/精选筛选、By Me、时间窗口（1/7/30/90 天 / 全部 / 自定义日期范围）、recent/likes/favorites/downloads/edits）。
 - 提供基于单条结果的快捷动作：Use Prompt、Use Image、Rerun、Download、加入 Moodboard。
 - 提供 Prompt 列表视图（虚拟化网格，避免一次性渲染过多列表项）。
 
@@ -23,9 +23,9 @@ Gallery 用于集中回看、筛选、复用生成结果与对应 Prompt，并�
 
 ### 拉取与分页
 
-- `useGalleryFeed({ sortBy })` 基于 `useSWRInfinite` 拉取 `/api/history` 轻量分页数据。
+- `useGalleryFeed({ sortBy, isActive, byMeOnly })` 基于 `useSWRInfinite` 拉取 `/api/history` 轻量分页数据；当 `byMeOnly` 为 true 时，请求中追加 `mine=1`，由 `HistoryService` 走 owner 维度拉取，命中当前 session 的 `actorId`。
 - 首屏加载第一页，滚动接近尾部时由图墙组件触发 `loadMore()` 拉下一页。
-- `revalidateLatest()` 会节流拉取第一页并把最新结果 prepend 到当前缓存。
+- `revalidateLatest()` 会节流拉取第一页并把最新结果 prepend 到当前缓存；`byMeOnly` 切换会作为新的 SWR key 维度，避免在不同模式间串数据。
 - Dock Gallery 在隐藏态仍保留本地 UI state、排序、筛选和滚动实例，但会暂停 SWR focus/stale revalidate，并阻止隐藏态继续触发 `loadMore()`，只在重新激活后恢复拉取。
 - Gallery 展示数据在客户端会额外叠加 Playground 本地 optimistic history overlay，因此本地新生成结果不必等待 `/api/history` 重新拉取也能先出现在图墙/Prompt 视图里。
 - 正式 Gallery 数据只通过 Dock 的 SWR feed 管理，不再在 Zustand 中维护一份长期镜像；本地 fixture 仅用于布局验收，不参与正式缓存链路。
@@ -38,14 +38,15 @@ Gallery 用于集中回看、筛选、复用生成结果与对应 Prompt，并�
 - Prompt 视图：`GalleryPromptGrid` 基于 `react-window` + `react-virtualized-auto-sizer` 渲染虚拟化网格。
 - 卡片：`GalleryImageCard` 接收统一的 view model 和 action handlers，下载统一使用解析后的 download URL；虚拟化图墙优先使用 `previewUrl`（强缓存缩略图）做轻量渲染，失败时再回退到原图或参考缩略图，并避免在 `masonic` 路径叠加 `next/image` blur placeholder、hover scale 与 `backdrop-blur` 这类高合成成本效果。
 - 滚动归属：Playground Dock 与本地 fixture 都复用同一个内部滚动容器，滚动不依赖 `body/window`，外层 layout 只负责提供受限高度；Dock 的外层壳体不再额外施加入场动画，以免放大 Masonry 测量期的闪动观感。
+- 骨架屏：图墙在 `isInitialLoading` 或 `isMasonryReady=false` 期间渲染 `GallerySkeletonGrid`。列数与列宽必须严格与 `masonic` 实际渲染保持一致（共用 `GALLERY_COLUMN_WIDTH` / `columnGutter` 常量，列宽使用 `Math.floor((width - gutter*(cols-1))/cols)` 并通过 `flex: 0 0 ${columnWidth}px` 显式设置，避免 `flex-1` 的舍入偏差累积），占位图采用与真实图片分布相近的 1:1 / 4:3 / 3:4 / 16:9 / 2:3 组合。SSR 路径（`GalleryMasonryWallFallback` / `GalleryViewLoadingShell`）与客户端路径都要把测量到的 `containerWidth` / `fallbackWindowWidth` 透传到骨架屏，保证首帧替换时列位置和列高不发生跳变。
 
 ## 输入 / 输出
 
 ### 输入
 
 - 路由入口：Playground Dock（正式入口）或 `/studio/gallery/local`（内部布局验收）。
-- 查询条件（客户端本地状态）：搜索词、模型/预设筛选、Prompt 分类、排序方式。
-- 数据源：`GET /api/history`（分页、排序、轻量字段）。
+- 查询条件（客户端本地状态）：搜索词、模型/预设筛选、Prompt 分类、By Me 切换、时间窗口（1/7/30/90 天 / 全部 / 自定义日期范围）、排序方式。
+- 数据源：`GET /api/history`（分页、排序、轻量字段，`mine=1` 时只返回当前用户生成的记录）。
 
 ### 输出
 
@@ -89,6 +90,14 @@ Gallery 用于集中回看、筛选、复用生成结果与对应 Prompt，并�
 - 图墙列表图优先通过 `resolveGalleryPreviewUrl` 解析为带缩略图参数的 `/api/storage/image`，让 `masonic` 重挂载时优先命中更小且可长期缓存的预览图，而查看大图/下载仍使用完整 `displayUrl`。
 - Prompt 分类与“哪些记录进入图墙”的规则集中在 `prompt-history`，调整图墙收录口径时优先修改这层规则并同步文档。
 - **精选筛选**仅作用于图墙（Gallery tab），判定规则统一为 `interactionStats.downloadCount > 0` 或 `interactionStats.lastDownloadedAt` 有值。
+- **By Me 筛选**仅对已登录用户开放，Gallery tab 显示“By Me”切换按钮；开启时 SWR feed 走 `mine=1` 命中 owner 维度的数据，客户端还会再叠加一次 `raw.userId === actorId` 校验，确保跨分页或乐观历史合并时不会出现“他人图片”。
+- **时间窗口筛选**支持两种形态，由 `GalleryTimeFilter` 统一承载：
+  - **快捷预设**：`{ kind: 'preset', value: 'all' | '1' | '7' | '30' | '90' }`，在客户端基于 `item.createdAt` 与当前时间做差值计算；预设常量在 `GALLERY_TIME_PRESET_OPTIONS`（旧 `GALLERY_TIME_FILTER_OPTIONS` 仍为同一份的别名）。
+  - **自定义日期范围**：`{ kind: 'custom', range: { from?: 'YYYY-MM-DD', to?: 'YYYY-MM-DD' } }`；`from` / `to` 任意一边为空即为单边区间（缺起始或缺结束）。`from` / `to` 解析成本地时区的 YYYY-MM-DD 边界（`to` 收敛到当天 23:59:59.999），避免 UTC 跨天。
+  - 当记录没有有效 `createdAt` 时按保留策略放行，不直接丢弃，避免误伤历史回填数据。
+- 工具栏的时间筛选按钮同时承载两种形态：点击图标打开日历 Popover（`components/ui/calendar` 区间模式 + 一组快捷范围"今天/最近 7 天/最近 30 天"），旁边的下拉按钮保留原"全部 / 1 / 7 / 30 / 90 天"快捷预设；日期范围按钮上的文字会展示当前生效的范围（如 `2025-03-05 ~ 2025-03-15`）。
+- `GalleryTimeFilter` 联合通过 `normalizeGalleryTimeFilter` 兼容旧版字符串字面量输入；默认值是 `DEFAULT_GALLERY_TIME_FILTER`（`{ kind: 'preset', value: 'all' }`）。
+- **模型筛选展示名归一化**：Filters 面板中 Models 区域始终展示用户可见的 display name（如 `Seedream 4.5` / `Lemo Seed` / `FluxKlein`），不再展示历史记录里的原始 model id（如 `coze_seedream4_5` / `seed4_0916_lemo` / `seed4_v2_0226lemo` / `flux_klein`）。`buildGalleryFilterOptions` 会按 display name 分组并收集所有命中该展示名的 raw ids，同名模型在筛选时合并匹配（如选中 `Lemo Seed` 会同时匹配 `seed4_0916_lemo` 与 `seed4_v2_0226lemo`）；display name 来源集中维护在 `lib/gallery/model-display.ts`。
 - `edit_generation` 的识别依赖历史记录里的 edit 元数据保持完整，至少包括 `config.isEdit`，并在需要追溯时保留 `config.parentId`、`config.editConfig.originalImageUrl`、`config.imageEditorSession`。
 - `PlaygroundDockPanels -> GalleryView -> GalleryScene -> GalleryMasonryWall` 的宽高约束链必须保持连续的 `flex-1/min-h-0/min-w-0`，避免 Dock 收缩后 Masonry 容器沿用错误宽度并把卡片排到外层容器之外。
 - Prompt / Image 两个 tab 必须共用同一套 filter state、sort state 和 feed cache，避免切 tab 时重复拉取或丢失筛选上下文。
@@ -107,7 +116,13 @@ Gallery 用于集中回看、筛选、复用生成结果与对应 Prompt，并�
 
 ## 更新记录
 
+- 2026-09-21：合并本地图片数量与部署版筛选，图库总数和累计生成数分别显示，工具栏允许窄窗口换行。本地数据源见 [本地开发环境](local-development.md)。
+
+- 2026-06-08：修复 Gallery 骨架屏（`GallerySkeletonGrid`）与实际 `masonic` 渲染位置错位。骨架屏列数从固定 4 列改为跟随真实容器宽度计算（与 `getGalleryColumnsCount` 共用 `GALLERY_COLUMN_WIDTH` / `columnGutter` 常量），列宽使用与 masonic 一致的 `Math.floor((width - gutter*(cols-1))/cols)` 公式（通过 `flex: 0 0 ${columnWidth}px` 显式设置），避免 `flex-1` 上舍入带来的每列 1px 累积偏移；占位图的 `aspect-ratio` 由原来 `140/120/160%` 固定三段循环改为更贴近实际图片分布的 1:1 / 4:3 / 3:4 / 16:9 / 2:3 组合，并在 `GalleryMasonryWall` 客户端与 SSR fallback 两条路径都把 `containerWidth` 透传到 `GalleryMasonryLoadingState`，确保首帧替换时列位置和列高不再发生跳变。
+- 2026-06-08：Filters 面板的 Models 区域改为展示 display name（与 Playground 模型下拉框保持一致），不再展示 `coze_seedream4_5` / `seed4_0916_lemo` / `seed4_v2_0226lemo` / `flux_klein` 这类内部 id；同名 display name 会自动合并底层 raw ids 并在筛选时同时命中。映射集中在新增的 `lib/gallery/model-display.ts`。
+- 2026-06-08：Gallery 时间窗口筛选升级为 `GalleryTimeFilter` 联合（`preset` / `custom`），并新增自包含的 `components/ui/calendar` 组件，工具栏时间按钮可打开 Popover 日历并支持任意日期范围选择（包含"今天/最近 7 天/最近 30 天"快捷范围、起止本地时区边界、半边区间等），旁边的下拉按钮保留全部 / 1 / 7 / 30 / 90 天快捷预设；`isItemWithinTimeWindow` 同步支持两种形态，旧版字符串字面量通过 `normalizeGalleryTimeFilter` 兼容。
 - 2026-04-14：新增“所有/精选”筛选，仅作用于图片墙，筛选“下载过”的图片（依赖服务端下发 `download_count` 和 `last_downloaded_at`，在轻量列表模式下也进行了补齐）。
+- 2026-04-14：新增 Gallery “By Me” 筛选（仅 Gallery tab，已登录用户可用）和“时间窗口”筛选（全部/1/7/30/90 天）。`By Me` 同时影响 `useGalleryFeed` 的 SWR key（追加 `mine=1`）和客户端 `filterGalleryItems` 的 owner 校验；时间窗口仅作用于客户端 `filterGalleryItems`，基于 `item.createdAt` 计算。
 - 2026-04-10：Playground Dock 的 Gallery 改为“首次打开后 keep-alive、切走仅隐藏不卸载”；隐藏态暂停 SWR focus/stale revalidate 与瀑布流 `loadMore()`，并把外层动态加载 fallback 统一为 Gallery 同款骨架，消除 `Thinking... -> skeleton` 的双 loading 观感。
 - 2026-04-12：Gallery lightweight/minimal 记录补充 `__minimal` 标记，图片详情弹窗会先补拉完整 history detail，再开放 `Use All` / `Rerun` 等需要完整配置的动作，避免参考图回填误用轻量记录。
 - 2026-04-12：补充 edit 记录在 Gallery 分类与图墙展示中的字段完整性要求，避免编辑生成丢失 `edit_generation` 识别。

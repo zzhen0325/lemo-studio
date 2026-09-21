@@ -80,7 +80,7 @@ Dataset 用于沉淀训练素材、风格素材与可复用图片资产，解决
 - 参数校验与安全约束集中在 dataset schema（collection/filename 等），变更需同步评估安全边界。
 - 图片 URL 需要做归一化与兼容处理（历史 URL/过期签名归一成 storage key，再生成展示 URL，以当前实现为准）。
 - 写操作触发同步事件后，前端需谨慎处理“正在编辑时的刷新策略”，避免覆盖未保存内容。
-- Dataset 的自动生成 prompt / 打标属于 `dataset_label` 流程，底层走 `/api/ai/describe` -> `service:datasetLabel`，不是 Playground prompt optimize。
+- Dataset 的自动生成 prompt / 打标属于 `dataset_label` 流程，前端在 `/api/ai/describe` 请求里带 `context: 'service:datasetLabel'`，最终走标准 vision provider（`getProvider(model).describeImage`），用户配置的 `datasetLabel` 模型（默认 `doubao-seed-2-0-lite-260215`，可用其他 vision 模型替换）会真正被调用，不再走 hardcode 的 Coze workflow。Playground describe 走同一入口但用 `describe` 服务绑定，二者通过模型绑定区分。
 - Dataset 翻译属于 `dataset_translate` 流程，底层走独立的 `/api/translate`，不复用 `/api/ai/text`。
 
 ## 边界 / 非职责范围
@@ -96,5 +96,8 @@ Dataset 用于沉淀训练素材、风格素材与可复用图片资产，解决
 
 ## 更新记录
 
+- 2026-09-21：本地模式使用独立数据库和文件存储；修正 image asset 更新时 fileName 到 file_name 的 repository 转换。见 [本地开发环境](local-development.md)。
+
 - 2026-04-08：补充 Dataset 模块文档，梳理路由、API、SSE 同步与数据流边界。
 - 2026-04-12：补充 Dataset AI 流程边界，明确自动生成 prompt / 打标与翻译都不属于 prompt optimization。
+- 2026-04-15：dataset_label 切换到标准 vision provider。前端仍带 `context: 'service:datasetLabel'`，但后端 `aiService.describe` 不再有特殊分支，统一走 `getProvider(model).describeImage`，用户配置的 `datasetLabel` 模型（默认 Doubao vision）真正生效。

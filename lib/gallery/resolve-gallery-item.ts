@@ -6,7 +6,15 @@ import {
 } from '@/app/studio/playground/_lib/prompt-history';
 import { resolveGalleryImageUrl, resolveGalleryPreviewUrl } from '@/lib/gallery-asset';
 import type { Generation } from '@/types/database';
-import type { GalleryFilterState, GalleryItemViewModel } from './types';
+import { getModelDisplayName, MODEL_DISPLAY_NAME_MAP } from './model-display';
+import type {
+  GalleryCustomDateRange,
+  GalleryFilterState,
+  GalleryItemViewModel,
+  GalleryModelFilterOption,
+  GalleryTimeFilter,
+  GalleryTimePreset,
+} from './types';
 
 function getGalleryItemId(item: Generation, index: number) {
   const normalizedId = item.id?.trim();
@@ -15,6 +23,68 @@ function getGalleryItemId(item: Generation, index: number) {
   }
 
   return `gallery-item-${item.createdAt || 'unknown'}-${index}`;
+}
+
+function isItemWithinTimeWindow(item: GalleryItemViewModel, timeFilter: GalleryTimeFilter): boolean {
+  if (timeFilter.kind === 'preset') {
+    if (timeFilter.value === 'all') {
+      return true;
+    }
+    return isItemWithinDayWindow(item, timeFilter.value);
+  }
+  return isItemWithinCustomRange(item, timeFilter.range);
+}
+
+function isItemWithinDayWindow(item: GalleryItemViewModel, days: GalleryTimePreset): boolean {
+  const numericDays = Number(days);
+  if (!Number.isFinite(numericDays) || numericDays <= 0) {
+    return true;
+  }
+
+  const createdAtMs = item.createdAt ? Date.parse(item.createdAt) : NaN;
+  if (Number.isNaN(createdAtMs)) {
+    return true;
+  }
+
+  const cutoffMs = Date.now() - numericDays * 24 * 60 * 60 * 1000;
+  return createdAtMs >= cutoffMs;
+}
+
+function parseLocalDateBoundary(value: string | undefined, endOfDay: boolean): number | null {
+  if (!value) return null;
+  // 解析为本地时区的 YYYY-MM-DD，避免 UTC 跨天导致 off-by-one
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    const fallback = Date.parse(value);
+    return Number.isNaN(fallback) ? null : fallback;
+  }
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  if (endOfDay) {
+    return new Date(year, monthIndex, day, 23, 59, 59, 999).getTime();
+  }
+  return new Date(year, monthIndex, day, 0, 0, 0, 0).getTime();
+}
+
+function isItemWithinCustomRange(item: GalleryItemViewModel, range: GalleryCustomDateRange): boolean {
+  const from = parseLocalDateBoundary(range.from, false);
+  const to = parseLocalDateBoundary(range.to, true);
+  if (from === null && to === null) {
+    return true;
+  }
+  const createdAtMs = item.createdAt ? Date.parse(item.createdAt) : NaN;
+  if (Number.isNaN(createdAtMs)) {
+    // 没有有效 createdAt 时按保留策略放行，不误伤历史回填数据
+    return true;
+  }
+  if (from !== null && createdAtMs < from) {
+    return false;
+  }
+  if (to !== null && createdAtMs > to) {
+    return false;
+  }
+  return true;
 }
 
 export function resolveGalleryItem(item: Generation, index: number): GalleryItemViewModel {
@@ -76,15 +146,22 @@ export function isGalleryItemFeatured(item: Generation): boolean {
 export function filterGalleryItems(
   items: GalleryItemViewModel[],
   filters: GalleryFilterState,
+  options: { currentUserId?: string | null } = {},
 ) {
   const normalizedQuery = filters.searchQuery.trim().toLowerCase();
+  const normalizedOwnerId = options.currentUserId?.trim() || '';
+  const selectedModelRawIds = new Set(
+    filters.selectedModels
+      .map((displayName) => resolveSelectedModelRawIds(displayName))
+      .flat(),
+  );
 
   return items.filter((item) => {
     if (normalizedQuery && !item.searchText.includes(normalizedQuery)) {
       return false;
     }
 
-    if (filters.selectedModels.length > 0 && !filters.selectedModels.includes(item.model)) {
+    if (selectedModelRawIds.size > 0 && !selectedModelRawIds.has(item.model)) {
       return false;
     }
 
@@ -99,25 +176,80 @@ export function filterGalleryItems(
       return false;
     }
 
+    if (filters.byMeOnly && normalizedOwnerId) {
+      if ((item.raw.userId || '').trim() !== normalizedOwnerId) {
+        return false;
+      }
+    }
+
+    if (!isItemWithinTimeWindow(item, filters.timeFilter)) {
+      return false;
+    }
+
     return true;
   });
 }
 
 export function buildGalleryFilterOptions(items: GalleryItemViewModel[]) {
-  const models = new Set<string>();
+  const rawIdToDisplay = new Map<string, string>();
   const presets = new Set<string>();
 
   for (const item of items) {
-    if (item.model) {
-      models.add(item.model);
+    const rawId = item.model;
+    if (rawId && !rawIdToDisplay.has(rawId)) {
+      rawIdToDisplay.set(rawId, getModelDisplayName(rawId));
     }
     if (item.presetName) {
       presets.add(item.presetName);
     }
   }
 
+  const groupedByDisplay = new Map<string, string[]>();
+  for (const [rawId, displayName] of rawIdToDisplay) {
+    const bucket = groupedByDisplay.get(displayName) ?? [];
+    bucket.push(rawId);
+    groupedByDisplay.set(displayName, bucket);
+  }
+
+  const models: GalleryModelFilterOption[] = Array.from(groupedByDisplay.entries())
+    .map(([label, rawIds]) => ({
+      value: label,
+      label,
+      rawIds: rawIds.slice().sort(),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
   return {
-    models: Array.from(models).sort(),
+    models,
     presets: Array.from(presets).sort(),
   };
+}
+
+const MODEL_DISPLAY_TO_RAW_IDS: Map<string, string[]> = (() => {
+  const temp = new Map<string, string[]>();
+  for (const [rawId, displayName] of Object.entries(MODEL_DISPLAY_NAME_MAP)) {
+    const bucket = temp.get(displayName) ?? [];
+    bucket.push(rawId);
+    temp.set(displayName, bucket);
+  }
+  return temp;
+})();
+
+/**
+ * Resolves a user-facing display name (the value stored in `selectedModels`)
+ * back to the underlying raw model ids. If the input is itself a known raw
+ * id, it is normalised to its display name first so callers that pass either
+ * form keep working.
+ */
+function resolveSelectedModelRawIds(displayName: string): string[] {
+  if (!displayName) {
+    return [];
+  }
+  const displayFromMap = MODEL_DISPLAY_NAME_MAP[displayName];
+  const canonical = displayFromMap ?? displayName;
+  const bucket = MODEL_DISPLAY_TO_RAW_IDS.get(canonical);
+  if (bucket && bucket.length > 0) {
+    return bucket;
+  }
+  return [displayName];
 }

@@ -159,3 +159,11 @@ public/dataset/**/*.png
 public/dataset/**/*.jpg
 public/dataset/**/*.jpeg
 public/dataset/**/*.webp
+.cozeproj/reduction
+
+# Preview files
+.preview
+.codegraph
+
+# Isolated local database, object storage and verification output
+.local/

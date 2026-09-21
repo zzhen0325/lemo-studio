@@ -1,6 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { execSync } from 'child_process';
 import dotenv from 'dotenv';
+import { isLocalRuntime } from '@/lib/server/local-runtime';
+import { getLocalDatabaseClient } from '@/lib/server/repositories/local/database-client';
 
 let envLoaded = false;
 
@@ -86,6 +88,7 @@ function getSupabaseCredentials(): SupabaseCredentials {
 }
 
 function getSupabaseClient(token?: string): SupabaseClient {
+  if (isLocalRuntime()) return getLocalDatabaseClient();
   const { url, anonKey } = getSupabaseCredentials();
 
   if (token) {

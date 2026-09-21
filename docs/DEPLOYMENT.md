@@ -8,21 +8,15 @@
 
 ## Build And Start
 
-- Build script: `./build.frontend.sh`
-- Compatibility alias: `./build.sh`
-- Output dir: `output`
-- Start command: `HOSTNAME=0.0.0.0 NODE_ENV=production node bootstrap.js`
-- Health check: `/healthz`
+The authoritative platform commands are in `.coze`:
 
-`build.frontend.sh` packages:
+- Build: `./scripts/deploy-build.sh` (installs dependencies, runs `pnpm build`, copies `public/` and the startup script).
+- Output: `.next/standalone`.
+- Start: `sh .next/standalone/start.sh`.
+- Health check: `/healthz`.
+- Startup binds `HOSTNAME=0.0.0.0` and uses `DEPLOY_RUN_PORT`, then `PORT`, then `5000`.
 
-- `.next/standalone`
-- `.next/static`
-- `public/`
-- `config/`
-- `data/`
-- `workflows/`
-- `output/bootstrap.js`
+Local development uses `pnpm dev:local`; see [local development](features/local-development.md). Leave `STUDIO_RUNTIME` unset on Coze to retain platform database and object storage.
 
 ## Required Env
 
@@ -59,7 +53,7 @@ Helper script:
 ### `EADDRNOTAVAIL`
 
 - Cause: runtime injected a non-bindable `HOSTNAME`
-- Fix: start with `HOSTNAME=0.0.0.0` or use generated `bootstrap.js`
+- Fix: start with `HOSTNAME=0.0.0.0` or use `scripts/start-standalone.sh`
 
 ### Remote CDN Image 504
 

@@ -6,7 +6,7 @@ These interfaces remain as internal contracts, and this skill uses fixed upstrea
 
 - Optimize: `POST ${LEMO_COZE_PROMPT_RUN_URL}`, model binding `coze-prompt`
 - Seedream generate: `POST ${LEMO_COZE_SEED_RUN_URL}`, model binding `coze_seedream4_5`
-- Lemo generate: `POST ${GATEWAY_BASE_URL}/media/api/pic/submit_task_v2` + `batch_get_result_v2`, model binding `seed4_0407_lemo`
+- Lemo generate: `POST ${GATEWAY_BASE_URL}/media/api/pic/submit_task_v2` + `batch_get_result_v2`, model binding `seed4_0916_lemo`
 
 ## Core Interfaces
 
@@ -73,7 +73,7 @@ type KvOptimizeResult = {
 };
 
 type ImageGenInput = {
-  modelId: "coze_seedream4_5" | "seed4_0407_lemo";
+  modelId: "coze_seedream4_5" | "seed4_0916_lemo";
   prompt: string;
   width: number;
   height: number;

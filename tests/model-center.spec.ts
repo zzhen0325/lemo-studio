@@ -92,7 +92,7 @@ describe('model-center', () => {
             task: ['image'],
           },
           {
-            modelId: 'seed4_0407_lemo',
+            modelId: 'seed4_0916_lemo',
             displayName: 'Lemo Seed',
             task: ['image'],
           },
@@ -142,7 +142,7 @@ describe('model-center', () => {
       }),
     ]);
 
-    expect(providers[0]?.models.map((model) => model.modelId)).toEqual(['seed4_0407_lemo']);
+    expect(providers[0]?.models.map((model) => model.modelId)).toEqual(['seed4_0916_lemo']);
     expect(providers[1]?.models.map((model) => model.modelId)).toEqual(['coze-prompt']);
     expect(providers[2]?.models.map((model) => model.modelId)).toEqual([]);
   });

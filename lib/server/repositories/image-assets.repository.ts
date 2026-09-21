@@ -16,7 +16,11 @@ export class ImageAssetsRepository {
     update: Partial<ImageAssetRecord>,
     options?: { upsert?: boolean },
   ): Promise<void> {
-    await ImageAssetModel.updateOne(filter, update, options);
+    const { fileName, ...storedUpdate } = update;
+    await ImageAssetModel.updateOne(filter, {
+      ...storedUpdate,
+      ...(fileName !== undefined ? { file_name: fileName } : {}),
+    }, options);
   }
 
   public async deleteMany(filter: Record<string, unknown>): Promise<void> {

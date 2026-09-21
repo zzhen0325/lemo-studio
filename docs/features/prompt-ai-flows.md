@@ -26,7 +26,7 @@
 | Playground KV Structured 优化 | `playground_kv_structured` | 是 | KV shortcut 结构化字段 | `POST /api/ai/text` -> `service:optimize` | 结构化 variant JSON | 是，`prompt_optimization` | 回填 structured session 与 active variant |
 | Infinite Canvas 文本节点优化 | `canvas_text_node` | 是 | 文本节点 prompt | `POST /api/ai/text` -> `service:optimize` | 4 条 prompt 变体文本 | 否 | 生成多个新文本节点 |
 | Describe 图像转 prompt | `describe_image` | 否 | 图片 + focus prompt | `POST /api/ai/describe` -> `service:describe` | `{ text }` | 是，`image_description` | `Use Prompt` 回填为普通 prompt |
-| Dataset 自动打标 / 生成 prompt | `dataset_label` | 否 | 图片 + dataset system prompt | `POST /api/ai/describe` -> `service:datasetLabel` | `{ text }` | 否 | 直接写入 dataset prompt 字段 |
+| Dataset 自动打标 / 生成 prompt | `dataset_label` | 否 | 图片 + dataset system prompt | `POST /api/ai/describe` -> `service:datasetLabel`（标准 vision provider） | `{ text }` | 否 | 直接写入 dataset prompt 字段 |
 | Dataset Prompt 翻译 | `dataset_translate` | 否 | prompt 文本数组 | `POST /api/translate` | `{ translatedText(s) }` | 否 | 直接写入 dataset prompt 双语字段 |
 | FluxKlein Prompt 英文准备 | `flux_klein_prompt_translation` | 否 | FluxKlein 生成 prompt | `POST /api/comfy-fluxklein/prompt` 或 `/api/comfy-fluxklein` 内部服务 | `{ prompt }` / workflow text input | 否 | 后台静默用于 FluxKlein workflow，UI 与 history 继续保留用户原始 prompt |
 | Moodboard Prompt Template | `moodboard_prompt_template` | 否 | 图片 + 卡片上下文 | `POST /api/moodboard-cards/prompt-template` | `promptTemplate` | 否 | 写入 moodboard card 模版 |
@@ -46,7 +46,7 @@
 ## 关键规则
 
 - `/api/ai/text` 可以被多个 prompt optimization flow 复用，但 history 语义必须由调用侧决定。
-- `/api/ai/describe` 同时承载 Describe 与 Dataset Label，但两者属于不同业务流程。
+- `/api/ai/describe` 同时承载 Describe 与 Dataset Label。两条流程都走 `getProvider(model).describeImage` 标准 vision provider，模型绑定通过 Settings 中的 `describe` / `datasetLabel` 服务区分；Dataset Label 不再走单独的 Coze workflow。
 - `/api/translate` 保持独立，不并入 prompt optimize。
 - FluxKlein 调用前会在后台把非英文 prompt 准备为英文；该步骤只影响提交给 ComfyUI workflow 的文本，不回写输入框或 history。
 - `Use Prompt` 只有在 `prompt_optimization` 记录上，才允许恢复 KV / shortcut 结构化编辑态。
@@ -61,5 +61,6 @@
 ## 更新记录
 
 - 2026-05-18：新增 FluxKlein prompt 英文准备流程，明确后台静默翻译只影响 workflow 入参，不改变 UI/history 原始 prompt。
+- 2026-04-15：`/api/ai/describe` 统一为标准 vision provider，Dataset Label 不再单独走 Coze workflow（`service:datasetLabel` 仅作为模型绑定上下文保留）。
 - 2026-05-12：明确 KV Structured 优化后生成不再因未填写 token 阻断，生成准入以 variant `promptPreview` 为准。
 - 2026-04-12：新增 Prompt AI Flows 总览文档，统一执行层、业务层、记录层语义，并明确相邻流程边界。

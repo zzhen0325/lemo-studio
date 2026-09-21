@@ -47,6 +47,11 @@ describe('GalleryToolbar', () => {
     render(
       <GalleryToolbar
         activeTab="gallery"
+        byMeOnly={false}
+        onByMeOnlyChange={vi.fn()}
+        timeFilter={{ kind: 'preset', value: 'all' }}
+        onTimeFilterChange={vi.fn()}
+        isAuthenticated={false}
         onActiveTabChange={vi.fn()}
         totalImageCount={1234}
         searchQuery=""

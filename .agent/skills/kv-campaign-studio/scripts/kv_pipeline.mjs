@@ -48,8 +48,8 @@ async function main() {
     throw new Error('Missing intent. Use --intent "帮我做一个春季活动KV官号"');
   }
 
-  const preferLemo = args.model === 'seed4_0407_lemo' || /\blemo\b|乐么|lemo seed/i.test(intent);
-  const model = preferLemo ? 'seed4_0407_lemo' : 'coze_seedream4_5';
+  const preferLemo = args.model === 'seed4_0916_lemo' || /\blemo\b|乐么|lemo seed/i.test(intent);
+  const model = preferLemo ? 'seed4_0916_lemo' : 'coze_seedream4_5';
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -103,7 +103,7 @@ async function main() {
   lines.push('fieldRecap: auto-completed by optimizer; user can refine in next turn');
 
   for (const [w, h] of TARGET_SIZES) {
-    if (model === 'seed4_0407_lemo' && (w < 1024 || h < 1024)) {
+    if (model === 'seed4_0916_lemo' && (w < 1024 || h < 1024)) {
       lines.push(`${w}x${h} | fallback_adapted | ${masterImageUrl}`);
       continue;
     }

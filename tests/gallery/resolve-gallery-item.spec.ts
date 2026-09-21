@@ -7,7 +7,20 @@ import {
   isGalleryItemFeatured,
   resolveGalleryItem,
 } from '@/lib/gallery/resolve-gallery-item';
+import type { GalleryFilterState } from '@/lib/gallery/types';
 import type { Generation } from '@/types/database';
+
+function makeFilters(overrides: Partial<GalleryFilterState> = {}): GalleryFilterState {
+  return {
+    searchQuery: '',
+    selectedModels: [],
+    selectedPresets: [],
+    selectedPromptCategories: [],
+    byMeOnly: false,
+    timeFilter: { kind: 'preset', value: 'all' },
+    ...overrides,
+  };
+}
 
 function createGeneration(overrides: Partial<Generation> = {}): Generation {
   return {
@@ -112,8 +125,42 @@ describe('resolveGalleryItem', () => {
       }), 1),
     ]);
 
-    expect(options.models).toEqual(['coze_seedream4_5', 'flux-dev']);
+    expect(options.models).toEqual([
+      { value: 'flux-dev', label: 'flux-dev', rawIds: ['flux-dev'] },
+      { value: 'Seedream 4.5', label: 'Seedream 4.5', rawIds: ['coze_seedream4_5'] },
+    ]);
     expect(options.presets).toEqual(['Portrait', 'Product']);
+  });
+
+  it('groups multiple raw ids that share a display name into a single option', () => {
+    const options = buildGalleryFilterOptions([
+      resolveGalleryItem(createGeneration({ id: 'gen-1' }), 0),
+      resolveGalleryItem(createGeneration({
+        id: 'gen-2',
+        config: {
+          prompt: 'A product macro shot',
+          width: 1024,
+          height: 1024,
+          model: 'seed4_0916_lemo',
+          presetName: 'Product',
+        },
+      }), 1),
+      resolveGalleryItem(createGeneration({
+        id: 'gen-3',
+        config: {
+          prompt: 'A vintage scene',
+          width: 1024,
+          height: 1024,
+          model: 'seed4_v2_0226lemo',
+          presetName: 'Cinematic',
+        },
+      }), 2),
+    ]);
+
+    const lemoSeed = options.models.find((option) => option.value === 'Lemo Seed');
+    expect(lemoSeed).toBeDefined();
+    expect(lemoSeed?.rawIds).toEqual(['seed4_0916_lemo', 'seed4_v2_0226lemo']);
+    expect(options.models.find((option) => option.value === 'Seedream 4.5')?.rawIds).toEqual(['coze_seedream4_5']);
   });
 });
 
@@ -160,24 +207,102 @@ describe('filterGalleryItems', () => {
   ];
 
   it('filters by search query', () => {
-    const result = filterGalleryItems(items, { searchQuery: 'cat', selectedModels: [], selectedPresets: [], selectedPromptCategories: [] });
+    const result = filterGalleryItems(items, makeFilters({ searchQuery: 'cat' }));
     expect(result).toHaveLength(1);
     expect(result[0].searchText).toContain('cat');
   });
 
   it('filters by model', () => {
-    const result = filterGalleryItems(items, { searchQuery: '', selectedModels: ['m1'], selectedPresets: [], selectedPromptCategories: [] });
+    const result = filterGalleryItems(items, makeFilters({ selectedModels: ['m1'] }));
     expect(result).toHaveLength(2);
   });
 
+  it('filters by display name across all underlying raw ids', () => {
+    const lemoItems = [
+      resolveGalleryItem(createGeneration({ id: 'l1', config: { prompt: 'lemo a', width: 1024, height: 1024, model: 'seed4_0916_lemo', presetName: 'p1' } }), 0),
+      resolveGalleryItem(createGeneration({ id: 'l2', config: { prompt: 'lemo b', width: 1024, height: 1024, model: 'seed4_v2_0226lemo', presetName: 'p1' } }), 1),
+      resolveGalleryItem(createGeneration({ id: 's1', config: { prompt: 'sd', width: 1024, height: 1024, model: 'coze_seedream4_5', presetName: 'p1' } }), 2),
+    ];
+
+    const result = filterGalleryItems(lemoItems, makeFilters({ selectedModels: ['Lemo Seed'] }));
+    expect(result.map((item) => item.id)).toEqual(['l1', 'l2']);
+  });
+
   it('filters by preset', () => {
-    const result = filterGalleryItems(items, { searchQuery: '', selectedModels: [], selectedPresets: ['p2'], selectedPromptCategories: [] });
+    const result = filterGalleryItems(items, makeFilters({ selectedPresets: ['p2'] }));
     expect(result).toHaveLength(2);
   });
 
   it('combines multiple filters', () => {
-    const result = filterGalleryItems(items, { searchQuery: 'bird', selectedModels: ['m1'], selectedPresets: ['p2'], selectedPromptCategories: [] });
+    const result = filterGalleryItems(items, makeFilters({ searchQuery: 'bird', selectedModels: ['m1'], selectedPresets: ['p2'] }));
     expect(result).toHaveLength(1);
     expect(result[0].searchText).toContain('bird');
+  });
+
+  it('filters by me when byMeOnly is true and currentUserId matches', () => {
+    const result = filterGalleryItems(items, makeFilters({ byMeOnly: true }), { currentUserId: 'user-1' });
+    expect(result).toHaveLength(items.length);
+  });
+
+  it('filters by me to zero when currentUserId differs', () => {
+    const result = filterGalleryItems(items, makeFilters({ byMeOnly: true }), { currentUserId: 'someone-else' });
+    expect(result).toHaveLength(0);
+  });
+
+  it('filters by time window using createdAt', () => {
+    const recentItem = resolveGalleryItem(
+      createGeneration({ id: 'recent', createdAt: new Date().toISOString() }),
+      0,
+    );
+    const oldItem = resolveGalleryItem(
+      createGeneration({ id: 'old', createdAt: '2020-01-01T00:00:00.000Z' }),
+      1,
+    );
+
+    const result = filterGalleryItems(
+      [recentItem, oldItem],
+      makeFilters({ timeFilter: { kind: 'preset', value: '7' } }),
+    );
+    expect(result.map((item) => item.id)).toEqual(['recent']);
+  });
+
+  it('filters by custom date range with from/to inclusive', () => {
+    const inRangeItem = resolveGalleryItem(
+      createGeneration({ id: 'in', createdAt: '2025-03-10T08:00:00.000Z' }),
+      0,
+    );
+    const beforeItem = resolveGalleryItem(
+      createGeneration({ id: 'before', createdAt: '2025-03-01T00:00:00.000Z' }),
+      1,
+    );
+    const afterItem = resolveGalleryItem(
+      createGeneration({ id: 'after', createdAt: '2025-03-25T00:00:00.000Z' }),
+      2,
+    );
+
+    const result = filterGalleryItems(
+      [inRangeItem, beforeItem, afterItem],
+      makeFilters({
+        timeFilter: { kind: 'custom', range: { from: '2025-03-05', to: '2025-03-15' } },
+      }),
+    );
+    expect(result.map((item) => item.id)).toEqual(['in']);
+  });
+
+  it('treats empty custom range as no filter', () => {
+    const recentItem = resolveGalleryItem(
+      createGeneration({ id: 'recent', createdAt: new Date().toISOString() }),
+      0,
+    );
+    const oldItem = resolveGalleryItem(
+      createGeneration({ id: 'old', createdAt: '2020-01-01T00:00:00.000Z' }),
+      1,
+    );
+
+    const result = filterGalleryItems(
+      [recentItem, oldItem],
+      makeFilters({ timeFilter: { kind: 'custom', range: {} } }),
+    );
+    expect(result.map((item) => item.id)).toEqual(['recent', 'old']);
   });
 });

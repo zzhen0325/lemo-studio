@@ -11,4 +11,4 @@ echo "[dev-frontend] api: same-origin /api served by Next.js route handlers"
 echo "[dev-frontend] NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE:-<empty, use same-origin /api>}"
 
 cd "${REPO_ROOT}"
-exec ./node_modules/.bin/next dev --turbo -H 0.0.0.0 -p "${APP_PORT}"
+exec ./node_modules/.bin/next dev --turbo -H "${APP_HOST:-0.0.0.0}" -p "${APP_PORT}"

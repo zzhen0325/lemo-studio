@@ -1,5 +1,9 @@
 # Environment Variables
 
+## Local development
+
+Use `pnpm dev:local` for the isolated PostgreSQL and filesystem environment. It sets `STUDIO_RUNTIME=local`, `LOCAL_DATABASE_API_URL=http://127.0.0.1:54321`, `LOCAL_STORAGE_DIR`, loopback host, and the current app origin. Cloud database/storage credentials are not used in this mode. AI Provider credentials remain in `.env.local`. See [local development](features/local-development.md).
+
 ## Public / Next Runtime
 
 - `NEXT_PUBLIC_API_BASE`
@@ -71,4 +75,4 @@
 
 - Client code should default to same-origin `/api/*`.
 - Do not depend on `GULUX_API_BASE` or `INTERNAL_API_BASE`; those paths are retired.
-- For local development, prefer `npm run dev` over editing `.env.local`.
+- For isolated local development use `pnpm dev:local`; keep Provider credentials in `.env.local`.

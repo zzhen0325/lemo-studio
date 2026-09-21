@@ -1,3 +1,4 @@
+import { extractLocalStorageKey } from "./local-storage-url";
 import { getPublicApiBase } from "./env/public";
 
 function normalizeHttpApiBase(value: string): string {
@@ -118,6 +119,8 @@ export const STORAGE_KEY_PREFIX = 'ljhwZthlaukjlkulzlp/';
  * ljhwZthlaukjlkulzlp/Lemon8_Activity/...
  */
 export function extractStorageKeyFromPresignedUrl(url: string): string | null {
+  const localKey = extractLocalStorageKey(url);
+  if (localKey) return localKey;
   try {
     const parsed = new URL(url);
     

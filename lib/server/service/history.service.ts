@@ -490,7 +490,11 @@ export class HistoryService {
         created_at: (gen.createdAt as string) || new Date().toISOString(),
       };
 
-      await this.historyRepository.upsert(nextDoc);
+      const { created } = await this.historyRepository.upsert(nextDoc);
+
+      if (created && nextDoc.output_url) {
+        void this.historyRepository.recordGeneratedImage().catch(() => {});
+      }
 
       return { success: true };
     } catch (error) {

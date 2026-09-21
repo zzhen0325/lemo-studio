@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import { extractLocalStorageKey } from '@/lib/local-storage-url';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import {
@@ -137,6 +138,9 @@ export async function tryNormalizeAssetUrlToCdn(
   }
 
   // Remote URLs are returned as-is (assume they are storage keys or permanent URLs)
+  const localKey = extractLocalStorageKey(trimmed);
+  if (localKey) return { storageKey: localKey, url: await getFileUrl(localKey) };
+
   if (isRemoteUrl(trimmed)) {
     // Check if it's already a storage key (path without protocol)
     // If it's a presigned URL, extract the storage key

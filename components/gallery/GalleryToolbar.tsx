@@ -1,10 +1,22 @@
 "use client";
 
-import { startTransition } from 'react';
-import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { useEffect, useState, startTransition } from 'react';
+import { ArrowUpDown, Calendar as CalendarIcon, ChevronDown, Search, SlidersHorizontal, User, X } from 'lucide-react';
 import type { SortBy } from '@/lib/server/service/history.service';
-import type { GalleryInnerTab } from '@/lib/gallery/types';
+import type {
+  GalleryCustomDateRange,
+  GalleryInnerTab,
+  GalleryTimeFilter,
+  GalleryTimePreset,
+} from '@/lib/gallery/types';
+import { GALLERY_TIME_PRESET_OPTIONS } from '@/lib/gallery/types';
 import { Button } from '@/components/ui/button';
+import { Calendar, type CalendarRangeValue, toDateKey } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +52,12 @@ interface GalleryToolbarProps {
   hasActiveFilters: boolean;
   galleryScopeFilter: 'all' | 'featured';
   onGalleryScopeFilterChange: (value: 'all' | 'featured') => void;
+  byMeOnly: boolean;
+  onByMeOnlyChange: (value: boolean) => void;
+  timeFilter: GalleryTimeFilter;
+  onTimeFilterChange: (value: GalleryTimeFilter) => void;
+  isAuthenticated: boolean;
+  generatedImages?: number;
 }
 
 function GalleryHeaderTab({
@@ -75,6 +93,223 @@ function GalleryHeaderTab({
   );
 }
 
+function formatRangeLabel(range: GalleryCustomDateRange): string {
+  if (range.from && range.to) {
+    return `${range.from} ~ ${range.to}`;
+  }
+  if (range.from) {
+    return `从 ${range.from}`;
+  }
+  if (range.to) {
+    return `截至 ${range.to}`;
+  }
+  return '选择日期';
+}
+
+function describeTimeFilter(timeFilter: GalleryTimeFilter): string {
+  if (timeFilter.kind === 'preset') {
+    const option = GALLERY_TIME_PRESET_OPTIONS.find((entry) => entry.value === timeFilter.value);
+    return option?.label ?? '';
+  }
+  return formatRangeLabel(timeFilter.range);
+}
+
+function isTimeFilterActive(timeFilter: GalleryTimeFilter): boolean {
+  if (timeFilter.kind === 'preset') {
+    return timeFilter.value !== 'all';
+  }
+  return Boolean(timeFilter.range.from || timeFilter.range.to);
+}
+
+function GalleryTimeFilterControl({
+  timeFilter,
+  onTimeFilterChange,
+}: {
+  timeFilter: GalleryTimeFilter;
+  onTimeFilterChange: (value: GalleryTimeFilter) => void;
+}) {
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [draftRange, setDraftRange] = useState<CalendarRangeValue>(() => {
+    if (timeFilter.kind === 'custom') {
+      return { from: timeFilter.range.from, to: timeFilter.range.to };
+    }
+    return {};
+  });
+
+  // 打开时把草稿同步成当前生效值；切换预设/自定义时也会自然回到一致状态
+  useEffect(() => {
+    if (calendarOpen) {
+      if (timeFilter.kind === 'custom') {
+        setDraftRange({ from: timeFilter.range.from, to: timeFilter.range.to });
+      } else {
+        setDraftRange({});
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarOpen]);
+
+  const active = isTimeFilterActive(timeFilter);
+  const label = describeTimeFilter(timeFilter);
+  const draftIsComplete = Boolean(draftRange.from && draftRange.to);
+  const draftHasPartial = Boolean(
+    (draftRange.from && !draftRange.to) || (!draftRange.from && draftRange.to),
+  );
+
+  const applyDraft = () => {
+    if (!draftRange.from && !draftRange.to) {
+      onTimeFilterChange({ kind: 'preset', value: 'all' });
+    } else {
+      onTimeFilterChange({
+        kind: 'custom',
+        range: { from: draftRange.from, to: draftRange.to },
+      });
+    }
+    setCalendarOpen(false);
+  };
+
+  const clearDraft = () => {
+    setDraftRange({});
+    onTimeFilterChange({ kind: 'preset', value: 'all' });
+    setCalendarOpen(false);
+  };
+
+  const todayKey = toDateKey(new Date());
+  const quickRanges: Array<{ label: string; value: { from: string; to: string } }> = [
+    { label: '今天', value: { from: todayKey, to: todayKey } },
+    {
+      label: '最近 7 天',
+      value: {
+        from: toDateKey(new Date(new Date().setDate(new Date().getDate() - 6))),
+        to: todayKey,
+      },
+    },
+    {
+      label: '最近 30 天',
+      value: {
+        from: toDateKey(new Date(new Date().setDate(new Date().getDate() - 29))),
+        to: todayKey,
+      },
+    },
+  ];
+
+  return (
+    <div className="flex items-center gap-1">
+      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              'h-10 gap-2 border-white/10 bg-white/5 px-3 text-white/70 hover:bg-white/10 hover:text-white',
+              active && 'border-white/20 bg-white/10 text-white',
+            )}
+            title="按任意日期范围筛选"
+          >
+            <CalendarIcon className="h-3.5 w-3.5 opacity-70" />
+            {/* <span className="text-sm">{label}</span> */}
+            {/* <ChevronDown className="h-3 w-3 opacity-50" /> */}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={6}
+          className="w-[320px] border-white/10 bg-black/90 backdrop-blur p-3 text-white"
+        >
+          <div className="flex flex-col gap-3">
+            <div className="text-xs uppercase tracking-wider text-white/40">快捷范围</div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {quickRanges.map((entry) => (
+                <button
+                  key={`gallery-time-quick-${entry.label}`}
+                  type="button"
+                  onClick={() => {
+                    setDraftRange(entry.value);
+                    onTimeFilterChange({ kind: 'custom', range: entry.value });
+                    setCalendarOpen(false);
+                  }}
+                  className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/70 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="text-xs uppercase tracking-wider text-white/40">自定义日期</div>
+            <Calendar mode="range" value={draftRange} onChange={setDraftRange} />
+
+            <div className="flex items-center justify-between gap-2 border-t border-white/10 pt-3">
+              <button
+                type="button"
+                onClick={clearDraft}
+                className="rounded-md px-2 py-1 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                清除
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCalendarOpen(false)}
+                  className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={applyDraft}
+                  disabled={draftHasPartial}
+                  className={cn(
+                    'rounded-md px-3 py-1 text-xs transition-colors',
+                    draftHasPartial
+                      ? 'cursor-not-allowed bg-white/5 text-white/30'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                  )}
+                >
+                  {draftIsComplete ? '应用范围' : draftRange.from || draftRange.to ? '应用单点' : '不筛选'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className={cn(
+              'h-10 w-9 border-white/10 bg-white/5 px-0 text-white/70 hover:bg-white/10 hover:text-white',
+              active && 'border-white/20 bg-white/10 text-white',
+            )}
+            title="快速预设时间窗口"
+            aria-label="快速预设时间窗口"
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 opacity-70" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40 border-white/10 bg-black/90">
+          {GALLERY_TIME_PRESET_OPTIONS.map((option) => {
+            const isCurrentPreset = timeFilter.kind === 'preset' && timeFilter.value === option.value;
+            return (
+              <DropdownMenuItem
+                key={`gallery-time-preset-${option.value}`}
+                onClick={() => onTimeFilterChange({ kind: 'preset', value: option.value as GalleryTimePreset })}
+                className={cn(
+                  'cursor-pointer text-white/70 hover:bg-white/10 hover:text-white',
+                  isCurrentPreset && 'bg-white/10 text-white',
+                )}
+              >
+                {option.label}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu> */}
+    </div>
+  );
+}
+
 export function GalleryToolbar({
   activeTab,
   onActiveTabChange,
@@ -88,6 +323,12 @@ export function GalleryToolbar({
   hasActiveFilters,
   galleryScopeFilter,
   onGalleryScopeFilterChange,
+  byMeOnly,
+  onByMeOnlyChange,
+  timeFilter,
+  onTimeFilterChange,
+  isAuthenticated,
+	generatedImages,
 }: GalleryToolbarProps) {
   const currentSortOption = GALLERY_SORT_OPTIONS.find((option) => option.value === sortBy) || GALLERY_SORT_OPTIONS[0];
   const searchPlaceholder =
@@ -97,10 +338,10 @@ export function GalleryToolbar({
 
   return (
     <div
-      className="mt-4 flex h-14 shrink-0 flex-row items-center justify-between gap-4"
+      className="mt-4 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-4"
       data-gallery-total-count={typeof totalImageCount === 'number' ? totalImageCount : undefined}
     >
-      <div className="mb-0 flex min-w-0 items-center gap-5 font-serif">
+      <div className="mb-0 flex min-w-0 flex-wrap items-center gap-5 font-serif">
         <GalleryHeaderTab
           label="Gallery"
           isActive={activeTab === 'gallery'}
@@ -119,11 +360,18 @@ export function GalleryToolbar({
             {formattedTotalImageCount} images
           </div>
         ) : null}
+
+        {generatedImages !== undefined && (
+          <span title="Cumulative generated images" className="text-xs font-sans text-white/40">
+            {generatedImages.toLocaleString()} generated
+          </span>
+        )}
+
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {activeTab === 'gallery' ? (
-          <div className="flex h-10 items-center rounded-xl border border-white/10 bg-white/5 p-1">
+          <div className="flex h-10 items-center rounded-xl border-none bg-white/0 p-1">
             <button
               type="button"
               onClick={() => startTransition(() => onGalleryScopeFilterChange('all'))}
@@ -150,6 +398,28 @@ export function GalleryToolbar({
             </button>
           </div>
         ) : null}
+
+        {activeTab === 'gallery' && isAuthenticated ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => startTransition(() => onByMeOnlyChange(!byMeOnly))}
+            className={cn(
+              'h-10 gap-2 border-white/10 bg-white/5 px-3 text-white/70 hover:bg-white/10 hover:text-white',
+              byMeOnly && 'border-white/20 bg-white/10 text-white',
+            )}
+            title={byMeOnly ? '仅显示我生成的图片（点击取消）' : '只看我生成的图片'}
+          >
+            <User className="h-4 w-4" />
+            <span className="text-sm">By Me</span>
+            {byMeOnly ? <div className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+          </Button>
+        ) : null}
+
+        <GalleryTimeFilterControl
+          timeFilter={timeFilter}
+          onTimeFilterChange={onTimeFilterChange}
+        />
 
         <div className="group relative flex w-80 items-center">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white group-focus-within:text-white/60" />

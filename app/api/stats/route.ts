@@ -14,11 +14,11 @@ export async function GET() {
     const { data, error } = await supabase
       .from('site_stats')
       .select('key, count, updated_at')
-      .in('key', ['page_views', 'api_calls']);
+      .in('key', ['page_views', 'api_calls', 'generated_images']);
 
     if (error) {
       console.error('[Stats] Failed to query stats:', error);
-      return jsonResponse({ pageViews: 0, apiCalls: 0 });
+      return jsonResponse({ pageViews: 0, apiCalls: 0, generatedImages: 0 });
     }
 
     const rows = data as Array<{ key: string; count: number; updated_at: string }>;
@@ -26,12 +26,14 @@ export async function GET() {
     return jsonResponse({
       pageViews: map.page_views?.count ?? 0,
       apiCalls: map.api_calls?.count ?? 0,
+      generatedImages: map.generated_images?.count ?? 0,
       pageViewsUpdatedAt: map.page_views?.updated_at ?? null,
       apiCallsUpdatedAt: map.api_calls?.updated_at ?? null,
+      generatedImagesUpdatedAt: map.generated_images?.updated_at ?? null,
     });
   } catch (error) {
     console.error('[Stats] GET error:', error);
-    return jsonResponse({ pageViews: 0, apiCalls: 0 });
+    return jsonResponse({ pageViews: 0, apiCalls: 0, generatedImages: 0 });
   }
 }
 

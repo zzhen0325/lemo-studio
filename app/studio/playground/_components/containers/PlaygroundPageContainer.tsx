@@ -1216,6 +1216,13 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
     });
   }, [applyModel, config.height, config.width, setSelectedPresetName, setSelectedWorkflowConfig, toast, setViewMode]);
 
+  const handleKVGenerate = useCallback(() => {
+    const kvShortcut = getShortcutById("kv");
+    if (kvShortcut) {
+      handleShortcutQuickApply(kvShortcut);
+    }
+  }, [handleShortcutQuickApply]);
+
   const buildShortcutPreviewResults = useCallback((shortcut: PlaygroundShortcut): Generation[] => {
     const shortcutMoodboard = moodboardByCardId.get(shortcut.id);
     const values = createShortcutPromptValues(shortcut);
@@ -3696,6 +3703,7 @@ export const PlaygroundV2Page = function PlaygroundV2Page({
                     {/* Capsule Triggers - Only visible in Home Mode */}
                     {viewMode === 'home' && !isPresetGridOpen && !shouldHideHomeEntryCards && (
                       <PlaygroundHomeActions
+                        onKVGenerate={handleKVGenerate}
                         onOpenDescribe={() => { setViewMode('dock'); setActiveTab('describe'); }}
                         onEdit={handleEditUploadedImage}
                         onOpenHistory={() => { setViewMode('dock'); setActiveTab('history'); }}

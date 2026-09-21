@@ -142,7 +142,7 @@ export default function ControlToolbar({
 
     const ORDER = [
       'coze_seedream4_5',
-      'seed4_0407_lemo',
+      'seed4_0916_lemo',
       MODEL_ID_FLUX_KLEIN,
     ];
 
@@ -158,7 +158,7 @@ export default function ControlToolbar({
   }, [availableModels, getModelEntryById, isEditMode, uploadedImages.length]);
   const selectedModelMeta = getModelEntryById(selectedModel);
   const selectedSupportsImageSize = selectedModelMeta?.capabilities?.supportsImageSize
-    ?? ['seed4_0407_lemo', 'coze_seedream4_5', MODEL_ID_FLUX_KLEIN].includes(selectedModel);
+    ?? ['seed4_0916_lemo', 'coze_seedream4_5', MODEL_ID_FLUX_KLEIN].includes(selectedModel);
   const selectedAllowedImageSizes = selectedModelMeta?.capabilities?.allowedImageSizes?.length
     ? selectedModelMeta.capabilities.allowedImageSizes
     : (['1K', '2K', '4K'] as const);
@@ -232,7 +232,7 @@ export default function ControlToolbar({
       }
 
       const supportsImageSize = modelMeta?.capabilities?.supportsImageSize
-        ?? ['coze_seedream4_5', 'seed4_0407_lemo', MODEL_ID_FLUX_KLEIN].includes(val);
+        ?? ['coze_seedream4_5', 'seed4_0916_lemo', MODEL_ID_FLUX_KLEIN].includes(val);
 
       if (supportsImageSize) {
         const allowed = modelMeta?.capabilities?.allowedImageSizes?.length
@@ -284,7 +284,7 @@ export default function ControlToolbar({
       logo: '/images/logos/seed.png',
       description: 'Seedream 4.5'
     },
-    'seed4_0407_lemo': {
+    'seed4_0916_lemo': {
       logo: '/images/logos/lemo.png',
       description: '生成lemo选这个'
     },

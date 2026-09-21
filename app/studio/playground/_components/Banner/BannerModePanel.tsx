@@ -46,7 +46,7 @@ import { getContextModelOptions } from '@/lib/model-center-ui';
 const MODEL_LABEL_MAP: Record<string, string> = {
     flux_klein: 'FluxKlein',
     coze_seedream4_5: 'Seedream 4.5',
-    seed4_0407_lemo: 'Lemo Seed',
+    seed4_0916_lemo: 'Lemo Seed',
 };
 
 interface BannerModePanelProps {

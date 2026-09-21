@@ -4,7 +4,7 @@ import {
   type ShortcutPromptValues,
 } from "@/config/moodboard-cards";
 
-export const KV_SHORTCUT_IDS = ["us-kv", "sea-kv", "jp-kv"] as const;
+export const KV_SHORTCUT_IDS = ["us-kv", "sea-kv", "jp-kv", "kv"] as const;
 export const DESIGN_STRUCTURED_SOURCE_TYPES = ["kv_shortcut", "image_reverse"] as const;
 export const DESIGN_STRUCTURED_VARIANT_IDS = ["v1", "v2", "v3", "v4"] as const;
 export const DESIGN_VARIANT_EDIT_SCOPES = [
@@ -118,6 +118,7 @@ const KV_SHORTCUT_MARKET_MAP: Record<KvShortcutId, string> = {
   "us-kv": "US",
   "sea-kv": "SEA",
   "jp-kv": "JP",
+  "kv": "通用",
 };
 
 const SOURCE_TYPE_ALIASES: Record<string, DesignStructuredSourceType> = {

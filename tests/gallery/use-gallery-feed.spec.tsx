@@ -105,7 +105,10 @@ describe('useGalleryFeed', () => {
     });
 
     expect(authState.ensureSession).toHaveBeenCalledTimes(1);
-    expect(result.current.filterOptions.models).toEqual(['coze_seedream4_5', 'flux-dev']);
+    expect(result.current.filterOptions.models).toEqual([
+      { value: 'flux-dev', label: 'flux-dev', rawIds: ['flux-dev'] },
+      { value: 'Seedream 4.5', label: 'Seedream 4.5', rawIds: ['coze_seedream4_5'] },
+    ]);
     expect(result.current.filterOptions.presets).toEqual(['Portrait', 'Product']);
     expect(result.current.total).toBe(23);
 

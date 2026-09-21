@@ -3,7 +3,7 @@ import type { BannerFields, BannerModelId, BannerTemplateConfig } from '@/lib/pl
 export const DEFAULT_BANNER_ALLOWED_MODELS: BannerModelId[] = [
   'flux_klein',
   'coze_seedream4_5',
-  'seed4_0407_lemo',
+  'seed4_0916_lemo',
 ];
 // Backward compatibility alias
 export const BANNER_ALLOWED_MODELS = DEFAULT_BANNER_ALLOWED_MODELS;

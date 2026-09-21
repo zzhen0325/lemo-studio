@@ -79,7 +79,7 @@ describe('shortcut generation readiness', () => {
     expect(readiness.missingFields).toEqual([]);
   });
 
-  it('keeps the required-token guard before KV structured optimization exists', () => {
+  it('blocks an empty prompt before KV structured optimization exists', () => {
     const shortcut = getRequiredShortcut('us-kv');
     const values = createShortcutPromptValues(shortcut);
     const template: ActiveShortcutTemplate = {
@@ -92,7 +92,7 @@ describe('shortcut generation readiness', () => {
     const readiness = getShortcutTemplateGenerationReadiness(template);
 
     expect(readiness.canGenerate).toBe(false);
-    expect(readiness.reason).toBe('missing_fields');
+    expect(readiness.reason).toBe('empty_prompt');
     expect(readiness.missingFields.map((field) => field.id)).toContain('mainTitle');
   });
 });

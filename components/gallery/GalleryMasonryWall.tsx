@@ -17,7 +17,10 @@ import {
   shouldShowGalleryEndIndicator,
 } from '@/lib/gallery/scroll-helpers';
 import type { GalleryActionHandlers, GalleryItemViewModel, GalleryMoodboardData } from '@/lib/gallery/types';
-import { GalleryMasonryLoadingState, GallerySkeletonGrid } from './GalleryLoadingState';
+import {
+  GalleryMasonryLoadingState,
+  GallerySkeletonGrid,
+} from './GalleryLoadingState';
 import { GalleryImageCard } from './GalleryImageCard';
 
 const GALLERY_COLUMN_WIDTH = 170;
@@ -253,12 +256,21 @@ interface GalleryMasonryWallProps {
 function GalleryMasonryWallFallback({
   itemsLength,
   isInitialLoading,
+  containerWidth,
+  fallbackWindowWidth,
 }: {
   itemsLength: number;
   isInitialLoading: boolean;
+  containerWidth?: number;
+  fallbackWindowWidth?: number;
 }) {
   if (isInitialLoading || itemsLength > 0) {
-    return <GalleryMasonryLoadingState />;
+    return (
+      <GalleryMasonryLoadingState
+        containerWidth={containerWidth ?? 0}
+        fallbackWindowWidth={fallbackWindowWidth}
+      />
+    );
   }
 
   return (
@@ -424,7 +436,10 @@ function GalleryMasonryWallClient({
         className="flex min-h-0 min-w-0 w-full flex-none flex-col"
       >
         {isInitialLoading || !isMasonryReady ? (
-          <GallerySkeletonGrid columnsCount={columnsCount} />
+          <GallerySkeletonGrid
+            columnsCount={columnsCount}
+            containerWidth={gridWidth}
+          />
         ) : items.length === 0 ? (
           <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-sm text-white/35">
             {galleryScopeFilter === 'featured' ? '暂无精选图片' : 'No gallery items yet'}
@@ -461,9 +476,13 @@ function GalleryMasonryWallClient({
 
 export function GalleryMasonryWall(props: GalleryMasonryWallProps) {
   const [isClientReady, setIsClientReady] = useState(false);
+  const [initialWindowWidth, setInitialWindowWidth] = useState(0);
 
   useEffect(() => {
     setIsClientReady(true);
+    if (typeof window !== 'undefined') {
+      setInitialWindowWidth(window.innerWidth);
+    }
   }, []);
 
   if (!isClientReady || typeof ResizeObserver === 'undefined') {
@@ -471,6 +490,7 @@ export function GalleryMasonryWall(props: GalleryMasonryWallProps) {
       <GalleryMasonryWallFallback
         itemsLength={props.items.length}
         isInitialLoading={props.isInitialLoading}
+        fallbackWindowWidth={initialWindowWidth}
       />
     );
   }

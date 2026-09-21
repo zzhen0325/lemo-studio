@@ -160,6 +160,8 @@ pnpm build
 
 ### 模块文档索引
 
+- `docs/features/local-development.md`: 本地数据库、文件存储、初始化与运行。
+
 - `docs/features/playground-home.md`: Playground 首页（入口编排与切换）。
 - `docs/features/prompt-ai-flows.md`: Prompt 相关 AI 流程总览（执行层 / 业务层 / 记录层）。
 - `docs/features/describe.md`: Describe（图片转 prompt）。

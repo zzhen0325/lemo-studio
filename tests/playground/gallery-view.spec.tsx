@@ -61,13 +61,13 @@ const feedState: GalleryFeedResult = {
   revalidateLatest: vi.fn(async () => undefined),
 };
 
-const useGalleryFeedMock = vi.fn((options: { sortBy: string; isActive?: boolean }) => {
+const useGalleryFeedMock = vi.fn((options: { sortBy: string; isActive?: boolean; byMeOnly?: boolean }) => {
   void options;
   return feedState;
 });
 
 vi.mock('@/lib/gallery/use-gallery-feed', () => ({
-  useGalleryFeed: (options: { sortBy: string; isActive?: boolean }) => useGalleryFeedMock(options),
+  useGalleryFeed: (options: { sortBy: string; isActive?: boolean; byMeOnly?: boolean }) => useGalleryFeedMock(options),
 }));
 
 vi.mock('@/lib/store/playground-store', () => ({
@@ -148,7 +148,7 @@ describe('GalleryView loading behavior', () => {
     render(<GalleryView />);
 
     expect(screen.getByTestId('gallery-wall-ready')).toBeTruthy();
-    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: true });
+    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: true, byMeOnly: false });
   });
 
   it('keeps the gallery content inside a bounded flex chain', () => {
@@ -194,7 +194,7 @@ describe('GalleryView loading behavior', () => {
 
     render(<GalleryView isActive={false} />);
 
-    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: false });
+    expect(useGalleryFeedMock).toHaveBeenCalledWith({ sortBy: 'recent', isActive: false, byMeOnly: false });
   });
 
   it('passes the feed total through to the gallery header metadata', () => {

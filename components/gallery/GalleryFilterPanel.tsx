@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Box, SlidersHorizontal, Trash2, Type, X, type LucideIcon } from 'lucide-react';
 import { getGalleryPromptCategoryLabel, type GalleryPromptCategory } from '@/app/studio/playground/_lib/prompt-history';
+import type { GalleryModelFilterOption } from '@/lib/gallery/types';
 import { cn } from '@/lib/utils';
 
 function FilterItem({
@@ -36,7 +37,7 @@ function FilterItem({
 interface GalleryFilterPanelProps {
   open: boolean;
   onClose: () => void;
-  availableModels: string[];
+  availableModels: GalleryModelFilterOption[];
   availablePresets: string[];
   availablePromptCategories: GalleryPromptCategory[];
   selectedModels: string[];
@@ -108,12 +109,12 @@ export function GalleryFilterPanel({
                     <div className="space-y-2">
                       <div className="text-sm text-white/40">Models</div>
                       <div className="space-y-1">
-                        {availableModels.map((model) => (
+                        {availableModels.map((option) => (
                           <FilterItem
-                            key={`gallery-filter-model-${model}`}
-                            label={model}
-                            isSelected={selectedModels.includes(model)}
-                            onClick={() => onToggleModel(model)}
+                            key={`gallery-filter-model-${option.value}`}
+                            label={option.label}
+                            isSelected={selectedModels.includes(option.value)}
+                            onClick={() => onToggleModel(option.value)}
                             icon={Box}
                           />
                         ))}

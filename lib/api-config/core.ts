@@ -10,7 +10,8 @@ import { serviceSupportsSystemPrompt } from './types';
 export const EMPTY_SERVICE_BINDING: ServiceBinding = { providerId: '', modelId: '' };
 
 const MODEL_ID_MIGRATIONS: Record<string, string> = {
-  seed4_2_lemo: 'seed4_0407_lemo',
+  seed4_2_lemo: 'seed4_0916_lemo',
+  seed4_0407_lemo: 'seed4_0916_lemo',
 };
 
 export const DEFAULT_TRANSLATE_SYSTEM_PROMPT = [

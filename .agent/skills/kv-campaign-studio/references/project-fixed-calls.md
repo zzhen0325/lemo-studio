@@ -78,14 +78,14 @@ Use this exact upstream call chain in this repository. Do not use local `/api/*`
 
 ### Request core params
 
-- `req_key=seed4_0407_lemo`
+- `req_key=seed4_0916_lemo`
 - `req_json={"width":W,"height":H,"seed":-1,"Prompt":"..."}`
 - `img_return_type=url`
 - `img_return_format=png`
 
 ### Constraints from repo config
 
-- `seed4_0407_lemo` has low-side constraints (`minWidth=1024`, `minHeight=1024`).
+- `seed4_0916_lemo` has low-side constraints (`minWidth=1024`, `minHeight=1024`).
 - For sizes below constraint, route to fallback adaptation from master image.
 
 ## 4) How to Receive Returned Images

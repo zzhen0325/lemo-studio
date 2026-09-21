@@ -100,14 +100,6 @@ export function getShortcutTemplateGenerationReadiness(
     removedFieldIds,
   });
 
-  if (missingFields.length > 0) {
-    return {
-      canGenerate: false,
-      reason: "missing_fields",
-      missingFields,
-    };
-  }
-
   const fallbackPrompt = buildShortcutPrompt(template.shortcut, values, {
     removedFieldIds,
     usePlaceholder: false,
@@ -116,7 +108,7 @@ export function getShortcutTemplateGenerationReadiness(
   return {
     canGenerate: Boolean(promptCandidate || fallbackPrompt),
     reason: promptCandidate || fallbackPrompt ? null : "empty_prompt",
-    missingFields: [],
+    missingFields,
   };
 }
 

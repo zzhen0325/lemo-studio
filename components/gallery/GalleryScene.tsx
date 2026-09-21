@@ -6,14 +6,28 @@ import {
   getGalleryPromptCategory,
   type GalleryPromptCategory,
 } from '@/app/studio/playground/_lib/prompt-history';
-import type { GalleryFilterState, GalleryInnerTab, GallerySceneProps } from '@/lib/gallery/types';
+import type {
+  GalleryFilterState,
+  GalleryInnerTab,
+  GallerySceneProps,
+  GalleryTimeFilter,
+} from '@/lib/gallery/types';
+import { DEFAULT_GALLERY_TIME_FILTER } from '@/lib/gallery/types';
 import { filterGalleryItems, isGalleryItemFeatured } from '@/lib/gallery/resolve-gallery-item';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { GalleryFilterPanel } from './GalleryFilterPanel';
 import { GalleryMasonryWall } from './GalleryMasonryWall';
 import { GalleryPromptGrid } from './GalleryPromptGrid';
 import { GalleryStaticWall } from './GalleryStaticWall';
 import { GalleryToolbar } from './GalleryToolbar';
+
+function isTimeFilterActive(timeFilter: GalleryTimeFilter): boolean {
+  if (timeFilter.kind === 'preset') {
+    return timeFilter.value !== 'all';
+  }
+  return Boolean(timeFilter.range.from || timeFilter.range.to);
+}
 
 export function GalleryScene({
   feed,
@@ -22,9 +36,13 @@ export function GalleryScene({
   moodboardData,
   sortBy,
   onSortByChange,
+  byMeOnly: controlledByMeOnly,
+  onByMeOnlyChange,
 }: GallerySceneProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const actorId = useAuthStore((state) => state.actorId);
+  const isAuthenticated = Boolean(actorId);
   const useStaticLocalFixtureWall =
     pathname === '/studio/gallery/local' && searchParams.get('wall') !== 'masonry';
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,25 +52,41 @@ export function GalleryScene({
   const [selectedPromptCategories, setSelectedPromptCategories] = useState<GalleryPromptCategory[]>([]);
   const [activeInnerTab, setActiveInnerTab] = useState<GalleryInnerTab>('gallery');
   const [galleryScopeFilter, setGalleryScopeFilter] = useState<'all' | 'featured'>('all');
+  const [internalByMeOnly, setInternalByMeOnly] = useState<boolean>(false);
+  const [timeFilter, setTimeFilter] = useState<GalleryTimeFilter>(DEFAULT_GALLERY_TIME_FILTER);
   const [isGalleryFilterOpen, setIsGalleryFilterOpen] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<number>();
+
+  const byMeOnly = controlledByMeOnly ?? internalByMeOnly;
+  const setByMeOnly = (next: boolean | ((current: boolean) => boolean)) => {
+    if (onByMeOnlyChange) {
+      onByMeOnlyChange(typeof next === 'function' ? (next as (current: boolean) => boolean)(byMeOnly) : next);
+      return;
+    }
+    setInternalByMeOnly((current) => (typeof next === 'function' ? (next as (current: boolean) => boolean)(current) : next));
+  };
 
   const filters = useMemo<GalleryFilterState>(() => ({
     searchQuery: deferredSearchQuery,
     selectedModels,
     selectedPresets,
     selectedPromptCategories,
-  }), [deferredSearchQuery, selectedModels, selectedPresets, selectedPromptCategories]);
+    byMeOnly,
+    timeFilter,
+  }), [byMeOnly, deferredSearchQuery, selectedModels, selectedPresets, selectedPromptCategories, timeFilter]);
+
+  const filterContext = useMemo(() => ({ currentUserId: actorId }), [actorId]);
 
   const filteredGalleryItems = useMemo(() => {
-    const baseItems = filterGalleryItems(feed.items, filters);
+    const baseItems = filterGalleryItems(feed.items, filters, filterContext);
     if (galleryScopeFilter === 'featured') {
       return baseItems.filter((item) => isGalleryItemFeatured(item.raw));
     }
     return baseItems;
-  }, [feed.items, filters, galleryScopeFilter]);
+  }, [feed.items, filters, filterContext, galleryScopeFilter]);
   const filteredPromptItems = useMemo(
-    () => filterGalleryItems(feed.promptItems, filters),
-    [feed.promptItems, filters],
+    () => filterGalleryItems(feed.promptItems, filters, filterContext),
+    [feed.promptItems, filters, filterContext],
   );
 
   const availablePromptCategories = useMemo(() => {
@@ -63,8 +97,12 @@ export function GalleryScene({
   }, [activeInnerTab, filteredGalleryItems, filteredPromptItems]);
 
   const hasActiveFilters =
-    selectedModels.length > 0 || selectedPresets.length > 0 || selectedPromptCategories.length > 0;
-  const galleryLayoutKey = `${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${sortBy}|${galleryScopeFilter}`;
+    selectedModels.length > 0
+    || selectedPresets.length > 0
+    || selectedPromptCategories.length > 0
+    || byMeOnly
+    || isTimeFilterActive(timeFilter);
+  const galleryLayoutKey = `${activeInnerTab}|${deferredSearchQuery.trim().toLowerCase()}|${selectedModels.join(',')}|${selectedPresets.join(',')}|${selectedPromptCategories.join(',')}|${byMeOnly ? '1' : '0'}|${timeFilter.kind === 'preset' ? `p:${timeFilter.value}` : `c:${timeFilter.range.from ?? ''}_${timeFilter.range.to ?? ''}`}|${sortBy}|${galleryScopeFilter}`;
 
   useEffect(() => {
     if (!isActive || activeInnerTab !== 'gallery' || feed.items.length === 0) {
@@ -77,6 +115,13 @@ export function GalleryScene({
 
     return () => window.clearTimeout(timer);
   }, [activeInnerTab, feed.items.length, feed.revalidateLatest, isActive]);
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => setGeneratedImages(data.generatedImages))
+      .catch(() => {});
+  }, []);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -100,6 +145,12 @@ export function GalleryScene({
                 hasActiveFilters={hasActiveFilters}
                 galleryScopeFilter={galleryScopeFilter}
                 onGalleryScopeFilterChange={setGalleryScopeFilter}
+                byMeOnly={byMeOnly}
+                onByMeOnlyChange={(next) => startTransition(() => setByMeOnly(next))}
+                timeFilter={timeFilter}
+                onTimeFilterChange={setTimeFilter}
+                isAuthenticated={isAuthenticated}
+                generatedImages={generatedImages}
               />
 
               <div data-testid="gallery-view-body" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-t-xl">
@@ -170,6 +221,8 @@ export function GalleryScene({
                 setSelectedModels([]);
                 setSelectedPresets([]);
                 setSelectedPromptCategories([]);
+                setByMeOnly(false);
+                setTimeFilter(DEFAULT_GALLERY_TIME_FILTER);
               });
             }}
           />

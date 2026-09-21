@@ -1,3 +1,4 @@
+import { getSupabaseClient } from '@/src/storage/database/supabase-client';
 import { GenerationModel, type GenerationDoc } from '../db/models';
 
 export interface HistoryListOptions {
@@ -25,6 +26,11 @@ function buildHistoryFilter(ownerId?: string | null, projectId?: string | null):
 export type GenerationRecord = GenerationDoc;
 
 export class HistoryRepository {
+  public async recordGeneratedImage(): Promise<void> {
+    const { error } = await getSupabaseClient().rpc('increment_site_stat', { p_key: 'generated_images', p_delta: 1 });
+    if (error) throw error;
+  }
+
   public async listByOwner(ownerId: string, options: HistoryListOptions = {}): Promise<GenerationRecord[]> {
     return GenerationModel.findWithPagination(buildHistoryFilter(ownerId, options.projectId), {
       sort: options.sort,
@@ -79,17 +85,18 @@ export class HistoryRepository {
     await GenerationModel.updateOne({ id }, update);
   }
 
-  public async upsert(record: Partial<GenerationRecord> & { id: string; user_id: string }): Promise<void> {
+  public async upsert(record: Partial<GenerationRecord> & { id: string; user_id: string }): Promise<{ created: boolean }> {
     // Check by id only — the database primary key is on id, not (id, user_id).
     // A different user_id from a new session should still update the existing row
     // instead of failing with a duplicate-key error.
     const existing = await GenerationModel.findOne({ id: record.id });
     if (existing) {
       await GenerationModel.updateOne({ id: record.id }, record);
-      return;
+      return { created: false };
     }
 
     await GenerationModel.create(record);
+    return { created: true };
   }
 
   public async deleteManyByOwner(ownerId: string, ids: string[]): Promise<void> {

@@ -18,6 +18,7 @@ async function fetchGalleryFeedPage(
   page: number,
   sortBy: SortBy,
   viewerUserId?: string,
+  byMeOnly = false,
 ): Promise<GalleryFeedPage> {
   const url = new URL(`${getApiBase()}/history`, window.location.origin);
   url.searchParams.set('page', String(page));
@@ -28,6 +29,10 @@ async function fetchGalleryFeedPage(
 
   if (viewerUserId) {
     url.searchParams.set('viewerUserId', viewerUserId);
+  }
+
+  if (byMeOnly) {
+    url.searchParams.set('mine', '1');
   }
 
   const response = await fetch(url.toString());
@@ -48,6 +53,7 @@ function buildGalleryFeedRequestUrl(
   page: number,
   sortBy: SortBy,
   viewerUserId?: string,
+  byMeOnly = false,
 ) {
   const params = new URLSearchParams();
   params.set('page', String(page));
@@ -60,6 +66,10 @@ function buildGalleryFeedRequestUrl(
     params.set('viewerUserId', viewerUserId);
   }
 
+  if (byMeOnly) {
+    params.set('mine', '1');
+  }
+
   return `${getApiBase()}/history?${params.toString()}`;
 }
 
@@ -68,12 +78,13 @@ function createGalleryFeedKey(
   previousPageData: GalleryFeedPage | null,
   sortBy: SortBy,
   viewerUserId?: string,
+  byMeOnly = false,
 ) {
   if (previousPageData && !previousPageData.hasMore) {
     return null;
   }
 
-  return buildGalleryFeedRequestUrl(pageIndex + 1, sortBy, viewerUserId);
+  return buildGalleryFeedRequestUrl(pageIndex + 1, sortBy, viewerUserId, byMeOnly);
 }
 
 export function getGalleryFeedLoadingState({
@@ -102,9 +113,11 @@ export function getGalleryFeedLoadingState({
 export function useGalleryFeed({
   sortBy,
   isActive = true,
+  byMeOnly = false,
 }: {
   sortBy: Exclude<SortBy, 'interactionPriority'>;
   isActive?: boolean;
+  byMeOnly?: boolean;
 }): GalleryFeedResult {
   const actorId = useAuthStore((state) => state.actorId);
   const ensureSession = useAuthStore((state) => state.ensureSession);
@@ -123,11 +136,11 @@ export function useGalleryFeed({
     isValidating,
     mutate,
   } = useSWRInfinite<GalleryFeedPage>(
-    (pageIndex, previousPageData) => createGalleryFeedKey(pageIndex, previousPageData, sortBy, actorId || undefined),
+    (pageIndex, previousPageData) => createGalleryFeedKey(pageIndex, previousPageData, sortBy, actorId || undefined, byMeOnly),
     async (requestUrl) => {
       const pageParam = new URL(requestUrl, window.location.origin).searchParams.get('page');
       const page = Number(pageParam) || 1;
-      return fetchGalleryFeedPage(page, sortBy, actorId || undefined);
+      return fetchGalleryFeedPage(page, sortBy, actorId || undefined, byMeOnly);
     },
     {
       isPaused: () => !isActive,
@@ -189,7 +202,7 @@ export function useGalleryFeed({
       return;
     }
 
-    const latestPage = await fetchGalleryFeedPage(1, sortBy, actorId || undefined);
+    const latestPage = await fetchGalleryFeedPage(1, sortBy, actorId || undefined, byMeOnly);
     lastLatestSyncAtRef.current = Date.now();
 
     await mutate((currentPages) => {
@@ -226,7 +239,7 @@ export function useGalleryFeed({
 
       return nextPages;
     }, { revalidate: false });
-  }, [actorId, historyItems.length, isActive, mutate, sortBy]);
+  }, [actorId, byMeOnly, historyItems.length, isActive, mutate, sortBy]);
 
   return {
     items,

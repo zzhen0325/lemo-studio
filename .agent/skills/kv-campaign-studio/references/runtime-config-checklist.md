@@ -28,7 +28,7 @@ Set all of these explicitly in production:
 - `BYTEDANCE_APP_KEY`
 - `BYTEDANCE_APP_SECRET`
 
-Used by generate binding: `seed4_0407_lemo`.
+Used by generate binding: `seed4_0916_lemo`.
 
 ## 4) Fixed Behavior Defaults
 

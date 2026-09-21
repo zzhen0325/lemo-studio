@@ -214,7 +214,7 @@ async function generateWithLemo(args) {
   const width = Math.round(Number(args.width || 1080));
   const height = Math.round(Number(args.height || 1440));
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    throw new Error('Invalid width/height for seed4_0407_lemo.');
+    throw new Error('Invalid width/height for seed4_0916_lemo.');
   }
 
   const BASE_URL = (args['afr-base-url'] || process.env.GATEWAY_BASE_URL || DEFAULT_AFR_BASE_URL).trim();
@@ -241,7 +241,7 @@ async function generateWithLemo(args) {
   submitForm.append('nonce', nonce);
   submitForm.append('timestamp', timestamp);
   submitForm.append('sign', sign);
-  submitForm.append('req_key', 'seed4_0407_lemo');
+  submitForm.append('req_key', 'seed4_0916_lemo');
   submitForm.append('req_json', JSON.stringify(reqJson));
   submitForm.append('img_return_type', 'url');
   submitForm.append('img_return_format', 'png');
@@ -278,7 +278,7 @@ async function generateWithLemo(args) {
     pollForm.append('nonce', pollNonce);
     pollForm.append('timestamp', pollTimestamp);
     pollForm.append('sign', pollSign);
-    pollForm.append('req_key', 'seed4_0407_lemo');
+    pollForm.append('req_key', 'seed4_0916_lemo');
     pollForm.append('task_ids', taskId);
     pollForm.append('img_return_type', 'url');
     pollForm.append('img_return_format', 'png');
@@ -317,7 +317,7 @@ async function generateWithLemo(args) {
           throw new Error(`Task completed but no image data: ${result.message || 'empty result'}`);
         }
         return {
-          model: 'seed4_0407_lemo',
+          model: 'seed4_0916_lemo',
           size: `${width}x${height}`,
           images,
         };
@@ -347,10 +347,10 @@ async function main() {
   let result;
   if (model === 'coze_seedream4_5') {
     result = await generateWithSeedream(args);
-  } else if (model === 'seed4_0407_lemo') {
+  } else if (model === 'seed4_0916_lemo') {
     result = await generateWithLemo(args);
   } else {
-    throw new Error(`Unsupported model: ${model}. Use coze_seedream4_5 or seed4_0407_lemo.`);
+    throw new Error(`Unsupported model: ${model}. Use coze_seedream4_5 or seed4_0916_lemo.`);
   }
 
   process.stdout.write(`${result.model} ${result.size}\n${result.images[0]}\n`);

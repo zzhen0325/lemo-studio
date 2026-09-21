@@ -153,7 +153,7 @@ describe('playground shortcut prompt builder', () => {
             'https://example.com/gallery/maorong-1.webp',
             'https://example.com/gallery/maorong-2.webp',
           ],
-          model_id: 'seed4_0407_lemo',
+          model_id: 'seed4_0916_lemo',
           default_aspect_ratio: '3:4',
           default_width: 1792,
           default_height: 2400,
@@ -165,7 +165,7 @@ describe('playground shortcut prompt builder', () => {
           moodboard_description: '毛绒质感定制模板',
         },
       ],
-      modelLabelById: new Map([['seed4_0407_lemo', 'Lemo Seed']]),
+      modelLabelById: new Map([['seed4_0916_lemo', 'Lemo Seed']]),
     });
 
     const shortcut = runtimeShortcuts.find((item) => item.id === 'maorong');
@@ -220,7 +220,7 @@ describe('playground shortcut prompt builder', () => {
     expect(shortcut?.detailDescription).toBe('Use this description instead');
   });
 
-  it('always keeps four builtin shortcuts as system presets', () => {
+  it('always keeps five builtin shortcuts as system presets', () => {
     const runtimeShortcuts = buildRuntimePlaygroundShortcuts({
       persistedShortcuts: [
         {
@@ -238,15 +238,16 @@ describe('playground shortcut prompt builder', () => {
       ],
     });
 
-    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual(['lemo', 'us-kv', 'sea-kv', 'jp-kv']);
+    expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual(['lemo', 'us-kv', 'kv', 'sea-kv', 'jp-kv']);
 
     const moodboards = mergeShortcutMoodboards([], runtimeShortcuts);
     const entries = extractShortcutMoodboardEntries(moodboards, runtimeShortcuts);
 
-    expect(entries.map((entry) => entry.shortcut.id)).toEqual(['lemo', 'us-kv', 'sea-kv', 'jp-kv']);
+    expect(entries.map((entry) => entry.shortcut.id)).toEqual(['lemo', 'us-kv', 'kv', 'sea-kv', 'jp-kv']);
     expect(entries.map((entry) => entry.moodboard.id)).toEqual([
       getShortcutMoodboardId('lemo'),
       getShortcutMoodboardId('us-kv'),
+      getShortcutMoodboardId('kv'),
       getShortcutMoodboardId('sea-kv'),
       getShortcutMoodboardId('jp-kv'),
     ]);
@@ -273,6 +274,7 @@ describe('playground shortcut prompt builder', () => {
     expect(runtimeShortcuts.map((shortcut) => shortcut.id)).toEqual([
       'lemo',
       'us-kv',
+      'kv',
       'sea-kv',
       'jp-kv',
       'custom-early',

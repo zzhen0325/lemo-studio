@@ -38,10 +38,10 @@ export function MoodboardStackCard({
   const isSmall = size === 'sm';
   const galleryImages = moodboard ? moodboard.imagePaths : shortcut.imagePaths;
   const displayImages = galleryImages.slice(-3).reverse();
-  const collapsedOffset = isSmall ? 24 : 50;
-  const expandedOffset = isSmall ? 72 : 160;
+  const collapsedOffset = isSmall ? 18 : 42;
+  const expandedOffset = isSmall ? 52 : 140;
  const ActionButtonToken = cn(
-    "flex items-center gap-2 px-4 py-2 rounded-full border backdrop-blur-sm transition-all bg-black/20",
+    "flex items-center gap-1.5 px-3 py-1.5 rounded-full border backdrop-blur-sm transition-all bg-black/20",
     "border-white/20 text-white/90 hover:bg-white/10 hover:text-white"
   );
   return (
@@ -54,7 +54,7 @@ export function MoodboardStackCard({
       onMouseLeave={() => setIsExpanded(false)}
       onClick={() => onViewDetail(shortcut)}
     >
-      <div className="absolute -top-12 left-1/2 z-[30] flex -translate-x-1/2 gap-2 opacity-0 transition-all duration-300 group-hover:-translate-y-2 group-hover:opacity-100">
+      <div className="absolute -top-10 left-1/2 z-[30] flex -translate-x-1/2 gap-1.5 opacity-0 transition-all duration-300 group-hover:-translate-y-1.5 group-hover:opacity-100">
         <Button
           size="sm"
           className={ActionButtonToken}
@@ -63,8 +63,8 @@ export function MoodboardStackCard({
             onQuickApply(shortcut);
           }}
         >
-          <Sparkles size={14} className=" text-white" />
-          快速应用
+          <Sparkles size={12} className=" text-white" />
+          <span className="text-xs">快速应用</span>
         </Button>
         <Button
           size="sm"
@@ -74,15 +74,15 @@ export function MoodboardStackCard({
             onViewDetail(shortcut);
           }}
         >
-          <PanelsTopLeft size={14} className=" text-white" />
-          查看详情
+          <PanelsTopLeft size={12} className=" text-white" />
+          <span className="text-xs">查看详情</span>
         </Button>
       </div>
 
       <div
         className={cn(
           'relative flex w-full items-center justify-center perspective-1000',
-          isSmall ? SMALL_STACK_STAGE_CLASS : 'h-[200px]'
+          isSmall ? SMALL_STACK_STAGE_CLASS : 'h-[180px]'
         )}
       >
         {displayImages.map((imagePath, index) => (
@@ -90,7 +90,7 @@ export function MoodboardStackCard({
             key={`${shortcut.id}-${imagePath}-${index}`}
             className={cn(
               'absolute overflow-hidden rounded-2xl border border-white/20 bg-none shadow-xl',
-              isSmall ? SMALL_STACK_IMAGE_CLASS : 'h-[200px] w-40'
+              isSmall ? SMALL_STACK_IMAGE_CLASS : 'h-[180px] w-36'
             )}
             initial={false}
             animate={{

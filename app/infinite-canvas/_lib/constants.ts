@@ -1,6 +1,6 @@
 export const INFINITE_CANVAS_MODELS = [
   { id: 'coze_seedream4_5', label: 'Seedream 4.5' },
-  { id: 'seed4_0407_lemo', label: 'Lemo Seed' },
+  { id: 'seed4_0916_lemo', label: 'Lemo Seed' },
   { id: 'flux_klein', label: 'FluxKlein' },
 ] as const;
 

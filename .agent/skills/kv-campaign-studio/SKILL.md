@@ -36,7 +36,7 @@ Use fixed upstream integrations already connected by this project. Do not call l
 - Seedream upstream: Coze Seed Run URL (default `https://2q3rqt6rnh.coze.site/run`)
 - Seedream model binding: `coze_seedream4_5`
 - Lemo upstream: AFR submit/poll APIs under `GATEWAY_BASE_URL`
-- Lemo model binding: `seed4_0407_lemo`
+- Lemo model binding: `seed4_0916_lemo`
 
 No provider routing customization is required in this skill version.
 
@@ -79,7 +79,7 @@ Default to `US` if absent.
 ### Model routing
 
 - Default primary model: `coze_seedream4_5`.
-- Enable `seed4_0407_lemo` only when user explicitly mentions Lemo-related cues.
+- Enable `seed4_0916_lemo` only when user explicitly mentions Lemo-related cues.
 - If Lemo cannot satisfy size constraints, do not fail the run; use fallback adaptation path.
 
 ## Generation Workflow

@@ -1,6 +1,6 @@
 import type { AspectRatio, ImageSize, StyleStack } from "@/types/database";
 
-export type BuiltinShortcutId = "lemo" | "us-kv" | "sea-kv" | "jp-kv";
+export type BuiltinShortcutId = "lemo" | "us-kv" | "sea-kv" | "jp-kv" | "kv";
 export type MoodboardCardId = string;
 export type ShortcutFieldType = "text" | "textarea" | "select" | "number" | "color";
 
@@ -504,6 +504,38 @@ const PLAYGROUND_SHORTCUT_SEEDS: StaticShortcutSeed[] = [
     fields: buildKvFields(),
     promptParts: [
       { type: "text", value: "Create a US-EVENT KV with main title \"" },
+      { type: "field", fieldId: "mainTitle" },
+      { type: "text", value: "\"，supporting title \"" },
+      { type: "field", fieldId: "subTitle" },
+      { type: "text", value: "\", event timing \"" },
+      { type: "field", fieldId: "eventTime" },
+      { type: "text", value: "\", featuring hero subject \"" },
+      { type: "field", fieldId: "heroSubject" },
+      { type: "text", value: "\", in " },
+      { type: "field", fieldId: "style" },
+      { type: "text", value: " style, using " },
+      { type: "field", fieldId: "primaryColor" },
+    ],
+  },
+  {
+    id: "kv",
+    name: "KV generate",
+    description: "Seedream 4.5 通用 KV 模板",
+    detailDescription:
+      "通用版 KV 模板，不限区域，适合各类广告海报和 campaign 主视觉。默认使用 Seedream 4.5，适合广告级版式、标题和商业陈列感。",
+    model: SHORTCUT_DEFAULT_MODEL,
+    modelLabel: SHORTCUT_DEFAULT_MODEL_LABEL,
+    aspectRatio: "4:5",
+    imageSize: "2K",
+    promptComposerLayout: "grid",
+    imagePaths: [
+      "/loras/USKV_V1.webp",
+      "/loras/lemopin1_v1.webp",
+      "/loras/美式喜剧风格插画_GPT4o(同款)_1.0.webp",
+    ],
+    fields: buildKvFields(),
+    promptParts: [
+      { type: "text", value: "Create a EVENT KV with main title \"" },
       { type: "field", fieldId: "mainTitle" },
       { type: "text", value: "\"，supporting title \"" },
       { type: "field", fieldId: "subTitle" },

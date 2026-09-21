@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Generation } from '../../types/database';
 import { IViewComfy } from '../providers/view-comfy-provider';
 import type { PlaygroundState } from './playground-store.types';
-import { getApiBase } from "../api-base";
+import { formatImageUrl, getApiBase } from "../api-base";
 
 import { MODEL_ID_WORKFLOW } from '../constants/models';
 import { isWorkflowModel } from '../utils/model-utils';
@@ -344,6 +344,9 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                     return;
                 }
 
+                // Convert storage key / presigned URL to a fetchable API URL
+                const fetchableUrl = formatImageUrl(imageUrl) || imageUrl;
+
                 const appendRemoteImage = () => {
                     set((state) => {
                         if (state.uploadedImages.some(img => img.path === imageUrl || img.previewUrl === imageUrl)) {
@@ -357,7 +360,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                                     id: uuidv4(),
                                     file: new File([], `image-${Date.now()}.png`, { type: 'image/png' }),
                                     base64: '',
-                                    previewUrl: imageUrl,
+                                    previewUrl: fetchableUrl,
                                     path: imageUrl
                                 }
                             ]
@@ -366,7 +369,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                 };
 
                 try {
-                    const resp = await fetch(imageUrl);
+                    const resp = await fetch(fetchableUrl);
                     if (!resp.ok) {
                         throw new Error(`Failed to fetch image: ${resp.status}`);
                     }
@@ -402,7 +405,9 @@ export const usePlaygroundStore = create<PlaygroundState>()(
             applyImages: async (imageUrls) => {
                 try {
                     const newImages = await Promise.all(imageUrls.map(async (url) => {
-                        const resp = await fetch(url);
+                        // Convert storage key / presigned URL to a fetchable API URL
+                        const fetchableUrl = formatImageUrl(url) || url;
+                        const resp = await fetch(fetchableUrl);
                         const blob = await resp.blob();
 
                         const file = new File([blob], `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.png`, { type: 'image/png' });
@@ -438,7 +443,7 @@ export const usePlaygroundStore = create<PlaygroundState>()(
                         ? { ...state.config, ...configData, model: finalModel, baseModel: finalModel, isPreset: !!(configData.presetName) }
                         : { ...state.config, model: finalModel, baseModel: finalModel, isPreset: false, presetName: undefined };
 
-                    if (finalModel === 'seed4_0407_lemo' && !newConfig.imageSize) {
+                    if (finalModel === 'seed4_0916_lemo' && !newConfig.imageSize) {
                         newConfig.imageSize = '2K';
                     }
 

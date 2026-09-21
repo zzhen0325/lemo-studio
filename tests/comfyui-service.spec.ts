@@ -1,3 +1,4 @@
+import { Blob as NodeBlob } from "node:buffer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -25,6 +26,8 @@ import { ComfyUIService } from "../lib/api/comfyui-service";
 
 describe("ComfyUIService image normalization", () => {
   beforeEach(() => {
+    // jsdom Blob lacks arrayBuffer; the runtime uses the standard Node/browser Blob.
+    vi.stubGlobal("Blob", NodeBlob);
     mocks.uploadImage.mockReset();
     mocks.queuePrompt.mockReset();
     mocks.getOutputFiles.mockReset();
